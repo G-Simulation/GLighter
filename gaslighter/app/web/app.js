@@ -4426,7 +4426,7 @@ function dtDraw(S, hoverX) {
     const haV2 = (r.ha || []).filter(a => !SHIDE.has('ha:' + a[2])), lanes2 = haLanes(haV2), nl = lanes2.size;
     for (const a of haV2) { const x0 = X(Math.max(a[0], r.from)) / d, x1 = Math.max(x0, X(Math.min(a[1], r.to)) / d); if (x1 < L / d - pad || x0 > (L + pw) / d + pad) continue;
       // Sensoren können gleichzeitig an sein (Fernseher + Türsensor): jede Spur hat ihre eigene Klickfläche, darunter bleibt Ziehen frei
-      const ln = lanes2.get(a[2]), ly = T / d + ln * 6, solo = nl === 1 && x1 - x0 <= 40;
+      const ln = lanes2.get(a[2]), ly = T / d + ln * 6, solo = (nl === 1 && x1 - x0 <= 40) || (a[5] === 'event' && x1 - x0 <= 40);   // Ereignis-Sensoren (rote Linie, Marker oben und unten): auf ganzer Höhe anklickbar
       const ymax = solo ? null : a[4] ? T / d + nl * 6 + 16 + ln * 15 : ly + 8, ymin = solo ? null : ln === 0 ? null : ly - 2;   // breiter Balken: nur oben anklickbar (Leiste + Notiz), darunter bleibt Ziehen/Markieren frei
       hits.push([x0 - pad, x1 + pad, '📡 ' + a[2] + ' ' + t('ha_on') + ' · ' + hms(a[0]) + '–' + hms(a[1]) + (a[4] ? '\n📝 ' + a[4] : '') + '\n' + t('ha_click'), { kind: 'ha', a: a[0], b: a[1], name: a[2], rid: a[3], note: a[4] || '', S }, ymax, ymin]); }
     S.downHit = hits.concat(S.downHit || []);

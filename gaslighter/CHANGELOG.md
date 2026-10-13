@@ -1,5 +1,8 @@
 # Changelog
 
+## 1.50.13
+- Verlauf: Sensor-Ereignisse („als Ereignis“) sind jetzt auf der **ganzen Höhe** anklickbar – rote Linie, Marker oben und unten – und öffnen das Fenster mit Notiz, auch bei Ereignissen von gestern im Live-Verlauf.
+
 ## 1.50.12
 - **Alle Tabellen gleich gestaltet und filterbar** (gleiche Tabelle wie die Ereignisliste): Ereignisse pro Tag, Notizen & Bewegung (jetzt eine Tabelle mit Typ, Datum, Uhrzeit, Quelle, Text), Sensoren im Zeitraum, Lautstärke-Prüfung, Vergleich/Kalibrierung und Profil-Training. Jede Spalte: Auswahl, Mindestwert oder Text; sortierbar.
 
