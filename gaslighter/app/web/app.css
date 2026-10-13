@@ -835,3 +835,20 @@ fieldset.prolocked .f{opacity:.55}
 .srcmot{display:flex;flex-wrap:wrap;align-items:center;gap:6px 14px;width:100%;margin-top:6px;padding:8px 10px;border:1px dashed var(--bd);border-radius:10px}
 .srcmot>b{width:100%;font-size:13px}.srcmot small{width:100%;color:var(--mut)}
 .chip .motact{font-weight:400;margin-left:2px;animation:blink 1s infinite}
+.drbtn.on{background:#e03131;color:#fff;border-color:#e03131}
+.drdlg{max-width:440px}.drdlg h3{margin:0 0 8px}.drdlg .drl{display:flex;flex-direction:column;gap:4px;margin:8px 0;font-size:14px}
+.drdlg .drcnt{font-weight:600}.drdlg .mut{color:var(--mut);font-size:13px}.drdlg .ntedbtns{display:flex;gap:8px;justify-content:flex-end;margin-top:12px}
+.drdlg input,.drdlg select{font:inherit;padding:6px 8px;border-radius:8px;border:1px solid var(--bd);background:var(--card);color:var(--tx)}
+.ntrow.flash{outline:2px solid #1c7ed6;outline-offset:2px}
+
+/* Sensor-Filter (Mehrfachauswahl) und Sensor-Ereignisse in der Tabelle */
+.sflt{position:relative;display:inline-block}
+.sfltd>summary{list-style:none;cursor:pointer}
+.sfltd>summary::-webkit-details-marker{display:none}
+.sfltl{position:absolute;z-index:30;top:calc(100% + 4px);left:0;min-width:240px;max-height:60vh;overflow:auto;background:var(--card,#1d232b);border:1px solid var(--bd,#38424d);border-radius:8px;padding:8px;box-shadow:0 6px 20px rgba(0,0,0,.35);display:flex;flex-direction:column;gap:4px}
+.sfltl label{display:flex;gap:6px;align-items:center;white-space:nowrap;cursor:pointer}
+.sfltb{display:flex;gap:6px;margin-bottom:4px}
+#events tr.sensh td{font-weight:600;padding-top:14px;color:#e8590c;border-top:2px solid rgba(232,89,12,.4)}
+#events tr.sensr{cursor:pointer}
+#events tr.sensr .sensc{background:rgba(232,89,12,.15);color:#ff922b}
+#events tr.sensr .hant{font-size:.85em;opacity:.85;margin-top:2px}

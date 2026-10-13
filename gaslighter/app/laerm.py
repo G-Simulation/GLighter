@@ -32,7 +32,7 @@ HERE = os.path.dirname(os.path.abspath(__file__))
 WEB = os.path.join(HERE, "web")
 OPTIONS_FILE = os.environ.get("LAERM_OPTIONS", "/data/options.json")
 SETTINGS_FILE = os.environ.get("LAERM_SETTINGS", "/data/settings.json")
-VERSION = "1.47.2"
+VERSION = "1.47.3"
 
 # =====================================================================
 # Einstellungen
@@ -1175,7 +1175,7 @@ def clean_rules(lst):
             mx = 8.0
         rid = re.sub(r"[^a-z0-9]", "", str(d.get("id") or ""))[:12] or secrets.token_hex(3)
         src = re.sub(r"[^a-z0-9_]", "", str(d.get("src") or "all"))[:16] or "all"
-        mode = "note" if d.get("mode") == "note" else "pause"      # pause: anhalten; note: nur festhalten (z. B. Fernseher an/aus)
+        mode = d.get("mode") if d.get("mode") in ("note", "event") else "pause"   # pause: anhalten; note: nur festhalten (z. B. Fernseher an/aus); event: als Ereignis (z. B. Türsensor)
         out.append({"id": rid, "entity": ent, "states": st, "after_min": round(after, 1), "max_h": round(mx, 1), "mode": mode,
                     "src": src, "enabled": d.get("enabled", True) is not False, "label": re.sub(r"[\x00-\x1f]", "", str(d.get("label") or ""))[:60]})
     return out
@@ -1247,7 +1247,7 @@ def ha_hold_for(src_id):
     now = time.time()
     with HA_LOCK:
         for r in HA_RULES:
-            if not r["enabled"] or r.get("mode") == "note" or (r["src"] != "all" and r["src"] != src_id):
+            if not r["enabled"] or r.get("mode") in ("note", "event") or (r["src"] != "all" and r["src"] != src_id):
                 continue
             h = HA_STATE.get(r["id"])
             if h and h.get("hold") and (h.get("active") or (h.get("until") or 0) > now):
@@ -1287,7 +1287,7 @@ def ha_watch():
             act = rule_match(r["states"], val)
             if act and (vol != prev.get("vol") or mute != prev.get("mute") or not prev.get("active")) and (vol is not None or mute is not None):
                 ha_vol_add(r, r["label"] or name, vol, mute)        # Lautstaerke des Fernsehers mitschreiben (nur wenn an)
-            if r.get("mode") == "note":                          # nur festhalten: kein Nachlauf, keine Hoechstdauer, keine Pause
+            if r.get("mode") in ("note", "event"):               # nur festhalten / als Ereignis: kein Nachlauf, keine Hoechstdauer, keine Pause
                 with HA_LOCK:
                     HA_STATE[r["id"]] = {"state": val, "name": name, "active": act, "capped": False, "since": prev.get("since") if (act and prev.get("active")) else (now if act else None),
                                          "until": None, "hold": False, "err": err, "checked": now, "note": True, "vol": vol, "mute": mute}
@@ -1355,21 +1355,77 @@ def ha_intervals(src_id, t_from, t_to):
         HA_HIST.update(key=key, rows=rows)
     cur, out = {}, []
     now = int(time.time() * 1000)
+    notes = ha_note_all()
     for t, rid, nm, on, src in HA_HIST["rows"]:
-        if src not in ("all", src_id):
+        if src_id != "*" and src not in ("all", src_id):
             continue
         if on and rid not in cur:
             cur[rid] = (t, nm)
         elif not on and rid in cur:
             a, n_ = cur.pop(rid)
             if t > t_from and a < t_to:
-                out.append([a, t, n_])
+                out.append([a, t, n_, rid, notes.get(f"{rid}|{a}", "")])
     with HA_LOCK:
-        live = {r["id"] for r in HA_RULES if r.get("mode") == "note" and r["enabled"]}
+        modes = {r["id"]: r.get("mode") for r in HA_RULES}
+        live = {r["id"] for r in HA_RULES if r.get("mode") in ("note", "event") and r["enabled"]}
     for rid, (a, n_) in cur.items():                     # noch an (oder Regel inzwischen entfernt: bis zum letzten Eintrag offen lassen)
         if rid in live and a < t_to:
-            out.append([a, min(now, t_to), n_])
+            out.append([a, min(now, t_to), n_, rid, notes.get(f"{rid}|{a}", "")])
+    for x in out:                                         # Art der Regel: note = nur festhalten (Leiste), event = als Ereignis
+        x.append("event" if modes.get(x[3]) == "event" else "note")
+    out.sort(key=lambda x: x[0])
     return out
+
+
+def sensor_events(src, a_ms, b_ms):
+    """Ereignisse aus Sensoren: Regeln „als Ereignis“ (Home Assistant) und Handys als Bewegungsmelder.
+    [{a, b, kind: ha|vib|cam, name, src, key, note}] – zaehlen nicht als Stoerung, eigene Zeilen in der Liste."""
+    out = []
+    for a, b, nm, rid, nt, md in ha_intervals("*" if src in ("", "all") else src, a_ms, b_ms):
+        if md == "event":
+            out.append({"a": a, "b": b, "kind": "ha", "name": nm, "src": "ha", "key": f"{rid}|{a}", "note": nt})
+    notes = ha_note_all()
+    for m in motion_rows(a_ms, b_ms, src):
+        k = f"{m['kind']}{m['src']}"[:16] + f"|{m['a']}"
+        out.append({"a": m["a"], "b": m["b"], "kind": m["kind"], "name": m["name"], "src": m["src"], "key": k, "note": notes.get(k, ""),
+                    "peak": m["peak"], "unit": m["unit"], "open": bool(m.get("open"))})
+    out.sort(key=lambda x: -x["a"])
+    return out
+
+
+HA_NOTE_LOCK = threading.Lock()
+
+
+def ha_notes_path():
+    return os.path.join(DATA_DIR, "ha_notizen.json")
+
+
+def ha_note_all():
+    try:
+        with open(ha_notes_path(), encoding="utf-8") as f:
+            d = json.load(f)
+        return d if isinstance(d, dict) else {}
+    except (OSError, ValueError):
+        return {}
+
+
+def ha_note_set(key, text):
+    """Notiz zu einem Zeitraum „an“ einer Festhalte-Regel (z. B. Fernseher 00:00–04:15). key = "<Regel>|<Beginn ms>"."""
+    key = str(key or "")[:60]
+    if not re.fullmatch(r"[0-9a-z]{1,16}\|\d{10,14}", key):
+        return {"ok": False, "error": "bad key"}
+    text = re.sub(r"[\x00-\x1f]", " ", str(text or "")).strip()[:300]
+    with HA_NOTE_LOCK:
+        d = ha_note_all()
+        if text:
+            d[key] = text
+        else:
+            d.pop(key, None)
+        with open(ha_notes_path() + ".tmp", "w", encoding="utf-8") as f:
+            json.dump(d, f, ensure_ascii=False, indent=1)
+        os.replace(ha_notes_path() + ".tmp", ha_notes_path())
+    PROTO_CACHE.clear()
+    return {"ok": True, "text": text}
 
 
 def ha_notes(src_id):
@@ -1377,7 +1433,7 @@ def ha_notes(src_id):
     out = []
     with HA_LOCK:
         for r in HA_RULES:
-            if not r["enabled"] or r.get("mode") != "note" or (r["src"] != "all" and r["src"] != src_id):
+            if not r["enabled"] or r.get("mode") not in ("note", "event") or (r["src"] != "all" and r["src"] != src_id):
                 continue
             h = HA_STATE.get(r["id"]) or {}
             out.append({"label": r["label"] or h.get("name") or r["entity"], "entity": r["entity"], "state": h.get("state"),
@@ -5074,6 +5130,45 @@ def fnote_target(at_ms, src="all"):
             "kind": g.get("kind", ""), "prof": g.get("prof", False), "ago_s": int(max(0, at_ms - inc["a"]) / 1000)}
 
 
+def range_events(a_ms, b_ms, src="all"):
+    """Schluessel der Stoerungen, die im Zeitraum (ms) beginnen, optional nur eines Geraets."""
+    rows = read_log(); out = []
+    for r, k in zip(rows, row_keys(rows)):
+        if src not in ("", "all") and (r.get("quelle_id") or "main") != src:
+            continue
+        t_ = ms_of(r.get("start"))
+        if t_ is not None and a_ms <= t_ <= b_ms:
+            out.append(k)
+    return out
+
+
+def delete_range(data):
+    """Stoerungen eines Zeitraums loeschen (wie einzeln: Papierkorb, geloescht.csv). Tagesaufzeichnung und
+    Pruefsummen-Kette bleiben unveraendert. An der Stelle entsteht eine freie Notiz als Hinweis; preview=1 zaehlt nur."""
+    try:
+        a_ms, b_ms = int(float(data.get("a"))), int(float(data.get("b")))
+    except (TypeError, ValueError):
+        return {"ok": False, "error": "bad range"}
+    if b_ms < a_ms:
+        a_ms, b_ms = b_ms, a_ms
+    src = re.sub(r"[^a-z0-9_]", "", str(data.get("src") or "all"))[:16] or "all"
+    keys = range_events(a_ms, b_ms, src)
+    if data.get("preview"):
+        return {"ok": True, "n": len(keys)}
+    if not keys:
+        return {"ok": True, "deleted": 0}
+    n = delete_events(keys)
+    txt = re.sub(r"[\x00-\x1f]", " ", str(data.get("note") or "")).strip()[:300]
+    de = CFG.get("language") != "en"
+    nm = "alle Geräte" if src == "all" else ((RUNNERS.get(src).name if src in RUNNERS else src))
+    label = (f"🗑 {n} Störungen gelöscht" if de else f"🗑 {n} disturbances deleted") + (f" – {txt}" if txt else "")
+    fnote_change("add", {"from": dt.datetime.fromtimestamp(a_ms / 1000).isoformat(timespec="seconds"),
+                         "to": dt.datetime.fromtimestamp(max(b_ms, a_ms + 1000) / 1000).isoformat(timespec="seconds"),
+                         "src": src, "text": label, "tags": []})
+    log("Stoerungen im Zeitraum geloescht:", n, f"({nm}, {dt.datetime.fromtimestamp(a_ms / 1000):%d.%m. %H:%M:%S}–{dt.datetime.fromtimestamp(b_ms / 1000):%H:%M:%S})", txt)
+    return {"ok": True, "deleted": n}
+
+
 def fnote_change(action, data):
     """add / edit / del einer freien Notiz. Antwort: die Notiz bzw. ok.
     auto (ohne eingegebene Uhrzeit): Zeitpunkt = jetzt bzw. erster Tastendruck; liegt kurz davor eine Stoerung, gilt die Notiz fuer sie."""
@@ -5632,6 +5727,19 @@ def protocol_html(q):
     if not evs:
         o.append('<tr><td colspan="4" class="mut">Keine Einträge im gewählten Zeitraum.</td></tr>')
     o.append('</table>' + ('<div class="small mut">* Uhrzeit aus dem Ereignisbeginn geschätzt (±1 s).</div>' if any(x.get("approx") for x in notes) else ''))
+    try:                                                # Sensoren aus Home Assistant (Regeln „nur festhalten“)
+        _a0 = int(dt.datetime.combine(d0, dt.time()).astimezone().timestamp() * 1000) if d0 else 0
+        _b0 = int(dt.datetime.combine(d1 + dt.timedelta(days=1), dt.time()).astimezone().timestamp() * 1000) if d1 else int(time.time() * 1000)
+        hrows = ha_intervals("*" if src == "all" else src, _a0, _b0) if g("ha", "1") != "0" else []
+    except Exception:
+        hrows = []
+    if hrows:
+        o.append('<h2>Sensoren aus Home Assistant</h2><table><tr><th style="width:92px">Datum</th><th style="width:150px">Uhrzeit</th><th style="width:26%">Sensor</th><th style="width:12%">Dauer</th><th>Notiz</th></tr>')
+        for a_, b_, n_, _rid, nt_, *_md in hrows:
+            ta, tb = dt.datetime.fromtimestamp(a_ / 1000), dt.datetime.fromtimestamp(b_ / 1000); du = max(0, (b_ - a_) / 1000)
+            o.append(f'<tr><td>{h(dmy(ta.date().isoformat()))}</td><td>{ta:%H:%M:%S}–{tb:%H:%M:%S}</td><td>{h(n_)} (an{", Ereignis" if _md and _md[0] == "event" else ""})</td>'
+                     f'<td>{(f"{du:.0f} s" if du < 120 else f"{du / 60:.0f} min")}</td><td>{h(nt_)}</td></tr>')
+        o.append('</table><div class="small mut">Zustände, die GasLighter selbst in Home Assistant abgefragt und festgehalten hat (Regeln „nur festhalten“).</div>')
     try:                                                # Handys als Bewegungsmelder (Erschütterung, Bewegung im Bild)
         _a = int(dt.datetime.combine(d0, dt.time()).astimezone().timestamp() * 1000) if d0 else None
         _b = int(dt.datetime.combine(d1 + dt.timedelta(days=1), dt.time()).astimezone().timestamp() * 1000) if d1 else None
@@ -5811,6 +5919,7 @@ def night_data(date, src="all", start=None, end=None, plist="", art=""):
             "levels": [[m] + v for m, v in sorted(levels.items())], "events": events,
             "fnotes": fnotes_in(int(start.timestamp() * 1000), int(end.timestamp() * 1000), src),
             "motion": motion_rows(int(start.timestamp() * 1000), int(end.timestamp() * 1000), src),
+            "ha": ha_intervals("*" if src == "all" else src, int(start.timestamp() * 1000), int(end.timestamp() * 1000)),
             "summary": dict(sm, arts=dict(collections.Counter(e["art"] for e in events if e["art"])),
                             notes_n=sum(len(e["notes"]) for e in events))}
 
@@ -7678,7 +7787,7 @@ def backup_items():
     out, clips, _ = paths()
     items = []
     for name, f in (("data/settings.json", None), ("data/sources.json", SOURCES_FILE), ("data/schedule.json", SCHED_FILE), ("data/ha_rules.json", HA_FILE),
-                    ("data/laufzeit.jsonl", os.path.join(DATA_DIR, "laufzeit.jsonl")), ("data/unterbrechung_notizen.json", run_notes_path())):
+                    ("data/laufzeit.jsonl", os.path.join(DATA_DIR, "laufzeit.jsonl")), ("data/unterbrechung_notizen.json", run_notes_path()), ("data/ha_notizen.json", ha_notes_path())):
         if f and os.path.isfile(f):
             items.append((name, f))
     skip = lambda fn: fn.endswith(".tmp") or fn.startswith(".import_")
@@ -8081,6 +8190,21 @@ def restore_run(path, with_settings, pick=None, off=None):
                     except OSError:
                         pass
                     continue
+                if a == "data/ha_notizen.json":             # Notizen zu Sensor-Zeitraeumen: fehlende ergaenzen, eigene bleiben
+                    try:
+                        inc_h = json.loads(zf.read(i))
+                        if isinstance(inc_h, dict):
+                            with HA_NOTE_LOCK:
+                                d_h = ha_note_all(); add_h = {k: v for k, v in inc_h.items() if k not in d_h and isinstance(v, str)}
+                                if add_h:
+                                    d_h.update(add_h)
+                                    with open(ha_notes_path() + ".tmp", "w", encoding="utf-8") as f:
+                                        json.dump(d_h, f, ensure_ascii=False, indent=1)
+                                    os.replace(ha_notes_path() + ".tmp", ha_notes_path())
+                            st["merged"] += 1
+                    except (ValueError, OSError):
+                        pass
+                    continue
                 if a == "data/unterbrechung_notizen.json":   # Kommentare zu Unterbrechungen: fehlende ergaenzen, eigene bleiben
                     try:
                         inc_n = json.loads(zf.read(i))
@@ -8299,6 +8423,18 @@ def incidents(rows):
     return by_k, I, grps
 
 
+def _sens_for(src, rng):
+    try:
+        if rng:
+            a_, b_ = int(rng[0].timestamp() * 1000), int(rng[1].timestamp() * 1000)
+        else:
+            b_ = int(time.time() * 1000); a_ = b_ - 30 * 86400000
+        return sensor_events(src, a_, b_)[:500]
+    except Exception as e:
+        log("Sensor-Ereignisse nicht geladen:", e)
+        return []
+
+
 def events_summary(src="all", n=200, plist="", rng=None, art=""):
     allrows = read_log()
     keyed = [dict(r, k=k) for r, k in zip(allrows, row_keys(allrows))]
@@ -8339,6 +8475,7 @@ def events_summary(src="all", n=200, plist="", rng=None, art=""):
     return {"total": sum(days.values()), "rows": len(rows), "bg_n": bg_n, "today": days.get(dt.date.today().isoformat(), 0), "hours": hours,
             "days": sorted(days.items(), reverse=True)[:(62 if rng else 14)], "n": n,
             "events": out_rows, "grps": {str(k): v for k, v in G.items() if k in used_g},
+            "sens": _sens_for(src, rng),
             "fine": classify.fine_meta("en" if CFG.get("language") == "en" else "de") if classify is not None else {}}
 
 
@@ -9029,6 +9166,16 @@ class Handler(BaseHandler):
                 if not isinstance(data, dict):
                     return self.js({"ok": False, "error": "bad request"}, 400)
                 return self.js(art_set_manual(str(data.get("k", "")), str(data.get("group", ""))))
+            if name == "ha_note":                        # Notiz zu einem Zeitraum „an“ eines Sensors aus Home Assistant
+                data = json.loads(body or b"{}")
+                if not isinstance(data, dict):
+                    return self.js({"ok": False, "error": "bad request"}, 400)
+                return self.js(ha_note_set(data.get("key"), data.get("text")))
+            if name == "delete_range":                   # alle Stoerungen eines Zeitraums loeschen (Verlauf: „🗑 Bereich löschen“)
+                data = json.loads(body or b"{}")
+                if not isinstance(data, dict):
+                    return self.js({"ok": False, "error": "bad request"}, 400)
+                return self.js(delete_range(data))
             if name == "delete_events":
                 data = json.loads(body or b"{}")
                 n = delete_events(data.get("keys") if isinstance(data, dict) else None)

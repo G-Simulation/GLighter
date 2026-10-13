@@ -319,13 +319,19 @@ GasLighter arbeitet mit Home Assistant zusammen: Regeln fragen Zustände ab (Fer
 | Entität | z. B. `media_player.fernseher`, `binary_sensor.vibration_wand` |
 | Gerät | für welches Mikrofon die Regel gilt (oder alle) |
 | **Name** | Unter diesem Namen wird die Regel festgehalten, z. B. „Erschütterung Wand“. Leer = Name aus Home Assistant. |
-| Aktion | **nur festhalten** (weiter aufnehmen und mitschreiben) oder **pausieren** (in dieser Zeit nicht aufnehmen) |
+| Aktion | **nur festhalten** (weiter aufnehmen und mitschreiben, z. B. eigener Fernseher), **als Ereignis** (wie festhalten, zusätzlich eigene Zeile in der Ereignistabelle, z. B. Tür- oder Vibrationssensor) oder **pausieren** (in dieser Zeit nicht aufnehmen) |
 | an bei / pausieren bei | `on, playing` = einer davon, `!off` = alles außer off, `>1` = Zahl größer 1 |
 | Nachlauf, höchstens | nur bei „pausieren“: so lange danach weiter pausieren, Höchstdauer |
 
 „jetzt: …“ zeigt live, was Home Assistant meldet – so siehst du, welchen Zustand ein Gerät wirklich hat. Im Zweifel wird aufgenommen.
 
-**Festhalten** schreibt jeden Wechsel in `ha_zustand.csv`. An jeder Störung steht dann z. B. „Fernseher: an · 🔊 18 %“, im Verlauf erscheint ein **blaues Band**, und das Lärmprotokoll nennt den Zustand. Meldet der Fernseher seine Lautstärke, wird sie mitgeschrieben.
+**Festhalten** schreibt jeden Wechsel in `ha_zustand.csv`. An jeder Störung steht dann z. B. „Fernseher: an · 🔊 18 %“, im Verlauf erscheint oben ein **schmaler blauer Streifen** (je Sensor eine eigene Spur), und das Lärmprotokoll nennt den Zustand. Nur **pausieren** färbt die ganze Höhe (dort wurde nicht ausgewertet).
+
+**Als Ereignis** zeichnet den Streifen **orange** mit Markierung am Beginn. Jedes „an“ steht unter **📡 Sensor-Ereignisse** in der Ereignistabelle – mit Uhrzeit, Dauer und Notiz (✎). Sensor-Ereignisse zählen **nicht** als Störung und werden getrennt gezählt. Die Umstellung gilt auch rückwirkend, weil die Zustände schon in `ha_zustand.csv` stehen.
+
+**Notiz zum Zeitraum:** Klick auf den Streifen (oder ✎ in der Liste) öffnet ein Fenster für eine Notiz, z. B. „eigener Film geschaut“. Sie steht im Streifen, in der Liste und im Lärmprotokoll.
+
+**Filter „📡 Sensoren“** (Protokolle, oben): Mehrfachauswahl, welche Sensoren, Handy-Erschütterung/-Bewegung und ob Störungen gezeigt werden. Gilt für Verlauf, Listen und Tabelle. Meldet der Fernseher seine Lautstärke, wird sie mitgeschrieben.
 
 > Bereits Festgehaltenes behält seinen Namen, auch wenn du ihn später änderst.
 
@@ -335,7 +341,7 @@ Sensoren, die in Home Assistant eingebunden sind (z. B. über Zigbee2MQTT oder Z
 
 1. Regel hinzufügen, Entität des Sensors wählen (z. B. `binary_sensor.vibration_decke_occupancy`).
 2. Name eingeben, z. B. „Erschütterung Decke“.
-3. Aktion **nur festhalten**, „an bei“ `on`.
+3. Aktion **als Ereignis** (oder **nur festhalten**), „an bei“ `on`.
 
 Ab dann steht bei jeder Störung, ob gleichzeitig eine Erschütterung gemeldet wurde – ein starker Hinweis auf Trittschall oder Klopfen über das Gebäude.
 
@@ -983,7 +989,7 @@ GasLighter works together with Home Assistant: rules read states (TV on, washing
 | Entity | e.g. `media_player.tv`, `binary_sensor.vibration_wall` |
 | Device | which microphone the rule applies to (or all) |
 | **Name** | The rule is recorded under this name, e.g. “wall vibration”. Empty = name from Home Assistant. |
-| Action | **only record state** (keep recording and write it down) or **pause** (do not record during that time) |
+| Action | **only record state** (keep recording and write it down, e.g. your own TV), **as event** (like record state, plus its own row in the events table, e.g. door or vibration sensor) or **pause** (do not record during that time) |
 | on when / pause when | `on, playing` = one of them, `!off` = everything except off, `>1` = number above 1 |
 | Delay, at most | only with “pause”: keep pausing this long afterwards, maximum duration |
 
@@ -993,13 +999,19 @@ GasLighter works together with Home Assistant: rules read states (TV on, washing
 
 > Entries already recorded keep their name, even if you change it later.
 
+**As event** draws the strip in **orange** with a marker at the start. Every “on” appears under **📡 Sensor events** in the events table – with time, duration and note (✎). Sensor events do **not** count as disturbances and are counted separately. Switching applies retroactively, because the states are already in `ha_zustand.csv`. “Only record state” shows a thin blue strip at the top (one lane per sensor); only **pause** fills the full height.
+
+**Note for a period:** click the strip (or ✎ in the list) to add a note, e.g. “watched a film”. It appears in the strip, the list and the noise report.
+
+**Filter “📡 Sensors”** (Logs, top): multiple choice of which sensors, phone vibration/motion and whether disturbances are shown. Applies to history, lists and table.
+
 ### Zigbee sensors (vibration, motion, door)
 
 Sensors integrated in Home Assistant (e.g. via Zigbee2MQTT or ZHA) work the same way:
 
 1. Add a rule, choose the sensor entity (e.g. `binary_sensor.vibration_ceiling_occupancy`).
 2. Enter a name, e.g. “ceiling vibration”.
-3. Action **only record state**, “on when” `on`.
+3. Action **as event** (or **only record state**), “on when” `on`.
 
 From then on every disturbance shows whether a vibration was reported at the same time – a strong hint at footfall or knocking through the building.
 

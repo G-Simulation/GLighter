@@ -753,9 +753,47 @@ function toast(msg, ms) {
 }
 document.addEventListener('click', e => { if (e.target.closest && e.target.closest('.mkend')) mkSet(false); });
 function mkSet(on) {
-  MK.on = !!on; document.body.classList.toggle('marking', MK.on);
+  MK.on = !!on; if (MK.on && typeof DR !== 'undefined' && DR.on) drSet(false); document.body.classList.toggle('marking', MK.on);
   document.querySelectorAll('.mkbtn').forEach(b => { b.classList.toggle('on', MK.on); b.setAttribute('aria-pressed', String(MK.on)); });
   if (MK.on) mkNames(); else mkClose();                 // Hinweis steht direkt über dem Graphen (.mkhint)
+}
+/* 🗑 Bereich löschen (Verlauf in Protokolle): Zeitraum aufziehen, alle Störungen darin löschen – Tagesaufzeichnung und
+   Prüfsummen-Kette bleiben unverändert, an der Stelle entsteht eine Notiz als Hinweis */
+const DR = { on: false };
+function drSet(on) {
+  DR.on = !!on; if (DR.on && MK.on) mkSet(false); document.body.classList.toggle('marking', DR.on || MK.on);
+  document.querySelectorAll('.drbtn').forEach(b => { b.classList.toggle('on', DR.on); b.setAttribute('aria-pressed', String(DR.on)); });
+  if (DR.on) toast(t('dr_on'), 6000);
+}
+async function drOpen(src, a, b) {
+  drSet(false);
+  let d = $('drdlg');
+  if (!d) { d = el('dialog', { id: 'drdlg', className: 'evdlg drdlg' }); document.body.appendChild(d); }
+  const L = locale(), fd = x => new Date(x).toLocaleString(L, { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit', second: '2-digit' });
+  d.innerHTML = `<h3>🗑 ${esc(t('dr_title'))}</h3><p><b>${esc(fd(a))} – ${esc(fd(b))}</b></p>
+    <label class="drl">${esc(t('a_device'))} <select id="drsrc"></select></label>
+    <p id="drcnt" class="drcnt">…</p>
+    <label class="drl">${esc(t('dr_note'))}<input type="text" id="drnote" maxlength="300" placeholder="${esc(t('dr_note_ph'))}"></label>
+    <p class="mut">${esc(t('dr_hint'))}</p>
+    <div class="ntedbtns"><button type="button" class="drx">${esc(t('cancel'))}</button><button type="button" class="danger drgo" disabled>🗑 ${esc(t('dr_go'))}</button></div>`;
+  const sel = d.querySelector('#drsrc'); option(sel, 'all', t('all_sources')); viewSources().forEach(x => option(sel, x.id, viewName(x.id))); sel.value = [...sel.options].some(o => o.value === src) ? src : 'all';
+  const go = d.querySelector('.drgo'), cnt = d.querySelector('#drcnt');
+  const count = async () => {
+    cnt.textContent = '…'; go.disabled = true;
+    try { const j = await (await fetch('delete_range', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ a, b, src: sel.value, preview: 1 }) })).json(); cnt.textContent = t('dr_count', { n: j.n || 0 }); go.disabled = !j.n; } catch (e) { cnt.textContent = t('saveerr'); }
+  };
+  sel.onchange = count; count();
+  d.querySelector('.drx').onclick = () => d.close();
+  go.onclick = async () => {
+    go.disabled = true;
+    try {
+      const j = await (await fetch('delete_range', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ a, b, src: sel.value, note: d.querySelector('#drnote').value }) })).json();
+      if (!j.ok) throw new Error(j.error || 'error');
+      d.close(); toast(t('dr_done', { n: j.deleted || 0 }));
+      lastCount = -1; EVSIG = ''; await loadEvents(); syncDelBar(); loadSources(); if (NV.open) loadNight(); fnRefresh();
+    } catch (e) { alert(t('saveerr') + ' ' + e.message); go.disabled = false; }
+  };
+  d.showModal();
 }
 async function mkNames() {
   try { const j = await (await fetch('label_names', { cache: 'no-store' })).json(); MK.names = j.names || []; } catch (e) { MK.names = MK.names || []; }
@@ -1402,12 +1440,12 @@ function renderEvents() {
   $('days').innerHTML = `<tr><th>${t('date')}</th><th></th><th>${t('count')}</th></tr>` + (EV.days.length ? EV.days.map(([d, c]) =>
     `<tr><td>${esc(fmtDay(d))}</td><td class="bw"><div class="dbar" style="width:${Math.max(3, Math.round(100 * c / mxd))}%"></div></td><td>${c}</td></tr>`).join('') : `<tr><td colspan="3" class="empty">${t('none')}</td></tr>`);
   const useArt = !CUR || CUR.classify !== false;
-  syncLabelFilter();
+  syncLabelFilter(); sfltBuild();
   $('artflt').querySelectorAll('option').forEach(o => { if (o.value && o.value !== '_notes' && !o.value.startsWith('lb:')) o.hidden = !useArt; });
-  const flt = $('artflt').value, evs = EV.events.filter(r => !flt || (flt === '_notes' ? r.notes > 0 : flt.startsWith('lb:') ? (r.labels || []).includes(flt.slice(3)) : !useArt ? true : flt === '_none' ? !r.art : r.art === flt));
+  const flt = $('artflt').value, evs = SHIDE.has('_ev') ? [] : EV.events.filter(r => !flt || (flt === '_notes' ? r.notes > 0 : flt.startsWith('lb:') ? (r.labels || []).includes(flt.slice(3)) : !useArt ? true : flt === '_none' ? !r.art : r.art === flt));
   // Nur neu aufbauen, wenn sich etwas geaendert hat. Der Player ist von der Tabelle getrennt: Wiedergabe laeuft weiter.
   const grpMode = EVVIEW === 'grp';
-  const sig = JSON.stringify([useArt, lang, grpMode, [...EVOPEN], evs.map(r => [r.k, r.start, r.art, r.art_c, r.art_man, r.video, r.audio, r.datei, r.notes, r.labels, r.kinds, r.prof, r.prof_c, r.prof_ok, r.inc, r.grp, r.lead, r.devs, r.bg]), SOURCES.map(x => [x.id, x.name])]);
+  const sig = JSON.stringify([useArt, lang, grpMode, [...EVOPEN], evs.map(r => [r.k, r.start, r.art, r.art_c, r.art_man, r.video, r.audio, r.datei, r.notes, r.labels, r.kinds, r.prof, r.prof_c, r.prof_ok, r.inc, r.grp, r.lead, r.devs, r.bg]), SOURCES.map(x => [x.id, x.name]), sensVis(), [...SHIDE]]);
   if (sig === EVSIG) return;
   EVSIG = sig;
   const keepSel = new Set(selectedKeys());
@@ -1443,11 +1481,23 @@ function renderEvents() {
       body += row(r, (hide ? 'gm hid' : multi ? 'gm' : '') + (r.inc != null && !r.lead ? ' nl' : ''));
     }
   }
+  const sv = sensVis();
+  if (sv.length) {                                   // Sensor-Ereignisse (Regel „als Ereignis“, Handy als Bewegungsmelder): eigener Abschnitt, zählen nicht als Störung
+    body += `<tr class="sensh"><td colspan="${cols}">${esc(t('sens_head', { n: sv.length }))}</td></tr>`;
+    body += sv.map(x => `<tr class="sensr" data-sk="${esc(x.key)}"><td class="ck"></td><td class="pl"></td><td class="tm">${esc(fmtWhen(new Date(x.a).toISOString()))}${x.note ? `<span class="ntc" title="${esc(x.note)}">📝</span>` : ''}</td><td class="srcc">${esc(x.kind === 'ha' ? 'Home Assistant' : x.name || '')}</td>
+      ${useArt ? `<td class="artc"><span class="art sensc">${sensIcon(x.kind)} ${esc(sensLabel(x))}</span>${x.note ? `<div class="hant">📝 ${esc(x.note)}</div>` : ''}</td><td class="kinds"></td>` : ''}<td class="devc nodev"></td><td class="dur" data-l="${esc(t('dur'))}">${esc(fmtDur(Math.max(0, (x.b - x.a) / 1000)))}${x.open ? ' · ' + esc(t('mot_open')) : ''}</td><td class="pk">${x.peak != null ? esc(f2(x.peak)) + ' <small>' + esc(x.unit || '') + '</small>' : ''}</td><td class="thr"></td><td class="bgc"></td><td class="clipc"></td>
+      <td class="act"><button class="sned" type="button" title="${esc(t('ha_note'))}" aria-label="${esc(t('ha_note'))}">✎</button></td></tr>`).join('');
+  }
   $('events').innerHTML = `<thead><tr><th class="ck"><input type="checkbox" id="ckall" title="${esc(t('sel_all'))}" aria-label="${esc(t('sel_all'))}"></th><th class="pl"></th><th>${t('start')}</th><th>${t('src_col')}</th>${useArt ? `<th>${t('art_col')}</th><th>${t('kinds_col')}</th>` : ''}<th class="devc">${t('devs_col')}</th><th>${t('dur')}</th><th>${t('peak')}</th><th>${t('thr_col')}</th><th>${t('bg_col')}</th><th>${t('spur_col')}</th><th class="act"></th></tr></thead><tbody>` + body + '</tbody>';
   $('events').classList.toggle('nodevs', !evs.some(r => (r.devs || []).length > 1));   // leere Spalte „Geräte (Spitze)“ ausblenden
   $('events').classList.toggle('noplay', !evs.some(r => r.play));      // Abspielen nur, wenn echter Ton gespeichert ist
   document.querySelectorAll('#events tr[data-k]').forEach(tr => { if (keepSel.has(tr.dataset.k)) tr.querySelector('.ckc').checked = true; });
   document.querySelectorAll('#events .vbtn').forEach(b => { b.onclick = () => openEvent(b.dataset.vk); });
+  document.querySelectorAll('#events tr.sensr').forEach(tr => {
+    const x = (EV.sens || []).find(y => y.key === tr.dataset.sk); if (!x) return;
+    tr.querySelector('.sned').onclick = e => { e.stopPropagation(); haPop({ a: x.a, b: x.b, name: sensLabel(x), note: x.note || '', key: x.key }); };
+    tr.onclick = e => { if (e.target.closest('button')) return; DT.mark = [x.a, Math.max(x.b, x.a + 1000)]; DT.from = x.a - 120000; DT.to = Math.max(x.b, x.a + 1000) + 120000; dtLoad(DT, true); $('ndaybox').scrollIntoView({ behavior: 'smooth', block: 'start' }); };
+  });
   document.querySelectorAll('#events tr.grph').forEach(tr => {
     const g = tr.dataset.g;
     tr.querySelector('.gtog').onclick = e => { e.stopPropagation(); EVOPEN.has(g) ? EVOPEN.delete(g) : EVOPEN.add(g); EVSIG = ''; renderEvents(); };
@@ -1456,7 +1506,30 @@ function renderEvents() {
   });
   bindRows();
 }
-const EVOPEN = new Set();                            // aufgeklappte Gruppen
+const EVOPEN = new Set();
+/* Sensor-Filter (Mehrfachauswahl): ausgeblendete Sensoren als 'ha:<Name>', 'vib', 'cam', '_ev' (Störungen) */
+let SHIDE = (() => { try { return new Set(JSON.parse(localStorage.getItem('gl_shide') || '[]')); } catch (e) { return new Set(); } })();
+function shideSave() { try { localStorage.setItem('gl_shide', JSON.stringify([...SHIDE])); } catch (e) { } }
+const sensKey = x => x.kind === 'ha' ? 'ha:' + x.name : x.kind;
+const sensIcon = k => k === 'vib' ? '🫨' : k === 'cam' ? '🏃' : '📡';
+const sensLabel = x => x.kind === 'ha' ? x.name : t(x.kind === 'vib' ? 'sens_vib' : 'sens_cam');
+function sensVis() { return ((EV && EV.sens) || []).filter(x => !SHIDE.has(sensKey(x))); }
+/* Auswahlliste „Sensoren“ (Mehrfachauswahl): Störungen, jede HA-Regel, Handy-Erschütterung, Handy-Bewegung */
+function sfltBuild() {
+  const box = $('sflt'); if (!box) return;
+  const ha = new Set(); for (const x of (EV && EV.sens) || []) if (x.kind === 'ha') ha.add(x.name); for (const a of (NV.data && NV.data.ha) || []) ha.add(a[2]);
+  for (const r of (HAR && HAR.rules) || []) if (r.enabled !== false && r.mode !== 'pause') ha.add(r.label || r.name || r.entity);
+  const items = [['_ev', '🔴 ' + t('sf_ev')], ...[...ha].filter(Boolean).sort((a, b) => a.localeCompare(b)).map(n => ['ha:' + n, '📡 ' + n]), ['vib', '🫨 ' + t('sens_vib')], ['cam', '🏃 ' + t('sens_cam')]];
+  const sig = JSON.stringify([items, [...SHIDE], lang]); if (box.dataset.sig === sig) return; box.dataset.sig = sig;
+  const on = items.filter(i => !SHIDE.has(i[0])).length, wasOpen = box.querySelector('details') && box.querySelector('details').open;
+  box.innerHTML = `<details class="sfltd"${wasOpen ? ' open' : ''}><summary class="chip">📡 ${esc(t('sf_btn'))} <small>${on}/${items.length}</small></summary><div class="sfltl">
+    <div class="sfltb"><button type="button" class="chip" data-a="all">${esc(t('sf_all'))}</button><button type="button" class="chip" data-a="none">${esc(t('sf_none'))}</button></div>
+    ${items.map(([k, l]) => `<label><input type="checkbox" data-k="${esc(k)}"${SHIDE.has(k) ? '' : ' checked'}> ${esc(l)}</label>`).join('')}</div></details>`;
+  const apply = () => { shideSave(); EVSIG = ''; renderEvents(); if (NV.open && typeof renderNight === 'function' && NV.data) renderNight(); dtLoad(DT, true); sfltBuild(); };
+  box.querySelectorAll('input[data-k]').forEach(c => c.onchange = () => { c.checked ? SHIDE.delete(c.dataset.k) : SHIDE.add(c.dataset.k); apply(); });
+  box.querySelectorAll('button[data-a]').forEach(b => b.onclick = () => { for (const [k] of items) b.dataset.a === 'all' ? SHIDE.delete(k) : SHIDE.add(k); apply(); });
+}
+function haLanes(list) { const m = new Map(); for (const a of list) if (!m.has(a[2])) m.set(a[2], m.size); return m; }                            // aufgeklappte Gruppen
 let EVVIEW = (() => { try { return localStorage.getItem('laerm_evview') || 'grp'; } catch (e) { return 'grp'; } })();
 const clockOf = iso => { const d = new Date(iso); return isNaN(d) ? '' : pad(d.getHours()) + ':' + pad(d.getMinutes()) + ':' + pad(d.getSeconds()); };
 const shortName = n => { n = String(n || ''); return n.length > 12 ? n.slice(0, 11) + '…' : n; };
@@ -2279,11 +2352,11 @@ function haRender(focusLast) {
     const now = el('small', { className: 'hanow' + (r.hold ? ' hold' : ''), textContent: haStateTxt(r) });
     const nmi = el('input', { type: 'text', value: r.label || '', maxLength: 60, placeholder: r.name && r.name !== r.entity ? r.name : t('ha_name_ph'), className: 'haname', title: t('ha_name_tip') });   // Name, unter dem die Regel festgehalten wird
     const md = el('select', { className: 'hamode', title: t('ha_model') });   // pausieren oder nur festhalten (z. B. Fernseher an/aus)
-    option(md, 'pause', t('ha_mode_pause')); option(md, 'note', t('ha_mode_note')); md.value = r.mode === 'pause' ? 'pause' : 'note';          // neue Regeln: nur vermerken (Standard)
+    option(md, 'pause', t('ha_mode_pause')); option(md, 'note', t('ha_mode_note')); option(md, 'event', t('ha_mode_event')); md.value = ['pause', 'event'].includes(r.mode) ? r.mode : 'note';          // neue Regeln: nur vermerken (Standard)
     const l1 = el('div', { className: 'harow1' }); l1.append(on, ent, src, del);
     const l2 = el('div', { className: 'harow2' });
     const lab = (txt, inp, unit) => { const L = el('label'); L.append(document.createTextNode(txt + ' '), inp); if (unit) L.append(' ' + unit); return L; };
-    const note = md.value === 'note';
+    const note = md.value !== 'pause';
     const la = lab(t('ha_afterl'), aft, 'min'), lm = lab(t('ha_maxl'), mx, 'h'); la.hidden = lm.hidden = note;
     l2.append(lab(t('ha_name'), nmi), lab(t('ha_model'), md), lab(t(note ? 'ha_whenn' : 'ha_when'), sts), la, lm);
     row.append(l1, l2, now); box.appendChild(row);
@@ -3465,13 +3538,23 @@ function renderNight() {
     $('nnotes').querySelectorAll('.fnr').forEach(r => { const n = fl[+r.dataset.i]; r.onclick = e => { if (e.target.closest('.fned')) { fnOpen(n); return; }
       DT.mark = [n.a, Math.max(n.b, n.a + 1000)]; DT.from = n.a - 120000; DT.to = Math.max(n.b, n.a) + 120000; dtLoad(DT, true); $('ndaybox').scrollIntoView({ behavior: 'smooth', block: 'start' }); }; });
   }
-  const mo = d.motion || [];                        // Handys als Bewegungsmelder: Erschütterung / Bewegung im Bild
+  const mo = (d.motion || []).filter(m => !SHIDE.has(m.kind));                        // Handys als Bewegungsmelder: Erschütterung / Bewegung im Bild
   if (mo.length) {
     const nm = id => viewName(id), box = el('div');
     box.innerHTML = `<h3>🫨 ${esc(t('mot_list', { n: mo.length }))}</h3>` + mo.map((m, i) => { const a = new Date(m.a), b = new Date(m.b), L = locale();
       return `<div class="ntrow mor" data-i="${i}" tabindex="0"><span class="ntnum" style="background:${m.kind === 'vib' ? '#e8590c' : '#1c7ed6'}">${m.kind === 'vib' ? '🫨' : '🏃'}</span><span class="ntoff">${esc(a.toLocaleDateString(L, { day: '2-digit', month: '2-digit' }))}</span><span class="ntclk">${esc(a.toLocaleTimeString(L))}–${esc(b.toLocaleTimeString(L))} · ${esc(nm(m.src))}</span><span class="nttx"><span class="ntt">${esc(t(m.kind === 'vib' ? 'mot_vib' : 'mot_cam'))} · ${esc(fmtDur(Math.max(0, (m.b - m.a) / 1000)))} · ${esc(t('mot_peak'))} ${esc(m.kind === 'vib' ? f2(m.peak) + ' m/s²' : f1(m.peak) + ' %')}${m.open ? ' · ' + esc(t('mot_open')) : ''}</span></span></div>`; }).join('');
     $('nnotes').hidden = false; $('nnotes').append(...box.childNodes);
     $('nnotes').querySelectorAll('.mor').forEach(r => { const m = mo[+r.dataset.i]; r.onclick = () => { DT.mark = [m.a, Math.max(m.b, m.a + 1000)]; DT.from = m.a - 120000; DT.to = Math.max(m.b, m.a) + 120000; dtLoad(DT, true); $('ndaybox').scrollIntoView({ behavior: 'smooth', block: 'start' }); }; });
+  }
+  const hl = (d.ha || []).filter(x => !SHIDE.has('ha:' + x[2]));                             // Sensoren aus Home Assistant (Regeln „nur festhalten“)
+  if (hl.length) {
+    const box = el('div'), L = locale();
+    box.innerHTML = `<h3>📡 ${esc(t('ha_list', { n: hl.length }))}</h3>` + hl.map((x, i) => { const dur = Math.max(0, (x[1] - x[0]) / 1000);
+      return `<div class="ntrow har" data-i="${i}" data-a="${x[0]}" tabindex="0"><span class="ntnum" style="background:#1c7ed6">📡</span><span class="ntoff">${esc(new Date(x[0]).toLocaleDateString(L, { day: '2-digit', month: '2-digit' }))}</span><span class="ntclk">${esc(hms(x[0]))}–${esc(hms(x[1]))}</span><span class="nttx"><span class="ntt"><b>${esc(x[2])}</b> ${esc(t('ha_on'))} · ${esc(dur < 120 ? Math.round(dur) + ' s' : dur < 7200 ? Math.round(dur / 60) + ' min' : Math.floor(dur / 3600) + ' h ' + Math.round(dur % 3600 / 60) + ' min')}</span>${x[4] ? `<span class="ntt hant">📝 ${esc(x[4])}</span>` : ''}</span><span class="ntact hanote" title="${esc(t('ha_note'))}">✎</span></div>`; }).join('');
+    $('nnotes').hidden = false; $('nnotes').append(...box.childNodes);
+    $('nnotes').querySelectorAll('.har').forEach(r => { const x = hl[+r.dataset.i]; r.onclick = e => {
+      if (e.target.closest('.hanote')) { haPop({ a: x[0], b: x[1], name: x[2], rid: x[3], note: x[4] || '' }); return; }
+      DT.mark = [x[0], Math.max(x[1], x[0] + 1000)]; DT.from = x[0] - 120000; DT.to = Math.max(x[1], x[0]) + 120000; dtLoad(DT, true); $('ndaybox').scrollIntoView({ behavior: 'smooth', block: 'start' }); }; });
   }
   drawNight();
 }
@@ -3963,7 +4046,19 @@ function dtDraw(S, hoverX) {
     c.restore();
     (S.downHit || (S.downHit = [])).push([x0 / d, x1 / d, (g[2] ? '📝 ' + g[2] + '\n' : '') + t(g[2] ? 'run_click_edit' : 'run_click_add'), g]);
   }
-  for (const a of r.ha || []) { const x0 = X(Math.max(a[0], r.from)), x1 = X(Math.min(a[1], r.to)); if (x1 <= x0) continue; c.fillStyle = ca('#1c7ed6', specM ? 0.0 : 0.18); c.fillRect(x0, T, x1 - x0, ph); c.fillStyle = '#1c7ed6'; c.fillRect(x0, 2 * d, x1 - x0, 5 * d); }
+  const haV = (r.ha || []).filter(a => !SHIDE.has('ha:' + a[2])), haLane = haLanes(haV);
+  for (const a of haV) { const x0 = X(Math.max(a[0], r.from)), x1 = Math.max(X(Math.min(a[1], r.to)), X(Math.max(a[0], r.from)) + 3 * d); if (x1 <= x0 || x1 < L || x0 > L + pw) continue;
+    const md = a[5] || 'note', col = md === 'event' ? '#e8590c' : '#1c7ed6', ly = T + haLane.get(a[2]) * 6 * d;
+    if (md === 'pause') { c.fillStyle = ca(col, specM ? 0.0 : a[4] ? 0.26 : 0.18); c.fillRect(x0, T, x1 - x0, ph); }   // nur „pausieren“ füllt die ganze Höhe (dort wurde nicht ausgewertet)
+    c.fillStyle = col; c.fillRect(x0, ly, x1 - x0, (a[4] ? 5 : 4) * d);   // „nur festhalten“/„als Ereignis“: schmaler Streifen oben, je Sensor eine Spur
+    if (md === 'event') { c.fillRect(x0, ly, 2 * d, 12 * d); }
+    if (a[4] && x1 - x0 > 30 * d) {                  // Notiz zum Sensor-Zeitraum gut sichtbar unter dem Streifen (gekürzt, ganzer Text im Tooltip)
+      c.save(); c.beginPath(); c.rect(Math.max(x0, L), T, Math.min(x1, L + pw) - Math.max(x0, L), ph); c.clip();
+      c.font = '600 ' + (11 * d) + 'px system-ui'; c.textAlign = 'left'; const tx = '📝 ' + a[4], mw = Math.min(x1, L + pw) - Math.max(x0, L) - 8 * d;
+      let s0 = tx; while (s0.length > 4 && c.measureText(s0).width > mw) s0 = s0.slice(0, -2); if (s0 !== tx) s0 = s0.slice(0, -1) + '…';
+      const tw = c.measureText(s0).width, xx = Math.max(x0, L) + 4 * d, yy = ly + 18 * d;
+      c.fillStyle = ca(NC.bg || '#000', 0.7); c.fillRect(xx - 2 * d, yy - 11 * d, tw + 4 * d, 15 * d); c.fillStyle = md === 'event' ? '#ff922b' : (typeof darkUI === 'function' && !darkUI()) ? '#1864ab' : '#74c0fc'; c.fillText(s0, xx, yy); c.restore();
+    } }
   if ((r.hav || []).length && span <= 6 * 3600000) {   // Lautstärke des Fernsehers an den Wechseln
     c.save(); c.beginPath(); c.rect(L, 0, pw, T + ph); c.clip(); c.font = (9.5 * d) + 'px system-ui'; c.textAlign = 'left'; c.fillStyle = '#1c7ed6'; let lastX = -1e9;
     for (const v of r.hav) { const x = X(Math.max(v[0], r.from)); if (x < L - 1 || x > L + pw) continue; if (!(r.ha || []).some(a => v[0] >= a[0] - 6000 && v[0] <= a[1])) continue;
@@ -3971,7 +4066,7 @@ function dtDraw(S, hoverX) {
       c.fillRect(x, T, 1 * d, 6 * d); c.fillText(tx, x + 2 * d, T + 9 * d + (art ? 0 : 0)); lastX = x + c.measureText(tx).width; }
     c.restore();
   }
-  if ((r.ha || []).length) { c.fillStyle = '#1c7ed6'; c.textAlign = 'left'; c.fillText('▬ ' + [...new Set(r.ha.map(a => a[2]))].join(', ') + ' ' + t('ha_on'), L + 4 * d, 15 * d); }
+  if (haV.length) { c.textAlign = 'left'; let lx = L + 4 * d; for (const [nm] of haLane) { const ev = haV.some(a => a[2] === nm && a[5] === 'event'); c.fillStyle = ev ? '#e8590c' : '#1c7ed6'; const tx = (ev ? '◆ ' : '▬ ') + nm; c.fillText(tx, lx, 15 * d); lx += c.measureText(tx).width + 10 * d; } }
   const bw = Math.max(1, pw * (r.step || span / 1200) / span);
   // Spitze als Fläche mit Linie; Lücken (keine Werte, z. B. gestoppt) bleiben offen; Störung rot
   const gapMs = Math.max(400, 3 * (r.step || 0)), segs = []; let cur = null, prevT = null;
@@ -4035,9 +4130,19 @@ function dtDraw(S, hoverX) {
   c.fillStyle = NC.red; for (const e of r.ev || []) { const x = X(e[0]); if (x >= L && x <= L + pw) c.fillRect(x - 1 * d, T + ph + 1 * d, Math.max(2 * d, X(e[0] + e[1]) - x), 4 * d); }
   if (S === LDT && !S.zoom) { const x = X(nowServer()); if (x > L && x < L + pw) { c.strokeStyle = NC.tx; c.globalAlpha = 0.4; c.lineWidth = 1 * d; c.beginPath(); c.moveTo(x, T); c.lineTo(x, T + ph); c.stroke(); c.globalAlpha = 1; } }
   fnMarks(c, r.fn, X, T, ph, L, pw, d, span <= 30 * 60000);    // freie Notizen („Notiz jetzt“)
+  {                                                  // Notizen und Home-Assistant-Sensoren anklickbar – Klickfläche breiter als die (oft schmale) Fläche
+    const pad = (matchMedia('(pointer:coarse)').matches ? 16 : 8), hits = [];
+    for (const n of r.fn || []) { const x0 = X(Math.max(n[0], r.from)) / d, x1 = Math.max(x0, X(Math.min(n[1], r.to)) / d); if (x1 < L / d - pad || x0 > (L + pw) / d + pad) continue;
+      hits.push([x0 - pad, x1 + pad, '📝 ' + (n[2] || t('fn_btn')) + '\n' + t('fn_click_edit'), { kind: 'fn', a: n[0], b: n[1], id: n[3] }]); }
+    const haV2 = (r.ha || []).filter(a => !SHIDE.has('ha:' + a[2])), nl = haLanes(haV2).size;
+    for (const a of haV2) { const x0 = X(Math.max(a[0], r.from)) / d, x1 = Math.max(x0, X(Math.min(a[1], r.to)) / d); if (x1 < L / d - pad || x0 > (L + pw) / d + pad) continue;
+      const ymax = x1 - x0 > 40 ? T / d + nl * 6 + 20 : null;   // breiter Balken: nur oben anklickbar (Leiste + Notiz), darunter bleibt Ziehen/Markieren frei
+      hits.push([x0 - pad, x1 + pad, '📡 ' + a[2] + ' ' + t('ha_on') + ' · ' + hms(a[0]) + '–' + hms(a[1]) + (a[4] ? '\n📝 ' + a[4] : '') + '\n' + t('ha_click'), { kind: 'ha', a: a[0], b: a[1], name: a[2], rid: a[3], note: a[4] || '', S }, ymax]); }
+    S.downHit = hits.concat(S.downHit || []);
+  }
   const mk = S.parent ? S.parent.mark : S.mark;        // in der Tabelle gewähltes Ereignis
   if (mk) { const x0 = X(mk[0]), x1 = Math.max(x0 + 2 * d, X(mk[1])); c.fillStyle = ca(NC.warn, 0.22); c.fillRect(x0, T, x1 - x0, ph); c.fillStyle = NC.warn; c.fillRect(x0 - 1 * d, T, 2 * d, ph); }
-  if (S.drag) { const a = Math.min(S.drag.a, S.drag.b), b = Math.max(S.drag.a, S.drag.b); c.fillStyle = ca(NC.acc, S.drag.mk ? 0.28 : 0.2); c.fillRect(a * d, T, (b - a) * d, ph); }
+  if (S.drag) { const a = Math.min(S.drag.a, S.drag.b), b = Math.max(S.drag.a, S.drag.b); c.fillStyle = S.drag.del ? 'rgba(224,49,49,0.25)' : ca(NC.acc, S.drag.mk ? 0.28 : 0.2); c.fillRect(a * d, T, (b - a) * d, ph); }
   if (MK.sel && MK.sel.day === S) drawMk(c, X, T, ph, d, false);
   S.geo = { L: L / d, pw: pw / d, T: T / d, ph: ph / d, lo, hi, wave: !!wave, spec: !!specM };
   if (hoverX != null) {
@@ -4346,6 +4451,7 @@ function bindDay(S, reset) {
   const yAt = e => e.clientY - cv.getBoundingClientRect().top;
   cv.addEventListener('pointerdown', e => {
     if (!e.button && ptNear(S, yAt(e))) { ptd = { id: e.pointerId }; cv.setPointerCapture(e.pointerId); e.preventDefault(); return; }   // Prüf-Schwelle ziehen
+    if (DR.on && !e.button && S.data && S.geo) { pts.clear(); pinch = null; pan = null; S.drag = { a: xAt(e), b: xAt(e), mk: true, del: true }; cv.setPointerCapture(e.pointerId); dtDraw(S); return; }
     if (MK.on && !e.button && S.data && S.geo) { mkClose(); pts.clear(); pinch = null; pan = null; S.drag = { a: xAt(e), b: xAt(e), mk: true }; cv.setPointerCapture(e.pointerId); dtDraw(S); return; }
     pts.set(e.pointerId, xAt(e)); cv.setPointerCapture(e.pointerId);
     if (pts.size === 2 && e.pointerType === 'touch') { S.drag = null; pan = null; return; }   // zwei Finger: bindPinch
@@ -4359,7 +4465,7 @@ function bindDay(S, reset) {
   });
   cv.addEventListener('pointermove', e => {
     if (ptd) { const v = ptVal(S, yAt(e)); if (v != null) ptSet(v, false); return; }
-    const dh = !MK.on && (S.downHit || []).find(q => xAt(e) >= q[0] && xAt(e) <= q[1]);   // Unterbrechung: anklickbar, Tooltip mit Kommentar
+    const dh = !MK.on && !DR.on && (S.downHit || []).find(q => xAt(e) >= q[0] && xAt(e) <= q[1] && (q[4] == null || yAt(e) <= q[4]));   // anklickbar: Unterbrechung, Notiz, Sensor (breite Sensor-Balken nur oben)
     cv.style.cursor = ptNear(S, yAt(e)) ? 'ns-resize' : dh && !S.drag && !pan ? 'pointer' : '';
     cv.title = dh ? dh[2] : '';
     if (pts.has(e.pointerId)) pts.set(e.pointerId, xAt(e));
@@ -4377,9 +4483,9 @@ function bindDay(S, reset) {
   cv.addEventListener('pointerleave', e => { if (e.pointerType === 'mouse') tipHide('day'); if (!S.drag && !pan) { $(S.el.hover).textContent = ''; dtDraw(S); } });
   let dcT = 0;                                       // Klick auf eine Unterbrechung: Kommentar (kurz warten, ein Doppelklick hat Vorrang)
   const downClick = (x, e) => {
-    if (MK.on || e.type !== 'pointerup') return false;
-    const h = (S.downHit || []).find(q => x >= q[0] && x <= q[1]); if (!h) return false;
-    clearTimeout(dcT); const cx = e.clientX, cy = e.clientY; dcT = setTimeout(() => rnOpen(h[3], cx, cy), 260); return true;
+    if (MK.on || DR.on || e.type !== 'pointerup') return false;
+    const y = yAt(e), h = (S.downHit || []).find(q => x >= q[0] && x <= q[1] && (q[4] == null || y <= q[4])); if (!h) return false;
+    clearTimeout(dcT); const cx = e.clientX, cy = e.clientY; dcT = setTimeout(() => h[3] && h[3].kind === 'fn' ? fnOpenId(h[3]) : h[3] && h[3].kind === 'ha' ? haPop(h[3]) : rnOpen(h[3], cx, cy), 260); return true;
   };
   const up = e => {
     if (ptd) { ptd = null; ptSet(PT.v, true); return; }
@@ -4499,6 +4605,8 @@ function initDayTrack() {
   $('ndreset').onclick = () => { DT.from = DT.to = null; DT.yk = 1; dtLoad(DT, true); };
   bindLive();
   document.querySelectorAll('.mkbtn').forEach(b => b.onclick = () => mkSet(!MK.on));
+  document.querySelectorAll('.drbtn').forEach(b => b.onclick = () => drSet(!DR.on));
+  document.addEventListener('keydown', e => { if (e.key === 'Escape' && DR.on) drSet(false); });
   document.addEventListener('keydown', e => { if (e.key === 'Escape' && MK.on && (!MK.pop || MK.pop.hidden)) mkSet(false); });
   window.addEventListener('resize', () => { if (NV.open) dtLoad(DT, true); if (histOn()) { dtDraw(LDT); dtSpec(LDT); } });
 }
@@ -4580,6 +4688,7 @@ function bindLive() {
       const dr = S.drag, g = S.geo, r = S.data; S.drag = null; const a = Math.min(dr.a, dr.b), b = Math.max(dr.a, dr.b);
       if (!g || !r || b - a < 4 || e.type !== 'pointerup') { dtDraw(S); return; }
       const tq2 = x => r.from + (r.to - r.from) * clamp((x - g.L) / g.pw, 0, 1);
+      if (dr.del) { drOpen(S.src || NV.src || 'all', tq2(a), tq2(b)); dtDraw(S); return; }
       mkOpen(selSrc, tq2(a), tq2(b), e.clientX, e.clientY, () => dtDraw(S), { day: S }); dtDraw(S); return;
     }
     if (S.drag && S.drag.moved) {
@@ -4657,6 +4766,30 @@ function initLev() {
 /* ================= Freie Notiz („📝 Notiz jetzt“): einmal gespeichert, mit Zeitraum, an allen Aufzeichnungen dieser Zeit sichtbar ================= */
 const FN = { list: [], edit: null, tags: new Set(), t: 0 };
 const dtl = d => isoDay(d) + 'T' + pad(d.getHours()) + ':' + pad(d.getMinutes()) + ':' + pad(d.getSeconds());
+async function fnOpenId(h) {                        // Notiz aus dem Verlauf öffnen (vollständig vom Server holen)
+  try { const j = await (await fetch('fnotes?from=' + (h.a - 1000) + '&to=' + (h.b + 1000) + '&src=all', { cache: 'no-store' })).json(); const n = (j.notes || []).find(x => x.id === h.id); if (n) return fnOpen(n); } catch (e) { }
+  toast(t('saveerr'));
+}
+function haPop(h) {                                  // Sensor aus Home Assistant angeklickt: Notiz zu diesem Zeitraum schreiben/ändern
+  let d = $('hapop'); if (!d) { d = el('dialog', { id: 'hapop', className: 'evdlg prognd' }); document.body.appendChild(d); }
+  const L = locale(), dur = Math.max(0, (h.b - h.a) / 1000), fdur = dur < 120 ? Math.round(dur) + ' s' : dur < 7200 ? Math.round(dur / 60) + ' min' : Math.floor(dur / 3600) + ' h ' + Math.round(dur % 3600 / 60) + ' min';
+  d.innerHTML = `<h3>📡 ${esc(h.name)}</h3><p><b>${esc(new Date(h.a).toLocaleDateString(L))} · ${esc(hms(h.a))}–${esc(hms(h.b))}</b> · ${esc(fdur)} · ${esc(t('ha_on'))}</p>
+    <label class="drl">${esc(t('ha_note'))}<textarea id="hanote" rows="2" maxlength="300" placeholder="${esc(t('ha_note_ph'))}"></textarea></label>
+    <p class="mut">${esc(t('ha_pop_hint'))}</p>
+    <div class="ntedbtns"><button type="button" class="hpl">${esc(t('ha_to_list'))}</button><span style="flex:1"></span>${h.note ? `<button type="button" class="danger hpd">${esc(t('run_note_del'))}</button>` : ''}<button type="button" class="hpx">${esc(t('cancel'))}</button><button type="button" class="pri hps">${esc(t('save'))}</button></div>`;
+  const ta = d.querySelector('#hanote'); ta.value = h.note || '';
+  const save = async txt => {
+    try { const j = await (await fetch('ha_note', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ key: h.key || h.rid + '|' + h.a, text: txt }) })).json(); if (!j.ok) throw new Error(j.error); }
+    catch (e) { alert(t('saveerr') + ' ' + e.message); return; }
+    d.close(); if (NV.open) loadNight(); dtLoad(DT, true); EVSIG = ''; loadEvents();
+  };
+  d.querySelector('.hps').onclick = () => save(ta.value.trim());
+  if (d.querySelector('.hpd')) d.querySelector('.hpd').onclick = () => save('');
+  d.querySelector('.hpx').onclick = () => d.close();
+  d.querySelector('.hpl').onclick = () => { d.close(); const row = document.querySelector(`.har[data-a="${h.a}"]`); if (row) { row.scrollIntoView({ behavior: 'smooth', block: 'center' }); row.classList.add('flash'); setTimeout(() => row.classList.remove('flash'), 1500); } };
+  ta.onkeydown = e => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); save(ta.value.trim()); } };
+  d.showModal(); setTimeout(() => ta.focus(), 50);
+}
 function fnOpen(n) {
   FN.fromPanel = false; FN.edit = n && n.id ? n : null; FN.tags = new Set((n && n.tags) || []);
   $('fnfrom').value = n && n.from ? dtl(new Date(n.from)) : dtl(new Date(nowServer()));     // „von“ = Zeitpunkt des Öffnens

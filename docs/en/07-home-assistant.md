@@ -15,7 +15,7 @@ GasLighter works together with Home Assistant: rules read states (TV on, washing
 | Entity | e.g. `media_player.tv`, `binary_sensor.vibration_wall` |
 | Device | which microphone the rule applies to (or all) |
 | **Name** | The rule is recorded under this name, e.g. “wall vibration”. Empty = name from Home Assistant. |
-| Action | **only record state** (keep recording and write it down) or **pause** (do not record during that time) |
+| Action | **only record state** (keep recording and write it down, e.g. your own TV), **as event** (like record state, plus its own row in the events table, e.g. door or vibration sensor) or **pause** (do not record during that time) |
 | on when / pause when | `on, playing` = one of them, `!off` = everything except off, `>1` = number above 1 |
 | Delay, at most | only with “pause”: keep pausing this long afterwards, maximum duration |
 
@@ -25,6 +25,12 @@ GasLighter works together with Home Assistant: rules read states (TV on, washing
 
 > Entries already recorded keep their name, even if you change it later.
 
+**As event** draws the strip in **orange** with a marker at the start. Every “on” appears under **📡 Sensor events** in the events table – with time, duration and note (✎). Sensor events do **not** count as disturbances and are counted separately. Switching applies retroactively, because the states are already in `ha_zustand.csv`. “Only record state” shows a thin blue strip at the top (one lane per sensor); only **pause** fills the full height.
+
+**Note for a period:** click the strip (or ✎ in the list) to add a note, e.g. “watched a film”. It appears in the strip, the list and the noise report.
+
+**Filter “📡 Sensors”** (Logs, top): multiple choice of which sensors, phone vibration/motion and whether disturbances are shown. Applies to history, lists and table.
+
 <a id="zigbee"></a>
 
 ## Zigbee sensors (vibration, motion, door)
@@ -33,7 +39,7 @@ Sensors integrated in Home Assistant (e.g. via Zigbee2MQTT or ZHA) work the same
 
 1. Add a rule, choose the sensor entity (e.g. `binary_sensor.vibration_ceiling_occupancy`).
 2. Enter a name, e.g. “ceiling vibration”.
-3. Action **only record state**, “on when” `on`.
+3. Action **as event** (or **only record state**), “on when” `on`.
 
 From then on every disturbance shows whether a vibration was reported at the same time – a strong hint at footfall or knocking through the building.
 

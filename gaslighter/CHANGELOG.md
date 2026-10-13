@@ -1,5 +1,15 @@
 # Changelog
 
+## 1.47.3
+- **Home-Assistant-Regel „als Ereignis“:** neue Aktion neben „pausieren“ und „nur festhalten“, z. B. für Tür- und Vibrationssensoren. Jedes „an“ steht als eigene Zeile unter **📡 Sensor-Ereignisse** in der Ereignistabelle (Uhrzeit, Dauer, Notiz, Klick springt in den Verlauf) und zählt nicht als Störung. Gilt rückwirkend.
+- Handy als Bewegungsmelder: Erschütterung und Bewegung stehen ebenfalls als Sensor-Ereignisse in der Tabelle.
+- **„Nur festhalten“** (z. B. Fernseher) färbt den Verlauf nicht mehr in ganzer Höhe, sondern zeigt oben einen schmalen Streifen – je Sensor eine Spur. Darunter lässt sich normal ziehen und markieren.
+- **Notiz zu Sensor-Zeiträumen:** Klick auf den Streifen oder ✎ in der Liste. Die Notiz steht im Verlauf, in der Liste „Sensoren aus Home Assistant“ und im Lärmprotokoll.
+- **Filter „📡 Sensoren“** mit Mehrfachauswahl (Störungen, jeder Sensor, Handy-Erschütterung, Handy-Bewegung) für Verlauf, Listen und Tabelle.
+- **🗑 Bereich löschen:** beliebig langen Zeitraum im Verlauf aufziehen und alle Störungen darin löschen, optional mit Notiz an der Stelle. Tagesaufzeichnung und Datenkette bleiben unverändert.
+- Notizen und Sensor-Streifen haben größere Klickflächen (auch am Handy).
+- „Profile & neu untersuchen“ lässt Sensoren unberührt (Hinweis im Fenster).
+
 ## 1.47.2
 - Sicherung einspielen: Bei Tagen, die es hier noch nicht gab (neue Installation, neues Gerät), ging das Spektrum verloren – danach meldete die Datenkette „passt nicht“. Behoben. Dieselbe Sicherung noch einmal einspielen repariert bereits eingespielte Tage (fehlendes Spektrum wird ergänzt, Vorhandenes bleibt unverändert); der Bericht nennt die reparierten Tage.
 
