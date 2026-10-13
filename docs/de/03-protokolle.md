@@ -9,7 +9,7 @@ Der Reiter **Protokolle** zeigt einen Zeitraum vollständig: Zusammenfassung, Wo
 ## Zeitraum und Filter
 
 - **Erfassungszeit** (eingestellte Überwachungszeit, z. B. 22–6 Uhr), **Heute**, **Gestern**, **7 Tage**, **30 Tage** oder **Von–bis**. ‹ › blättert um einen ganzen Zeitraum.
-- **Quelle / Gerät**, **Art** (z. B. nur Klopfen) und **Liste** filtern alles darunter. Geräte, die es nicht mehr gibt, deren Daten aber vorhanden sind, stehen als „(ehemalig)“ in der Auswahl.
+- **Quelle / Gerät**, **Art** (Mehrfachauswahl, z. B. Klopfen + Schritte) und **Liste** filtern alles darunter. Geräte, die es nicht mehr gibt, deren Daten aber vorhanden sind, stehen als „(ehemalig)“ in der Auswahl.
 - **🖨 Protokoll** erstellt das Lärmprotokoll für Zeitraum, Gerät und Liste, **⬇ Bild (SVG)** ein Bild. Siehe [Drucken](08-drucken.md).
 
 <a id="dashboard"></a>

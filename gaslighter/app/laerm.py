@@ -32,7 +32,7 @@ HERE = os.path.dirname(os.path.abspath(__file__))
 WEB = os.path.join(HERE, "web")
 OPTIONS_FILE = os.environ.get("LAERM_OPTIONS", "/data/options.json")
 SETTINGS_FILE = os.environ.get("LAERM_SETTINGS", "/data/settings.json")
-VERSION = "1.50.0"
+VERSION = "1.50.1"
 
 # =====================================================================
 # Einstellungen
@@ -5861,6 +5861,12 @@ def ev_match(r, k, plist="", art=""):
     st = event_stem(r, int(k.rsplit("|", 1)[1] or 0)) if k else event_stem(r)
     if plist and st not in (plists_all()["mem"].get(plist) or {}):
         return False
+    if art and art.startswith("["):                  # Mehrfachauswahl (JSON-Liste): eine davon genügt
+        try:
+            arts = [str(x)[:64] for x in json.loads(art)][:40]
+        except (ValueError, TypeError):
+            arts = []
+        return not arts or any(ev_match(r, k, "", a_) for a_ in arts)
     if art:
         if art == "_notes":
             return note_count(st) > 0
@@ -8833,7 +8839,7 @@ class Handler(BaseHandler):
                     return self.js({"nights": nights_overview(day, 7, src), "last": day.isoformat()})
                 rg = range_param(q) or (None, None)
                 pl_ = re.sub(r"[^a-z0-9_]", "", (q.get("list") or [""])[0])[:24]
-                art_ = (q.get("art") or [""])[0][:64]
+                art_ = (q.get("art") or [""])[0][:2000]
                 if name == "night":
                     return self.js(night_data(day, src, rg[0], rg[1], pl_, art_))
                 body = night_svg(day, src, rg[0], rg[1], pl_, art_).encode()
@@ -8845,7 +8851,7 @@ class Handler(BaseHandler):
                 except ValueError:
                     n = 200
                 return self.js(events_summary((q.get("src") or ["all"])[0], n, re.sub(r"[^a-z0-9_]", "", (q.get("list") or [""])[0])[:24],
-                                              range_param(q), (q.get("art") or [""])[0][:64]))
+                                              range_param(q), (q.get("art") or [""])[0][:2000]))
             if name == "diag":
                 return self.js({"text": diag_text(), "version": VERSION, "settings": public_settings()})
             if name == "settings":

@@ -7,7 +7,7 @@ The **Logs** tab shows a period completely: summary, week strip, history of all 
 ## Period and filters {#zeitraum}
 
 - **Monitoring time** (the set monitoring hours, e.g. 22–6), **Today**, **Yesterday**, **7 days**, **30 days** or **From–to**. ‹ › moves by a whole period.
-- **Source / device**, **Type** (e.g. knocking only) and **List** filter everything below. Devices that no longer exist but still have data are listed as “(former)”.
+- **Source / device**, **Type** (multiple choice, e.g. knocking + footsteps) and **List** filter everything below. Devices that no longer exist but still have data are listed as “(former)”.
 - **🖨 Noise log** creates the noise log for period, device and list, **⬇ Image (SVG)** an image. See [Printing](#drucken).
 
 ## Arranging sections (dashboard) {#dashboard}

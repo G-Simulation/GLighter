@@ -927,3 +927,5 @@ fieldset.prolocked .f{opacity:.55}
 .grid-stack-placeholder>.placeholder-content{border:2px dashed var(--acc);border-radius:14px;background:color-mix(in srgb,var(--acc) 8%,transparent)}
 #events .art.haon{background:#1c7ed61f;color:#4dabf7}
 .pnl[data-p=ha] .nhalist>h3{display:none}
+#artflt{display:none}
+.artms summary{min-width:120px}

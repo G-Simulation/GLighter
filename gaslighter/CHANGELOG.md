@@ -1,5 +1,8 @@
 # Changelog
 
+## 1.50.1
+- Filter **„Art“** oben in Protokolle mit **Mehrfachauswahl**, z. B. Stimme + TV/Musik. Gilt für Kopfzahlen, Verlauf und Tabelle; eine passende Art genügt.
+
 ## 1.50.0
 - **Dashboard (GridStack, MIT-Lizenz, liegt in der App):** Live und Protokolle bestehen aus Bereichen mit eigener Kopfleiste.
   - Jeder Bereich lässt sich **einklappen** (▾) und **ausblenden** (✕).

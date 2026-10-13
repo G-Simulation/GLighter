@@ -1441,8 +1441,9 @@ function renderEvents() {
     `<tr><td>${esc(fmtDay(d))}</td><td class="bw"><div class="dbar" style="width:${Math.max(3, Math.round(100 * c / mxd))}%"></div></td><td>${c}</td></tr>`).join('') : `<tr><td colspan="3" class="empty">${t('none')}</td></tr>`);
   const useArt = !CUR || CUR.classify !== false;
   syncLabelFilter(); sfltBuild();
-  $('artflt').querySelectorAll('option').forEach(o => { if (o.value && o.value !== '_notes' && !o.value.startsWith('lb:')) o.hidden = !useArt; });
-  const flt = $('artflt').value, evs = SHIDE.has('_ev') ? [] : EV.events.filter(r => !flt || (flt === '_notes' ? r.notes > 0 : flt.startsWith('lb:') ? (r.labels || []).includes(flt.slice(3)) : !useArt ? true : flt === '_none' ? !r.art : r.art === flt));
+  $('artflt').querySelectorAll('option').forEach(o => { if (o.value && o.value !== '_notes' && !o.value.startsWith('lb:')) o.hidden = !useArt; }); artMsBuild();
+  const one = (r, flt) => flt === '_notes' ? r.notes > 0 : flt.startsWith('lb:') ? (r.labels || []).includes(flt.slice(3)) : !useArt ? true : flt === '_none' ? !r.art : r.art === flt;
+  const evs = SHIDE.has('_ev') ? [] : EV.events.filter(r => !ARTSEL.size || [...ARTSEL].some(f => one(r, f)));   // Art: Mehrfachauswahl, eine passende genügt
   // Nur neu aufbauen, wenn sich etwas geaendert hat. Der Player ist von der Tabelle getrennt: Wiedergabe laeuft weiter.
   const grpMode = EVVIEW === 'grp';
   const sv = sensVis();
@@ -1572,6 +1573,24 @@ function evCount(rows) {                             // Zählung über der Tabel
 const EVOPEN = new Set();
 /* Sensor-Filter (Mehrfachauswahl): ausgeblendete Sensoren als 'ha:<Name>', 'vib', 'cam', '_ev' (Störungen) */
 let SHIDE = (() => { try { return new Set(JSON.parse(localStorage.getItem('gl_shide') || '[]')); } catch (e) { return new Set(); } })();
+/* Filter „Art“ oben als Mehrfachauswahl (z. B. Stimme + Musik): die versteckte Auswahl #artflt liefert die Einträge */
+const ARTSEL = new Set();
+function artApply() { NV.art = !ARTSEL.size ? '' : ARTSEL.size === 1 ? [...ARTSEL][0] : JSON.stringify([...ARTSEL]); EVSIG = ''; loadNight(); if (EV) renderEvents(); artMsBuild(); }
+function artMsBuild() {
+  const sel = $('artflt'); if (!sel) return; let box = $('artms');
+  if (!box) { box = el('span', { id: 'artms', className: 'sflt artms' }); sel.after(box); }
+  const items = [...sel.options].filter(o => o.value && !o.hidden).map(o => [o.value, o.textContent]);
+  for (const k of [...ARTSEL]) if (!items.some(i => i[0] === k)) ARTSEL.delete(k);
+  const sig = JSON.stringify([items, [...ARTSEL]]); if (box.dataset.sig === sig) return; box.dataset.sig = sig;
+  const wasOpen = box.querySelector('details') && box.querySelector('details').open;
+  const lbl = !ARTSEL.size ? t('art_all') : ARTSEL.size === 1 ? (items.find(i => ARTSEL.has(i[0])) || ['', ''])[1] : t('art_n', { n: ARTSEL.size });
+  box.innerHTML = `<details class="sfltd"${wasOpen ? ' open' : ''}><summary class="chip${ARTSEL.size ? ' pri' : ''}">${esc(lbl)} ▾</summary><div class="sfltl">
+    <div class="sfltb"><button type="button" class="chip" data-a="none">${esc(t('art_all'))}</button></div>
+    ${items.map(([k, l]) => `<label><input type="checkbox" data-k="${esc(k)}"${ARTSEL.has(k) ? ' checked' : ''}> ${esc(l)}</label>`).join('')}</div></details>`;
+  box.querySelectorAll('input[data-k]').forEach(c => c.onchange = () => { c.checked ? ARTSEL.add(c.dataset.k) : ARTSEL.delete(c.dataset.k); artApply(); });
+  box.querySelector('button[data-a=none]').onclick = () => { ARTSEL.clear(); artApply(); };
+}
+document.addEventListener('click', e => { for (const id of ['artms', 'sflt']) { const b = $(id), d = b && b.querySelector('details[open]'); if (d && !b.contains(e.target)) d.open = false; } });
 function shideSave() { try { localStorage.setItem('gl_shide', JSON.stringify([...SHIDE])); } catch (e) { } }
 const sensKey = x => x.kind === 'ha' ? 'ha:' + x.name : x.kind;
 const sensIcon = k => k === 'vib' ? '🫨' : k === 'cam' ? '🏃' : '📡';
@@ -3886,7 +3905,7 @@ async function init() {
   $('chkopen').onclick = () => $('chkdlg').showModal(); $('chkx').onclick = () => $('chkdlg').close();
   $('chkdlg').addEventListener('close', () => { $('chkaudio').pause(); });
   $('chkfile').onchange = e => { checkFile(e.target.files[0]); e.target.value = ''; };
-  { const af = $('artflt'); for (const [v, l] of [['', t('art_all')], ['_notes', '📝 ' + t('nt_with')], ...ART_ORDER.map(g => [g, ART_ICON[g] + ' ' + artName(g)]), ['_none', t('art_none')]]) option(af, v, l); af.onchange = () => { NV.art = af.value; loadNight(); }; }
+  { const af = $('artflt'); for (const [v, l] of [['', t('art_all')], ['_notes', '📝 ' + t('nt_with')], ...ART_ORDER.map(g => [g, ART_ICON[g] + ' ' + artName(g)]), ['_none', t('art_none')]]) option(af, v, l); af.onchange = () => { ARTSEL.clear(); if (af.value) ARTSEL.add(af.value); artApply(); }; artMsBuild(); }
   $('notesopen').onclick = openAllNotes; ntaBind();
   $('recbtn').addEventListener('click', e => { e.stopPropagation(); toggleRec(); });
   $('tileplay').onclick = () => {

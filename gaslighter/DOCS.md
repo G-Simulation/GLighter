@@ -117,7 +117,7 @@ Der Reiter **Protokolle** zeigt einen Zeitraum vollständig: Zusammenfassung, Wo
 ### Zeitraum und Filter
 
 - **Erfassungszeit** (eingestellte Überwachungszeit, z. B. 22–6 Uhr), **Heute**, **Gestern**, **7 Tage**, **30 Tage** oder **Von–bis**. ‹ › blättert um einen ganzen Zeitraum.
-- **Quelle / Gerät**, **Art** (z. B. nur Klopfen) und **Liste** filtern alles darunter. Geräte, die es nicht mehr gibt, deren Daten aber vorhanden sind, stehen als „(ehemalig)“ in der Auswahl.
+- **Quelle / Gerät**, **Art** (Mehrfachauswahl, z. B. Klopfen + Schritte) und **Liste** filtern alles darunter. Geräte, die es nicht mehr gibt, deren Daten aber vorhanden sind, stehen als „(ehemalig)“ in der Auswahl.
 - **🖨 Protokoll** erstellt das Lärmprotokoll für Zeitraum, Gerät und Liste, **⬇ Bild (SVG)** ein Bild. Siehe Drucken.
 
 ### Bereiche anordnen (Dashboard)
@@ -812,7 +812,7 @@ The **Logs** tab shows a period completely: summary, week strip, history of all 
 ### Period and filters
 
 - **Monitoring time** (the set monitoring hours, e.g. 22–6), **Today**, **Yesterday**, **7 days**, **30 days** or **From–to**. ‹ › moves by a whole period.
-- **Source / device**, **Type** (e.g. knocking only) and **List** filter everything below. Devices that no longer exist but still have data are listed as “(former)”.
+- **Source / device**, **Type** (multiple choice, e.g. knocking + footsteps) and **List** filter everything below. Devices that no longer exist but still have data are listed as “(former)”.
 - **🖨 Noise log** creates the noise log for period, device and list, **⬇ Image (SVG)** an image. See Printing.
 
 ### Arranging sections (dashboard)
