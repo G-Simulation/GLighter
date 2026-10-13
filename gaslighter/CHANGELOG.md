@@ -1,5 +1,8 @@
 # Changelog
 
+## 1.50.16
+- Verlauf: Die rote gestrichelte Linie der Sensor-Ereignisse ist wieder da, liegt aber **ganz unten**: Pegelkurve, Fähnchen und Punkte liegen darüber.
+
 ## 1.50.15
 - Verlauf: Die rote gestrichelte Linie und die rote Tönung bei Sensor-Ereignissen sind weg; es bleiben das farbige Fähnchen oben und der rote Punkt unten.
 

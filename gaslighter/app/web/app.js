@@ -4326,6 +4326,15 @@ function dtDraw(S, hoverX) {
     c.restore();
     (S.downHit || (S.downHit = [])).push([x0 / d, x1 / d, (g[2] ? '📝 ' + g[2] + '\n' : '') + t(g[2] ? 'run_click_edit' : 'run_click_add'), g]);
   }
+  {                                                  // Sensor-Ereignisse (Regel „als Ereignis“): dünne rote Linie über die ganze Höhe – ganz unten, Fähnchen, Punkte und Pegelkurve liegen darüber
+    c.save(); c.beginPath(); c.rect(L, 0, pw, T + ph); c.clip();
+    for (const a of (r.ha || []).filter(a => a[5] === 'event' && !SHIDE.has('ha:' + a[2]))) {
+      const x0 = X(Math.max(a[0], r.from)), x1 = Math.max(x0 + 2 * d, X(Math.min(a[1], r.to))); if (x1 < L || x0 > L + pw) continue;
+      c.fillStyle = ca(NC.red, 0.10); c.fillRect(x0, T, x1 - x0, ph);
+      c.strokeStyle = ca(NC.red, 0.75); c.lineWidth = 1 * d; c.setLineDash([3 * d, 3 * d]); c.beginPath(); c.moveTo(x0 + 0.5 * d, T); c.lineTo(x0 + 0.5 * d, T + ph); c.stroke(); c.setLineDash([]);
+    }
+    c.restore();
+  }
   const haV = (r.ha || []).filter(a => !SHIDE.has('ha:' + a[2])), haLane = haLanes(haV);
   for (const a of haV) { const x0 = X(Math.max(a[0], r.from)), x1 = Math.max(X(Math.min(a[1], r.to)), X(Math.max(a[0], r.from)) + 3 * d); if (x1 <= x0 || x1 < L || x0 > L + pw) continue;
     const md = a[5] || 'note', col = md === 'event' ? sensCol(a) : '#1c7ed6', ly = T + haLane.get(a[2]) * 6 * d;
