@@ -1,5 +1,8 @@
 # Changelog
 
+## 1.50.12
+- **Alle Tabellen gleich gestaltet und filterbar** (gleiche Tabelle wie die Ereignisliste): Ereignisse pro Tag, Notizen & Bewegung (jetzt eine Tabelle mit Typ, Datum, Uhrzeit, Quelle, Text), Sensoren im Zeitraum, Lautstärke-Prüfung, Vergleich/Kalibrierung und Profil-Training. Jede Spalte: Auswahl, Mindestwert oder Text; sortierbar.
+
 ## 1.50.11
 - Live-Reiter: Die Ereignisliste ist jetzt dieselbe Tabelle wie in den Logs – **jede Spalte filterbar** (Auswahl bei Quelle/Art, Mindestwert bei Dauer/Spitze/Schwelle/Hintergrund, Text bei Start/Notiz), sortierbar.
 - Dort gibt es jetzt auch den Filter **📡 Sensoren** (Mehrfachauswahl, alle Regel-Sensoren inkl. Türsensor Tilt).

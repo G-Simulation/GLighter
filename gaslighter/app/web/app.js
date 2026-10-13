@@ -1437,8 +1437,8 @@ function renderEvents() {
   const mxh = Math.max(1, ...EV.hours);
   $('hours').innerHTML = EV.hours.map((c, h) => `<div class="hb" title="${h}:00 – ${c}"><em>${c || ''}</em><i style="height:${Math.round(100 * c / mxh)}%"></i><span>${h}</span></div>`).join('');
   const mxd = Math.max(1, ...EV.days.map(x => x[1]));
-  $('days').innerHTML = `<tr><th>${t('date')}</th><th></th><th>${t('count')}</th></tr>` + (EV.days.length ? EV.days.map(([d, c]) =>
-    `<tr><td>${esc(fmtDay(d))}</td><td class="bw"><div class="dbar" style="width:${Math.max(3, Math.round(100 * c / mxd))}%"></div></td><td>${c}</td></tr>`).join('') : `<tr><td colspan="3" class="empty">${t('none')}</td></tr>`);
+  tabGrid($('days'), `<table><tr><th>${t('date')}</th><th></th><th>${t('count')}</th></tr>` + (EV.days.length ? EV.days.map(([d, c]) =>
+    `<tr><td>${esc(fmtDay(d))}</td><td class="bw"><div class="dbar" style="width:${Math.max(3, Math.round(100 * c / mxd))}%"></div></td><td>${c}</td></tr>`).join('') : `<tr><td colspan="3" class="empty">${t('none')}</td></tr>`) + '</table>');
   const useArt = !CUR || CUR.classify !== false;
   syncLabelFilter(); sfltBuild();
   $('artflt').querySelectorAll('option').forEach(o => { if (o.value && o.value !== '_notes' && !o.value.startsWith('lb:')) o.hidden = !useArt; }); artMsBuild();
@@ -1567,6 +1567,53 @@ function evGrid(evs, sv, useArt, grpMode) {
 }
 matchMedia('(max-width:600px)').addEventListener('change', () => { EVSIG = ''; renderEvents(); });
 /* Filter unter der Spaltenüberschrift: Liste mit Häkchen (Mehrfachauswahl), Knopf zeigt „alle“ bzw. die Auswahl */
+/* Gemeinsame Tabelle (Tabulator) für alle Listen: aus einer einfachen <table> werden Spaltenfilter (Auswahl / Mindestwert / Text) und Sortierung.
+   o.onRow(dataset, event, row) = Klick auf eine Zeile (data-* der <tr>), o.head = Überschrift davor, o.max = maximale Höhe */
+function tabGrid(box, html, o) {
+  o = o || {};
+  if (!box) return;
+  if (box._tb) { try { box._tb.destroy(); } catch (e) { } box._tb = null; }
+  const tpl = document.createElement('template'); tpl.innerHTML = html;
+  const tb = tpl.content.querySelector('table');
+  if (!tb || typeof Tabulator === 'undefined') { box.innerHTML = html; return; }
+  const rest = [...tpl.content.childNodes].filter(n => n !== tb && !(n.contains && n.contains(tb)));
+  const trs = [...tb.querySelectorAll('tr')], hr = trs.find(r => r.querySelector('th')); const heads = hr ? [...hr.children].map(c => c.textContent.trim()) : [];
+  const body = trs.filter(r => r !== hr && r.querySelector('td'));
+  let placeholder = t('none');
+  const data = [];
+  body.forEach((r, i) => {
+    if (r.children.length === 1 && r.children[0].getAttribute('colspan')) { placeholder = r.textContent.trim() || placeholder; return; }
+    const d = { id: i, cls: r.className || '', ds: Object.assign({}, r.dataset) };
+    [...r.children].forEach((c, j) => { d['c' + j] = c.innerHTML; d['t' + j] = c.textContent.trim(); d['k' + j] = c.className || ''; });
+    data.push(d);
+  });
+  const toNum = s => { const m = String(s).replace('−', '-').replace(',', '.').match(/^[+\-]?\d+(\.\d+)?/); return m ? parseFloat(m[0]) : NaN; };
+  const cols = heads.map((h, j) => {
+    const txt = data.map(d => d['t' + j]), nonEmpty = txt.filter(Boolean);
+    const numeric = nonEmpty.length > 0 && nonEmpty.every(s => !isNaN(toNum(s)) && /^[+\-−]?\d[\d.,]*\s*[a-zA-Z%°²/ ]*$/.test(s));
+    const distinct = [...new Set(nonEmpty)];
+    const c = { field: 't' + j, title: h, minWidth: h ? 80 : 40, formatter: cell => cell.getRow().getData()['c' + j], cssClass: data.length && data[0]['k' + j] || '' };
+    if (!h) { c.headerSort = false; c.width = 46; c.minWidth = 40; return c; }
+    if (numeric) {
+      c.sorter = (x, y, aR, bR) => toNum(aR.getData()['t' + j]) - toNum(bR.getData()['t' + j]);
+      c.headerFilter = 'number'; c.headerFilterPlaceholder = '≥'; c.headerFilterFunc = (hv, rv, rd) => hv === '' || hv == null || toNum(rd['t' + j]) >= +hv;
+    } else {
+      c.sorter = (x, y) => String(x).localeCompare(String(y), undefined, { numeric: true });
+      if (distinct.length > 1 && distinct.length <= 25) {
+        c.headerFilter = msFilter(() => distinct.slice().sort((p, q) => p.localeCompare(q))); c.headerFilterLiveFilter = false;
+        c.headerFilterFunc = (hv, rv) => !hv || !hv.length || hv.includes(rv);
+      } else { c.headerFilter = 'input'; c.headerFilterPlaceholder = '…'; }
+    }
+    return c;
+  });
+  box.innerHTML = '';
+  if (o.head) { const hd = document.createElement('div'); hd.innerHTML = o.head; box.append(...hd.childNodes); }
+  const gd = document.createElement('div'); gd.className = 'tabg'; box.append(gd, ...rest);
+  const T = new Tabulator(gd, { data, columns: cols, index: 'id', layout: 'fitColumns', maxHeight: o.max || '70vh', placeholder, headerSortElement: '<span class="srt"></span>',
+    rowFormatter: row => { const d = row.getData(), e = row.getElement(); if (d.cls) d.cls.split(/\s+/).filter(Boolean).forEach(x => e.classList.add(x)); Object.assign(e.dataset, d.ds || {}); } });
+  if (o.onRow) T.on('rowClick', (e, row) => o.onRow(row.getData().ds || {}, e, row));
+  box._tb = T;
+}
 function msFilter(valuesFn) {
   return (cell, onRendered, success) => {
     const b = el('button', { type: 'button', className: 'msf' }); let cur = [];
@@ -3754,23 +3801,22 @@ function renderNight() {
     (sm.arts && Object.keys(sm.arts).length ? `<div class="narts">${Object.entries(sm.arts).sort((a, b) => b[1] - a[1]).map(([g, n]) => `<span class="art a-${g}">${ART_ICON[g] || '❓'} ${esc(artName(g))} <small>${n}×</small></span>`).join('')}</div>` : '');
   // Die Störungen stehen in der Tabelle unten (gleicher Datensatz)
   const nn = d.events.flatMap(ev => (ev.notes || []).map(n => [ev, n])), fl = d.fnotes || [];
-  $('nnotes').hidden = !nn.length && !fl.length;
-  $('nnotes').innerHTML = nn.length ? `<h3>${esc(t('nt_night', { n: nn.length }))}</h3>` + nn.map(([ev, n], i) => `<div class="ntrow" data-i="${i}" tabindex="0"><span class="ntnum" style="background:${noteCol(n)}">📝</span><span class="ntoff" data-clk=" · ${esc(ev.name)}">${esc(n.clock)}</span><span class="ntclk">${esc(ev.name)}</span><span class="nttx">${(n.tags || []).map(ntTag).join('')}${n.text ? `<span class="ntt">${esc(n.text)}</span>` : ''}${n.witness ? `<span class="ntw">👤 ${esc(n.witness)}</span>` : ''}</span><span class="ntact">▶</span></div>`).join('') : '';
-  $('nnotes').querySelectorAll('.ntrow').forEach(r => { const [ev, n] = nn[+r.dataset.i]; r.onclick = () => { if (ev.k) openEvent(ev.k, n.off); }; });
-  if (fl.length) {                                   // freie Notizen: Klick springt im Verlauf hin, ✎ bearbeitet
-    const nm = id => id === 'all' ? t('all_sources') : viewName(id);
-    const h3 = `<h3>📝 ${esc(t('fn_list', { n: fl.length }))}</h3>`, box = el('div'); box.innerHTML = h3 + fl.map((n, i) => `<div class="ntrow fnr" data-i="${i}" tabindex="0"><span class="ntnum" style="background:#7048e8">📝</span><span class="ntoff">${esc(fmtDay(n.date))}</span><span class="ntclk">${esc(n.clock)}${n.to ? '–' + esc(n.clock_to) : ''}${n.rz ? ' 🌙' : ''} · ${esc(nm(n.src || 'all'))}</span><span class="nttx">${(n.tags || []).map(ntTag).join('')}${n.text ? `<span class="ntt">${esc(n.text)}</span>` : ''}${n.witness ? `<span class="ntw">👤 ${esc(n.witness)}</span>` : ''}</span><span class="ntact fned" title="${esc(t('nt_edit'))}">✎</span></div>`).join('');
-    $('nnotes').prepend(...box.childNodes);
-    $('nnotes').querySelectorAll('.fnr').forEach(r => { const n = fl[+r.dataset.i]; r.onclick = e => { if (e.target.closest('.fned')) { fnOpen(n); return; }
-      DT.mark = [n.a, Math.max(n.b, n.a + 1000)]; DT.from = n.a - 120000; DT.to = Math.max(n.b, n.a) + 120000; dtLoad(DT, true); $('ndaybox').scrollIntoView({ behavior: 'smooth', block: 'start' }); }; });
-  }
   const mo = (d.motion || []).filter(m => !SHIDE.has(m.kind));                        // Handys als Bewegungsmelder: Erschütterung / Bewegung im Bild
-  if (mo.length) {
-    const nm = id => viewName(id), box = el('div');
-    box.innerHTML = `<h3>🫨 ${esc(t('mot_list', { n: mo.length }))}</h3>` + mo.map((m, i) => { const a = new Date(m.a), b = new Date(m.b), L = locale();
-      return `<div class="ntrow mor" data-i="${i}" tabindex="0"><span class="ntnum" style="background:${m.kind === 'vib' ? '#e8590c' : '#1c7ed6'}">${m.kind === 'vib' ? '🫨' : '🏃'}</span><span class="ntoff">${esc(a.toLocaleDateString(L, { day: '2-digit', month: '2-digit' }))}</span><span class="ntclk">${esc(a.toLocaleTimeString(L))}–${esc(b.toLocaleTimeString(L))} · ${esc(nm(m.src))}</span><span class="nttx"><span class="ntt">${esc(t(m.kind === 'vib' ? 'mot_vib' : 'mot_cam'))} · ${esc(fmtDur(Math.max(0, (m.b - m.a) / 1000)))} · ${esc(t('mot_peak'))} ${esc(m.kind === 'vib' ? f2(m.peak) + ' m/s²' : f1(m.peak) + ' %')}${m.open ? ' · ' + esc(t('mot_open')) : ''}</span></span></div>`; }).join('');
-    $('nnotes').hidden = false; $('nnotes').append(...box.childNodes);
-    $('nnotes').querySelectorAll('.mor').forEach(r => { const m = mo[+r.dataset.i]; r.onclick = () => { DT.mark = [m.a, Math.max(m.b, m.a + 1000)]; DT.from = m.a - 120000; DT.to = Math.max(m.b, m.a) + 120000; dtLoad(DT, true); $('ndaybox').scrollIntoView({ behavior: 'smooth', block: 'start' }); }; });
+  $('nnotes').hidden = !nn.length && !fl.length && !mo.length;
+  {
+    const nmv = id => id === 'all' ? t('all_sources') : viewName(id), L = locale(), mk = (m, ic, col) => `<span class="ntnum" style="background:${col}">${ic}</span> `;
+    const tx = n => `${(n.tags || []).map(ntTag).join('')}${n.text ? `<span class="ntt">${esc(n.text)}</span>` : ''}${n.witness ? `<span class="ntw">👤 ${esc(n.witness)}</span>` : ''}`;
+    const rows = [
+      ...nn.map(([ev, n], i) => `<tr data-k="n" data-i="${i}"><td>${mk(0, '📝', noteCol(n))}${esc(t('tp_evnote'))}</td><td>${esc(fmtDay(n.date || d.date))}</td><td>${esc(n.clock)}</td><td>${esc(ev.name)}</td><td>${tx(n)}</td><td class="ntact">▶</td></tr>`),
+      ...fl.map((n, i) => `<tr data-k="f" data-i="${i}"><td>${mk(0, '📝', '#7048e8')}${esc(t('tp_note'))}</td><td>${esc(fmtDay(n.date))}</td><td>${esc(n.clock)}${n.to ? '–' + esc(n.clock_to) : ''}${n.rz ? ' 🌙' : ''}</td><td>${esc(nmv(n.src || 'all'))}</td><td>${tx(n)}</td><td class="ntact fned" title="${esc(t('nt_edit'))}">✎</td></tr>`),
+      ...mo.map((m, i) => { const a1 = new Date(m.a), b1 = new Date(m.b);
+        return `<tr data-k="m" data-i="${i}"><td>${mk(0, m.kind === 'vib' ? '🫨' : '🏃', m.kind === 'vib' ? '#e8590c' : '#1c7ed6')}${esc(t(m.kind === 'vib' ? 'mot_vib' : 'mot_cam'))}</td><td>${esc(a1.toLocaleDateString(L, { day: '2-digit', month: '2-digit' }))}</td><td>${esc(a1.toLocaleTimeString(L))}–${esc(b1.toLocaleTimeString(L))}</td><td>${esc(viewName(m.src))}</td><td><span class="ntt">${esc(fmtDur(Math.max(0, (m.b - m.a) / 1000)))} · ${esc(t('mot_peak'))} ${esc(m.kind === 'vib' ? f2(m.peak) + ' m/s²' : f1(m.peak) + ' %')}${m.open ? ' · ' + esc(t('mot_open')) : ''}</span></td><td></td></tr>`; })];
+    const goto = (a, b) => { DT.mark = [a, Math.max(b, a + 1000)]; DT.from = a - 120000; DT.to = Math.max(b, a) + 120000; dtLoad(DT, true); $('ndaybox').scrollIntoView({ behavior: 'smooth', block: 'start' }); };
+    tabGrid($('nnotes'), rows.length ? `<table><tr><th>${esc(t('col_type'))}</th><th>${esc(t('date'))}</th><th>${esc(t('col_time'))}</th><th>${esc(t('src_col'))}</th><th>${esc(t('col_text'))}</th><th></th></tr>${rows.join('')}</table>` : '<div></div>',
+      { onRow: (ds, e) => { const i = +ds.i;
+        if (ds.k === 'n') { const [ev, n] = nn[i]; if (ev.k) openEvent(ev.k, n.off); }
+        else if (ds.k === 'f') { const n = fl[i]; if (e.target.closest('.fned')) fnOpen(n); else goto(n.a, n.b); }
+        else if (ds.k === 'm') { const m = mo[i]; goto(m.a, m.b); } } });
   }
   haListRender();
   drawNight();
@@ -3780,13 +3826,13 @@ function haListRender() {
   const d = NV.data || {}, box0 = $('nhalist'); if (!box0) return; box0.innerHTML = '';
   const hl = (d.ha || []).filter(x => !SHIDE.has('ha:' + x[2]) && (!dashVis('ha') || (x[1] >= DT.from && x[0] <= DT.to)));                             // Sensoren aus Home Assistant (Regeln „nur festhalten“)
   if (hl.length) {
-    const box = el('div'), L = locale();
-    box.innerHTML = `<h3>📡 ${esc(t('ha_list', { n: hl.length }))}</h3>` + hl.map((x, i) => { const dur = Math.max(0, (x[1] - x[0]) / 1000);
-      return `<div class="ntrow har" data-i="${i}" data-a="${x[0]}" tabindex="0"><span class="ntnum" style="background:#1c7ed6">📡</span><span class="ntoff">${esc(new Date(x[0]).toLocaleDateString(L, { day: '2-digit', month: '2-digit' }))}</span><span class="ntclk">${esc(hms(x[0]))}–${esc(hms(x[1]))}</span><span class="nttx"><span class="ntt"><b>${esc(x[2])}</b> ${esc(t('ha_on'))} · ${esc(dur < 120 ? Math.round(dur) + ' s' : dur < 7200 ? Math.round(dur / 60) + ' min' : Math.floor(dur / 3600) + ' h ' + Math.round(dur % 3600 / 60) + ' min')}</span>${x[4] ? `<span class="ntt hant">📝 ${esc(x[4])}</span>` : ''}</span><span class="ntact hanote" title="${esc(t('ha_note'))}">✎</span></div>`; }).join('');
-    box0.append(...box.childNodes);
-    box0.querySelectorAll('.har').forEach(r => { const x = hl[+r.dataset.i]; r.onclick = e => {
-      if (e.target.closest('.hanote')) { haPop({ a: x[0], b: x[1], name: x[2], rid: x[3], note: x[4] || '' }); return; }
-      DT.mark = [x[0], Math.max(x[1], x[0] + 1000)]; DT.from = x[0] - 120000; DT.to = Math.max(x[1], x[0]) + 120000; dtLoad(DT, true); $('ndaybox').scrollIntoView({ behavior: 'smooth', block: 'start' }); }; });
+    const L = locale();
+    const rows = hl.map((x, i) => { const dur = Math.max(0, (x[1] - x[0]) / 1000);
+      return `<tr data-i="${i}"><td>📡 ${esc(x[2])}</td><td>${esc(new Date(x[0]).toLocaleDateString(L, { day: '2-digit', month: '2-digit' }))}</td><td>${esc(hms(x[0]))}–${esc(hms(x[1]))}</td><td>${esc(dur < 120 ? Math.round(dur) + ' s' : dur < 7200 ? Math.round(dur / 60) + ' min' : Math.floor(dur / 3600) + ' h ' + Math.round(dur % 3600 / 60) + ' min')}</td><td>${x[4] ? `<span class="ntt hant">📝 ${esc(x[4])}</span>` : ''}</td><td class="ntact hanote" title="${esc(t('ha_note'))}">✎</td></tr>`; });
+    tabGrid(box0, `<table><tr><th>${esc(t('col_type'))}</th><th>${esc(t('date'))}</th><th>${esc(t('col_time'))}</th><th>${esc(t('dur'))}</th><th>${esc(t('col_text'))}</th><th></th></tr>${rows.join('')}</table>`,
+      { head: `<h3>📡 ${esc(t('ha_list', { n: hl.length }))}</h3>`, onRow: (ds, e) => { const x = hl[+ds.i]; if (!x) return;
+        if (e.target.closest('.hanote')) { haPop({ a: x[0], b: x[1], name: x[2], rid: x[3], note: x[4] || '' }); return; }
+        DT.mark = [x[0], Math.max(x[1], x[0] + 1000)]; DT.from = x[0] - 120000; DT.to = Math.max(x[1], x[0]) + 120000; dtLoad(DT, true); $('ndaybox').scrollIntoView({ behavior: 'smooth', block: 'start' }); } });
   }
 }
 function nightGeom(cv) {
@@ -4087,9 +4133,9 @@ async function calPoll() {
   } else if (c.state === 'done') {
     st.className = 'calst'; st.textContent = c.msg === 'few' ? t('cal_few') : t('cal_result') + (c.target != null ? ' ' + t('cal_target', { v: c.target.toFixed(1) }) : '');
     const nm = id => viewName(id);
-    res.innerHTML = `<table class="caltab"><thead><tr><th>${esc(t('cmp_dev'))}</th><th>${esc(t('cal_th_quiet'))}</th><th>${esc(t('cal_th_lvl'))}</th><th>${esc(t('cal_th_dev'))}</th><th>${esc(t('cal_th_gain'))}</th></tr></thead><tbody>` +
+    tabGrid(res, `<table class="caltab"><thead><tr><th>${esc(t('cmp_dev'))}</th><th>${esc(t('cal_th_quiet'))}</th><th>${esc(t('cal_th_lvl'))}</th><th>${esc(t('cal_th_dev'))}</th><th>${esc(t('cal_th_gain'))}</th></tr></thead><tbody>` +
       c.res.map(e => `<tr class="${e.ok ? '' : 'bad'}"><td>${esc(e.name || nm(e.id))}</td><td>${e.quiet != null ? e.quiet.toFixed(1) : '–'}</td><td>${e.level != null ? e.level.toFixed(1) : '–'}${e.std != null ? ' <small>±' + e.std.toFixed(1) + '</small>' : ''}</td>` +
-        `<td>${e.ok ? (e.delta >= 0 ? '+' : '') + e.delta.toFixed(1) + ' dB' : esc(t('cal_bad_' + (e.why || 'nodata')))}</td><td>${e.ok && e.gain_new != null ? esc(String(e.gain_old)) + ' → <b>' + esc(String(e.gain_new)) + '</b> dB' : '–'}</td></tr>`).join('') + '</tbody></table>';
+        `<td>${e.ok ? (e.delta >= 0 ? '+' : '') + e.delta.toFixed(1) + ' dB' : esc(t('cal_bad_' + (e.why || 'nodata')))}</td><td>${e.ok && e.gain_new != null ? esc(String(e.gain_old)) + ' → <b>' + esc(String(e.gain_new)) + '</b> dB' : '–'}</td></tr>`).join('') + '</tbody></table>');
     act.querySelectorAll('button')[0].disabled = act.querySelectorAll('button')[1].disabled = c.msg === 'few';
   } else { st.className = 'calst'; if (!/✓|festgehalten|recorded/.test(st.textContent)) st.textContent = ''; res.innerHTML = ''; }
   const lg = $('callog');
@@ -4104,11 +4150,11 @@ function renderCmp(j) {
   const v = c.filter(x => x.peak != null).sort((a, b) => b.peak - a.peak), top = v.length ? v[0].peak : null;
   const lead = v.filter(x => top - x.peak < 1).map(x => x.name);
   box.hidden = false;
-  box.innerHTML = `<h4 class="nthead">${esc(t('cmp_head'))}</h4><div class="cmplead">${esc(lead.length === 1 ? t('cmp_loudest', { n: lead[0] }) : t('cmp_equal', { n: lead.join(', ') }))}</div>` +
+  tabGrid(box, `<h4 class="nthead">${esc(t('cmp_head'))}</h4><div class="cmplead">${esc(lead.length === 1 ? t('cmp_loudest', { n: lead[0] }) : t('cmp_equal', { n: lead.join(', ') }))}</div>` +
     `<table class="cmptab"><thead><tr><th>${esc(t('cmp_dev'))}</th><th>${esc(t('cmp_peak'))}</th><th>${esc(t('cmp_diff'))}</th><th>${esc(t('cmp_cal'))}</th></tr></thead><tbody>` +
     v.concat(c.filter(x => x.peak == null)).map(x => `<tr${x.peak === top ? ' class="top"' : ''}><td>${esc(x.name)}${x.own ? ' <small>(' + esc(t('cmp_trig')) + ')</small>' : ''}</td><td>${x.peak != null ? x.peak.toFixed(1) + ' dBFS' : '–'}</td>` +
       `<td>${x.peak != null ? (x.peak === top ? '–' : (x.peak - top).toFixed(1) + ' dB') : '–'}</td><td>${x.cal.ok ? '✓ ' + esc(fmtStamp(x.cal.at)) : x.cal.changed ? '⚠ ' + esc(t('cal_changed')) : esc(t('cal_none'))}</td></tr>`).join('') +
-    `</tbody></table><div class="cmpcvs" id="cmpcvs"></div><small class="cmphint">${esc(t('cmp_hint'))}</small>`;
+    `</tbody></table><div class="cmpcvs" id="cmpcvs"></div><small class="cmphint">${esc(t('cmp_hint'))}</small>`);
   const rows = c.map(x => ({ name: x.name, own: x.own, g: x.own ? EVV.g : x.graph })).filter(x => x.g && x.g.recs && x.g.recs.length);
   const wrap = $('cmpcvs');
   rows.forEach(x => { x.R = x.own ? EVV.d : evDecode(x.g); x.cv = el('canvas', { className: 'cmpcv' }); const lab = el('div', { className: 'cmplab', textContent: x.name }); wrap.append(lab, x.cv); });
@@ -4475,10 +4521,9 @@ function ptRender() {
     const tip = esc(t(k.src === 'ev' ? 'pt_ev' : 'pt_fp'));
     return `<td title="${tip}">${k.art ? artChip(k.art, k.pct, k.man) : ''}${k.src === 'fp' ? ' <small>ⓕ</small>' : ''}</td><td title="${tip}">${k.prof ? `<span class="art prof${k.pbg ? ' bgp' : ''}">🧩 ${esc(k.prof)}${k.ppct != null ? ` <small>${k.ppct} %</small>` : ''}</span>` : ''}</td>`;
   };
-  box.innerHTML = `<table><tr><th>${esc(t('pt_col_dev'))}</th><th>${esc(t('pt_col_t'))}</th><th>${esc(t('pt_col_dur'))}</th><th>${esc(t('pt_col_pk'))}</th><th>${esc(t('pt_col_over'))}</th><th>${esc(t('pt_col_art'))}</th><th>${esc(t('pt_col_prof'))}</th></tr>`
+  tabGrid(box, `<table><tr><th>${esc(t('pt_col_dev'))}</th><th>${esc(t('pt_col_t'))}</th><th>${esc(t('pt_col_dur'))}</th><th>${esc(t('pt_col_pk'))}</th><th>${esc(t('pt_col_over'))}</th><th>${esc(t('pt_col_art'))}</th><th>${esc(t('pt_col_prof'))}</th></tr>`
     + show.map(([id, x]) => `<tr data-a="${x[0]}" data-b="${x[1]}"><td>${esc(nm(id))}</td><td>${hms(x[0])}</td><td>${(Math.max(0.125, (x[1] - x[0]) / 1000)).toFixed(1).replace('.', lang === 'de' ? ',' : '.')} s</td><td>${f1(x[2])} dBFS</td><td>+${f1(x[2] - PT.v)} dB</td>${kiCell(x[3])}</tr>`).join('')
-    + '</table>' + (cut ? `<div class="ptcut ndptcut">${esc(t('pt_cut', { n: show.length }))}</div>` : '');
-  box.querySelectorAll('tr[data-a]').forEach(tr => tr.onclick = () => { const a = +tr.dataset.a, b = +tr.dataset.b, padv = Math.max(15000, (b - a) * 3); DT.mark = [a, b]; dtSetWin(DT, a - padv, b + padv, 'now'); $('ndaybox').scrollIntoView({ behavior: 'smooth', block: 'start' }); });
+    + '</table>' + (cut ? `<div class="ptcut ndptcut">${esc(t('pt_cut', { n: show.length }))}</div>` : ''), { onRow: ds => { if (!ds.a) return; const a = +ds.a, b = +ds.b, padv = Math.max(15000, (b - a) * 3); DT.mark = [a, b]; dtSetWin(DT, a - padv, b + padv, 'now'); $('ndaybox').scrollIntoView({ behavior: 'smooth', block: 'start' }); } });
 }
 function ptDraw(c, r, X, Y, lo, hi, L, T, pw, ph, d, wave, bw) {
   const v = PT.v, col = PTCOL;
@@ -5240,10 +5285,10 @@ function pfTeachRender() {
     : st.state === 'armed' ? t('pf_armed', { n, s: st.left_s }) : t('pf_done', { n });
   if (done) box.className = 'pfstate calst';
   const nm = id => (st.names || {})[id] || id;
-  res.innerHTML = n ? `<div class="pfscroll"><table class="caltab"><thead><tr><th></th><th>#</th><th>${esc(t('start'))}</th>${(st.ids || []).map(id => `<th>${esc(nm(id))}</th>`).join('')}</tr></thead><tbody>` +
+  if (n) tabGrid(res, `<div class="pfscroll"><table class="caltab"><thead><tr><th></th><th>#</th><th>${esc(t('start'))}</th>${(st.ids || []).map(id => `<th>${esc(nm(id))}</th>`).join('')}</tr></thead><tbody>` +
     st.groups.map((g, i) => `<tr><td><input type="checkbox" class="pfsk" data-i="${i}"${PF.skip.has(i) ? '' : ' checked'}></td><td>${i + 1}</td><td>${esc(g.at)}</td>${(st.ids || []).map(id => { const d = g.dev[id];
-      return `<td>${d ? '✓ ' + esc(t('pf_heard', { d: (d.over >= 0 ? '+' : '') + d.over.toFixed(0) })) : '<span class="noclip">' + esc(t('pf_not_heard')) + '</span>'}</td>`; }).join('')}</tr>`).join('') + '</tbody></table></div>' : '';
-  res.querySelectorAll('.pfsk').forEach(c => c.onchange = () => { const i = +c.dataset.i; c.checked ? PF.skip.delete(i) : PF.skip.add(i); });
+      return `<td>${d ? '✓ ' + esc(t('pf_heard', { d: (d.over >= 0 ? '+' : '') + d.over.toFixed(0) })) : '<span class="noclip">' + esc(t('pf_not_heard')) + '</span>'}</td>`; }).join('')}</tr>`).join('') + '</tbody></table></div>'); else res.innerHTML = '';
+  res.onchange = e => { const c = e.target.closest && e.target.closest('.pfsk'); if (c) { const i = +c.dataset.i; c.checked ? PF.skip.delete(i) : PF.skip.add(i); } };
   $('pfok').disabled = !n;
   clearTimeout(PF.timer); if (run && $('profdlg').open) PF.timer = setTimeout(pfTeachPoll, 500);
 }
