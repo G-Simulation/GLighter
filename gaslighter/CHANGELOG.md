@@ -1,5 +1,8 @@
 # Changelog
 
+## 1.50.14
+- Live-Verlauf: Das **Zeitfenster reicht beliebig weit zurück**: neue Stufen 2 d, 7 d, 30 d, 90 d; mit Mausrad/−/+ bis zu 400 Tage. Über 2 Tage werden Minutenwerte gezeigt. Die Ereignisliste darunter zeigt bei älteren Einträgen das Datum.
+
 ## 1.50.13
 - Verlauf: Sensor-Ereignisse („als Ereignis“) sind jetzt auf der **ganzen Höhe** anklickbar – rote Linie, Marker oben und unten – und öffnen das Fenster mit Notiz, auch bei Ereignissen von gestern im Live-Verlauf.
 

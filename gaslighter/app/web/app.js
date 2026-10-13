@@ -318,6 +318,7 @@ function drawRefs(c, refs, yOf, lo, hi, L, pw, T, ph, d) {
 function goLive() { histExit(); setLive(true); yv.auto = true; if (typeof wg !== 'undefined') wg.auto = true; syncAutoBtn(); markDirty(); }
 function spanLabel(s) {
   s = Math.round(s); if (s < 60) return s + ' s';
+  if (s >= 172800) { const dd = s / 86400; return (Number.isInteger(dd) ? dd : dd.toFixed(1)) + ' d'; }
   if (s < 3600) return (s % 60 ? Math.floor(s / 60) + ':' + pad(s % 60) : s / 60) + ' min';
   const m = Math.round(s / 60); return (m % 60 ? Math.floor(m / 60) + ':' + pad(m % 60) : m / 60) + ' h';
 }
@@ -1067,7 +1068,7 @@ function bindCanvas(cv, isSpec) {
   document.addEventListener('pointerdown', e => { if (e.pointerType !== 'mouse' && e.target !== cv && hoverX != null && !e.target.closest('canvas')) hoverX = null; });
   cv.addEventListener('dblclick', () => { histExit(); setLive(true); yv.auto = true; yv.anchor = false; wg.auto = true; syncAutoBtn(); setSpan(view.preset || 60); });
   bindPinch(cv, () => viewRange(), x => clamp((x - AXL()) / Math.max(20, cv.getBoundingClientRect().width - AXL() - 14), 0, 1), (f, t2) => {   // zwei Finger: Zeit
-    const ns = clamp((t2 - f) / 1000, 5, 86400), now = nowServer() - DELAY;
+    const ns = clamp((t2 - f) / 1000, 5, 34560000), now = nowServer() - DELAY;
     if (view.live || t2 >= now) { if (!view.live) setLive(true); setSpan(Math.round(ns * 10) / 10); }
     else { view.end = t2; setSpan(Math.round(ns * 10) / 10); }
     markDirty();
@@ -1095,7 +1096,7 @@ function bindCanvas(cv, isSpec) {
 /* Live-Bild: Zeit zoomen (stufenlos). Live: rechter Rand bleibt „jetzt“; angehalten: die Stelle unter der Maus bleibt stehen.
    Weiter als der Arbeitsspeicher (10 min) geht es nahtlos in den Tagesverlauf. */
 function zoomLiveX(k, fx, end0) {
-  const ns = clamp(Math.round(view.span * k * 10) / 10, 5, 86400); if (ns === view.span) return;
+  const ns = clamp(Math.round(view.span * k * 10) / 10, 5, 34560000); if (ns === view.span) return;
   if (view.live) { setSpan(ns); markDirty(); return; }
   const [a, b] = viewRange(), c = a + clamp(fx, 0, 1) * (b - a), now = nowServer() - DELAY;
   let end = end0 != null ? end0 : c + (1 - clamp(fx, 0, 1)) * ns * 1000;
@@ -4202,7 +4203,7 @@ async function dtLoad(S, keep) {
     S.src = selSrc; S.date = today;
     if (S.from == null) S.zoom = false;
     if (!S.zoom) {
-      if (view.span >= 86400) { S.from = parseDay(today).getTime(); S.to = S.from + 86400000; }
+      if (view.span === 86400) { S.from = parseDay(today).getTime(); S.to = S.from + 86400000; }
       else { S.to = now; S.from = now - view.span * 1000; }
     }
     q = 'daytrack?src=' + encodeURIComponent(S.src) + '&date=' + today + '&free=1&from=' + Math.round(S.from) + '&to=' + Math.round(S.to);
@@ -4995,14 +4996,14 @@ function bindLive() {
     if (!side && (e.shiftKey || xAt(e) < S.geo.L)) { S.yk = clamp((S.yk || 1) * wheelK(z, e.ctrlKey), 0.02, 1); dtDraw(S); return; }   // Höhe
     if (side) { const sh = z / S.geo.pw * (S.data.to - S.data.from); setWin(S.data.from + sh, S.data.to + sh); return; }   // seitlich wischen: verschieben
     if (!LDT.hist && (!S.zoom || S.data.to >= nowServer() - 3000)) {   // läuft bis „jetzt“: Zeitfenster zoomen, rechter Rand bleibt jetzt (unter 10 min wieder das normale Live-Bild)
-      setSpan(clamp(Math.round(view.span * wheelK(z, e.ctrlKey)), 5, 86400)); return;
+      setSpan(clamp(Math.round(view.span * wheelK(z, e.ctrlKey)), 5, 34560000)); return;
     }
-    const r = S.data, span = r.to - r.from, ns = clamp(span * wheelK(z, e.ctrlKey), 60000, 2 * 86400000);
+    const r = S.data, span = r.to - r.from, ns = clamp(span * wheelK(z, e.ctrlKey), 60000, 400 * 86400000);
     const fx = clamp((xAt(e) - S.geo.L) / S.geo.pw, 0, 1), c0 = r.from + fx * span;
     setWin(c0 - fx * ns, c0 - fx * ns + ns);
   }, { passive: false });
   const setWin = (f, t2) => {                          // nicht über „jetzt“ hinaus; Daten gedrosselt nachladen
-    const ns = clamp(t2 - f, 60000, 2 * 86400000), now = nowServer(); t2 = f + ns; if (t2 > now) { t2 = now; f = now - ns; }
+    const ns = clamp(t2 - f, 60000, 400 * 86400000), now = nowServer(); t2 = f + ns; if (t2 > now) { t2 = now; f = now - ns; }
     S.from = f; S.to = t2; S.zoom = true; S.data = Object.assign({}, S.data, { from: f, to: t2 }); dtDraw(S); dtSpec(S);
     if (Date.now() - lastLoad > 300) { lastLoad = Date.now(); dtLoad(S, true); }
   };
@@ -5044,7 +5045,7 @@ function levRender() {
   const ms = f => ({ headerFilter: msFilter(vals(f)), headerFilterFunc: (hv, rv, rd) => !hv || !hv.length || (f === 'tags' ? rd.tags.some(x => hv.includes(x)) : hv.includes(rv)), headerFilterLiveFilter: false });
   const num = f => ({ headerFilter: 'number', headerFilterPlaceholder: '≥', headerFilterFunc: (hv, rv) => hv === '' || hv == null || (rv != null && rv >= +hv) });
   const fm = fn => cell => fn(cell.getRow().getData());
-  const hm = ms_ => { const d = new Date(ms_); return pad(d.getHours()) + ':' + pad(d.getMinutes()) + ':' + pad(d.getSeconds()); };
+  const hm = ms_ => { const d = new Date(ms_), td = new Date(nowServer()); return (d.toDateString() === td.toDateString() ? '' : pad(d.getDate()) + '.' + pad(d.getMonth() + 1) + '. ') + pad(d.getHours()) + ':' + pad(d.getMinutes()) + ':' + pad(d.getSeconds()); };
   const def = {
     tm: { field: 'start', title: levHead('tm'), sorter: 'number', minWidth: 90, headerFilter: 'input', headerFilterPlaceholder: '…', headerFilterFunc: (hv, rv) => !hv || hm(rv).includes(hv), formatter: fm(d => esc(hm(d.start))) },
     src: Object.assign({ field: 'src', title: levHead('src'), minWidth: 150, widthGrow: 2, formatter: fm(d => d.r ? srcCell(d.r).replace(/^<td[^>]*>/, '').replace(/<\/td>$/, '') : `<span class="si">${d.x.kind === 'ha' ? '🏠' : '📱'}</span><span class="sn"><b>${esc(d.src)}</b></span>`) }, ms('src')),
