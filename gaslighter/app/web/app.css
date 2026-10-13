@@ -935,3 +935,81 @@ fieldset.prolocked .f{opacity:.55}
 #events .tabulator-header-filter{text-align:left}
 .hacol{width:34px;height:26px;padding:0;border:1px solid var(--bd);border-radius:6px;background:transparent;cursor:pointer;vertical-align:middle}
 .hacolr{min-width:28px;padding:2px 6px;margin-left:4px}
+
+/* Live-Liste: gleiche Tabelle wie in den Logs */
+#ldev{border-collapse:collapse}
+#ldev td,#events th{vertical-align:middle;height:46px;padding:6px 10px}
+#ldev th.ck,#events td.ck{width:36px;padding-right:2px}
+#ldev input[type=checkbox]{width:18px;height:18px;padding:0;margin:0;cursor:pointer;accent-color:var(--acc)}
+#ldev td.clipc{white-space:nowrap;color:var(--mut)}#events td.clipc .vbtn{margin-right:6px}
+#ldev th.pl,#events td.pl{width:44px;padding-left:2px;padding-right:2px}
+#ldev .pbtn{width:38px;height:38px;border-radius:50%;padding:0;font-size:15px;line-height:1;border:1px solid var(--bd);background:var(--card);color:var(--acc)}
+#ldev td.pk small{color:var(--mut);font-size:11px}
+#ldev .noclip{color:var(--mut)}
+#ldev th.act,#events td.act{width:44px;text-align:right}
+#ldev button.more{border:0;background:transparent;font-size:20px;line-height:1;padding:4px 10px;border-radius:8px;color:var(--mut)}
+#ldev button.more:hover,#events tr.menu button.more{background:var(--grid);color:var(--tx)}
+#ldev tr.sel td{background:#1c7ed614}
+#ldev tr.menu td{background:#8882}
+#ldev td.srcc{white-space:nowrap}
+#ldev td.srcc .si{font-size:18px;margin-right:8px;vertical-align:middle}
+#ldev td.srcc .sn{display:inline-flex;flex-direction:column;vertical-align:middle;line-height:1.2}
+#ldev td.srcc .sn b{font-weight:600}#events td.srcc .sn small{color:var(--mut);font-size:11px}
+#ldev tbody tr[data-k]{cursor:pointer}
+#ldev td.artc .art{max-width:100%;overflow:hidden;text-overflow:ellipsis}
+#ldev .sndmk{margin-right:6px;font-size:15px;cursor:default}
+#ldev td.kinds{white-space:normal;max-width:300px}#events td.kinds .kd{margin:1px 10px 1px 0}
+#ldev tr.cur td{background:color-mix(in srgb,var(--thr) 14%,transparent)}
+#ldev tr.hid{display:none}
+#ldev td.devc,table.ldev td.devc{white-space:nowrap}
+#ldev tr.grph td{background:var(--nl1);font-size:13px;cursor:pointer;padding-top:6px;padding-bottom:6px}
+#ldev tr.grph .gtog{border:0;background:transparent;font-size:14px;cursor:pointer;color:var(--mut);min-width:28px}
+#ldev tr.gm:not(.hid) td:first-child{box-shadow:inset 3px 0 0 var(--pv)}
+#ldev.noplay th.pl,#events.noplay td.pl{display:none}
+#ldev.nodevs .devc{display:none}
+#ldev.tabulator{background:transparent;border:0;font-size:14px;color:var(--tx)}
+#ldev .tabulator-header{background:transparent;border-bottom:1px solid var(--bd);color:var(--mut);font-weight:600;text-transform:uppercase;font-size:12px;letter-spacing:.04em}
+#ldev .tabulator-header .tabulator-col{background:transparent;border-right:0}
+#ldev .tabulator-header .tabulator-col .tabulator-col-content{padding:8px 10px}
+#ldev .tabulator-header .tabulator-col.tabulator-sortable:hover{background:var(--nl1)}
+#ldev .tabulator-header .tabulator-header-filter input,#events .tabulator-header .tabulator-header-filter select{background:var(--card);color:var(--tx);border:1px solid var(--bd);border-radius:6px;padding:3px 6px;font-size:12px;text-transform:none;font-weight:400;letter-spacing:0}
+#ldev .tabulator-col[tabulator-field=sort] .srt,#events .srt{display:inline-block;width:0;height:0;margin-left:6px;border-left:4px solid transparent;border-right:4px solid transparent;border-top:5px solid var(--bd)}
+#ldev .tabulator-col[aria-sort=ascending] .srt{border-top:0;border-bottom:5px solid var(--acc)}
+#ldev .tabulator-col[aria-sort=descending] .srt{border-top:5px solid var(--acc)}
+#ldev .tabulator-tableholder{background:transparent}
+#ldev .tabulator-tableholder .tabulator-table{background:transparent;color:var(--tx)}
+#ldev .tabulator-row{background:transparent;border-bottom:1px solid var(--bd);min-height:46px;cursor:pointer}
+#ldev .tabulator-row.tabulator-row-even{background:transparent}
+#ldev .tabulator-row .tabulator-cell{border-right:0;padding:6px 10px;display:inline-flex;align-items:center;gap:4px;flex-wrap:wrap;min-height:46px}
+#ldev .tabulator-row.tabulator-selectable:hover,#events .tabulator-row:hover{background:var(--nl1)}
+#ldev .tabulator-row.sel{background:#1c7ed614}
+#ldev .tabulator-row.menu{background:#8882}
+#ldev .tabulator-row.cur{background:color-mix(in srgb,var(--thr) 14%,transparent)}
+#ldev .tabulator-row.grph{background:var(--nl1);font-size:13px}
+#ldev .tabulator-row.gm .tabulator-cell:first-child{box-shadow:inset 3px 0 0 var(--pv)}
+#ldev .tabulator-row.sensr .sensc{background:rgba(232,89,12,.15);color:#ff922b}
+#ldev .tabulator-row.sensr .tabulator-cell:first-child{box-shadow:inset 3px 0 0 #e8590c}
+#ldev .tabulator-row .hant{font-size:.85em;opacity:.85;flex-basis:100%}
+#ldev .gtog{color:var(--mut);display:inline-block;min-width:22px;font-size:14px}
+#ldev .tabulator-cell.srcc .si{font-size:18px;margin-right:6px}
+#ldev .tabulator-cell.srcc .sn{display:inline-flex;flex-direction:column;line-height:1.2}
+#ldev .tabulator-cell.srcc .sn small{color:var(--mut);font-size:11px}
+#ldev .tabulator-cell.pk small{color:var(--mut);font-size:11px}
+#ldev .tabulator-cell.kinds .kd{margin:1px 10px 1px 0}
+#ldev .tabulator-placeholder{color:var(--mut);padding:12px}
+#ldev .tabulator-placeholder .tabulator-placeholder-contents{color:var(--mut);font-weight:400;font-size:14px;text-align:left}
+#ldev .tabulator-responsive-collapse{border:0;padding:4px 10px 8px 48px;color:var(--mut);font-size:13px}
+#ldev .tabulator-responsive-collapse table td{padding:2px 8px 2px 0}
+#ldev .tabulator-responsive-collapse-toggle{background:var(--bd);color:var(--tx)}
+#ldev .tabulator-cell.rcol,#events .tabulator-col.rcol{padding-left:2px!important;padding-right:0!important}
+#ldev .tabulator-row .tabulator-cell.ck,#events .tabulator-row .tabulator-cell.pl,#events .tabulator-row .tabulator-cell.act{padding-left:2px;padding-right:2px;justify-content:center}
+#ldev .tabulator-row .tabulator-cell.tm{flex-wrap:nowrap;white-space:nowrap}
+#ldev .tabulator-row .tabulator-cell.tm .mut{color:var(--mut);margin-left:4px}
+#ldev .tabulator-cell.srcc{flex-wrap:nowrap}
+#ldev .tabulator-cell .art{max-width:100%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+#ldev button.sned{border:0;background:transparent;font-size:16px;color:var(--mut);min-width:36px;min-height:36px;border-radius:8px}
+#ldev button.sned:hover{background:var(--grid);color:var(--tx)}
+#ldev .art.haon{background:#1c7ed61f;color:#4dabf7}
+#ldev .msf{width:100%;text-align:left;background:var(--card);color:var(--tx);border:1px solid var(--bd);border-radius:6px;padding:3px 8px;font-size:12px;text-transform:none;font-weight:400;letter-spacing:0;cursor:pointer;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+#ldev .msf.on{border-color:var(--acc);color:var(--acc)}
+#ldev .tabulator-header-filter{text-align:left}

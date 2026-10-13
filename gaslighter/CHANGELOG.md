@@ -1,5 +1,9 @@
 # Changelog
 
+## 1.50.11
+- Live-Reiter: Die Ereignisliste ist jetzt dieselbe Tabelle wie in den Logs – **jede Spalte filterbar** (Auswahl bei Quelle/Art, Mindestwert bei Dauer/Spitze/Schwelle/Hintergrund, Text bei Start/Notiz), sortierbar.
+- Dort gibt es jetzt auch den Filter **📡 Sensoren** (Mehrfachauswahl, alle Regel-Sensoren inkl. Türsensor Tilt).
+
 ## 1.50.10
 - Live-Reiter: Die Liste zeigt jetzt **alle Ereignisse des im Live-Verlauf sichtbaren Bereichs** (nicht nur ab Mitternacht), einschließlich der Sensor-Ereignisse (Heizungssensor, Türsensor …).
 

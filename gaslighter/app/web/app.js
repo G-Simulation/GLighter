@@ -1628,20 +1628,23 @@ const sensIcon = k => k === 'vib' ? '🫨' : k === 'cam' ? '🏃' : '📡';
 const sensLabel = x => x.kind === 'ha' ? x.name : t(x.kind === 'vib' ? 'sens_vib' : 'sens_cam');
 function sensVis() { return ((EV && EV.sens) || []).filter(x => !SHIDE.has(sensKey(x)) && (!ARTSEL.size || ARTSEL.has(sensKey(x)))); }   // Art: gewählte Sensoren
 /* Auswahlliste „Sensoren“ (Mehrfachauswahl): Störungen, jede HA-Regel, Handy-Erschütterung, Handy-Bewegung */
+function levData() { try { return LEV.data; } catch (e) { return null; } }
 function sfltBuild() {
-  const box = $('sflt'); if (!box) return;
-  const ha = new Set(); for (const x of (EV && EV.sens) || []) if (x.kind === 'ha') ha.add(x.name); for (const a of (NV.data && NV.data.ha) || []) ha.add(a[2]);
+  const ha = new Set(); for (const src of [EV, levData()]) for (const x of (src && src.sens) || []) if (x.kind === 'ha') ha.add(x.name); for (const a of (NV.data && NV.data.ha) || []) ha.add(a[2]);
   for (const r of (HAR && HAR.rules) || []) if (r.enabled !== false && r.mode !== 'pause') ha.add(r.label || r.name || r.entity);
-  for (const x of (EV && EV.ha_names) || []) ha.add(x[0]);   // alle angelegten Regeln, auch ohne Meldung im Zeitraum
+  for (const src of [EV, levData()]) for (const x of (src && src.ha_names) || []) ha.add(x[0]);   // alle angelegten Regeln, auch ohne Meldung im Zeitraum
   const items = [['_ev', '🔴 ' + t('sf_ev')], ...[...ha].filter(Boolean).sort((a, b) => a.localeCompare(b)).map(n => ['ha:' + n, '📡 ' + n]), ['vib', '🫨 ' + t('sens_vib')], ['cam', '🏃 ' + t('sens_cam')]];
-  const sig = JSON.stringify([items, [...SHIDE], lang]); if (box.dataset.sig === sig) return; box.dataset.sig = sig;
-  const on = items.filter(i => !SHIDE.has(i[0])).length, wasOpen = box.querySelector('details') && box.querySelector('details').open;
-  box.innerHTML = `<details class="sfltd"${wasOpen ? ' open' : ''}><summary class="chip">📡 ${esc(t('sf_btn'))} <small>${on}/${items.length}</small></summary><div class="sfltl">
+  for (const box of [$('sflt'), $('lsflt')]) {
+    if (!box) continue;
+    const sig = JSON.stringify([items, [...SHIDE], lang]); if (box.dataset.sig === sig) continue; box.dataset.sig = sig;
+    const on = items.filter(i => !SHIDE.has(i[0])).length, wasOpen = box.querySelector('details') && box.querySelector('details').open;
+    box.innerHTML = `<details class="sfltd"${wasOpen ? ' open' : ''}><summary class="chip">📡 ${esc(t('sf_btn'))} <small>${on}/${items.length}</small></summary><div class="sfltl">
     <div class="sfltb"><button type="button" class="chip" data-a="all">${esc(t('sf_all'))}</button><button type="button" class="chip" data-a="none">${esc(t('sf_none'))}</button></div>
     ${items.map(([k, l]) => `<label><input type="checkbox" data-k="${esc(k)}"${SHIDE.has(k) ? '' : ' checked'}> ${esc(l)}</label>`).join('')}</div></details>`;
-  const apply = () => { shideSave(); EVSIG = ''; renderEvents(); if (NV.open && typeof renderNight === 'function' && NV.data) renderNight(); dtLoad(DT, true); sfltBuild(); };
-  box.querySelectorAll('input[data-k]').forEach(c => c.onchange = () => { c.checked ? SHIDE.delete(c.dataset.k) : SHIDE.add(c.dataset.k); apply(); });
-  box.querySelectorAll('button[data-a]').forEach(b => b.onclick = () => { for (const [k] of items) b.dataset.a === 'all' ? SHIDE.delete(k) : SHIDE.add(k); apply(); });
+    const apply = () => { shideSave(); EVSIG = ''; renderEvents(); if (NV.open && typeof renderNight === 'function' && NV.data) renderNight(); dtLoad(DT, true); levRender(); sfltBuild(); };
+    box.querySelectorAll('input[data-k]').forEach(c => c.onchange = () => { c.checked ? SHIDE.delete(c.dataset.k) : SHIDE.add(c.dataset.k); apply(); });
+    box.querySelectorAll('button[data-a]').forEach(b => b.onclick = () => { for (const [k] of items) b.dataset.a === 'all' ? SHIDE.delete(k) : SHIDE.add(k); apply(); });
+  }
 }
 /* ================= Dashboard: Bereiche als Panels (GridStack, MIT) =================
    Jeder Bereich hat oben eine Leiste: ⠿ verschieben (nur im Modus „Layout anpassen“), Titel, ▾ einklappen, ✕ ausblenden.
@@ -4979,24 +4982,45 @@ async function levLoad(force) {
   const id = ++LEV.req;
   try { const j = await (await fetch('events?src=' + encodeURIComponent(src) + '&n=500&from=' + day + '&to=' + isoDay(nx) + 'T00:00', { cache: 'no-store' })).json(); if (id !== LEV.req) return; LEV.data = j; levRender(); } catch (e) { LEV.key = ''; }
 }
+let LTBL = null, LTBL_KEY = '';
 function levRender() {
-  const j = LEV.data, tb = $('ldev'); if (!j) return;
-  const evs = (j.events || []).filter(r => r.lead !== false);          // je Störung eine Zeile (lautestes Gerät), wie in Protokolle
-  const sv = ((j.sens || []).filter(x => !SHIDE.has(sensKey(x)))).map(x => ({ _sens: x, start: new Date(x.a).toISOString(), dauer_s: Math.max(0, (x.b - x.a) / 1000), k: '' }));
-  const all = evs.concat(sv).sort((p, q) => new Date(q.start) - new Date(p.start));
-  const multi = evs.some(r => (r.devs || []).length > 1);              // Spalte „Geräte (Spitze)“ nur, wenn sie etwas zeigt
-  const useArt = !CUR || CUR.classify !== false, cols = LEV.cols.filter(c => (useArt || (c !== 'art' && c !== 'kinds')) && (c !== 'devs' || multi));
-  $('ldevn').textContent = t('lev_n', { n: (j.total != null ? j.total : evs.length) + sv.length });
-  const hm = iso => { const d = new Date(iso); return isNaN(d) ? String(iso || '') : pad(d.getHours()) + ':' + pad(d.getMinutes()) + ':' + pad(d.getSeconds()); };
-  const cell = (c, r) => c === 'tm' ? `<td class="tm">${esc(hm(r.start))}</td>` : c === 'src' ? srcCell(r)
-    : c === 'art' ? `<td class="artc">${r.prof ? `<span class="art prof${r.bg ? ' bgp' : ''}">🧩 ${esc(r.prof)}${r.prof_ok ? ' ✓' : r.prof_c != null ? ` <small>${r.prof_c} %</small>` : ''}</span>` : ''}${(r.labels || []).map(n => `<span class="art lbl">🏷 ${esc(n)}</span>`).join('')}${r.art ? artChip(r.art, r.art_c, r.art_man) : r.prof ? '' : '<span class="noclip">–</span>'}</td>`
-    : c === 'devs' ? `<td class="devc">${(r.devs || []).length > 1 ? r.devs.map((x, i) => `<span class="dvp${i === 0 ? ' top' : ''}">${esc(shortName(x[1]))} ${x[2] != null ? x[2].toFixed(0) : '–'}</span>`).join('') : '<span class="noclip">–</span>'}</td>`
-    : c === 'kinds' ? `<td class="kinds">${kindsHTML(r.kinds, j.fine)}</td>` : c === 'dur' ? `<td class="dur">${esc(fmtDur(r.dauer_s))}</td>`
-    : c === 'pk' ? `<td class="pk">${esc(fdb(r.spitze_dbfs))} <small>dBFS</small></td>` : c === 'thr' ? `<td class="thr">${esc(fdb(r.schwelle_dbfs))}</td>`
-    : c === 'bg' ? `<td class="bgc">${esc(fdb(r.hintergrund_dbfs))}</td>` : `<td class="ntcol">${r.notes ? '📝 ' + r.notes : ''}</td>`;
-  tb.innerHTML = `<thead><tr>${cols.map(c => `<th>${esc(levHead(c))}</th>`).join('')}</tr></thead><tbody>` +
-    (all.length ? all.map(r => r._sens ? `<tr class="lsens"><td class="tm">${esc(hm(r.start))}</td><td colspan="${Math.max(1, cols.length - 2)}"><span class="art sensc">${sensIcon(r._sens.kind)} ${esc(sensLabel(r._sens))}</span></td><td class="dur">${esc(fmtDur(r.dauer_s))}</td></tr>` : `<tr data-k="${esc(r.k || '')}"${r.bg || r.inc_bg ? ' class="bgrow"' : ''}>${cols.map(c => cell(c, r)).join('')}</tr>`).join('') : `<tr><td colspan="${cols.length || 1}" class="empty">${esc(t('lev_none'))}</td></tr>`) + '</tbody>';
-  tb.querySelectorAll('tr[data-k]').forEach(tr => tr.onclick = () => { if (tr.dataset.k) openEvent(tr.dataset.k); });
+  const j = LEV.data, box = $('ldev'); if (!j || !box) return;
+  sfltBuild();
+  const evs = SHIDE.has('_ev') ? [] : (j.events || []).filter(r => r.lead !== false);          // je Störung eine Zeile (lautestes Gerät), wie in Protokolle
+  const sens = ((j.sens || []).filter(x => !SHIDE.has(sensKey(x))));
+  const multi = evs.some(r => (r.devs || []).length > 1);
+  const useArt = !CUR || CUR.classify !== false;
+  $('ldevn').textContent = t('lev_n', { n: (j.total != null ? j.total : evs.length) + sens.length });
+  const txt = h => { const d = document.createElement('div'); d.innerHTML = h; return d.textContent.trim(); };
+  const rows = evs.map(r => ({ id: 'e' + (r.k || r.start), k: r.k || '', start: new Date(r.start).getTime(), src: r.quelle || (SOURCES.find(x => x.id === (r.quelle_id || 'main')) || {}).name || r.quelle_id || '', r,
+    tags: [].concat(r.prof ? ['🧩 ' + r.prof] : [], (r.labels || []).map(n => '🏷 ' + n)), dur: r.dauer_s, pk: r.spitze_dbfs, thr: r.schwelle_dbfs, bg: r.hintergrund_dbfs, nt: r.notes ? '📝 ' + r.notes : '' }))
+    .concat(sens.map(x => ({ id: 's' + x.key, k: '', start: x.a, src: x.kind === 'ha' ? 'Home Assistant' : x.name || '', x, tags: [sensIcon(x.kind) + ' ' + sensLabel(x)], dur: Math.max(0, (x.b - x.a) / 1000), pk: x.peak, nt: x.note ? '📝 ' + x.note : '' })));
+  const vals = f => () => [...new Set(rows.flatMap(d => f === 'tags' ? d.tags : [d[f]]).filter(Boolean))].sort((p, q) => String(p).localeCompare(String(q)));
+  const ms = f => ({ headerFilter: msFilter(vals(f)), headerFilterFunc: (hv, rv, rd) => !hv || !hv.length || (f === 'tags' ? rd.tags.some(x => hv.includes(x)) : hv.includes(rv)), headerFilterLiveFilter: false });
+  const num = f => ({ headerFilter: 'number', headerFilterPlaceholder: '≥', headerFilterFunc: (hv, rv) => hv === '' || hv == null || (rv != null && rv >= +hv) });
+  const fm = fn => cell => fn(cell.getRow().getData());
+  const hm = ms_ => { const d = new Date(ms_); return pad(d.getHours()) + ':' + pad(d.getMinutes()) + ':' + pad(d.getSeconds()); };
+  const def = {
+    tm: { field: 'start', title: levHead('tm'), sorter: 'number', minWidth: 90, headerFilter: 'input', headerFilterPlaceholder: '…', headerFilterFunc: (hv, rv) => !hv || hm(rv).includes(hv), formatter: fm(d => esc(hm(d.start))) },
+    src: Object.assign({ field: 'src', title: levHead('src'), minWidth: 150, widthGrow: 2, formatter: fm(d => d.r ? srcCell(d.r).replace(/^<td[^>]*>/, '').replace(/<\/td>$/, '') : `<span class="si">${d.x.kind === 'ha' ? '🏠' : '📱'}</span><span class="sn"><b>${esc(d.src)}</b></span>`) }, ms('src')),
+    art: Object.assign({ field: 'tags', title: levHead('art'), minWidth: 160, widthGrow: 2, headerSort: false, formatter: fm(d => d.r ? `${d.r.prof ? `<span class="art prof${d.r.bg ? ' bgp' : ''}">🧩 ${esc(d.r.prof)}${d.r.prof_ok ? ' ✓' : d.r.prof_c != null ? ` <small>${d.r.prof_c} %</small>` : ''}</span>` : ''}${(d.r.labels || []).map(n => `<span class="art lbl">🏷 ${esc(n)}</span>`).join('')}` : `<span class="art sensc">${sensIcon(d.x.kind)} ${esc(sensLabel(d.x))}</span>`) }, ms('tags')),
+    kinds: { field: 'kinds', title: levHead('kinds'), minWidth: 140, headerSort: false, formatter: fm(d => d.r ? kindsHTML(d.r.kinds, j.fine) : '') },
+    devs: { field: 'devs', title: levHead('devs'), minWidth: 120, headerSort: false, formatter: fm(d => d.r && (d.r.devs || []).length > 1 ? d.r.devs.map((x, i) => `<span class="dvp${i === 0 ? ' top' : ''}">${esc(shortName(x[1]))} ${x[2] != null ? x[2].toFixed(0) : '–'}</span>`).join('') : '<span class="noclip">–</span>') },
+    dur: Object.assign({ field: 'dur', title: levHead('dur'), sorter: 'number', minWidth: 90, formatter: fm(d => esc(fmtDur(d.dur))) }, num('dur')),
+    pk: Object.assign({ field: 'pk', title: levHead('pk'), sorter: 'number', minWidth: 100, formatter: fm(d => d.pk == null ? '' : esc(d.r ? fdb(d.pk) : f2(d.pk)) + ' <small>' + esc(d.r ? 'dBFS' : (d.x.unit || '')) + '</small>') }, num('pk')),
+    thr: Object.assign({ field: 'thr', title: levHead('thr'), sorter: 'number', minWidth: 100, formatter: fm(d => d.r ? esc(fdb(d.thr)) : '') }, num('thr')),
+    bg: Object.assign({ field: 'bg', title: levHead('bg'), sorter: 'number', minWidth: 100, formatter: fm(d => d.r ? esc(fdb(d.bg)) : '') }, num('bg')),
+    nt: { field: 'nt', title: '📝', minWidth: 80, headerFilter: 'input', headerFilterPlaceholder: '…', formatter: fm(d => esc(d.nt || '')) },
+  };
+  const cols = LEV.cols.filter(c => (useArt || (c !== 'art' && c !== 'kinds')) && (c !== 'devs' || multi)).map(c => def[c]);
+  if (typeof Tabulator === 'undefined') return;
+  const key = JSON.stringify([lang, LEV.cols, useArt, multi]);
+  if (!LTBL || LTBL_KEY !== key) {
+    if (LTBL) { try { LTBL.destroy(); } catch (e) { } LTBL = null; }
+    LTBL_KEY = key; box.innerHTML = '';
+    LTBL = new Tabulator(box, { data: rows, columns: cols, index: 'id', layout: 'fitColumns', maxHeight: '60vh', placeholder: t('lev_none'), headerSortElement: '<span class="srt"></span>', initialSort: [{ column: 'start', dir: 'desc' }] });
+    LTBL.on('rowClick', (e, row) => { const d = row.getData(); if (d.k) openEvent(d.k); else if (d.x && d.x.kind === 'ha') haPop({ a: d.x.a, b: d.x.b, name: sensLabel(d.x), note: d.x.note || '', key: d.x.key }); });
+  } else LTBL.replaceData(rows);
 }
 function levCols() {
   const box = $('ldevcols');
