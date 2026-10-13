@@ -1,5 +1,14 @@
 # Changelog
 
+## 1.50.0
+- **Dashboard (GridStack, MIT-Lizenz, liegt in der App):** Live und Protokolle bestehen aus Bereichen mit eigener Kopfleiste.
+  - Jeder Bereich lässt sich **einklappen** (▾) und **ausblenden** (✕).
+  - **▦ Layout anpassen:** Bereiche verschieben, breiter/schmaler ziehen (z. B. nebeneinander), ein- und ausschalten, zurücksetzen. Gespeichert je Browser; am Handy untereinander.
+  - **⌖ nur sichtbarer Bereich** für die Ereignistabelle und die Sensor-Liste: folgt dem Zoom im Verlauf.
+- Die Liste „Sensoren im Zeitraum“ ist ein eigener Bereich und anfangs ausgeblendet (doppelt zur Tabelle).
+- Regeln „nur festhalten“ (z. B. Fernseher): jede Störung in dieser Zeit zeigt in der Tabelle „📡 Fernseher an“.
+- Anzahl der Zeilen: zusätzlich 5, 10, 20, 2000 und 5000.
+
 ## 1.49.0
 - **Suchverzeichnis (SQLite):** Lärmprotokolle über lange Zeiträume sind deutlich schneller (Test: 6 Wochen von 39 s auf etwa 4 s, danach 2 s).
   - Gespeichert wird das Ergebnis der Kettenprüfung je Tag – mit SHA-256 über den Inhalt aller Dateien des Tages, ändert sich ein Byte, wird neu geprüft – und eine verdichtete Tagesspur für die Grafiken.

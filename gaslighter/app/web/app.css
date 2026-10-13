@@ -897,3 +897,33 @@ fieldset.prolocked .f{opacity:.55}
 #events .tabulator-cell .art{max-width:100%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 #events button.sned{border:0;background:transparent;font-size:16px;color:var(--mut);min-width:36px;min-height:36px;border-radius:8px}
 #events button.sned:hover{background:var(--grid);color:var(--tx)}
+
+/* Dashboard (GridStack): Panels mit Kopfleiste, einklappbar, im Modus „Layout anpassen“ verschiebbar */
+.dashbar{display:flex;flex-wrap:wrap;gap:8px;align-items:center;justify-content:flex-end;margin:6px 0}
+.dashbar .dashoff{display:flex;flex-wrap:wrap;gap:4px 12px;font-size:13px}
+.dashbar .dashoff label{display:flex;gap:5px;align-items:center;cursor:pointer}
+.dashgrid{margin:0 -6px}
+.dashgrid>.grid-stack-item>.grid-stack-item-content{overflow:visible!important;inset:6px}
+.pnl{background:var(--card);border:1px solid var(--bd);border-radius:14px;padding:0 0 4px;box-shadow:0 1px 2px #0000000d}
+.pnlhd{display:flex;align-items:center;gap:8px;padding:6px 10px 4px 12px;min-height:34px;user-select:none}
+.pnlhd b{font-size:12px;font-weight:600;letter-spacing:.06em;text-transform:uppercase;color:var(--mut)}
+.pnlhd .pnlx{flex:1}
+.pnlhd button{border:0;background:transparent;color:var(--mut);font-size:14px;min-width:30px;min-height:30px;border-radius:8px;cursor:pointer;padding:0 6px}
+.pnlhd button:hover{background:var(--grid);color:var(--tx)}
+.pnlhd .pvis{font-size:12px}.pnlhd .pvis.on{background:var(--acc);color:var(--onacc)}
+.pnlhd .pdrag{display:none;cursor:grab;color:var(--mut);font-size:16px;padding:0 4px}
+.dashedit .pnlhd .pdrag{display:inline}
+.dashedit .pnl{outline:2px dashed color-mix(in srgb,var(--acc) 45%,transparent);outline-offset:-2px}
+.pnlbd{padding:0 12px 8px}
+.pnl.pcolx .pnlbd{display:none}
+.pnl.pempty:not(.pcolx) .pnlbd{display:none}
+.pnl.pempty .pnlhd{opacity:.6}
+/* Inhalte im Panel: eigener Kartenrahmen und doppelte Überschriften entfallen */
+.pnlbd>.card,.pnlbd>.ndaybox,.pnlbd>.pevcard,.pnlbd>.nnotes,.pnlbd>.nrun,.pnlbd>.fnpanel{border:0!important;box-shadow:none!important;background:transparent!important;margin:0!important;padding:0!important}
+.pnl[data-p=hours] .pnlbd>.card>.row:first-child,.pnl[data-p=days] .pnlbd>.card>.row:first-child{display:none}
+.pnl[data-p=ev] .evrow>h2,.pnl[data-p=ldev] .ldevcard>.row>h2,.pnl[data-p=live] .card>.row>h2,.pnl[data-p=day] .ndayhd>b[data-i=dt_title]{display:none}
+.pnl .nhalist h3,.pnl[data-p=ha] h3{margin-top:0}
+.grid-stack-item.ui-draggable-dragging .pnl,.grid-stack-item.ui-resizable-resizing .pnl{box-shadow:0 10px 30px #0004}
+.grid-stack-placeholder>.placeholder-content{border:2px dashed var(--acc);border-radius:14px;background:color-mix(in srgb,var(--acc) 8%,transparent)}
+#events .art.haon{background:#1c7ed61f;color:#4dabf7}
+.pnl[data-p=ha] .nhalist>h3{display:none}

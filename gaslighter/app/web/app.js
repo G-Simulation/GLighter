@@ -1446,7 +1446,7 @@ function renderEvents() {
   // Nur neu aufbauen, wenn sich etwas geaendert hat. Der Player ist von der Tabelle getrennt: Wiedergabe laeuft weiter.
   const grpMode = EVVIEW === 'grp';
   const sv = sensVis();
-  const sig = JSON.stringify([useArt, lang, grpMode, evs.map(r => [r.k, r.start, r.art, r.art_c, r.art_man, r.video, r.audio, r.datei, r.notes, r.labels, r.kinds, r.prof, r.prof_c, r.prof_ok, r.inc, r.grp, r.lead, r.devs, r.bg]), SOURCES.map(x => [x.id, x.name]), sv, [...SHIDE]]);
+  const sig = JSON.stringify([useArt, lang, grpMode, evs.map(r => [r.k, r.ha_on, r.start, r.art, r.art_c, r.art_man, r.video, r.audio, r.datei, r.notes, r.labels, r.kinds, r.prof, r.prof_c, r.prof_ok, r.inc, r.grp, r.lead, r.devs, r.bg]), SOURCES.map(x => [x.id, x.name]), sv, [...SHIDE]]);
   if (sig === EVSIG) return;
   EVSIG = sig;
   evGrid(evs, sv, useArt, grpMode);
@@ -1514,7 +1514,7 @@ function evGrid(evs, sv, useArt, grpMode) {
       formatter: fmtCell(d => {
         if (d._t === 'sens') return `<span class="art sensc">${sensIcon(d.x.kind)} ${esc(sensLabel(d.x))}</span>${d.x.note ? `<div class="hant">📝 ${esc(d.x.note)}</div>` : ''}`;
         if (d._t === 'grp') return d.g.prof ? `<span class="art prof">🧩 ${esc(d.g.kind)}</span>` : d.g.kind && d.g.kind !== '?' ? artChip(d.g.kind, null, false) : esc(t('art_pending'));
-        const r = d.r; return `${profChip(r)}${(r.labels || []).map(n => `<span class="art lbl" title="${esc(t('lb_own'))}">🏷 ${esc(n)}</span>`).join('')}${r.art ? artChip(r.art, r.art_c, r.art_man) : (r.datei && !(r.labels || []).length && !r.prof ? '<span class="noclip" title="' + esc(t('art_pending')) + '">…</span>' : (r.labels || []).length || r.prof ? '' : '<span class="noclip">–</span>')}`; }) },
+        const r = d.r; return `${(r.ha_on || []).filter(n => !SHIDE.has('ha:' + n)).map(n => `<span class="art haon" title="${esc(t('ha_on_tip'))}">📡 ${esc(n)} ${esc(t('ha_on'))}</span>`).join('')}${profChip(r)}${(r.labels || []).map(n => `<span class="art lbl" title="${esc(t('lb_own'))}">🏷 ${esc(n)}</span>`).join('')}${r.art ? artChip(r.art, r.art_c, r.art_man) : (r.datei && !(r.labels || []).length && !r.prof ? '<span class="noclip" title="' + esc(t('art_pending')) + '">…</span>' : (r.labels || []).length || r.prof ? '' : '<span class="noclip">–</span>')}`; }) },
     { field: 'kinds', title: t('kinds_col'), minWidth: 150, widthGrow: 2, visible: useArt, responsive: 4, headerSort: false, cssClass: 'kinds', formatter: fmtCell(d => d._t === 'ev' ? kindsHTML(d.r.kinds, EV.fine) : '') },
     { field: 'devs', title: t('devs_col'), minWidth: 130, visible: hasDev, responsive: 5, headerSort: false, cssClass: 'devc',
       formatter: fmtCell(d => { if (d._t !== 'ev') return ''; const x = d.r.devs || []; if (x.length < 2) return '<span class="noclip">–</span>';
@@ -1592,6 +1592,100 @@ function sfltBuild() {
   box.querySelectorAll('input[data-k]').forEach(c => c.onchange = () => { c.checked ? SHIDE.delete(c.dataset.k) : SHIDE.add(c.dataset.k); apply(); });
   box.querySelectorAll('button[data-a]').forEach(b => b.onclick = () => { for (const [k] of items) b.dataset.a === 'all' ? SHIDE.delete(k) : SHIDE.add(k); apply(); });
 }
+/* ================= Dashboard: Bereiche als Panels (GridStack, MIT) =================
+   Jeder Bereich hat oben eine Leiste: ⠿ verschieben (nur im Modus „Layout anpassen“), Titel, ▾ einklappen, ✕ ausblenden.
+   Breite ändern an der Seite; die Höhe folgt dem Inhalt. Am Handy stehen alle untereinander. Gespeichert je Browser. */
+const DASH = { grids: {}, def: {}, st: {}, edit: false, ro: null };
+function dashDefs() {
+  const lv = $('liveview'), nv = $('nightview'), pg = nv.querySelector('.pgrid');
+  let ha = $('nhalist'); if (!ha) { ha = el('div', { id: 'nhalist', className: 'nnotes nhalist' }); $('nnotes').after(ha); }
+  return {
+    live: [
+      { id: 'fn', t: 'pn_fn', nodes: [$('fnpanel')], w: 12 },
+      { id: 'live', t: 'livetitle', nodes: [$('srcbar') && $('srcbar').parentElement, $('tilebar'), $('vp1')], w: 12 },
+      { id: 'ldev', t: 'lev_title', nodes: [$('ldevcard')], w: 12 }],
+    prot: [
+      { id: 'sum', t: 'pn_sum', nodes: [$('nweek'), nv.querySelector('.nsum')], w: 12 },
+      { id: 'run', t: 'pn_run', nodes: [$('nrun')], w: 12, auto: true },
+      { id: 'day', t: 'dt_title', nodes: [$('ndaybox')], w: 12 },
+      { id: 'hours', t: 'hours', nodes: [pg && pg.children[0]], w: 6 },
+      { id: 'days', t: 'days', nodes: [pg && pg.children[1]], w: 6 },
+      { id: 'ev', t: 'list', nodes: [nv.querySelector('.pevcard')], w: 12, vis: true },
+      { id: 'notes', t: 'pn_notes', nodes: [$('nnotes')], w: 12, auto: true },
+      { id: 'ha', t: 'pn_ha', nodes: [ha], w: 12, off: true, vis: true, auto: true }],
+  };
+}
+function dashLoadSt(v) { try { return JSON.parse(localStorage.getItem('gl_dash_' + v) || 'null') || {}; } catch (e) { return {}; } }
+function dashSave(v) {
+  const g = DASH.grids[v], st = DASH.st[v]; if (!g) return;
+  st.lay = g.save(false).map(x => ({ id: x.id, x: x.x, y: x.y, w: x.w }));
+  try { localStorage.setItem('gl_dash_' + v, JSON.stringify(st)); } catch (e) { }
+}
+function dashInit() {
+  if (typeof GridStack === 'undefined' || DASH.inited) return; DASH.inited = true;
+  const defs = dashDefs();
+  DASH.ro = new ResizeObserver(ents => { for (const e of ents) { const it = e.target.closest('.grid-stack-item'), g = it && it.gridstackNode && it.gridstackNode.grid; if (g) g.resizeToContent(it); } });
+  for (const [v, list] of Object.entries(defs)) {
+    const host = v === 'live' ? $('liveview') : $('nightview'), first = list.map(p => p.nodes[0]).find(Boolean); if (!first) continue;
+    const st = DASH.st[v] = dashLoadSt(v); st.col = st.col || {}; st.off = st.off || list.filter(p => p.off).map(p => p.id); st.vis = st.vis || {};
+    const bar = el('div', { className: 'dashbar' }), gEl = el('div', { className: 'grid-stack dashgrid' }); gEl.dataset.view = v;
+    first.before(bar); bar.after(gEl);
+    const lay = {}; for (const x of st.lay || []) lay[x.id] = x;
+    const items = [];
+    for (const p of list) {
+      const ns = p.nodes.filter(Boolean); if (!ns.length) continue;
+      const it = el('div', { className: 'grid-stack-item' }), ct = el('div', { className: 'grid-stack-item-content' }), pn = el('div', { className: 'pnl' }); pn.dataset.p = p.id;
+      const hd = el('div', { className: 'pnlhd' });
+      hd.innerHTML = `<span class="pdrag" title="${esc(t('dash_drag'))}">⠿</span><b data-i="${p.t}">${esc(t(p.t))}</b><span class="pnlx"></span>` +
+        (p.vis ? `<button type="button" class="pvis" title="${esc(t('dash_vis_tip'))}">⌖ ${esc(t('dash_vis'))}</button>` : '') +
+        `<button type="button" class="pcol" aria-label="${esc(t('dash_col'))}" title="${esc(t('dash_col'))}">▾</button><button type="button" class="phide" aria-label="${esc(t('dash_hide'))}" title="${esc(t('dash_hide'))}">✕</button>`;
+      const bd = el('div', { className: 'pnlbd' }); ns.forEach(n => bd.appendChild(n));
+      pn.append(hd, bd); ct.appendChild(pn); it.appendChild(ct);
+      const L = lay[p.id]; it.setAttribute('gs-id', p.id); it.setAttribute('gs-w', String(L ? L.w : p.w)); if (L) { it.setAttribute('gs-x', L.x); it.setAttribute('gs-y', L.y); }
+      gEl.appendChild(it); items.push([p, it, pn]);
+      hd.querySelector('.pcol').onclick = () => { st.col[p.id] = !st.col[p.id]; dashApply(v); dashSave(v); };
+      hd.querySelector('.phide').onclick = () => { if (!st.off.includes(p.id)) st.off.push(p.id); dashApply(v); dashSave(v); dashBar(v); };
+      hd.ondblclick = e => { if (!e.target.closest('button')) hd.querySelector('.pcol').click(); };
+      if (p.vis) hd.querySelector('.pvis').onclick = () => { st.vis[p.id] = !st.vis[p.id]; dashApply(v); dashSave(v); visChanged(); };
+      if (p.auto) { const n0 = ns[0]; const sync = () => pn.classList.toggle('pempty', !!n0.hidden || !n0.childElementCount); new MutationObserver(sync).observe(n0, { attributes: true, attributeFilter: ['hidden'], childList: true }); sync(); }
+    }
+    pg_cleanup(host);
+    const g = DASH.grids[v] = GridStack.init({ column: 12, cellHeight: 8, margin: 6, float: false, staticGrid: true, sizeToContent: true, handle: '.pdrag', animate: true,
+      resizable: { handles: 'e,w' }, columnOpts: { breakpoints: [{ w: 760, c: 1 }], layout: 'list' } }, gEl);
+    g.on('change', () => { if (DASH.edit) dashSave(v); });     // auch Höhenänderungen durch den Inhalt: nur im Bearbeiten speichern
+    g.on('resizestop dragstop', () => { dashSave(v); dashResized(); });
+    items.forEach(([p, it, pn]) => DASH.ro.observe(pn));
+    DASH.def[v] = list;
+    dashApply(v); dashBar(v);
+  }
+}
+function pg_cleanup(host) { const pg = host.querySelector('.pgrid'); if (pg && !pg.children.length) pg.remove(); }
+function dashApply(v) {
+  const g = DASH.grids[v], st = DASH.st[v]; if (!g) return;
+  g.el.querySelectorAll(':scope > .grid-stack-item').forEach(it => { const id = it.getAttribute('gs-id'), pn = it.querySelector('.pnl');
+    pn.classList.toggle('pcolx', !!st.col[id]); pn.querySelector('.pcol').textContent = st.col[id] ? '▸' : '▾';
+    const vb = pn.querySelector('.pvis'); if (vb) vb.classList.toggle('on', !!st.vis[id]);
+    const off = st.off.includes(id);
+    if (off && it.gridstackNode) { g.removeWidget(it, false, false); it.style.display = 'none'; }
+    else if (!off && !it.gridstackNode) { it.style.display = ''; it.setAttribute('gs-y', '9999'); it.removeAttribute('gs-x'); g.makeWidget(it); }   // wieder eingeblendet: unten anfügen
+    if (!off) g.resizeToContent(it); });
+}
+function dashResized() { clearTimeout(DASH.rt); DASH.rt = setTimeout(() => { window.dispatchEvent(new Event('resize')); if (TBL) try { TBL.redraw(); } catch (e) { } }, 120); }
+function dashRefresh() { for (const v of Object.keys(DASH.grids)) { const g = DASH.grids[v]; g.onResize(); g.getGridItems().forEach(it => g.resizeToContent(it)); } }
+function dashBar(v) {
+  const g = DASH.grids[v], st = DASH.st[v], bar = g && g.el.previousElementSibling; if (!bar) return;
+  const defs = DASH.def[v] || [];
+  bar.innerHTML = `<button type="button" class="chip dedit${DASH.edit ? ' pri' : ''}">▦ ${esc(t(DASH.edit ? 'dash_done' : 'dash_edit'))}</button>` +
+    (DASH.edit ? `<span class="dashoff">${defs.map(p => `<label><input type="checkbox" data-p="${p.id}"${st.off.includes(p.id) ? '' : ' checked'}> ${esc(t(p.t))}</label>`).join('')}</span><button type="button" class="chip dreset">↺ ${esc(t('dash_reset'))}</button>` :
+      st.off.length ? `<small class="mut">${esc(t('dash_hidden', { n: st.off.length }))}</small>` : '');
+  bar.querySelector('.dedit').onclick = () => { DASH.edit = !DASH.edit; for (const k of Object.keys(DASH.grids)) { DASH.grids[k].setStatic(!DASH.edit); DASH.grids[k].el.classList.toggle('dashedit', DASH.edit); dashBar(k); } };
+  bar.querySelectorAll('.dashoff input').forEach(c => c.onchange = () => { const id = c.dataset.p; st.off = st.off.filter(x => x !== id); if (!c.checked) st.off.push(id); dashApply(v); dashSave(v); });
+  const rs = bar.querySelector('.dreset'); if (rs) rs.onclick = () => { if (!confirm(t('dash_reset_q'))) return; try { localStorage.removeItem('gl_dash_' + v); } catch (e) { } location.reload(); };
+}
+/* „nur sichtbarer Bereich“: Tabelle bzw. Sensor-Liste folgen dem Zoom im Verlauf */
+function dashVis(id) { const st = DASH.st.prot; return !!(st && st.vis && st.vis[id]) && DT.from != null && DT.to != null; }
+function visChanged() { clearTimeout(DASH.vt); DASH.vt = setTimeout(() => { if (TBL && TBL._built) { if (dashVis('ev')) TBL.setFilter(d => d.start + (d.dur || 0) * 1000 >= DT.from && d.start <= DT.to); else TBL.clearFilter(); } haListRender(); }, 250); }
+
 /* Anklickbare Stelle im Verlauf: bei Überlappung (z. B. Fernseher und Türsensor gleichzeitig) gewinnt die engste Fläche */
 function hitAt(S, x, y) {
   let best = null, bs = Infinity;
@@ -3449,6 +3543,7 @@ function showTab(mode) {
   $('tab_live').classList.toggle('on', live); $('tab_prot').classList.toggle('on', prot);
   try { localStorage.setItem('laerm_tab', mode); } catch (e) { }
   if (prot) { if (!NV.date) perSet(NV.per, true); plFetch().then(plRefresh); loadNight(); } else { markDirty(); levLoad(true); }
+  setTimeout(dashRefresh, 50);
 }
 /* Reiter Protokolle: ein Datensatz für Zeitraum + Filter (Gerät, Art, Liste); Kopfzahlen, Verlauf, Diagramme und Tabelle nutzen ihn alle */
 function perRange() {
@@ -3607,17 +3702,22 @@ function renderNight() {
     $('nnotes').hidden = false; $('nnotes').append(...box.childNodes);
     $('nnotes').querySelectorAll('.mor').forEach(r => { const m = mo[+r.dataset.i]; r.onclick = () => { DT.mark = [m.a, Math.max(m.b, m.a + 1000)]; DT.from = m.a - 120000; DT.to = Math.max(m.b, m.a) + 120000; dtLoad(DT, true); $('ndaybox').scrollIntoView({ behavior: 'smooth', block: 'start' }); }; });
   }
-  const hl = (d.ha || []).filter(x => !SHIDE.has('ha:' + x[2]));                             // Sensoren aus Home Assistant (Regeln „nur festhalten“)
+  haListRender();
+  drawNight();
+}
+/* Liste „Sensoren aus Home Assistant im Zeitraum“ – eigenes Panel, standardmäßig ausgeblendet; optional nur sichtbarer Bereich */
+function haListRender() {
+  const d = NV.data || {}, box0 = $('nhalist'); if (!box0) return; box0.innerHTML = '';
+  const hl = (d.ha || []).filter(x => !SHIDE.has('ha:' + x[2]) && (!dashVis('ha') || (x[1] >= DT.from && x[0] <= DT.to)));                             // Sensoren aus Home Assistant (Regeln „nur festhalten“)
   if (hl.length) {
     const box = el('div'), L = locale();
     box.innerHTML = `<h3>📡 ${esc(t('ha_list', { n: hl.length }))}</h3>` + hl.map((x, i) => { const dur = Math.max(0, (x[1] - x[0]) / 1000);
       return `<div class="ntrow har" data-i="${i}" data-a="${x[0]}" tabindex="0"><span class="ntnum" style="background:#1c7ed6">📡</span><span class="ntoff">${esc(new Date(x[0]).toLocaleDateString(L, { day: '2-digit', month: '2-digit' }))}</span><span class="ntclk">${esc(hms(x[0]))}–${esc(hms(x[1]))}</span><span class="nttx"><span class="ntt"><b>${esc(x[2])}</b> ${esc(t('ha_on'))} · ${esc(dur < 120 ? Math.round(dur) + ' s' : dur < 7200 ? Math.round(dur / 60) + ' min' : Math.floor(dur / 3600) + ' h ' + Math.round(dur % 3600 / 60) + ' min')}</span>${x[4] ? `<span class="ntt hant">📝 ${esc(x[4])}</span>` : ''}</span><span class="ntact hanote" title="${esc(t('ha_note'))}">✎</span></div>`; }).join('');
-    $('nnotes').hidden = false; $('nnotes').append(...box.childNodes);
-    $('nnotes').querySelectorAll('.har').forEach(r => { const x = hl[+r.dataset.i]; r.onclick = e => {
+    box0.append(...box.childNodes);
+    box0.querySelectorAll('.har').forEach(r => { const x = hl[+r.dataset.i]; r.onclick = e => {
       if (e.target.closest('.hanote')) { haPop({ a: x[0], b: x[1], name: x[2], rid: x[3], note: x[4] || '' }); return; }
       DT.mark = [x[0], Math.max(x[1], x[0] + 1000)]; DT.from = x[0] - 120000; DT.to = Math.max(x[1], x[0]) + 120000; dtLoad(DT, true); $('ndaybox').scrollIntoView({ behavior: 'smooth', block: 'start' }); }; });
   }
-  drawNight();
 }
 function nightGeom(cv) {
   fit(cv);
@@ -3771,7 +3871,7 @@ function initNight() {
 async function init() {
   applyTheme(); readColors(); buildLUT();
   try { const r = await (await fetch('settings', { cache: 'no-store' })).json(); CUR = r.settings; SRC = r.sources || []; SCHED = r.schedule || []; if (r.pro && r.pro.state) PRO = r.pro; } catch (e) { }
-  pickLang(CUR && CUR.language); tr(); setLive(true); syncRec(null); initHelp();
+  pickLang(CUR && CUR.language); dashInit(); tr(); setLive(true); syncRec(null); initHelp();
   proBanner(); setInterval(proLoad, 6 * 3600 * 1000);
   bindCanvas($('main'), false); bindCanvas($('spec'), true);
   $('livebtn').addEventListener('click', () => setLive(!view.live));
@@ -3979,6 +4079,7 @@ const LDT = { el: { cv: 'ldcv', hover: 'ldhover', none: 'ldnone', range: 'ldrang
 const LONG_SPAN = s => s > 600;                     // Live-Ansicht: ab 1 h aus der Tagesaufzeichnung
 async function dtLoad(S, keep) {
   if (S === true || S === undefined) { keep = S; S = DT; }
+  if (S === DT) visChanged();
   let q;
   if (S === LDT) {                                  // Live: letzte 1 h / 6 h oder heute, laufend
     const now = nowServer(), today = isoDay(new Date(now));

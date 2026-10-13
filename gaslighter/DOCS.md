@@ -120,6 +120,18 @@ Der Reiter **Protokolle** zeigt einen Zeitraum vollständig: Zusammenfassung, Wo
 - **Quelle / Gerät**, **Art** (z. B. nur Klopfen) und **Liste** filtern alles darunter. Geräte, die es nicht mehr gibt, deren Daten aber vorhanden sind, stehen als „(ehemalig)“ in der Auswahl.
 - **🖨 Protokoll** erstellt das Lärmprotokoll für Zeitraum, Gerät und Liste, **⬇ Bild (SVG)** ein Bild. Siehe Drucken.
 
+### Bereiche anordnen (Dashboard)
+
+Live und Protokolle bestehen aus **Bereichen** (Übersicht, Unterbrechungen, Verlauf, Ereignisse nach Uhrzeit, je Tag, Ereignisse im Zeitraum, Notizen und Bewegung, Sensoren im Zeitraum). Jeder Bereich hat oben eine Leiste:
+
+- **▾ / ▸** klappt ein und aus (auch Doppelklick auf die Leiste).
+- **✕** blendet aus. Wieder einschalten unter **▦ Layout anpassen**.
+- **⌖ nur sichtbarer Bereich** (Ereignisse, Sensoren): zeigt nur, was im Verlauf gerade zu sehen ist – zieh im Verlauf z. B. 20:00–22:00 auf, dann zeigen Tabelle bzw. Liste nur diese Zeit.
+
+**▦ Layout anpassen:** Bereiche am Griff ⠿ verschieben, an der Seite schmaler oder breiter ziehen (z. B. zwei nebeneinander), Bereiche ein- und ausschalten. **Fertig** speichert, **↺ Zurücksetzen** stellt die Standardanordnung wieder her. Die Höhe richtet sich nach dem Inhalt. Am Handy stehen alle Bereiche untereinander. Die Anordnung gilt für diesen Browser.
+
+„Sensoren im Zeitraum“ ist anfangs ausgeblendet: Sensor-Ereignisse („als Ereignis“) stehen schon in der Tabelle, „nur festhalten“ (z. B. Fernseher) steht als 📡-Hinweis bei jeder Störung, die in die Zeit fällt.
+
 ### Zusammenfassung und Wochenleiste
 
 Der Ring zeigt, wie viel der Zeit **störungsfrei** war. Daneben: Anzahl der Störungen, gestörte Zeit, längste Ruhe, aufgezeichnete Zeit und lautestes Ereignis.
@@ -802,6 +814,18 @@ The **Logs** tab shows a period completely: summary, week strip, history of all 
 - **Monitoring time** (the set monitoring hours, e.g. 22–6), **Today**, **Yesterday**, **7 days**, **30 days** or **From–to**. ‹ › moves by a whole period.
 - **Source / device**, **Type** (e.g. knocking only) and **List** filter everything below. Devices that no longer exist but still have data are listed as “(former)”.
 - **🖨 Noise log** creates the noise log for period, device and list, **⬇ Image (SVG)** an image. See Printing.
+
+### Arranging sections (dashboard)
+
+Live and Logs consist of **sections** (overview, interruptions, history, events by hour, per day, events in the period, notes and motion, sensors in the period). Each section has a bar at the top:
+
+- **▾ / ▸** collapses and expands (also double-click on the bar).
+- **✕** hides it. Switch it on again under **▦ Customise layout**.
+- **⌖ visible range only** (events, sensors): only shows what is currently visible in the history – drag e.g. 20:00–22:00 in the history and the table or list shows only that time.
+
+**▦ Customise layout:** move sections by the ⠿ handle, drag the side to make them narrower or wider (e.g. two side by side), switch sections on and off. **Done** saves, **↺ Reset** restores the default arrangement. The height follows the content. On phones all sections are stacked. The arrangement applies to this browser.
+
+“Sensors in the period” is hidden at first: sensor events (“as event”) are already in the table, “only record state” (e.g. TV) appears as a 📡 hint on every disturbance that falls into that time.
 
 ### Summary and week strip
 

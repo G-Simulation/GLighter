@@ -32,7 +32,7 @@ HERE = os.path.dirname(os.path.abspath(__file__))
 WEB = os.path.join(HERE, "web")
 OPTIONS_FILE = os.environ.get("LAERM_OPTIONS", "/data/options.json")
 SETTINGS_FILE = os.environ.get("LAERM_SETTINGS", "/data/settings.json")
-VERSION = "1.49.0"
+VERSION = "1.50.0"
 
 # =====================================================================
 # Einstellungen
@@ -8540,6 +8540,17 @@ def events_summary(src="all", n=200, plist="", rng=None, art=""):
             inc = I[ig[0]]
             e.update(inc=ig[0], grp=ig[1], lead=inc["lead"] == r["k"], devs=inc["devs"], inc_bg=inc["bg"])
         out_rows.append(e)
+    if out_rows:                                     # Regeln „nur festhalten“ (z. B. Fernseher): bei jeder Störung vermerken, was gerade an war
+        try:
+            ts_ = [(dt.datetime.fromisoformat(e["start"]).timestamp() * 1000, float(e.get("dauer_s") or 0) * 1000) for e in out_rows]
+            hv_ = [x for x in ha_intervals("*", int(min(a for a, _ in ts_)) - 1000, int(max(a + d for a, d in ts_)) + 1000) if x[5] == "note"]
+        except (ValueError, TypeError, KeyError):
+            ts_, hv_ = [], []
+        if hv_:
+            for e, (a0, d0) in zip(out_rows, ts_):
+                on_ = sorted({x[2] for x in hv_ if x[0] <= a0 + d0 and x[1] >= a0})
+                if on_:
+                    e["ha_on"] = on_
     used_i = {e["inc"] for e in out_rows if "inc" in e}; used_g = {e["grp"] for e in out_rows if "grp" in e}
     return {"total": sum(days.values()), "rows": len(rows), "bg_n": bg_n, "today": days.get(dt.date.today().isoformat(), 0), "hours": hours,
             "days": sorted(days.items(), reverse=True)[:(62 if rng else 14)], "n": n,
@@ -8721,7 +8732,7 @@ class BaseHandler(BaseHTTPRequestHandler):
         self.do_GET()
 
 
-STATIC = {"app.js", "app.css", "i18n.js", "qrcode.js", "druck.js", "uplot.min.js", "uplot.min.css", "tabulator.min.js", "tabulator.min.css", "handbuch.js", "hb_inhalt.js"}   # uPlot (MIT, github.com/leeoniya/uPlot): Kurven und Balken
+STATIC = {"app.js", "app.css", "i18n.js", "qrcode.js", "druck.js", "uplot.min.js", "uplot.min.css", "tabulator.min.js", "tabulator.min.css", "gridstack-all.js", "gridstack.min.css", "handbuch.js", "hb_inhalt.js"}   # uPlot (MIT, github.com/leeoniya/uPlot): Kurven und Balken
 
 
 class Handler(BaseHandler):

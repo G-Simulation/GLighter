@@ -12,6 +12,20 @@ Der Reiter **Protokolle** zeigt einen Zeitraum vollständig: Zusammenfassung, Wo
 - **Quelle / Gerät**, **Art** (z. B. nur Klopfen) und **Liste** filtern alles darunter. Geräte, die es nicht mehr gibt, deren Daten aber vorhanden sind, stehen als „(ehemalig)“ in der Auswahl.
 - **🖨 Protokoll** erstellt das Lärmprotokoll für Zeitraum, Gerät und Liste, **⬇ Bild (SVG)** ein Bild. Siehe [Drucken](08-drucken.md).
 
+<a id="dashboard"></a>
+
+## Bereiche anordnen (Dashboard)
+
+Live und Protokolle bestehen aus **Bereichen** (Übersicht, Unterbrechungen, Verlauf, Ereignisse nach Uhrzeit, je Tag, Ereignisse im Zeitraum, Notizen und Bewegung, Sensoren im Zeitraum). Jeder Bereich hat oben eine Leiste:
+
+- **▾ / ▸** klappt ein und aus (auch Doppelklick auf die Leiste).
+- **✕** blendet aus. Wieder einschalten unter **▦ Layout anpassen**.
+- **⌖ nur sichtbarer Bereich** (Ereignisse, Sensoren): zeigt nur, was im Verlauf gerade zu sehen ist – zieh im Verlauf z. B. 20:00–22:00 auf, dann zeigen Tabelle bzw. Liste nur diese Zeit.
+
+**▦ Layout anpassen:** Bereiche am Griff ⠿ verschieben, an der Seite schmaler oder breiter ziehen (z. B. zwei nebeneinander), Bereiche ein- und ausschalten. **Fertig** speichert, **↺ Zurücksetzen** stellt die Standardanordnung wieder her. Die Höhe richtet sich nach dem Inhalt. Am Handy stehen alle Bereiche untereinander. Die Anordnung gilt für diesen Browser.
+
+„Sensoren im Zeitraum“ ist anfangs ausgeblendet: Sensor-Ereignisse („als Ereignis“) stehen schon in der Tabelle, „nur festhalten“ (z. B. Fernseher) steht als 📡-Hinweis bei jeder Störung, die in die Zeit fällt.
+
 <a id="wochenleiste"></a>
 
 ## Zusammenfassung und Wochenleiste

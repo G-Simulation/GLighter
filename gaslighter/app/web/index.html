@@ -6,6 +6,7 @@
 <title>GasLighter</title>
 <link rel="stylesheet" href="uplot.min.css?v={{VERSION}}">
 <link rel="stylesheet" href="tabulator.min.css?v={{VERSION}}">
+<link rel="stylesheet" href="gridstack.min.css?v={{VERSION}}">
 <link rel="stylesheet" href="app.css?v={{VERSION}}">
 </head>
 <body>
@@ -148,7 +149,7 @@
     <div class="card"><div class="row"><h2 data-i="days"></h2></div><table id="days"></table></div>
   </div>
   <div class="pevcard">
-    <div class="row evrow"><h2 data-i="list"></h2><span class="seg evview" id="evview"><button type="button" data-v="grp" data-i="ev_v_grp"></button><button type="button" data-v="all" data-i="ev_v_all"></button></span><label class="evnl"><span data-i="ev_count"></span> <span class="evnw"><select id="evn"><option value="50">50</option><option value="100">100</option><option value="200">200</option><option value="500">500</option><option value="1000">1000</option><option value="0" data-i="ev_all"></option><option value="c" data-i="ev_custom"></option></select><input type="number" id="evnc" class="evnc" min="1" max="5000" step="1" inputmode="numeric" hidden></span></label><span class="evacts"><button id="notesopen" class="chip" type="button">📝 <span data-i="nt_all"></span></button><button id="chkopen" class="chip" type="button">🔎 <span data-i="art_check"></span></button><button id="scanopen" class="chip" type="button">🧩 <span data-i="scan_btn"></span></button><a href="log.csv" download="log.csv" class="chip" data-i="csv"></a></span></div>
+    <div class="row evrow"><h2 data-i="list"></h2><span class="seg evview" id="evview"><button type="button" data-v="grp" data-i="ev_v_grp"></button><button type="button" data-v="all" data-i="ev_v_all"></button></span><label class="evnl"><span data-i="ev_count"></span> <span class="evnw"><select id="evn"><option value="5">5</option><option value="10">10</option><option value="20">20</option><option value="50">50</option><option value="100">100</option><option value="200">200</option><option value="500">500</option><option value="1000">1000</option><option value="2000">2000</option><option value="5000">5000</option><option value="0" data-i="ev_all"></option><option value="c" data-i="ev_custom"></option></select><input type="number" id="evnc" class="evnc" min="1" max="5000" step="1" inputmode="numeric" hidden></span></label><span class="evacts"><button id="notesopen" class="chip" type="button">📝 <span data-i="nt_all"></span></button><button id="chkopen" class="chip" type="button">🔎 <span data-i="art_check"></span></button><button id="scanopen" class="chip" type="button">🧩 <span data-i="scan_btn"></span></button><a href="log.csv" download="log.csv" class="chip" data-i="csv"></a></span></div>
     <div id="delbar" class="delbar"><span id="delcount"></span><button id="delnone" data-i="sel_none"></button><button id="artsel" class="chip">🔎 <span data-i="art_recheck_sel"></span></button><select id="plmove" class="plmove" aria-label=""></select><button id="plrmsel" class="chip" hidden>✕ <span data-i="pl_rm_sel"></span></button><button id="delsel" class="danger" data-i="del_sel"></button></div>
     <div id="artstat" class="artstat"></div>
     <div id="evcnt" class="evcnt"></div><div id="events" class="evgrid"></div>
@@ -342,6 +343,7 @@
 <script src="i18n.js?v={{VERSION}}"></script>
 <script src="uplot.min.js?v={{VERSION}}"></script>
 <script src="tabulator.min.js?v={{VERSION}}"></script>
+<script src="gridstack-all.js?v={{VERSION}}"></script>
 <script src="app.js?v={{VERSION}}"></script>
 </body>
 </html>
