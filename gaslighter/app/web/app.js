@@ -2526,7 +2526,14 @@ async function haLoad(onlyState) {
 async function haLoadEnts() {
   try { const r = await (await fetch('ha_entities', { cache: 'no-store' })).json(); HAR.ents = r.entities || []; const dl = $('haents'); if (dl) dl.innerHTML = HAR.ents.map(e => `<option value="${esc(e.id)}">${esc(e.name)} (${esc(e.state)})</option>`).join(''); } catch (e) { }
 }
-function haStateTxt(r) {
+function haHistTxt(r) {
+  const h = r.hist; if (!h) return '';
+  if (h.ok === false) return ' · ⚠ ' + t('ha_hist_err', { e: h.err || '?' });
+  if (h.ok == null) return '';
+  return ' · ' + t('ha_hist_ok', { n: h.n, l: h.last ? new Date(h.last).toLocaleTimeString(lang === 'en' ? 'en-GB' : 'de-DE') : '–' });
+}
+function haStateTxt(r) { return haStateTxt0(r) + haHistTxt(r); }
+function haStateTxt0(r) {
   if (!r.entity) return '';
   if (r.err) return '⚠ ' + r.err;
   if (r.now_state == null) return t('ha_wait');

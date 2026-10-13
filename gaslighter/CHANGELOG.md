@@ -1,5 +1,8 @@
 # Changelog
 
+## 1.50.9
+- Einstellungen → Home Assistant: Bei Regeln „nur festhalten“/„als Ereignis“ steht jetzt eine Statuszeile: ob die Historie von Home Assistant lesbar ist (sonst mit Fehlertext), wie oft der Sensor seit dem Start „an“ war und wann zuletzt. Damit lässt sich z. B. bei Tilt sofort sehen, ob die Meldungen ankommen.
+
 ## 1.50.8
 - **Kurze Sensor-Meldungen (z. B. Türsensor Tilt) fehlten**, weil „an“ und „aus“ in derselben Sekunde gespeichert wurden und der Zeitraum dadurch die Länge 0 hatte. Zeiten werden jetzt auf die Millisekunde gespeichert, und jede Meldung ist mindestens 1 s lang sichtbar.
 

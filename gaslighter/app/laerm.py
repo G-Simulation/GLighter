@@ -32,7 +32,7 @@ HERE = os.path.dirname(os.path.abspath(__file__))
 WEB = os.path.join(HERE, "web")
 OPTIONS_FILE = os.environ.get("LAERM_OPTIONS", "/data/options.json")
 SETTINGS_FILE = os.environ.get("LAERM_SETTINGS", "/data/settings.json")
-VERSION = "1.50.8"
+VERSION = "1.50.9"
 
 # =====================================================================
 # Einstellungen
@@ -1328,7 +1328,7 @@ def ha_watch():
 
 
 HA_HIST = {"key": None, "rows": []}
-HA_SYNC = {"ok": None, "last": {}, "act": {}}          # Abgleich mit der Historie von Home Assistant (je Regel: bis wann gelesen, zuletzt an/aus)
+HA_SYNC = {"ok": None, "last": {}, "act": {}, "err": "", "cnt": {}, "lon": {}}          # Abgleich mit der Historie von Home Assistant (je Regel: bis wann gelesen, zuletzt an/aus)
 
 
 def ha_last_rows():
@@ -1366,8 +1366,8 @@ def ha_hist_sync(rules):
     try:
         d = ha_get("/history/period/" + urllib.parse.quote(iso(since)) + "?filter_entity_id=" + urllib.parse.quote(ents, safe=",") +
                    "&end_time=" + urllib.parse.quote(iso(now_ms + 1000)) + "&minimal_response&no_attributes&significant_changes_only=0", timeout=8)
-    except Exception:
-        HA_SYNC["ok"] = False
+    except Exception as e:
+        HA_SYNC["ok"] = False; HA_SYNC["err"] = str(e)[:120]
         return False
     by = {}
     for lst in d if isinstance(d, list) else []:
@@ -1385,10 +1385,12 @@ def ha_hist_sync(rules):
             act = rule_match(r["states"], st_)
             if act != act0:
                 ha_hist_add(r, r["label"] or (HA_STATE.get(r["id"]) or {}).get("name") or r["entity"], st_, act, at_ms=t_)
+                if act:
+                    HA_SYNC["cnt"][r["id"]] = HA_SYNC["cnt"].get(r["id"], 0) + 1; HA_SYNC["lon"][r["id"]] = t_
                 act0 = act
             last = t_
         HA_SYNC["last"][r["id"]] = max(last, now_ms - 2000); HA_SYNC["act"][r["id"]] = act0
-    HA_SYNC["ok"] = True
+    HA_SYNC["ok"] = True; HA_SYNC["err"] = ""
     return True
 
 
@@ -1611,7 +1613,9 @@ def ha_rules_payload():
             h = HA_STATE.get(r["id"]) or {}
             rows.append(dict(r, now_state=h.get("state"), name=h.get("name"), active=bool(h.get("active")), hold=bool(h.get("hold") and (h.get("active") or (h.get("until") or 0) > now)),
                              until=dt.datetime.fromtimestamp(h["until"]).astimezone().isoformat(timespec="seconds") if h.get("until") else None,
-                             capped=bool(h.get("capped")), err=h.get("err") or ""))
+                             capped=bool(h.get("capped")), err=h.get("err") or "",
+                             hist=(None if r.get("mode") not in ("note", "event") else {"ok": HA_SYNC.get("ok"), "err": HA_SYNC.get("err", ""), "n": HA_SYNC["cnt"].get(r["id"], 0),
+                                                                                         "last": HA_SYNC["lon"].get(r["id"])})))
     url, _ = ha_api()
     return {"rules": rows, "available": bool(url), "ok": HA_INFO["ok"], "error": HA_INFO["error"]}
 
