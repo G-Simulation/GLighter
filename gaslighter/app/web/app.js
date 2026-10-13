@@ -2401,7 +2401,8 @@ function ntBind() {
   const nudge = dv => { const v = Math.max(0, (parseFloat($('ntoff').value) || 0) + dv); $('ntoff').value = v.toFixed(1); if (NTE) { NTE.off = v; EVV.ntPrev = v; } ntClock(); evDraw(); };
   $('ntminus').onclick = () => nudge(-0.1); $('ntplus').onclick = () => nudge(0.1);
   $('ntoff').oninput = () => { if (NTE) EVV.ntPrev = parseFloat($('ntoff').value) || 0; ntClock(); evDraw(); };
-  $('nttext').onkeydown = e => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); ntSave(); } if (e.key === 'Escape') { e.preventDefault(); e.stopPropagation(); ntEditorClose(); evDraw(); } };
+  enterSave($('nttext'), ntSave);
+  $('nttext').onkeydown = e => { if (e.key === 'Escape') { e.preventDefault(); e.stopPropagation(); ntEditorClose(); evDraw(); } };
   $('evdlg').addEventListener('keydown', e => {          // Taste N: Notiz an der Abspiel-Linie
     if ((e.key === 'n' || e.key === 'N') && !e.ctrlKey && !e.metaKey && !e.altKey && !e.target.closest('input,textarea,select')) { e.preventDefault(); ntEditorOpen(ntNow()); }
   });
@@ -5117,7 +5118,7 @@ function haPop(h) {                                  // Sensor aus Home Assistan
   if (d.querySelector('.hpd')) d.querySelector('.hpd').onclick = () => save('');
   d.querySelector('.hpx').onclick = () => d.close();
   d.querySelector('.hpl').onclick = () => { d.close(); const row = document.querySelector(`.har[data-a="${h.a}"]`); if (row) { row.scrollIntoView({ behavior: 'smooth', block: 'center' }); row.classList.add('flash'); setTimeout(() => row.classList.remove('flash'), 1500); } };
-  ta.onkeydown = e => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); save(ta.value.trim()); } };
+  enterSave(ta, () => save(ta.value.trim()));
   d.showModal(); setTimeout(() => ta.focus(), 50);
 }
 /* Notizbereich abdocken (Pro): eigenes Fenster, das über anderen Programmen liegt (Chrome/Edge: „Bild-im-Bild“-Fenster, sonst ein kleines Zusatzfenster) */
@@ -5145,6 +5146,14 @@ async function fnPop() {
   w.addEventListener('pagehide', back);
   addEventListener('pagehide', () => { try { w.close(); } catch (e) { } });
   const tx = doc.getElementById('fnptext'); if (tx) setTimeout(() => tx.focus(), 100);
+}
+/* Notizfelder: Enter speichert, Alt+Enter (oder Umschalt+Enter) = neue Zeile */
+function enterSave(ta, save) {
+  ta.addEventListener('keydown', e => {
+    if (e.key !== 'Enter' || e.isComposing) return;
+    if (e.altKey || e.shiftKey) { e.preventDefault(); const s = ta.selectionStart, en = ta.selectionEnd; ta.setRangeText('\n', s, en, 'end'); ta.dispatchEvent(new Event('input', { bubbles: true })); return; }
+    e.preventDefault(); save();
+  });
 }
 function fnOpen(n) {
   FN.fromPanel = false; FN.edit = n && n.id ? n : null; FN.tags = new Set((n && n.tags) || []);
@@ -5259,7 +5268,7 @@ function initFnp() {
   $('fnprun').onchange = () => { fnpStart(); fnpShow(); };
   $('fnpsrc').addEventListener('change', fnpTarget);
   $('fnpsave').onclick = fnpSave;
-  $('fnptext').addEventListener('keydown', e => { if (e.key === 'Enter' && (e.ctrlKey || e.metaKey)) { e.preventDefault(); fnpSave(); } });
+  enterSave($('fnptext'), fnpSave);
   $('fnpmore').onclick = () => {                     // ausführlich: Dialog mit von/bis, Inhalt wird mitgenommen
     const from = FNP.from == null ? nowServer() : FNP.from;
     fnOpen({ from, to: $('fnprun').checked ? nowServer() : null, src: $('fnpsrc').value, text: $('fnptext').value, tags: [...FNP.tags], witness: $('fnpwit').value });
@@ -5385,6 +5394,7 @@ function initEvView() {
 function initFn() {
   initFnp(); initEvView(); initProf();
   $('fnx').onclick = $('fncancel').onclick = () => $('fndlg').close();
+  enterSave($('fntext'), () => fnSave());
   $('fnsave').onclick = () => fnSave(false); $('fndel').onclick = () => fnSave(true);
   $('fnfnow').onclick = () => { $('fnfrom').value = dtl(new Date(nowServer())); };
   $('fntnow').onclick = () => { $('fnto').value = dtl(new Date(nowServer())); };

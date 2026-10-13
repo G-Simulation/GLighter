@@ -1,5 +1,8 @@
 # Changelog
 
+## 1.51.1
+- Notizfelder (Notiz jetzt, Notiz-Dialog, Ereignis-Notiz, Sensor-Notiz): **Enter speichert**, **Alt+Enter** (oder Umschalt+Enter) macht eine neue Zeile.
+
 ## 1.51.0
 - **Pro: Notizbereich abdocken.** Der Button ⧉ im Notizbereich löst ihn als eigenes kleines Fenster heraus. In Chrome und Edge ist es ein Bild-im-Bild-Fenster, das über anderen Programmen liegen bleibt (verschiebbar, Größe änderbar); sonst ein normales Zusatzfenster. „Zurückholen“ oder Schließen setzt den Bereich wieder ein.
 
