@@ -1,5 +1,8 @@
 # Changelog
 
+## 1.50.15
+- Verlauf: Die rote gestrichelte Linie und die rote Tönung bei Sensor-Ereignissen sind weg; es bleiben das farbige Fähnchen oben und der rote Punkt unten.
+
 ## 1.50.14
 - Live-Verlauf: Das **Zeitfenster reicht beliebig weit zurück**: neue Stufen 2 d, 7 d, 30 d, 90 d; mit Mausrad/−/+ bis zu 400 Tage. Über 2 Tage werden Minutenwerte gezeigt. Die Ereignisliste darunter zeigt bei älteren Einträgen das Datum.
 

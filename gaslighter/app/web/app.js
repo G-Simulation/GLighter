@@ -4412,8 +4412,6 @@ function dtDraw(S, hoverX) {
     c.save(); c.beginPath(); c.rect(L, 0, pw, T + ph + 8 * d); c.clip();
     for (const a of (r.ha || []).filter(a => a[5] === 'event' && !SHIDE.has('ha:' + a[2]))) {
       const x0 = X(Math.max(a[0], r.from)), x1 = Math.max(x0 + 2 * d, X(Math.min(a[1], r.to))); if (x1 < L || x0 > L + pw) continue;
-      c.fillStyle = ca(NC.red, 0.10); c.fillRect(x0, T, x1 - x0, ph);
-      c.strokeStyle = ca(NC.red, 0.75); c.lineWidth = 1 * d; c.setLineDash([3 * d, 3 * d]); c.beginPath(); c.moveTo(x0 + 0.5 * d, T); c.lineTo(x0 + 0.5 * d, T + ph); c.stroke(); c.setLineDash([]);
       c.fillStyle = NC.red; c.fillRect(x0 - 1 * d, T + ph + 1 * d, Math.max(3 * d, x1 - x0), 4 * d);
     }
     c.restore();
