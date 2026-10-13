@@ -32,7 +32,7 @@ HERE = os.path.dirname(os.path.abspath(__file__))
 WEB = os.path.join(HERE, "web")
 OPTIONS_FILE = os.environ.get("LAERM_OPTIONS", "/data/options.json")
 SETTINGS_FILE = os.environ.get("LAERM_SETTINGS", "/data/settings.json")
-VERSION = "1.48.0"
+VERSION = "1.49.0"
 
 # =====================================================================
 # Einstellungen
@@ -951,6 +951,11 @@ HIST_SECONDS = 60          # so lange liegt Ton im Arbeitsspeicher (danach ueber
 # =====================================================================
 import lizenz
 PRO_FILE = os.path.join(DATA_DIR, "lizenz.json")
+try:                                                    # Suchverzeichnis (SQLite): nur abgeleitete Daten, siehe suchindex.py
+    import suchindex as _sx
+    SIDX = _sx.SuchIndex(os.path.join(DATA_DIR, "suchindex.sqlite"))
+except Exception:                                       # ohne Verzeichnis geht alles wie bisher, nur langsamer
+    _sx = None; SIDX = None
 PRO_KEYS = {"thr_mode", "thr_fixed_db", "offset_db", "min_db", "thr_max_db", "bg_window", "bg_unit", "bg_stat",
             "rise_s", "fall_s", "min_event_ms"}
 PRO_CACHE = {"t": 0.0, "st": None}
@@ -5448,7 +5453,22 @@ def proto_track(sid, a, b, n, evmap):
     while x <= dt.datetime.fromtimestamp((b - 1) / 1000.0).date():
         p_ = day_path(sid, x.isoformat())
         if os.path.exists(p_):
-            d_ = day_load(p_)
+            d_ = None
+            if SIDX is not None and (b - a) / n >= _sx.AGG_S * 1000:   # grobe Aufloesung genuegt: verdichtete Spur aus dem Suchverzeichnis
+                try:
+                    st_ = os.stat(p_); sig = f"{st_.st_size}:{st_.st_mtime_ns}"
+                except OSError:
+                    sig = ""
+                d_ = SIDX.agg_get(sid, x.isoformat(), sig) if sig else None
+                if d_ is None and sig:
+                    full = day_load(p_)
+                    d_ = _sx.SuchIndex.agg_make(full) if full is not None else None
+                    if d_ is not None and x != dt.date.today():
+                        SIDX.agg_put(sid, x.isoformat(), sig, d_)
+                    if d_ is not None:
+                        d_ = {k: (v_.astype(np.float64) if k != "t" else v_) for k, v_ in d_.items()}
+            if d_ is None:
+                d_ = day_load(p_)
             if d_ is not None and len(d_["t"]):
                 parts.append(d_)
         x += dt.timedelta(days=1)
@@ -6691,6 +6711,7 @@ def main():
     log("Quellen:", ", ".join(f"{r.name} ({r.src['type']})" for r in RUNNERS.values()))
     mqtt_start(); cleanup()
     threading.Thread(target=motion_watch, daemon=True).start()
+    threading.Thread(target=sidx_warm, daemon=True).start()
     for r in list(RUNNERS.values()):
         r.start()
     threading.Thread(target=day_watch, daemon=True).start()
@@ -7138,6 +7159,46 @@ def chain_add(sid, day, m, line, spec_frames):
 CHAIN_CK = {}
 
 
+SIDX_KICK = threading.Event()
+
+
+def sidx_warm():
+    """Suchverzeichnis im Hintergrund fuellen (abgeschlossene Tage): Kettenpruefung und verdichtete Spur.
+    Langsam und mit Pausen, damit Aufnahme und Erkennung Vorrang haben. Liest nur, schreibt nur ins Verzeichnis."""
+    if SIDX is None:
+        return
+    time.sleep(90)
+    while True:
+        try:
+            today = dt.date.today().isoformat(); done = 0
+            for f in sorted(glob.glob(os.path.join(day_dir(), "*" + DAY_EXT)), reverse=True):
+                m = re.match(r"(\d{4}-\d{2}-\d{2})_([a-z0-9_]+)" + re.escape(DAY_EXT) + "$", os.path.basename(f))
+                if not m or m.group(1) >= today:
+                    continue
+                day, sid = m.group(1), m.group(2)
+                st_ = os.stat(f); sig = f"{st_.st_size}:{st_.st_mtime_ns}"
+                need_agg = SIDX.agg_get(sid, day, sig) is None
+                chain_check(sid, day)                       # rechnet nur, wenn der Inhalt neu ist
+                if need_agg:
+                    with DAY_LOCK:
+                        cached = f in DAY_CACHE
+                    d_ = day_load(f)
+                    if d_ is not None:
+                        a_ = _sx.SuchIndex.agg_make(d_)
+                        if a_ is not None:
+                            SIDX.agg_put(sid, day, sig, a_)
+                    if not cached:                          # Speicher nicht mit alten Tagen fuellen
+                        with DAY_LOCK:
+                            DAY_CACHE.pop(f, None)
+                    done += 1
+                time.sleep(2 if need_agg else 0.2)
+            if done:
+                log(f"Suchverzeichnis: {done} Tag(e) ergänzt")
+        except Exception as e:                             # nie die App stoeren
+            log("Suchverzeichnis:", e)
+        SIDX_KICK.wait(3600); SIDX_KICK.clear()
+
+
 def chain_check(sid, day):
     """Wie chain_check_full, zwischengespeichert, solange sich die Dateien nicht aendern."""
     fs = [day_path(sid, day), chain_file(sid, day), spec_path(sid, day)]
@@ -7145,7 +7206,15 @@ def chain_check(sid, day):
     c = CHAIN_CK.get((sid, day))
     if c and c[0] == key:
         return c[1]
-    v = chain_check_full(sid, day)
+    v = None
+    if SIDX is not None:                                # Inhalt aller Dateien des Tages unveraendert: Ergebnis aus dem Suchverzeichnis
+        fs_all = fs + sorted(glob.glob(os.path.join(day_dir(), f"{day}_{glob.escape(sid)}_[0-9][0-9].ltp")))
+        h = _sx.SuchIndex.files_hash(fs_all)
+        v = SIDX.chain_get(sid, day, h)
+    if v is None:
+        v = chain_check_full(sid, day)
+        if SIDX is not None:
+            SIDX.chain_put(sid, day, h, v)
     if len(CHAIN_CK) > 400:
         CHAIN_CK.pop(next(iter(CHAIN_CK)))
     CHAIN_CK[(sid, day)] = (key, v)
@@ -8775,6 +8844,8 @@ class Handler(BaseHandler):
                                 "supervisor_available": bool(os.environ.get("SUPERVISOR_TOKEN"))})
             if name == "pro":
                 return self.js(pro_state())
+            if name == "sidx":                            # Suchverzeichnis: Groesse, Treffer
+                return self.js(SIDX.stats() if SIDX is not None else {"ok": False, "err": "sqlite"})
             if name == "motion":                          # Erschütterung/Bewegung der Handys im Zeitraum
                 def qn(k):
                     try:
@@ -9092,6 +9163,10 @@ class Handler(BaseHandler):
                 BK_PENDING.update(path=None)
                 threading.Thread(target=restore_run, args=(pth, bool(data.get("settings")), cl(data.get("pick")), cl(data.get("off")) or set()), daemon=True).start()
                 return self.js({"ok": True})
+            if name == "sidx_clear":                     # Suchverzeichnis leeren (wird im Hintergrund neu aufgebaut; Originale unberuehrt)
+                ok_ = SIDX.clear() if SIDX is not None else False
+                CHAIN_CK.clear(); SIDX_KICK.set()
+                return self.js({"ok": ok_})
             if name == "pro":                            # Lizenzschlüssel eintragen / entfernen
                 data = json.loads(body or b"{}")
                 if not isinstance(data, dict):

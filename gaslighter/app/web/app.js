@@ -1592,7 +1592,14 @@ function sfltBuild() {
   box.querySelectorAll('input[data-k]').forEach(c => c.onchange = () => { c.checked ? SHIDE.delete(c.dataset.k) : SHIDE.add(c.dataset.k); apply(); });
   box.querySelectorAll('button[data-a]').forEach(b => b.onclick = () => { for (const [k] of items) b.dataset.a === 'all' ? SHIDE.delete(k) : SHIDE.add(k); apply(); });
 }
-function haLanes(list) { const m = new Map(); for (const a of list) if (!m.has(a[2])) m.set(a[2], m.size); return m; }                            // aufgeklappte Gruppen
+/* Anklickbare Stelle im Verlauf: bei Überlappung (z. B. Fernseher und Türsensor gleichzeitig) gewinnt die engste Fläche */
+function hitAt(S, x, y) {
+  let best = null, bs = Infinity;
+  for (const q of S.downHit || []) { if (x < q[0] || x > q[1] || (q[4] != null && y > q[4]) || (q[5] != null && y < q[5])) continue;
+    const sp = (q[4] != null ? q[4] : 1e4) - (q[5] != null ? q[5] : -1e4) + (q[1] - q[0]) * 1e-3; if (sp < bs) { bs = sp; best = q; } }
+  return best;
+}
+function haLanes(list) { const m = new Map(); for (const n of [...new Set(list.map(a => a[2]))].sort((a, b) => a.localeCompare(b))) m.set(n, m.size); return m; }   // feste Reihenfolge der Spuren (nach Name), gleich in allen Zeilen                            // aufgeklappte Gruppen
 let EVVIEW = (() => { try { return localStorage.getItem('laerm_evview') || 'grp'; } catch (e) { return 'grp'; } })();
 const clockOf = iso => { const d = new Date(iso); return isNaN(d) ? '' : pad(d.getHours()) + ':' + pad(d.getMinutes()) + ':' + pad(d.getSeconds()); };
 const shortName = n => { n = String(n || ''); return n.length > 12 ? n.slice(0, 11) + '…' : n; };
@@ -2550,6 +2557,14 @@ function bkBox() {
       msg.textContent = ''; bkPreview(pv, r, cb, msg, reset);
     })();
   };
+  {                                                  // Suchverzeichnis (SQLite): nur abgeleitete Daten, Originale bleiben unberührt
+    const r9 = el('div', { className: 'bkrow sidxrow' }), info = el('small', { className: 'mut' }), clr = el('button', { type: 'button', className: 'chip', textContent: '↻ ' + t('sx_clear') });
+    const load = async () => { try { const j = await (await fetch('sidx', { cache: 'no-store' })).json();
+      info.textContent = j.ok === false && j.err ? t('sx_off') : t('sx_info', { d: j.chain || 0, a: j.agg || 0, s: ((j.size || 0) / 1048576).toFixed(1) }); } catch (e) { } };
+    clr.onclick = async () => { if (!confirm(t('sx_clear_q'))) return; try { await fetch('sidx_clear', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: '{}' }); } catch (e) { } load(); };
+    r9.append(el('span', { textContent: '🗂 ' + t('sx_title') + ' ' }), info, clr); fs.appendChild(r9);
+    fs.appendChild(el('small', { className: 'bkhelp', textContent: t('sx_help') })); load();
+  }
   return fs;
 }
 /* Vorschau der Sicherung: welche Geräte, wie es hier aussieht; Auswahl, dann einspielen */
@@ -4102,7 +4117,7 @@ function dtDraw(S, hoverX) {
       c.save(); c.beginPath(); c.rect(Math.max(x0, L), T, Math.min(x1, L + pw) - Math.max(x0, L), ph); c.clip();
       c.font = '600 ' + (11 * d) + 'px system-ui'; c.textAlign = 'left'; const tx = '📝 ' + a[4], mw = Math.min(x1, L + pw) - Math.max(x0, L) - 8 * d;
       let s0 = tx; while (s0.length > 4 && c.measureText(s0).width > mw) s0 = s0.slice(0, -2); if (s0 !== tx) s0 = s0.slice(0, -1) + '…';
-      const tw = c.measureText(s0).width, xx = Math.max(x0, L) + 4 * d, yy = ly + 18 * d;
+      const tw = c.measureText(s0).width, xx = Math.max(x0, L) + 4 * d, yy = T + haLane.size * 6 * d + 12 * d + haLane.get(a[2]) * 15 * d;   // Notizen unter allen Spuren, je Sensor eine Zeile
       c.fillStyle = ca(NC.bg || '#000', 0.7); c.fillRect(xx - 2 * d, yy - 11 * d, tw + 4 * d, 15 * d); c.fillStyle = md === 'event' ? '#ff922b' : (typeof darkUI === 'function' && !darkUI()) ? '#1864ab' : '#74c0fc'; c.fillText(s0, xx, yy); c.restore();
     } }
   if ((r.hav || []).length && span <= 6 * 3600000) {   // Lautstärke des Fernsehers an den Wechseln
@@ -4180,10 +4195,12 @@ function dtDraw(S, hoverX) {
     const pad = (matchMedia('(pointer:coarse)').matches ? 16 : 8), hits = [];
     for (const n of r.fn || []) { const x0 = X(Math.max(n[0], r.from)) / d, x1 = Math.max(x0, X(Math.min(n[1], r.to)) / d); if (x1 < L / d - pad || x0 > (L + pw) / d + pad) continue;
       hits.push([x0 - pad, x1 + pad, '📝 ' + (n[2] || t('fn_btn')) + '\n' + t('fn_click_edit'), { kind: 'fn', a: n[0], b: n[1], id: n[3] }]); }
-    const haV2 = (r.ha || []).filter(a => !SHIDE.has('ha:' + a[2])), nl = haLanes(haV2).size;
+    const haV2 = (r.ha || []).filter(a => !SHIDE.has('ha:' + a[2])), lanes2 = haLanes(haV2), nl = lanes2.size;
     for (const a of haV2) { const x0 = X(Math.max(a[0], r.from)) / d, x1 = Math.max(x0, X(Math.min(a[1], r.to)) / d); if (x1 < L / d - pad || x0 > (L + pw) / d + pad) continue;
-      const ymax = x1 - x0 > 40 ? T / d + nl * 6 + 20 : null;   // breiter Balken: nur oben anklickbar (Leiste + Notiz), darunter bleibt Ziehen/Markieren frei
-      hits.push([x0 - pad, x1 + pad, '📡 ' + a[2] + ' ' + t('ha_on') + ' · ' + hms(a[0]) + '–' + hms(a[1]) + (a[4] ? '\n📝 ' + a[4] : '') + '\n' + t('ha_click'), { kind: 'ha', a: a[0], b: a[1], name: a[2], rid: a[3], note: a[4] || '', S }, ymax]); }
+      // Sensoren können gleichzeitig an sein (Fernseher + Türsensor): jede Spur hat ihre eigene Klickfläche, darunter bleibt Ziehen frei
+      const ln = lanes2.get(a[2]), ly = T / d + ln * 6, solo = nl === 1 && x1 - x0 <= 40;
+      const ymax = solo ? null : a[4] ? T / d + nl * 6 + 16 + ln * 15 : ly + 8, ymin = solo ? null : ln === 0 ? null : ly - 2;   // breiter Balken: nur oben anklickbar (Leiste + Notiz), darunter bleibt Ziehen/Markieren frei
+      hits.push([x0 - pad, x1 + pad, '📡 ' + a[2] + ' ' + t('ha_on') + ' · ' + hms(a[0]) + '–' + hms(a[1]) + (a[4] ? '\n📝 ' + a[4] : '') + '\n' + t('ha_click'), { kind: 'ha', a: a[0], b: a[1], name: a[2], rid: a[3], note: a[4] || '', S }, ymax, ymin]); }
     S.downHit = hits.concat(S.downHit || []);
   }
   const mk = S.parent ? S.parent.mark : S.mark;        // in der Tabelle gewähltes Ereignis
@@ -4511,7 +4528,7 @@ function bindDay(S, reset) {
   });
   cv.addEventListener('pointermove', e => {
     if (ptd) { const v = ptVal(S, yAt(e)); if (v != null) ptSet(v, false); return; }
-    const dh = !MK.on && !DR.on && (S.downHit || []).find(q => xAt(e) >= q[0] && xAt(e) <= q[1] && (q[4] == null || yAt(e) <= q[4]));   // anklickbar: Unterbrechung, Notiz, Sensor (breite Sensor-Balken nur oben)
+    const dh = !MK.on && !DR.on && hitAt(S, xAt(e), yAt(e));   // anklickbar: Unterbrechung, Notiz, Sensor (breite Sensor-Balken nur oben)
     cv.style.cursor = ptNear(S, yAt(e)) ? 'ns-resize' : dh && !S.drag && !pan ? 'pointer' : '';
     cv.title = dh ? dh[2] : '';
     if (pts.has(e.pointerId)) pts.set(e.pointerId, xAt(e));
@@ -4530,7 +4547,7 @@ function bindDay(S, reset) {
   let dcT = 0;                                       // Klick auf eine Unterbrechung: Kommentar (kurz warten, ein Doppelklick hat Vorrang)
   const downClick = (x, e) => {
     if (MK.on || DR.on || e.type !== 'pointerup') return false;
-    const y = yAt(e), h = (S.downHit || []).find(q => x >= q[0] && x <= q[1] && (q[4] == null || y <= q[4])); if (!h) return false;
+    const y = yAt(e), h = hitAt(S, x, y); if (!h) return false;
     clearTimeout(dcT); const cx = e.clientX, cy = e.clientY; dcT = setTimeout(() => h[3] && h[3].kind === 'fn' ? fnOpenId(h[3]) : h[3] && h[3].kind === 'ha' ? haPop(h[3]) : rnOpen(h[3], cx, cy), 260); return true;
   };
   const up = e => {

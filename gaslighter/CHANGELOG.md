@@ -1,5 +1,11 @@
 # Changelog
 
+## 1.49.0
+- **Suchverzeichnis (SQLite):** Lärmprotokolle über lange Zeiträume sind deutlich schneller (Test: 6 Wochen von 39 s auf etwa 4 s, danach 2 s).
+  - Gespeichert wird das Ergebnis der Kettenprüfung je Tag – mit SHA-256 über den Inhalt aller Dateien des Tages, ändert sich ein Byte, wird neu geprüft – und eine verdichtete Tagesspur für die Grafiken.
+  - Nur abgeleitete Daten: Aufzeichnung, Datenkette und Störungen bleiben unverändert; nicht in der Sicherung; füllt sich im Hintergrund; „Neu aufbauen“ unter Einstellungen → Allgemein → Sicherung.
+- **Mehrere Sensoren gleichzeitig:** Sind z. B. Fernseher und Türsensor zur selben Zeit an, hat jeder seine eigene Spur (feste Reihenfolge nach Name) und ist einzeln anklickbar. Notizen stehen untereinander statt übereinander.
+
 ## 1.48.0
 - **Neue Ereignistabelle** (Tabulator, MIT-Lizenz, liegt in der App – ohne Internet):
   - Sortieren per Klick auf die Spaltenüberschrift (wird gemerkt).
