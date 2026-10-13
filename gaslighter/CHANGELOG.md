@@ -1,5 +1,8 @@
 # Changelog
 
+## 1.51.5
+- Protokolle: Klick auf Notiz, Bewegung oder Sensor in den Listen **zoomt den Verlauf auf den Bereich** (Umfeld = halbe Länge, mindestens 15 s) und markiert ihn – bisher feste ±2 Minuten.
+
 ## 1.51.4
 - Notizbereich: Die Uhrzeit **läuft mit** (in der Kopfzeile „von …“ und bei „Mehr …“ im Feld „von“) und wird erst **beim Speichern** festgelegt. Ändert man das Feld „von“ von Hand, bleibt die eigene Zeit stehen; „jetzt“ schaltet wieder auf mitlaufend. Auch abgedockt läuft die Uhr weiter, wenn die Seite im Hintergrund ist.
 

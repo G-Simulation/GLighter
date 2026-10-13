@@ -1554,7 +1554,7 @@ function evGrid(evs, sv, useArt, grpMode) {
     TBL.on('rowClick', (e, row) => { if (e.target.closest('input,button,a,.ck,.gtog')) return; const d = row.getData();
       if (d._t === 'ev') dtJump(d.id, row.getElement());
       else if (d._t === 'grp') row.treeToggle();
-      else if (d._t === 'sens') { const x = d.x; DT.mark = [x.a, Math.max(x.b, x.a + 1000)]; DT.from = x.a - 120000; DT.to = Math.max(x.b, x.a + 1000) + 120000; dtLoad(DT, true); $('ndaybox').scrollIntoView({ behavior: 'smooth', block: 'start' }); } });
+      else if (d._t === 'sens') { const x = d.x; dtFocus(x.a, x.b); } });
     TBL.on('rowDblClick', (e, row) => { const d = row.getData(); if (d._t === 'ev' && !e.target.closest('input,button,a')) openEvent(d.id); });
     TBL.on('rowContext', (e, row) => { const d = row.getData(); if (d._t !== 'ev') return; e.preventDefault(); openRowMenu(row.getElement(), e.clientX, e.clientY); });
     TBL.on('dataTreeRowExpanded', row => { EVOPEN.add(row.getData().gid); });
@@ -3841,7 +3841,7 @@ function renderNight() {
       ...fl.map((n, i) => `<tr data-k="f" data-i="${i}"><td>${mk(0, '📝', '#7048e8')}${esc(t('tp_note'))}</td><td>${esc(fmtDay(n.date))}</td><td>${esc(n.clock)}${n.to ? '–' + esc(n.clock_to) : ''}${n.rz ? ' 🌙' : ''}</td><td>${esc(nmv(n.src || 'all'))}</td><td>${tx(n)}</td><td class="ntact fned" title="${esc(t('nt_edit'))}">✎</td></tr>`),
       ...mo.map((m, i) => { const a1 = new Date(m.a), b1 = new Date(m.b);
         return `<tr data-k="m" data-i="${i}"><td>${mk(0, m.kind === 'vib' ? '🫨' : '🏃', m.kind === 'vib' ? '#e8590c' : '#1c7ed6')}${esc(t(m.kind === 'vib' ? 'mot_vib' : 'mot_cam'))}</td><td>${esc(a1.toLocaleDateString(L, { day: '2-digit', month: '2-digit' }))}</td><td>${esc(a1.toLocaleTimeString(L))}–${esc(b1.toLocaleTimeString(L))}</td><td>${esc(viewName(m.src))}</td><td><span class="ntt">${esc(fmtDur(Math.max(0, (m.b - m.a) / 1000)))} · ${esc(t('mot_peak'))} ${esc(m.kind === 'vib' ? f2(m.peak) + ' m/s²' : f1(m.peak) + ' %')}${m.open ? ' · ' + esc(t('mot_open')) : ''}</span></td><td></td></tr>`; })];
-    const goto = (a, b) => { DT.mark = [a, Math.max(b, a + 1000)]; DT.from = a - 120000; DT.to = Math.max(b, a) + 120000; dtLoad(DT, true); $('ndaybox').scrollIntoView({ behavior: 'smooth', block: 'start' }); };
+    const goto = (a, b) => dtFocus(a, b);
     tabGrid($('nnotes'), rows.length ? `<table><tr><th>${esc(t('col_type'))}</th><th>${esc(t('date'))}</th><th>${esc(t('col_time'))}</th><th>${esc(t('src_col'))}</th><th>${esc(t('col_text'))}</th><th></th></tr>${rows.join('')}</table>` : '<div></div>',
       { onRow: (ds, e) => { const i = +ds.i;
         if (ds.k === 'n') { const [ev, n] = nn[i]; if (ev.k) openEvent(ev.k, n.off); }
@@ -3862,7 +3862,7 @@ function haListRender() {
     tabGrid(box0, `<table><tr><th>${esc(t('col_type'))}</th><th>${esc(t('date'))}</th><th>${esc(t('col_time'))}</th><th>${esc(t('dur'))}</th><th>${esc(t('col_text'))}</th><th></th></tr>${rows.join('')}</table>`,
       { head: `<h3>📡 ${esc(t('ha_list', { n: hl.length }))}</h3>`, onRow: (ds, e) => { const x = hl[+ds.i]; if (!x) return;
         if (e.target.closest('.hanote')) { haPop({ a: x[0], b: x[1], name: x[2], rid: x[3], note: x[4] || '' }); return; }
-        DT.mark = [x[0], Math.max(x[1], x[0] + 1000)]; DT.from = x[0] - 120000; DT.to = Math.max(x[1], x[0]) + 120000; dtLoad(DT, true); $('ndaybox').scrollIntoView({ behavior: 'smooth', block: 'start' }); } });
+        dtFocus(x[0], x[1]); } });
   }
 }
 function nightGeom(cv) {
@@ -4712,6 +4712,11 @@ function nvSpan(d) {                                 // Zeitraum des Berichts; l
 }
 function dtBase(S) { const d = NV.data; if (d && d.start) return nvSpan(d); const a = parseDay(S.date).getTime(); return [a, a + 86400000]; }
 /* Neuen Ausschnitt für alle Zeilen setzen: sofort verschoben zeichnen, Daten gedrosselt nachladen */
+/* Zu einem Zeitraum springen: im Verlauf auf den Bereich zoomen (Umfeld = halbe Länge, mindestens 15 s) und markieren */
+function dtFocus(a, b) {
+  const e = Math.max(b, a + 1000), pad = Math.max(15000, (e - a) * 0.5);
+  DT.mark = [a, e]; DT.from = a - pad; DT.to = e + pad; dtLoad(DT, true); $('ndaybox').scrollIntoView({ behavior: 'smooth', block: 'start' });
+}
 function dtSetWin(S, f, t2, load) {
   const [b0, b1] = dtBase(S), sp = Math.min(t2 - f, b1 - b0);
   if (sp >= b1 - b0 - 1000) { S.from = S.to = null; S.zoom = false; }
