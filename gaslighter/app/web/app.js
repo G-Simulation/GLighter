@@ -4336,6 +4336,16 @@ function dtDraw(S, hoverX) {
   }
   c.fillStyle = ca(NC.red, 0.35); for (const e of r.evx || []) { const x = X(e[0]); if (x >= L && x <= L + pw) c.fillRect(x - 1 * d, T + ph + 2 * d, Math.max(2 * d, X(e[0] + e[1]) - x), 2.5 * d); }   // Störung an einem anderen Gerät
   c.fillStyle = NC.red; for (const e of r.ev || []) { const x = X(e[0]); if (x >= L && x <= L + pw) c.fillRect(x - 1 * d, T + ph + 1 * d, Math.max(2 * d, X(e[0] + e[1]) - x), 4 * d); }
+  {                                                  // Sensor-Ereignisse (Regel „als Ereignis“, z. B. Türsensor): rote Marker wie bei Störungen, dazu eine dünne Linie über die ganze Höhe
+    c.save(); c.beginPath(); c.rect(L, 0, pw, T + ph + 8 * d); c.clip();
+    for (const a of (r.ha || []).filter(a => a[5] === 'event' && !SHIDE.has('ha:' + a[2]))) {
+      const x0 = X(Math.max(a[0], r.from)), x1 = Math.max(x0 + 2 * d, X(Math.min(a[1], r.to))); if (x1 < L || x0 > L + pw) continue;
+      c.fillStyle = ca(NC.red, 0.10); c.fillRect(x0, T, x1 - x0, ph);
+      c.strokeStyle = ca(NC.red, 0.75); c.lineWidth = 1 * d; c.setLineDash([3 * d, 3 * d]); c.beginPath(); c.moveTo(x0 + 0.5 * d, T); c.lineTo(x0 + 0.5 * d, T + ph); c.stroke(); c.setLineDash([]);
+      c.fillStyle = NC.red; c.fillRect(x0 - 1 * d, T + ph + 1 * d, Math.max(3 * d, x1 - x0), 4 * d);
+    }
+    c.restore();
+  }
   if (S === LDT && !S.zoom) { const x = X(nowServer()); if (x > L && x < L + pw) { c.strokeStyle = NC.tx; c.globalAlpha = 0.4; c.lineWidth = 1 * d; c.beginPath(); c.moveTo(x, T); c.lineTo(x, T + ph); c.stroke(); c.globalAlpha = 1; } }
   fnMarks(c, r.fn, X, T, ph, L, pw, d, span <= 30 * 60000);    // freie Notizen („Notiz jetzt“)
   {                                                  // Notizen und Home-Assistant-Sensoren anklickbar – Klickfläche breiter als die (oft schmale) Fläche

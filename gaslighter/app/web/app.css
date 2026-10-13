@@ -612,8 +612,8 @@ header .seg{height:36px}header .seg button{height:34px;min-height:34px}
 #ldcv{width:100%;height:280px;display:block;touch-action:pan-y;cursor:grab}#ldsp{width:100%;height:70px;display:block;margin-top:2px}
 @media(max-width:600px){#ldcv{height:220px}}
 .ndmulti{display:grid;gap:2px}.ndlab{font-size:12px;font-weight:600;color:var(--mut);margin-top:6px}.ndlab[hidden],.ndcvm[hidden],#ndcv[hidden]{display:none}
-.ndcvm{width:100%;height:170px;display:block;touch-action:pan-y;cursor:crosshair}
-@media(max-width:600px){.ndcvm{height:140px}}
+.ndcvm{width:100%;height:280px;display:block;touch-action:pan-y;cursor:crosshair}
+@media(max-width:600px){.ndcvm{height:220px}}
 /* Reiter Protokolle: Zeitraum, Filter, ein Datensatz */
 .night .nper button{padding:6px 10px;font-size:13px}
 .night .nfree{display:inline-flex;gap:6px;align-items:center}.night .nfree[hidden]{display:none}.night .ndate[hidden]{display:none}
@@ -789,7 +789,7 @@ body.marking #main,body.marking #spec,body.marking #ldcv,body.marking .ndcvm{tou
 /* 1.43.1 UI-Durchsicht */
 .ndtools{display:contents}.ndmore{display:none}
 @media(max-width:600px){.ndmore{display:inline-flex}.ndtools{display:none}.ndtools.open{display:flex;flex-wrap:wrap;gap:6px;width:100%}.ndtools.open .chip{margin-left:0}
-  .ndrow{flex-wrap:wrap}.ndrow .ndrlay{flex-basis:100%;order:9}.ndrow .chip:not(.ndchip){min-width:40px;min-height:40px}#ndcv{height:220px}.ndcvm{height:200px}}
+  .ndrow{flex-wrap:wrap}.ndrow .ndrlay{flex-basis:100%;order:9}.ndrow .chip:not(.ndchip){min-width:40px;min-height:40px}#ndcv{height:220px}.ndcvm{height:220px}}
 
 .prdlg .ntedbtns{position:sticky;bottom:0;background:var(--card);padding:10px 0 4px;margin-top:6px;border-top:1px solid var(--bd);z-index:2}
 .mkhint{display:none;align-items:center;gap:10px;flex-wrap:wrap;margin:4px 0 6px;padding:7px 12px;border-radius:9px;border:1px solid color-mix(in srgb,var(--acc) 45%,transparent);background:color-mix(in srgb,var(--acc) 10%,var(--card));font-size:13px}

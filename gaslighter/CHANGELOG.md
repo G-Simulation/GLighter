@@ -1,5 +1,9 @@
 # Changelog
 
+## 1.50.4
+- Verlauf wie Live: Sensor-Ereignisse („als Ereignis“, z. B. Türsensor) haben rote Marker – gestrichelte Linie über die ganze Höhe und rote Marke unten wie bei Störungen.
+- Zeilen im Verlauf sind so hoch wie der Live-Graph (280 px, am Handy 220 px). Selbst eingestellte Höhen bleiben.
+
 ## 1.50.3
 - Ereignistabelle: Die Filter unter **Quelle / Gerät** und **Art** sind jetzt eine Liste mit **Häkchen** (Mehrfachauswahl, „alle“, „keine Auswahl“); der Knopf zeigt „3 gewählt“. Vorher war die Mehrfachauswahl nicht zu erkennen.
 
