@@ -5240,7 +5240,7 @@ function fnpShow() {
     : t('fnp_from', { t: hm(FNP.from) }) + ($('fnprun').checked ? ' – ' + hm(nowServer()) : '');
   $('fnpfrom').classList.toggle('on', FNP.from != null);
 }
-function fnpReset() { FNP.from = null; FNP.tgt = null; FNP.tags = new Set(); $('fnptext').value = ''; $('fnpwit').value = ''; $('fnpwit').hidden = true; $('fnprun').checked = false; fnpTags(); fnpShow(); }
+function fnpReset() { FNP.from = null; FNP.tgt = null; FNP.tags = new Set(); $('fnptext').value = ''; $('fnpwit').value = ''; $('fnpfromi').value = ''; $('fnptoi').value = ''; $('fnprun').checked = false; fnpTags(); fnpShow(); }
 function fnpFold(open) {
   $('fnpbody').hidden = !open; $('fnptog').setAttribute('aria-expanded', open ? 'true' : 'false'); $('fnpanel').classList.toggle('shut', !open);
   try { localStorage.setItem('laerm_fnp', open ? '1' : '0'); } catch (e) { }
@@ -5248,7 +5248,8 @@ function fnpFold(open) {
 async function fnpSave() {
   const from = FNP.from == null ? nowServer() : FNP.from;
   const run = $('fnprun').checked;
-  const body = { action: 'add', id: '', from: dtl(new Date(from)), to: run ? dtl(new Date(nowServer())) : '', src: $('fnpsrc').value, text: $('fnptext').value, tags: [...FNP.tags], witness: $('fnpwit').value, auto: !run };
+  const fv = $('fnpfromi').value, tv = $('fnptoi').value;      // eigene Zeiten (Mehr …); leer = automatisch
+  const body = { action: 'add', id: '', from: fv || dtl(new Date(from)), to: tv || (run ? dtl(new Date(nowServer())) : ''), src: $('fnpsrc').value, text: $('fnptext').value, tags: [...FNP.tags], witness: $('fnpwit').value, auto: !run && !fv && !tv };
   const msg = $('fnpmsg'); msg.className = 'fnpmsg';
   try {
     const r = await (await fetch('fnote', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) })).json();
@@ -5269,11 +5270,16 @@ function initFnp() {
   $('fnpsrc').addEventListener('change', fnpTarget);
   $('fnpsave').onclick = fnpSave;
   enterSave($('fnptext'), fnpSave);
-  $('fnpmore').onclick = () => {                     // ausführlich: Dialog mit von/bis, Inhalt wird mitgenommen
-    const from = FNP.from == null ? nowServer() : FNP.from;
-    fnOpen({ from, to: $('fnprun').checked ? nowServer() : null, src: $('fnpsrc').value, text: $('fnptext').value, tags: [...FNP.tags], witness: $('fnpwit').value });
-    FN.fromPanel = true;
+  const ext = open_ => {                             // „Mehr …“: von/bis und Zeuge direkt im Bereich einblenden (auch abgedockt); Zustand wird gemerkt
+    $('fnpext').hidden = !open_; $('fnpwit').hidden = !open_; $('fnpmore').textContent = t(open_ ? 'fnp_less' : 'fnp_more'); $('fnpmore').classList.toggle('on', open_);
+    try { localStorage.setItem('laerm_fnpx', open_ ? '1' : '0'); } catch (e) { }
   };
+  let xo = false; try { xo = localStorage.getItem('laerm_fnpx') === '1'; } catch (e) { }
+  ext(xo); FNP.ext = ext;
+  $('fnpmore').onclick = () => ext($('fnpext').hidden);
+  $('fnpfnow').onclick = () => { $('fnpfromi').value = dtl(new Date(nowServer())); };
+  $('fnptnow').onclick = () => { $('fnptoi').value = dtl(new Date(nowServer())); };
+  $('fnptclr').onclick = () => { $('fnptoi').value = ''; };
   FNP.tick = setInterval(() => { if ($('fnprun').checked && !document.hidden) fnpShow(); }, 1000);
   if (open && !matchMedia('(pointer:coarse)').matches) setTimeout(() => { if (!document.activeElement || document.activeElement === document.body) $('fnptext').focus({ preventScroll: true }); }, 300);   // am PC sofort lostippen
 }

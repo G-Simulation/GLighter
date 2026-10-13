@@ -1097,3 +1097,7 @@ fieldset.prolocked .f{opacity:.55}
 .fnpopbody{margin:0;padding:8px;background:var(--bg)}
 .fnpanel.inpop{margin:0;max-width:none;box-shadow:none}
 .fnppop .protag{margin-left:4px}
+
+.fnpext{display:flex;flex-wrap:wrap;gap:6px 16px;margin:6px 0}
+.fnpext .fnrow{display:flex;align-items:center;gap:6px}
+#fnpmore.on{background:var(--nl1)}

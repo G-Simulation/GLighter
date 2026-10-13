@@ -1,5 +1,8 @@
 # Changelog
 
+## 1.51.2
+- Notizbereich: **„Mehr …“ blendet von/bis und Zeuge direkt im Bereich ein** statt ein Fenster zu öffnen – auch im abgedockten Fenster. Der Zustand wird gemerkt, wer es immer offen will, lässt es offen. Leere Zeiten = automatisch wie bisher.
+
 ## 1.51.1
 - Notizfelder (Notiz jetzt, Notiz-Dialog, Ereignis-Notiz, Sensor-Notiz): **Enter speichert**, **Alt+Enter** (oder Umschalt+Enter) macht eine neue Zeile.
 
