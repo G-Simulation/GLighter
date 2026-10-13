@@ -1,5 +1,8 @@
 # Changelog
 
+## 1.51.4
+- Notizbereich: Die Uhrzeit **läuft mit** (in der Kopfzeile „von …“ und bei „Mehr …“ im Feld „von“) und wird erst **beim Speichern** festgelegt. Ändert man das Feld „von“ von Hand, bleibt die eigene Zeit stehen; „jetzt“ schaltet wieder auf mitlaufend. Auch abgedockt läuft die Uhr weiter, wenn die Seite im Hintergrund ist.
+
 ## 1.51.3
 - Notizen: Sind nur Markierungen gesetzt und kein Text eingegeben, wird beim Speichern **ein Satz daraus gebildet** (z. B. „Deutliche Schritte im Treppenhaus“, „Starkes Klopfen von oben, aufgewacht“). Der Satz steht als Notiztext und lässt sich später ändern. Gilt für „Notiz jetzt“, Notiz-Dialog und Ereignis-Notiz, deutsch und englisch.
 

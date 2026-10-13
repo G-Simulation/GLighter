@@ -5266,16 +5266,15 @@ function fnpShow() {
     : t('fnp_from', { t: hm(FNP.from) }) + ($('fnprun').checked ? ' – ' + hm(nowServer()) : '');
   $('fnpfrom').classList.toggle('on', FNP.from != null);
 }
-function fnpReset() { FNP.from = null; FNP.tgt = null; FNP.tags = new Set(); $('fnptext').value = ''; $('fnpwit').value = ''; $('fnpfromi').value = ''; $('fnptoi').value = ''; $('fnprun').checked = false; fnpTags(); fnpShow(); }
+function fnpReset() { FNP.from = null; FNP.tgt = null; FNP.tags = new Set(); $('fnptext').value = ''; $('fnpwit').value = ''; $('fnpfromi').value = ''; $('fnptoi').value = ''; FNP.fixed = false; $('fnprun').checked = false; fnpTags(); fnpShow(); }
 function fnpFold(open) {
   $('fnpbody').hidden = !open; $('fnptog').setAttribute('aria-expanded', open ? 'true' : 'false'); $('fnpanel').classList.toggle('shut', !open);
   try { localStorage.setItem('laerm_fnp', open ? '1' : '0'); } catch (e) { }
 }
 async function fnpSave() {
-  const from = FNP.from == null ? nowServer() : FNP.from;
   const run = $('fnprun').checked;
-  const fv = $('fnpfromi').value, tv = $('fnptoi').value;      // eigene Zeiten (Mehr …); leer = automatisch
-  const body = { action: 'add', id: '', from: fv || dtl(new Date(from)), to: tv || (run ? dtl(new Date(nowServer())) : ''), src: $('fnpsrc').value, text: autoText($('fnptext').value, FNP.tags), tags: [...FNP.tags], witness: $('fnpwit').value, auto: !run && !fv && !tv };
+  const fixed = FNP.fixed && $('fnpfromi').value, tv = $('fnptoi').value;      // eigene Zeiten (Mehr …); sonst gilt die Uhrzeit beim Speichern
+  const body = { action: 'add', id: '', from: fixed ? $('fnpfromi').value : dtl(new Date(nowServer())), to: tv || (run ? dtl(new Date(nowServer())) : ''), src: $('fnpsrc').value, text: autoText($('fnptext').value, FNP.tags), tags: [...FNP.tags], witness: $('fnpwit').value, auto: !run && !fixed && !tv };
   const msg = $('fnpmsg'); msg.className = 'fnpmsg';
   try {
     const r = await (await fetch('fnote', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) })).json();
@@ -5303,10 +5302,19 @@ function initFnp() {
   let xo = false; try { xo = localStorage.getItem('laerm_fnpx') === '1'; } catch (e) { }
   ext(xo); FNP.ext = ext;
   $('fnpmore').onclick = () => ext($('fnpext').hidden);
-  $('fnpfnow').onclick = () => { $('fnpfromi').value = dtl(new Date(nowServer())); };
+  $('fnpfnow').onclick = () => { FNP.fixed = false; $('fnpfromi').value = dtl(new Date(nowServer())); };
+  $('fnpfromi').addEventListener('input', () => { FNP.fixed = true; const v = new Date($('fnpfromi').value).getTime(); if (!isNaN(v)) FNP.from = v; fnpShow(); });
   $('fnptnow').onclick = () => { $('fnptoi').value = dtl(new Date(nowServer())); };
   $('fnptclr').onclick = () => { $('fnptoi').value = ''; };
-  FNP.tick = setInterval(() => { if ($('fnprun').checked && !document.hidden) fnpShow(); }, 1000);
+  FNP.tick = setInterval(() => {                    // die Uhrzeit läuft mit, bis sie beim Speichern gesetzt wird (oder von Hand geändert ist)
+    if (document.hidden && !(FNPOP && !FNPOP.closed)) return;     // abgedockt läuft die Uhr auch weiter, wenn die Seite im Hintergrund ist
+    const now = nowServer();
+    if (!FNP.fixed) {
+      if (FNP.from != null) FNP.from = now;
+      const fi = $('fnpfromi'); if (fi && !$('fnpext').hidden && fi.ownerDocument.activeElement !== fi) fi.value = dtl(new Date(now));
+    }
+    if ($('fnprun').checked || (FNP.from != null && !FNP.fixed)) fnpShow();
+  }, 1000);
   if (open && !matchMedia('(pointer:coarse)').matches) setTimeout(() => { if (!document.activeElement || document.activeElement === document.body) $('fnptext').focus({ preventScroll: true }); }, 300);   // am PC sofort lostippen
 }
 /* ================= Profile: aufnehmen (Ruhepegel, dann jeder Ausschlag je Gerät), verwalten, neu untersuchen ================= */
