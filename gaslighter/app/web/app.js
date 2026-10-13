@@ -1094,11 +1094,16 @@ function bindCanvas(cv, isSpec) {
     }
   }, { passive: false });
 }
-/* Live-Bild: Zeit zoomen (stufenlos). Live: rechter Rand bleibt „jetzt“; angehalten: die Stelle unter der Maus bleibt stehen.
+/* Live-Bild: Zeit zoomen (stufenlos). Live: nur am rechten Rand bleibt „jetzt“, sonst wird angehalten; angehalten: die Stelle unter der Maus bleibt stehen.
    Weiter als der Arbeitsspeicher (10 min) geht es nahtlos in den Tagesverlauf. */
 function zoomLiveX(k, fx, end0) {
   const ns = clamp(Math.round(view.span * k * 10) / 10, 5, 34560000); if (ns === view.span) return;
-  if (view.live) { setSpan(ns); markDirty(); return; }
+  if (view.live) {
+    if (fx > 0.97) { setSpan(ns); markDirty(); return; }                       // Maus am rechten Rand: weiter live
+    const [a0, b0] = viewRange(), c0 = a0 + clamp(fx, 0, 1) * (b0 - a0), nw = nowServer() - DELAY;
+    if (c0 + (1 - clamp(fx, 0, 1)) * ns * 1000 >= nw) { setSpan(ns); markDirty(); return; }
+    view.end = b0; setLive(false);                                              // sonst bleibt die Stelle unter der Maus stehen: Live wird angehalten
+  }
   const [a, b] = viewRange(), c = a + clamp(fx, 0, 1) * (b - a), now = nowServer() - DELAY;
   let end = end0 != null ? end0 : c + (1 - clamp(fx, 0, 1)) * ns * 1000;
   if (end >= now) { setSpan(ns); setLive(true); markDirty(); return; }

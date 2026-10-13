@@ -1,5 +1,8 @@
 # Changelog
 
+## 1.51.6
+- Live-Verlauf: **Zoomen mit dem Mausrad hält die Stelle unter der Maus fest** (Spitze, Sensor-Ereignis), ohne vorher klicken zu müssen. Dafür wird Live angehalten und der Verlauf bleibt dort stehen („Zurück zu Live“ geht zurück). Nur am rechten Rand bleibt es live.
+
 ## 1.51.5
 - Protokolle: Klick auf Notiz, Bewegung oder Sensor in den Listen **zoomt den Verlauf auf den Bereich** (Umfeld = halbe Länge, mindestens 15 s) und markiert ihn – bisher feste ±2 Minuten.
 
