@@ -1,5 +1,8 @@
 # Changelog
 
+## 1.50.17
+- Verlauf: Fähnchen der Sensor-Ereignisse werden nach der Pegelkurve gezeichnet und liegen damit über Kurve und gestrichelter Linie.
+
 ## 1.50.16
 - Verlauf: Die rote gestrichelte Linie der Sensor-Ereignisse ist wieder da, liegt aber **ganz unten**: Pegelkurve, Fähnchen und Punkte liegen darüber.
 

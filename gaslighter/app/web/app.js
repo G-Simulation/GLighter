@@ -4408,6 +4408,11 @@ function dtDraw(S, hoverX) {
         if (xx - lastX > 22 * d && span <= 6 * 3600000) { c.fillText(a[3] ? '🧩' : (ART_ICON[a[1]] || ''), xx, y0 + 2 * d); lastX = xx; } }
     }
   }
+  for (const a of haV) {                             // Fähnchen der Sensor-Ereignisse nach der Pegelkurve nochmal zeichnen: liegen über Kurve und Linie
+    if (a[5] !== 'event') continue;
+    const x0 = X(Math.max(a[0], r.from)), x1 = Math.max(X(Math.min(a[1], r.to)), x0 + 3 * d); if (x1 <= x0 || x1 < L || x0 > L + pw) continue;
+    const ly = T + haLane.get(a[2]) * 6 * d; c.fillStyle = sensCol(a); c.fillRect(x0, ly, x1 - x0, (a[4] ? 5 : 4) * d); c.fillRect(x0, ly, 2 * d, 12 * d);
+  }
   if ((r.pa || []).length) {                         // Bereiche aus „Neu untersuchen“ (Profile, auch unter der Schwelle)
     c.save(); c.beginPath(); c.rect(L, 0, pw, T + ph); c.clip(); let lastX = -1e9;
     for (const a of r.pa) { const x0 = X(Math.max(a[0], r.from)), x1 = Math.max(x0 + 2 * d, X(Math.min(a[1], r.to))); if (x1 < L || x0 > L + pw) continue;
