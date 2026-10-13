@@ -1,5 +1,8 @@
 # Changelog
 
+## 1.50.10
+- Live-Reiter: Die Liste zeigt jetzt **alle Ereignisse des im Live-Verlauf sichtbaren Bereichs** (nicht nur ab Mitternacht), einschließlich der Sensor-Ereignisse (Heizungssensor, Türsensor …).
+
 ## 1.50.9
 - Einstellungen → Home Assistant: Bei Regeln „nur festhalten“/„als Ereignis“ steht jetzt eine Statuszeile: ob die Historie von Home Assistant lesbar ist (sonst mit Fehlertext), wie oft der Sensor seit dem Start „an“ war und wann zuletzt. Damit lässt sich z. B. bei Tilt sofort sehen, ob die Meldungen ankommen.
 

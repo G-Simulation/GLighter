@@ -4971,18 +4971,22 @@ function levSave() { try { localStorage.setItem('laerm_lev', JSON.stringify({ co
 function levHead(c) { return { tm: t('start'), src: t('src_col'), art: t('art_col'), kinds: t('kinds_col'), devs: t('devs_col'), dur: t('dur'), pk: t('peak'), thr: t('thr_col'), bg: t('bg_col'), nt: '📝' }[c]; }
 async function levLoad(force) {
   if (NV.open || !$('ldev')) return;                 // nur im Live-Reiter
-  const now = new Date(nowServer()), day = isoDay(now), nx = new Date(now); nx.setDate(nx.getDate() + 1);
-  const src = LEV.src === 'sel' ? selSrc : 'all', key = [lastCount, src, day].join('|');
+  const now = new Date(nowServer()), nx = new Date(now); nx.setDate(nx.getDate() + 1);
+  const w0 = LDT.data && LDT.data.from ? LDT.data.from : (LDT.from || now.getTime() - 86400000);     // Anfang des im Live-Verlauf sichtbaren Bereichs
+  const f0 = new Date(Math.min(w0, now.getTime())), day = dtl(f0).slice(0, 16);
+  const src = LEV.src === 'sel' ? selSrc : 'all', key = [lastCount, src, Math.floor(w0 / 60000)].join('|');
   if (!force && key === LEV.key) return; LEV.key = key;
   const id = ++LEV.req;
-  try { const j = await (await fetch('events?src=' + encodeURIComponent(src) + '&n=150&from=' + day + 'T00:00&to=' + isoDay(nx) + 'T00:00', { cache: 'no-store' })).json(); if (id !== LEV.req) return; LEV.data = j; levRender(); } catch (e) { LEV.key = ''; }
+  try { const j = await (await fetch('events?src=' + encodeURIComponent(src) + '&n=500&from=' + day + '&to=' + isoDay(nx) + 'T00:00', { cache: 'no-store' })).json(); if (id !== LEV.req) return; LEV.data = j; levRender(); } catch (e) { LEV.key = ''; }
 }
 function levRender() {
   const j = LEV.data, tb = $('ldev'); if (!j) return;
   const evs = (j.events || []).filter(r => r.lead !== false);          // je Störung eine Zeile (lautestes Gerät), wie in Protokolle
+  const sv = ((j.sens || []).filter(x => !SHIDE.has(sensKey(x)))).map(x => ({ _sens: x, start: new Date(x.a).toISOString(), dauer_s: Math.max(0, (x.b - x.a) / 1000), k: '' }));
+  const all = evs.concat(sv).sort((p, q) => new Date(q.start) - new Date(p.start));
   const multi = evs.some(r => (r.devs || []).length > 1);              // Spalte „Geräte (Spitze)“ nur, wenn sie etwas zeigt
   const useArt = !CUR || CUR.classify !== false, cols = LEV.cols.filter(c => (useArt || (c !== 'art' && c !== 'kinds')) && (c !== 'devs' || multi));
-  $('ldevn').textContent = t('lev_n', { n: j.total != null ? j.total : evs.length });
+  $('ldevn').textContent = t('lev_n', { n: (j.total != null ? j.total : evs.length) + sv.length });
   const hm = iso => { const d = new Date(iso); return isNaN(d) ? String(iso || '') : pad(d.getHours()) + ':' + pad(d.getMinutes()) + ':' + pad(d.getSeconds()); };
   const cell = (c, r) => c === 'tm' ? `<td class="tm">${esc(hm(r.start))}</td>` : c === 'src' ? srcCell(r)
     : c === 'art' ? `<td class="artc">${r.prof ? `<span class="art prof${r.bg ? ' bgp' : ''}">🧩 ${esc(r.prof)}${r.prof_ok ? ' ✓' : r.prof_c != null ? ` <small>${r.prof_c} %</small>` : ''}</span>` : ''}${(r.labels || []).map(n => `<span class="art lbl">🏷 ${esc(n)}</span>`).join('')}${r.art ? artChip(r.art, r.art_c, r.art_man) : r.prof ? '' : '<span class="noclip">–</span>'}</td>`
@@ -4991,7 +4995,7 @@ function levRender() {
     : c === 'pk' ? `<td class="pk">${esc(fdb(r.spitze_dbfs))} <small>dBFS</small></td>` : c === 'thr' ? `<td class="thr">${esc(fdb(r.schwelle_dbfs))}</td>`
     : c === 'bg' ? `<td class="bgc">${esc(fdb(r.hintergrund_dbfs))}</td>` : `<td class="ntcol">${r.notes ? '📝 ' + r.notes : ''}</td>`;
   tb.innerHTML = `<thead><tr>${cols.map(c => `<th>${esc(levHead(c))}</th>`).join('')}</tr></thead><tbody>` +
-    (evs.length ? evs.map(r => `<tr data-k="${esc(r.k || '')}"${r.bg || r.inc_bg ? ' class="bgrow"' : ''}>${cols.map(c => cell(c, r)).join('')}</tr>`).join('') : `<tr><td colspan="${cols.length || 1}" class="empty">${esc(t('lev_none'))}</td></tr>`) + '</tbody>';
+    (all.length ? all.map(r => r._sens ? `<tr class="lsens"><td class="tm">${esc(hm(r.start))}</td><td colspan="${Math.max(1, cols.length - 2)}"><span class="art sensc">${sensIcon(r._sens.kind)} ${esc(sensLabel(r._sens))}</span></td><td class="dur">${esc(fmtDur(r.dauer_s))}</td></tr>` : `<tr data-k="${esc(r.k || '')}"${r.bg || r.inc_bg ? ' class="bgrow"' : ''}>${cols.map(c => cell(c, r)).join('')}</tr>`).join('') : `<tr><td colspan="${cols.length || 1}" class="empty">${esc(t('lev_none'))}</td></tr>`) + '</tbody>';
   tb.querySelectorAll('tr[data-k]').forEach(tr => tr.onclick = () => { if (tr.dataset.k) openEvent(tr.dataset.k); });
 }
 function levCols() {
