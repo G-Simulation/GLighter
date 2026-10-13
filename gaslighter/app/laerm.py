@@ -32,7 +32,7 @@ HERE = os.path.dirname(os.path.abspath(__file__))
 WEB = os.path.join(HERE, "web")
 OPTIONS_FILE = os.environ.get("LAERM_OPTIONS", "/data/options.json")
 SETTINGS_FILE = os.environ.get("LAERM_SETTINGS", "/data/settings.json")
-VERSION = "1.50.4"
+VERSION = "1.50.5"
 
 # =====================================================================
 # Einstellungen
@@ -1182,7 +1182,8 @@ def clean_rules(lst):
         src = re.sub(r"[^a-z0-9_]", "", str(d.get("src") or "all"))[:16] or "all"
         mode = d.get("mode") if d.get("mode") in ("note", "event") else "pause"   # pause: anhalten; note: nur festhalten (z. B. Fernseher an/aus); event: als Ereignis (z. B. Türsensor)
         out.append({"id": rid, "entity": ent, "states": st, "after_min": round(after, 1), "max_h": round(mx, 1), "mode": mode,
-                    "src": src, "enabled": d.get("enabled", True) is not False, "label": re.sub(r"[\x00-\x1f]", "", str(d.get("label") or ""))[:60]})
+                    "src": src, "enabled": d.get("enabled", True) is not False, "label": re.sub(r"[\x00-\x1f]", "", str(d.get("label") or ""))[:60],
+                    "color": d.get("color") if re.fullmatch(r"#[0-9a-fA-F]{6}", str(d.get("color") or "")) else ""})   # Farbe im Verlauf (leer = automatisch)
     return out
 
 
@@ -1376,8 +1377,10 @@ def ha_intervals(src_id, t_from, t_to):
     for rid, (a, n_) in cur.items():                     # noch an (oder Regel inzwischen entfernt: bis zum letzten Eintrag offen lassen)
         if rid in live and a < t_to:
             out.append([a, min(now, t_to), n_, rid, notes.get(f"{rid}|{a}", "")])
-    for x in out:                                         # Art der Regel: note = nur festhalten (Leiste), event = als Ereignis
-        x.append("event" if modes.get(x[3]) == "event" else "note")
+    with HA_LOCK:
+        cols = {r["id"]: r.get("color") or "" for r in HA_RULES}
+    for x in out:                                         # Art der Regel: note = nur festhalten (Leiste), event = als Ereignis; dazu die gewählte Farbe
+        x.append("event" if modes.get(x[3]) == "event" else "note"); x.append(cols.get(x[3], ""))
     out.sort(key=lambda x: x[0])
     return out
 
@@ -1386,7 +1389,7 @@ def sensor_events(src, a_ms, b_ms):
     """Ereignisse aus Sensoren: Regeln „als Ereignis“ (Home Assistant) und Handys als Bewegungsmelder.
     [{a, b, kind: ha|vib|cam, name, src, key, note}] – zaehlen nicht als Stoerung, eigene Zeilen in der Liste."""
     out = []
-    for a, b, nm, rid, nt, md in ha_intervals("*" if src in ("", "all") else src, a_ms, b_ms):
+    for a, b, nm, rid, nt, md, *_ in ha_intervals("*" if src in ("", "all") else src, a_ms, b_ms):
         if md == "event":
             out.append({"a": a, "b": b, "kind": "ha", "name": nm, "src": "ha", "key": f"{rid}|{a}", "note": nt})
     notes = ha_note_all()

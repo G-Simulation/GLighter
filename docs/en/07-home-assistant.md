@@ -25,7 +25,7 @@ GasLighter works together with Home Assistant: rules read states (TV on, washing
 
 > Entries already recorded keep their name, even if you change it later.
 
-**As event** draws the strip in **orange** with a marker at the start. Every “on” appears under **📡 Sensor events** in the events table – with time, duration and note (✎). Sensor events do **not** count as disturbances and are counted separately. Switching applies retroactively, because the states are already in `ha_zustand.csv`. “Only record state” shows a thin blue strip at the top (one lane per sensor); only **pause** fills the full height.
+**As event** draws a coloured flag per sensor and a red line across the full height. Choose the colour in the rule under **Colour** (↺ = automatic). Every “on” appears under **📡 Sensor events** in the events table – with time, duration and note (✎). Sensor events do **not** count as disturbances and are counted separately. Switching applies retroactively, because the states are already in `ha_zustand.csv`. “Only record state” shows a thin blue strip at the top (one lane per sensor); only **pause** fills the full height.
 
 **Note for a period:** click the strip (or ✎ in the list) to add a note, e.g. “watched a film”. It appears in the strip, the list and the noise report.
 

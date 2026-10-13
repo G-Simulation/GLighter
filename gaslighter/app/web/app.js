@@ -1738,6 +1738,9 @@ function hitAt(S, x, y) {
     const sp = (q[4] != null ? q[4] : 1e4) - (q[5] != null ? q[5] : -1e4) + (q[1] - q[0]) * 1e-3; if (sp < bs) { bs = sp; best = q; } }
   return best;
 }
+/* Farbe je Sensor (Regel „als Ereignis“): selbst gewählt, sonst fest aus dem Namen – gleich in allen Zeilen und Ansichten */
+const SENS_PAL = ['#e8590c', '#d6336c', '#7048e8', '#0ca678', '#f59f00', '#1098ad', '#ae3ec9', '#74b816'];
+function sensCol(a) { if (a && a[6]) return a[6]; const n = String((a && a[2]) || ''); let h = 0; for (let i = 0; i < n.length; i++) h = (h * 31 + n.charCodeAt(i)) >>> 0; return SENS_PAL[h % SENS_PAL.length]; }
 function haLanes(list) { const m = new Map(); for (const n of [...new Set(list.map(a => a[2]))].sort((a, b) => a.localeCompare(b))) m.set(n, m.size); return m; }   // feste Reihenfolge der Spuren (nach Name), gleich in allen Zeilen                            // aufgeklappte Gruppen
 let EVVIEW = (() => { try { return localStorage.getItem('laerm_evview') || 'grp'; } catch (e) { return 'grp'; } })();
 const clockOf = iso => { const d = new Date(iso); return isNaN(d) ? '' : pad(d.getHours()) + ':' + pad(d.getMinutes()) + ':' + pad(d.getSeconds()); };
@@ -2550,7 +2553,13 @@ function haRender(focusLast) {
     const lab = (txt, inp, unit) => { const L = el('label'); L.append(document.createTextNode(txt + ' '), inp); if (unit) L.append(' ' + unit); return L; };
     const note = md.value !== 'pause';
     const la = lab(t('ha_afterl'), aft, 'min'), lm = lab(t('ha_maxl'), mx, 'h'); la.hidden = lm.hidden = note;
-    l2.append(lab(t('ha_name'), nmi), lab(t('ha_model'), md), lab(t(note ? 'ha_whenn' : 'ha_when'), sts), la, lm);
+    const nmNow = r.label || r.name || r.entity || '';
+    const colI = el('input', { type: 'color', className: 'hacol', value: r.color || sensCol([0, 0, nmNow]), title: t('ha_col_tip') });
+    const colR = el('button', { type: 'button', className: 'chip hacolr', textContent: '↺', title: t('ha_col_auto'), hidden: !r.color });
+    const lc = lab(t('ha_col'), colI); lc.appendChild(colR); lc.hidden = md.value !== 'event';   // Farbe des Fähnchens im Verlauf (nur „als Ereignis“)
+    colI.addEventListener('change', () => { HAR.rules[idx].color = colI.value; colR.hidden = false; haSave(); });
+    colR.onclick = () => { HAR.rules[idx].color = ''; colI.value = sensCol([0, 0, nmNow]); colR.hidden = true; haSave(); };
+    l2.append(lab(t('ha_name'), nmi), lab(t('ha_model'), md), lab(t(note ? 'ha_whenn' : 'ha_when'), sts), la, lm, lc);
     row.append(l1, l2, now); box.appendChild(row);
     const upd = () => { Object.assign(HAR.rules[idx], { enabled: on.checked, entity: ent.value.trim(), label: nmi.value.trim(), src: src.value, states: sts.value, after_min: +aft.value, max_h: +mx.value, mode: md.value }); haSave(); };
     md.addEventListener('change', () => { upd(); haRender(); });
@@ -4256,7 +4265,7 @@ function dtDraw(S, hoverX) {
   }
   const haV = (r.ha || []).filter(a => !SHIDE.has('ha:' + a[2])), haLane = haLanes(haV);
   for (const a of haV) { const x0 = X(Math.max(a[0], r.from)), x1 = Math.max(X(Math.min(a[1], r.to)), X(Math.max(a[0], r.from)) + 3 * d); if (x1 <= x0 || x1 < L || x0 > L + pw) continue;
-    const md = a[5] || 'note', col = md === 'event' ? '#e8590c' : '#1c7ed6', ly = T + haLane.get(a[2]) * 6 * d;
+    const md = a[5] || 'note', col = md === 'event' ? sensCol(a) : '#1c7ed6', ly = T + haLane.get(a[2]) * 6 * d;
     if (md === 'pause') { c.fillStyle = ca(col, specM ? 0.0 : a[4] ? 0.26 : 0.18); c.fillRect(x0, T, x1 - x0, ph); }   // nur „pausieren“ füllt die ganze Höhe (dort wurde nicht ausgewertet)
     c.fillStyle = col; c.fillRect(x0, ly, x1 - x0, (a[4] ? 5 : 4) * d);   // „nur festhalten“/„als Ereignis“: schmaler Streifen oben, je Sensor eine Spur
     if (md === 'event') { c.fillRect(x0, ly, 2 * d, 12 * d); }
@@ -4274,7 +4283,7 @@ function dtDraw(S, hoverX) {
       c.fillRect(x, T, 1 * d, 6 * d); c.fillText(tx, x + 2 * d, T + 9 * d + (art ? 0 : 0)); lastX = x + c.measureText(tx).width; }
     c.restore();
   }
-  if (haV.length) { c.textAlign = 'left'; let lx = L + 4 * d; for (const [nm] of haLane) { const ev = haV.some(a => a[2] === nm && a[5] === 'event'); c.fillStyle = ev ? '#e8590c' : '#1c7ed6'; const tx = (ev ? '◆ ' : '▬ ') + nm; c.fillText(tx, lx, 15 * d); lx += c.measureText(tx).width + 10 * d; } }
+  if (haV.length) { c.textAlign = 'left'; let lx = L + 4 * d; for (const [nm] of haLane) { const ea = haV.find(a => a[2] === nm && a[5] === 'event'), ev = !!ea; c.fillStyle = ev ? sensCol(ea) : '#1c7ed6'; const tx = (ev ? '◆ ' : '▬ ') + nm; c.fillText(tx, lx, 15 * d); lx += c.measureText(tx).width + 10 * d; } }
   const bw = Math.max(1, pw * (r.step || span / 1200) / span);
   // Spitze als Fläche mit Linie; Lücken (keine Werte, z. B. gestoppt) bleiben offen; Störung rot
   const gapMs = Math.max(400, 3 * (r.step || 0)), segs = []; let cur = null, prevT = null;

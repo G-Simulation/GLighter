@@ -1,5 +1,8 @@
 # Changelog
 
+## 1.50.5
+- Sensor-Ereignisse: Das Fähnchen oben im Verlauf hat je Sensor eine **eigene Farbe** (auch in der Legende); die rote Linie bleibt. Farbe frei wählbar unter Einstellungen → Home Assistant → Regel → **Farbe** (↺ = automatisch).
+
 ## 1.50.4
 - Verlauf wie Live: Sensor-Ereignisse („als Ereignis“, z. B. Türsensor) haben rote Marker – gestrichelte Linie über die ganze Höhe und rote Marke unten wie bei Störungen.
 - Zeilen im Verlauf sind so hoch wie der Live-Graph (280 px, am Handy 220 px). Selbst eingestellte Höhen bleiben.

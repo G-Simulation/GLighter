@@ -933,3 +933,5 @@ fieldset.prolocked .f{opacity:.55}
 #events .msf.on{border-color:var(--acc);color:var(--acc)}
 .msfpop{z-index:1000;max-width:320px}
 #events .tabulator-header-filter{text-align:left}
+.hacol{width:34px;height:26px;padding:0;border:1px solid var(--bd);border-radius:6px;background:transparent;cursor:pointer;vertical-align:middle}
+.hacolr{min-width:28px;padding:2px 6px;margin-left:4px}
