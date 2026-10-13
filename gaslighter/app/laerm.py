@@ -32,7 +32,7 @@ HERE = os.path.dirname(os.path.abspath(__file__))
 WEB = os.path.join(HERE, "web")
 OPTIONS_FILE = os.environ.get("LAERM_OPTIONS", "/data/options.json")
 SETTINGS_FILE = os.environ.get("LAERM_SETTINGS", "/data/settings.json")
-VERSION = "1.47.0"
+VERSION = "1.47.1"
 
 # =====================================================================
 # Einstellungen
@@ -8790,9 +8790,79 @@ class Handler(BaseHandler):
             BK_STATE.update(state="error", msg=str(e)[:200])
             return self.fail(e)
 
+    def restore_part(self):
+        """Sicherung in Teilen hochladen (Home Assistant lässt über die Seitenleiste nur ~16 MB je Anfrage durch).
+        ?id=<16 hex>&off=<Byte>&total=<Byte>; der letzte Teil liefert die Vorschau wie restore?preview=1."""
+        try:
+            n = int(self.headers.get("Content-Length", "0") or 0)
+        except ValueError:
+            n = -1
+        self.close_connection = True
+        if not self.allowed():
+            return
+        _, _, q = self.route()
+        uid = (q.get("id") or [""])[0]
+        try:
+            off, total = int((q.get("off") or ["-1"])[0]), int((q.get("total") or ["0"])[0])
+        except ValueError:
+            off = total = -1
+        if not re.fullmatch(r"[0-9a-f]{16}", uid) or off < 0 or total <= 0 or n <= 0 or n > 12 * 1048576 or off + n > total:
+            return self.js({"ok": False, "error": "bad request"}, 400)
+        out = paths()[0]
+        tmp = os.path.join(out, ".import_" + uid + ".zip")
+        try:
+            if off == 0:
+                with BK_LOCK:
+                    if BK_STATE["state"] == "running":
+                        return self.js({"ok": False, "error": "busy"}, 409)
+                os.makedirs(out, exist_ok=True)
+                free = shutil.disk_usage(out).free
+                if free < 2 * total + 50 * 1024 * 1024:
+                    return self.js({"ok": False, "error": "space", "need_mb": round((2 * total) / 1048576), "free_mb": round(free / 1048576)}, 507)
+                for old_ in glob.glob(os.path.join(out, ".import_*.zip")):
+                    try:
+                        if time.time() - os.path.getmtime(old_) > 7200 and old_ != BK_PENDING.get("path"):
+                            os.remove(old_)
+                    except OSError:
+                        pass
+                open(tmp, "wb").close()
+            elif not os.path.exists(tmp) or os.path.getsize(tmp) != off:
+                return self.js({"ok": False, "error": "order", "have": os.path.getsize(tmp) if os.path.exists(tmp) else 0}, 409)
+            left = n
+            with open(tmp, "ab") as f:
+                while left > 0:
+                    c = self.rfile.read(min(1 << 20, left))
+                    if not c:
+                        break
+                    f.write(c); left -= len(c)
+            if left:
+                with open(tmp, "r+b") as f:
+                    f.truncate(off)
+                return self.js({"ok": False, "error": "incomplete"}, 400)
+            if off + n < total:
+                return self.js({"ok": True, "got": off + n})
+            old_ = BK_PENDING.get("path")
+            if old_ and old_ != tmp and os.path.exists(old_):
+                os.remove(old_)
+            try:
+                pv = backup_preview(tmp)
+            except Exception as e:
+                os.remove(tmp)
+                if isinstance(e, zipfile.BadZipFile):
+                    e = ValueError("keine gültige ZIP-Datei" if CFG.get("language") != "en" else "not a valid ZIP file")
+                return self.js({"ok": False, "error": str(e)[:200]})
+            BK_PENDING.update(path=tmp, at=time.time())
+            if isinstance(pv, dict):
+                pv["pro_needed"] = not pro_import_allowed(); pv["free_import"] = not pro_ok() and not pro_file().get("import_used")
+            return self.js(pv)
+        except Exception as e:
+            return self.fail(e)
+
     def do_POST(self):
         if self.path.split("?")[0].rstrip("/").endswith("/restore"):
             return self.restore_upload()
+        if self.path.split("?")[0].rstrip("/").endswith("/restore_part"):
+            return self.restore_part()
         big = self.path.split("?")[0].rstrip("/").endswith("/classify")
         body = self.read_body(UPLOAD_MAX if big else MAX_BODY)
         if not self.allowed():

@@ -2407,17 +2407,29 @@ function bkBox() {
   go.onclick = () => {                               // 1. hochladen und ansehen, 2. Geräte wählen, 3. einspielen
     const f = fi.files[0]; if (!f) return;
     go.disabled = true; pick.classList.add('off'); pv.hidden = true;
-    const x = new XMLHttpRequest();
-    x.open('POST', 'restore?preview=1');
-    x.upload.onprogress = e => { if (e.lengthComputable) msg.textContent = t('bk_up', { p: Math.floor(e.loaded / e.total * 100) }); };
+    // in Teilen zu 8 MB hochladen: Home Assistant lässt über die Seitenleiste nur ~16 MB je Anfrage durch
     const fail = e => { msg.textContent = t('bk_err', { e }); reset(); };
-    x.onerror = () => fail('network');
-    x.onload = () => {
-      let r = {}; try { r = JSON.parse(x.responseText); } catch (e) { }
-      if (!r.ok) return fail(r.error === 'space' ? t('bk_space', { n: r.need_mb, f: r.free_mb }) : r.error === 'busy' ? t('bk_busy') : (r.error || x.status));
+    const id = [...crypto.getRandomValues(new Uint8Array(8))].map(b => b.toString(16).padStart(2, '0')).join(''), CH = 8 * 1048576;
+    (async () => {
+      let off = 0, r = {};
+      while (off < f.size) {
+        const part = f.slice(off, Math.min(f.size, off + CH));
+        let ok = false;
+        for (let tr = 0; tr < 3 && !ok; tr++) {
+          try {
+            const res = await fetch(`restore_part?id=${id}&off=${off}&total=${f.size}`, { method: 'POST', body: part, headers: { 'Content-Type': 'application/octet-stream' } });
+            r = {}; try { r = await res.json(); } catch (e) { r = { ok: false, error: res.status }; }
+            if (r.ok || (r.error !== 'incomplete' && r.error !== 'order' && res.status < 500)) ok = true;
+            else if (r.error === 'order' && r.have != null) { off = r.have; ok = true; r = { ok: true, retry: true }; }
+          } catch (e) { r = { ok: false, error: 'network' }; await new Promise(z => setTimeout(z, 1500)); }
+        }
+        if (!r.ok) return fail(r.error === 'space' ? t('bk_space', { n: r.need_mb, f: r.free_mb }) : r.error === 'busy' ? t('bk_busy') : (r.error || 'network'));
+        if (r.retry) continue;
+        off += part.size;
+        msg.textContent = t('bk_up', { p: Math.floor(off / f.size * 100) });
+      }
       msg.textContent = ''; bkPreview(pv, r, cb, msg, reset);
-    };
-    x.send(f);
+    })();
   };
   return fs;
 }

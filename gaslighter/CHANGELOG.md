@@ -1,5 +1,8 @@
 # Changelog
 
+## 1.47.1
+- Sicherung einspielen: Große Sicherungen (über 16 MB) scheiterten in Home Assistant mit „Einspielen fehlgeschlagen: 413“, weil die Seitenleiste nur kleine Uploads durchlässt. Die Datei wird jetzt in Teilen zu 8 MB hochgeladen (mit Fortschritt und automatischem Wiederholen).
+
 ## 1.47.0
 - **Handy als Bewegungsmelder:** Ein als Gerät eingerichtetes Handy meldet auf Wunsch **🫨 Erschütterung** (Beschleunigungssensor, z. B. Trampeln, Bass durch die Decke, Türenknallen) und **🏃 Bewegung im Kamerabild**. Einschalten je Handy unter Einstellungen → Geräte, mit Empfindlichkeit hoch/mittel/niedrig.
   - Ausgewertet wird nur auf dem Handy; gesendet werden nur Zahlen, kein Bild und kein Video.
