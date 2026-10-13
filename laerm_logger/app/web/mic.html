@@ -1,0 +1,220 @@
+<!doctype html>
+<html lang="de">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<meta name="theme-color" content="#10141a">
+<meta name="mobile-web-app-capable" content="yes">
+<title>GasLighter – Mikrofon</title>
+<style>
+:root{--bg:#10141a;--card:#1a2029;--tx:#e6e8eb;--mut:#98a2ad;--bd:#2a313b;--acc:#4dabf7;--thr:#ff922b;--red:#ff6b6b;--ok:#51cf66}
+*{box-sizing:border-box}
+html,body{margin:0;height:100%;background:var(--bg);color:var(--tx);font:16px/1.45 system-ui,"Segoe UI",Roboto,sans-serif}
+.wrap{max-width:520px;margin:0 auto;padding:20px 16px calc(24px + env(safe-area-inset-bottom));display:flex;flex-direction:column;gap:14px;min-height:100%}
+h1{font-size:20px;margin:0}.sub{color:var(--mut);font-size:14px}
+.card{background:var(--card);border:1px solid var(--bd);border-radius:16px;padding:16px}
+#go{width:180px;height:180px;border-radius:50%;border:0;margin:6px auto;display:block;font:700 22px system-ui;color:#fff;background:var(--acc);box-shadow:0 0 0 8px #4dabf722;cursor:pointer;touch-action:manipulation}
+#go.on{background:var(--red);box-shadow:0 0 0 8px #ff6b6b22}
+#go:disabled{opacity:.5}
+.st{display:flex;align-items:center;justify-content:center;gap:8px;font-weight:600}
+.dot{width:12px;height:12px;border-radius:50%;background:#868e96}
+.dot.ok{background:var(--ok)}.dot.ev{background:var(--red);animation:b 1s infinite}.dot.err{background:var(--thr)}
+@keyframes b{50%{opacity:.4}}
+.meter{position:relative;height:26px;background:#0b0f14;border-radius:8px;overflow:hidden;margin-top:10px}
+.meter i{position:absolute;left:0;top:0;bottom:0;background:linear-gradient(90deg,#2f9e44,#fab005,#e03131);width:0}
+.meter b{position:absolute;top:-2px;bottom:-2px;width:3px;background:var(--thr);display:none}
+.nums{display:flex;justify-content:space-between;font-size:13px;color:var(--mut);margin-top:6px;font-variant-numeric:tabular-nums}
+.tips{font-size:14px;color:var(--mut)}.tips li{margin:4px 0}
+.warn{background:#ff922b1f;border:1px solid var(--thr);border-radius:12px;padding:10px 12px;font-size:14px;display:none}
+.small{font-size:12px;color:var(--mut);text-align:center}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <div><h1 id="title">GasLighter</h1><div class="sub" id="srcname">…</div></div>
+  <div class="warn" id="warn"></div>
+  <div class="card">
+    <button id="go">Start</button>
+    <div class="st"><span class="dot" id="dot"></span><span id="state">Bereit</span></div>
+    <div class="meter"><i id="bar"></i><b id="thr"></b></div>
+    <div class="nums"><span id="lvl">– dBFS</span><span id="thrv"></span><span id="sent"></span></div>
+  </div>
+  <div class="card tips"><ul id="tips"></ul></div>
+  <div class="small">v{{VERSION}} · <span id="wl"></span></div>
+</div>
+<script>
+(function () {
+'use strict';
+const T = {
+  de: { start: 'Start', stop: 'Stopp', ready: 'Bereit', connecting: 'Verbinde …', live: 'Sendet', event: 'Störung erkannt', offline: 'Keine Verbindung – versuche erneut …',
+    disabled: 'Quelle ist im GasLighter ausgeschaltet', paused: 'Aufzeichnung angehalten – Ton wird nicht ausgewertet', hold: 'Angehalten durch Home Assistant', learning: 'Lernt Hintergrund …', denied: 'Mikrofon-Zugriff verweigert. Erlaube das Mikrofon in den Browser-Einstellungen für diese Seite.',
+    insecure: 'Diese Seite muss über https:// geöffnet werden, sonst gibt der Browser das Mikrofon nicht frei.',
+    hidden: 'Seite war im Hintergrund – Aufnahme läuft weiter, sobald sie wieder sichtbar ist. Bildschirm anlassen!',
+    nolink: 'Ungültiger oder erneuerter Link. Öffne den QR-Code im GasLighter neu.', busy: 'Dieser Link wird gerade auf einem anderen Gerät benutzt. Dort stoppen oder im GasLighter eine eigene Quelle für dieses Handy anlegen.', thr: 'Schwelle', sent: 'gesendet', wlon: 'Bildschirm bleibt an', wloff: 'Bildschirm-Sperre nicht verhinderbar – bitte Display-Timeout verlängern',
+    tips: ['Handy ans Ladegerät und an die Stelle legen, von der der Lärm kommt (z. B. an die Wand).', 'Diese Seite geöffnet lassen. Der Bildschirm bleibt automatisch an und wird nur gedimmt, wenn du die Helligkeit herunterregelst.',
+      'Nicht sperren und nicht in eine andere App wechseln – Android schaltet das Mikrofon sonst ab.', 'Tipp: Chrome-Menü ⋮ → „Zum Startbildschirm hinzufügen“, dann startet die Seite wie eine App.',
+      'Für Betrieb mit ausgeschaltetem Bildschirm: App „IP Webcam“ als Stream-Quelle verwenden (siehe GasLighter → Einstellungen → Quellen).'] },
+  en: { start: 'Start', stop: 'Stop', ready: 'Ready', connecting: 'Connecting …', live: 'Sending', event: 'Disturbance detected', offline: 'No connection – retrying …',
+    disabled: 'This source is switched off in GasLighter', paused: 'Recording paused – sound is not evaluated', hold: 'Paused by Home Assistant', learning: 'Learning background …', denied: 'Microphone access denied. Allow the microphone for this site in the browser settings.',
+    insecure: 'This page must be opened via https://, otherwise the browser will not release the microphone.',
+    hidden: 'Page was in the background – recording continues once it is visible again. Keep the screen on!',
+    nolink: 'Invalid or renewed link. Open the QR code in GasLighter again.', busy: 'This link is currently used on another device. Stop it there or create a separate source for this phone in GasLighter.', thr: 'Threshold', sent: 'sent', wlon: 'Screen stays on', wloff: 'Cannot keep the screen on – please increase the display timeout',
+    tips: ['Put the phone on the charger at the spot where the noise comes from (e.g. against the wall).', 'Keep this page open. The screen stays on automatically.',
+      'Do not lock the phone or switch apps – Android would turn the microphone off.', 'Tip: Chrome menu ⋮ → "Add to Home screen" to start the page like an app.',
+      'For screen-off operation use the app "IP Webcam" as a stream source (see GasLighter → Settings → Sources).'] }
+};
+let L = (navigator.language || 'de').toLowerCase().startsWith('de') ? T.de : T.en;
+const $ = id => document.getElementById(id);
+const m = location.pathname.match(/\/m\/([0-9a-f]{32})/);
+const BASE = m ? '/m/' + m[1] : null;
+const RATE = 16000, CHUNK_MS = 200;
+let ctx = null, stream = null, node = null, src = null, running = false, wakeLock = null;
+let acc = new Float32Array(0), queue = [], seq = 0, sending = false, sentBytes = 0, lastOk = 0, failCount = 0;
+const sid = Math.random().toString(16).slice(2) + Date.now().toString(16);
+let devModel = '', devPv = '';
+try { if (navigator.userAgentData && navigator.userAgentData.getHighEntropyValues) navigator.userAgentData.getHighEntropyValues(['model', 'platformVersion']).then(v => { devModel = (v.model || '').slice(0, 40); devPv = (v.platformVersion || '').split('.').slice(0, 2).join('.'); }).catch(() => { }); } catch (e) { }
+let srvThr = null, srvActive = false, srvLearning = false, srvEnabled = true, srvPaused = false, srvHold = null, localDb = -120;
+
+function tr() {
+  $('go').textContent = running ? L.stop : L.start;
+  $('tips').innerHTML = L.tips.map(s => '<li>' + s.replace(/</g, '&lt;') + '</li>').join('');
+}
+function warn(msg) { const w = $('warn'); w.style.display = msg ? 'block' : 'none'; w.textContent = msg || ''; }
+function setState(txt, cls) { $('state').textContent = txt; $('dot').className = 'dot' + (cls ? ' ' + cls : ''); }
+
+async function info() {
+  if (!BASE) { warn(L.nolink); $('go').disabled = true; return; }
+  try {
+    const j = await (await fetch(BASE + '/info', { cache: 'no-store' })).json();
+    if (j.lang === 'en') L = T.en; else if (j.lang === 'de') L = T.de;
+    $('srcname').textContent = j.name; document.title = j.name + ' – GasLighter'; tr();
+  } catch (e) { warn(L.nolink); }
+}
+
+/* Audio: Float32 beliebiger Rate -> 16 kHz Int16 (gebrochene Leseposition, kein Drift) */
+let inBuf = new Float32Array(0), pos = 0;
+function onAudio(f32) {
+  const ratio = ctx.sampleRate / RATE;
+  let part;
+  if (ratio === 1) part = f32;
+  else {
+    const joined = new Float32Array(inBuf.length + f32.length); joined.set(inBuf); joined.set(f32, inBuf.length);
+    const out = [];
+    while (pos + ratio <= joined.length) {          // Mittelwert ueber das Quellintervall (einfacher Tiefpass)
+      const a = Math.floor(pos), b = Math.max(a + 1, Math.floor(pos + ratio));
+      let s = 0; for (let k = a; k < b; k++) s += joined[k];
+      out.push(s / (b - a)); pos += ratio;
+    }
+    const used = Math.floor(pos); inBuf = joined.slice(used); pos -= used;
+    part = Float32Array.from(out);
+  }
+  const a2 = new Float32Array(acc.length + part.length); a2.set(acc); a2.set(part, acc.length); acc = a2;
+  const need = RATE * CHUNK_MS / 1000;
+  while (acc.length >= need) {
+    const c = acc.subarray(0, need), pcm = new Int16Array(need); let sq = 0;
+    for (let i = 0; i < need; i++) { const v = Math.max(-1, Math.min(1, c[i])); pcm[i] = v < 0 ? v * 32768 : v * 32767; sq += v * v; }
+    localDb = 10 * Math.log10(sq / need + 1e-12);
+    queue.push({ seq: seq++, buf: pcm.buffer, t: Date.now() });
+    if (queue.length > 900) queue.splice(0, queue.length - 900);       // hoechstens 3 min puffern (Update, WLAN weg); nur im Arbeitsspeicher
+    acc = acc.slice(need);
+  }
+  send();
+}
+let sentLast = -1, dead = false;
+async function send() {
+  if (sending || !queue.length || dead) return;
+  sending = true;
+  while (queue.length && running && !dead) {
+    // bis zu 1 s auf einmal senden, beim Nachholen bis zu 5 s (spart Anfragen nach Verbindungsabbruch)
+    const n = Math.min(queue.length, queue.length > 25 ? 25 : 5), parts = queue.slice(0, n), len = parts.reduce((s, p) => s + p.buf.byteLength, 0);
+    const body = new Uint8Array(len); let o = 0; for (const p of parts) { body.set(new Uint8Array(p.buf), o); o += p.buf.byteLength; }
+    const last = parts[n - 1];
+    try {
+      const r = await fetch(BASE + '/push?sid=' + sid + '&first=' + parts[0].seq + '&seq=' + last.seq + '&age=' + Math.max(0, Date.now() - last.t) + (devModel ? '&dev=' + encodeURIComponent(devModel) : '') + (devPv ? '&pv=' + encodeURIComponent(devPv) : ''),
+        { method: 'POST', body, headers: { 'Content-Type': 'application/octet-stream' }, cache: 'no-store' });
+      if (r.status === 404) { dead = true; warn(L.nolink); setState(L.nolink, 'err'); stop(true); break; }
+      if (r.status === 409) { warn(L.busy); setState(L.busy, 'err'); await new Promise(res => setTimeout(res, 5000)); continue; }
+      if (!r.ok) throw new Error(r.status);
+      const j = await r.json();
+      sentLast = last.seq; queue = queue.filter(p => p.seq > sentLast);
+      sentBytes += len; lastOk = Date.now(); failCount = 0;
+      srvThr = j.thr; srvActive = !!j.active; srvLearning = !!j.learning; srvEnabled = j.enabled !== false; srvPaused = !!j.paused; srvHold = j.hold || null;
+    } catch (e) {
+      failCount++; setState(L.offline, 'err');
+      await new Promise(res => setTimeout(res, Math.min(5000, 500 * failCount)));
+    }
+  }
+  sending = false;
+}
+
+const WORKLET = `class P extends AudioWorkletProcessor{constructor(){super();this.b=[];this.n=0}
+process(i){const c=i[0]&&i[0][0];if(c){this.b.push(c.slice());this.n+=c.length;if(this.n>=2048){const o=new Float32Array(this.n);let k=0;for(const x of this.b){o.set(x,k);k+=x.length}this.port.postMessage(o,[o.buffer]);this.b=[];this.n=0}}return true}}
+registerProcessor('cap',P);`;
+
+async function start() {
+  warn('');
+  if (!window.isSecureContext || !navigator.mediaDevices) { warn(L.insecure); return; }
+  $('go').disabled = true; setState(L.connecting);
+  try {
+    stream = await navigator.mediaDevices.getUserMedia({ audio: { echoCancellation: false, noiseSuppression: false, autoGainControl: false, channelCount: 1 } });
+  } catch (e) { $('go').disabled = false; setState(L.ready); warn(L.denied + ' (' + e.name + ')'); return; }
+  try { ctx = new AudioContext({ sampleRate: RATE }); src = ctx.createMediaStreamSource(stream); }
+  catch (e) { try { ctx && ctx.close(); } catch (e2) { } ctx = new AudioContext(); src = ctx.createMediaStreamSource(stream); }
+  inBuf = new Float32Array(0); pos = 0;
+  try {
+    const url = URL.createObjectURL(new Blob([WORKLET], { type: 'application/javascript' }));
+    await ctx.audioWorklet.addModule(url);
+    node = new AudioWorkletNode(ctx, 'cap');
+    node.port.onmessage = e => onAudio(e.data);
+    src.connect(node);
+  } catch (e) {                                   // aeltere Browser
+    node = ctx.createScriptProcessor(4096, 1, 1);
+    node.onaudioprocess = ev => onAudio(new Float32Array(ev.inputBuffer.getChannelData(0)));
+    src.connect(node); node.connect(ctx.destination);
+  }
+  running = true; $('go').disabled = false; $('go').classList.add('on'); tr();
+  keepAwake();
+}
+function stop(keepMsg) {
+  running = false;
+  try { node && node.disconnect(); src && src.disconnect(); } catch (e) { }
+  try { stream && stream.getTracks().forEach(t => t.stop()); } catch (e) { }
+  try { ctx && ctx.close(); } catch (e) { }
+  node = src = stream = ctx = null; queue = []; acc = new Float32Array(0); inBuf = new Float32Array(0); pos = 0;
+  $('go').classList.remove('on'); tr(); if (!keepMsg) setState(L.ready);
+  if (wakeLock) { wakeLock.release().catch(() => { }); wakeLock = null; }
+}
+async function keepAwake() {
+  try { if ('wakeLock' in navigator && running) { wakeLock = await navigator.wakeLock.request('screen'); $('wl').textContent = L.wlon; wakeLock.addEventListener('release', () => { wakeLock = null; }); } else if (running) $('wl').textContent = L.wloff; }
+  catch (e) { $('wl').textContent = L.wloff; }
+}
+document.addEventListener('visibilitychange', () => {
+  if (document.visibilityState === 'visible' && running) { keepAwake(); if (ctx && ctx.state !== 'running') ctx.resume(); }
+  if (document.visibilityState === 'hidden' && running) warn(L.hidden);
+});
+$('go').addEventListener('click', () => running ? stop() : (dead ? location.reload() : start()));
+
+// Anzeige
+const lo = -100, hi = -10, X = v => Math.max(0, Math.min(100, (v - lo) / (hi - lo) * 100));
+setInterval(() => {
+  if (!running) { $('bar').style.width = '0'; return; }
+  if (ctx && ctx.state === 'suspended') ctx.resume().catch(() => { });
+  $('bar').style.width = X(localDb) + '%';
+  $('lvl').textContent = localDb.toFixed(1) + ' dBFS';
+  if (srvThr != null) { $('thr').style.display = 'block'; $('thr').style.left = X(srvThr) + '%'; $('thrv').textContent = L.thr + ' ' + srvThr.toFixed(1); }
+  $('sent').textContent = (sentBytes / 1048576).toFixed(1) + ' MB ' + L.sent;
+  if (Date.now() - lastOk < 3000) {
+    if (!srvEnabled) setState(L.disabled, 'err');
+    else if (srvPaused) setState(L.paused, 'err');
+    else if (srvHold) setState(L.hold + ' (' + srvHold + ')', 'err');
+    else if (srvActive) setState(L.event, 'ev');
+    else setState(srvLearning ? L.learning : L.live, 'ok');
+    if (document.visibilityState === 'visible') warn('');
+  } else if (lastOk) setState(L.offline, 'err');
+}, 250);
+
+tr(); info();
+})();
+</script>
+</body>
+</html>

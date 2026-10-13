@@ -1,0 +1,52 @@
+<!doctype html>
+<html lang="de">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Handbuch</title>
+<style>
+:root{--bg:#f4f6f8;--card:#fff;--tx:#1b1f24;--mut:#5f6b78;--bd:#dfe3e8;--acc:#1c7ed6;--accbg:#e7f1fc;--warn:#e8590c;--warnbg:#fff4e6;--code:#f1f3f5;--mark:#fff3bf}
+:root[data-theme="dark"]{--bg:#0f1318;--card:#171c23;--tx:#e6e9ed;--mut:#9aa5b1;--bd:#2a313b;--acc:#4dabf7;--accbg:#13283d;--warn:#ff922b;--warnbg:#2b1f12;--code:#222831;--mark:#5c4b00}
+@media (prefers-color-scheme: dark){:root:not([data-theme="light"]){--bg:#0f1318;--card:#171c23;--tx:#e6e9ed;--mut:#9aa5b1;--bd:#2a313b;--acc:#4dabf7;--accbg:#13283d;--warn:#ff922b;--warnbg:#2b1f12;--code:#222831;--mark:#5c4b00}}
+*{box-sizing:border-box}
+html,body{margin:0;background:var(--bg);color:var(--tx);font:15px/1.6 system-ui,-apple-system,"Segoe UI",Roboto,sans-serif}
+a{color:var(--acc)}
+.top{position:sticky;top:0;z-index:5;display:flex;gap:10px;align-items:center;padding:10px 16px;background:var(--card);border-bottom:1px solid var(--bd)}
+.top b{font-size:16px;white-space:nowrap}.top .sp{flex:1}
+.top input{flex:0 1 320px;min-width:120px;font:inherit;padding:7px 12px;border:1px solid var(--bd);border-radius:8px;background:var(--bg);color:var(--tx)}
+.top button{font:inherit;font-size:14px;padding:7px 12px;border-radius:8px;border:1px solid var(--bd);background:var(--card);color:var(--tx);cursor:pointer;white-space:nowrap}
+.top button:hover{border-color:var(--acc)}
+#tocbtn{display:none}
+.wrap{display:grid;grid-template-columns:270px minmax(0,1fr);max-width:1240px;margin:0 auto}
+nav{position:sticky;top:57px;align-self:start;max-height:calc(100vh - 57px);overflow:auto;padding:16px 8px 30px 16px;font-size:14px}
+nav a{display:block;padding:5px 10px;border-radius:7px;color:var(--tx);text-decoration:none}
+nav a:hover{background:var(--accbg)}nav a.cur{background:var(--accbg);color:var(--acc);font-weight:600}
+nav .sub a{padding-left:24px;font-size:13px;color:var(--mut)}nav .sub a.cur{color:var(--acc)}
+main{padding:22px 32px 60px;min-width:0}
+article{background:var(--card);border:1px solid var(--bd);border-radius:14px;padding:26px 34px 34px;max-width:880px}
+h1{font-size:26px;line-height:1.25;margin:0 0 14px}h2{font-size:19px;margin:30px 0 8px;padding-top:6px}h3{font-size:16px;margin:22px 0 6px}
+h1 .no{color:var(--mut);font-weight:500;margin-right:6px}
+p{margin:8px 0}ul,ol{margin:8px 0;padding-left:24px}li{margin:3px 0}
+code{background:var(--code);padding:1px 5px;border-radius:5px;font-size:13.5px}
+pre{background:var(--code);padding:12px 14px;border-radius:9px;overflow:auto;font-size:13px;line-height:1.45}pre code{background:none;padding:0}
+img{max-width:100%;height:auto;border:1px solid var(--bd);border-radius:10px;margin:10px 0 4px;display:block}
+.cap{font-size:13px;color:var(--mut);margin:0 0 12px}
+table{border-collapse:collapse;width:100%;margin:10px 0;font-size:14px}th,td{border-bottom:1px solid var(--bd);padding:7px 8px;text-align:left;vertical-align:top}th{color:var(--mut);font-weight:600}
+blockquote{margin:12px 0;padding:10px 14px;border-left:4px solid var(--acc);background:var(--accbg);border-radius:0 9px 9px 0}
+blockquote.warn{border-color:var(--warn);background:var(--warnbg)}blockquote p{margin:4px 0}
+.nav2{display:flex;justify-content:space-between;gap:10px;margin-top:30px;padding-top:14px;border-top:1px solid var(--bd);font-size:14px}
+.res{max-width:880px}.res .hit{background:var(--card);border:1px solid var(--bd);border-radius:10px;padding:10px 14px;margin:0 0 8px;cursor:pointer}
+.res .hit:hover{border-color:var(--acc)}.res .hit b{display:block}.res .hit small{color:var(--mut)}mark{background:var(--mark);color:inherit;padding:0 1px;border-radius:3px}
+kbd{border:1px solid var(--bd);border-bottom-width:2px;border-radius:5px;padding:0 5px;font-size:12.5px;background:var(--code)}
+@media(max-width:860px){.wrap{grid-template-columns:1fr}nav{display:none;position:fixed;top:57px;left:0;right:0;bottom:0;max-height:none;background:var(--card);z-index:4;padding:12px 16px}
+  nav.open{display:block}#tocbtn{display:inline-block}main{padding:14px 12px 50px}article{padding:18px 16px 24px;border-radius:12px}.top{padding:8px 12px}.top b{display:none}}
+@media print{.top,nav,.nav2{display:none!important}.wrap{display:block}main{padding:0}article{border:0;padding:0;max-width:none}body{background:#fff;color:#000}h2,h3{break-after:avoid}img{break-inside:avoid;max-height:120mm;width:auto}}
+</style>
+</head>
+<body>
+<div class="top"><button id="tocbtn" type="button">☰</button><b id="ttl">📖</b><span class="sp"></span><input id="q" type="search" autocomplete="off"><button id="blang" type="button"></button><button id="bprint" type="button"></button></div>
+<div class="wrap"><nav id="toc"></nav><main><div id="out"></div></main></div>
+<script src="hb_inhalt.js?v={{VERSION}}"></script>
+<script src="handbuch.js?v={{VERSION}}"></script>
+</body>
+</html>

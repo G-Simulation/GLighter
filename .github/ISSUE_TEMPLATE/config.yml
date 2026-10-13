@@ -1,0 +1,11 @@
+blank_issues_enabled: false
+contact_links:
+  - name: Handbuch / Manual
+    url: https://github.com/G-Simulation/GasLighter/blob/main/docs/de/README.md
+    about: Bedienungsanleitung, Fehlerbehebung, Glossar / manual, troubleshooting, glossary
+  - name: Kontakt, Lizenz, Pro / Contact, licence, Pro
+    url: https://www.gsimulations.de/gaslighter/#getInTouch-gl
+    about: Fragen zum Kauf oder zum Lizenzschlüssel – bitte keine Schlüssel in Issues posten / questions about purchase or keys – never post keys in issues
+  - name: Sicherheitslücke / Security issue
+    url: https://github.com/G-Simulation/GasLighter/security/advisories/new
+    about: Vertraulich melden / report privately

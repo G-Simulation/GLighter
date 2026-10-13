@@ -1,0 +1,19 @@
+name: 💡 Idee / Feature request
+description: Vorschlag für eine neue Funktion oder Verbesserung / suggest a new feature or improvement
+labels: [idee]
+body:
+  - type: textarea
+    id: problem
+    attributes:
+      label: Worum geht es? / What is the problem or need?
+      placeholder: "Wenn ich …, möchte ich …, damit … / When I …, I want …, so that …"
+    validations:
+      required: true
+  - type: textarea
+    id: idea
+    attributes:
+      label: Vorschlag / Proposal
+  - type: textarea
+    id: alt
+    attributes:
+      label: Bisherige Lösung oder Alternativen / Current workaround or alternatives

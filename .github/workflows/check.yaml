@@ -1,0 +1,46 @@
+# Prüfung bei jedem Push und Pull Request: Python übersetzbar, JavaScript gültig, alle Texte auf Deutsch
+# und Englisch, Handbuch (App, DOCS.md, docs/) aus denselben Quellen erzeugt, Lizenzprüfung funktioniert.
+name: Prüfung
+
+on:
+  push:
+  pull_request:
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+      - name: Python übersetzen
+        run: python -m py_compile laerm_logger/app/*.py laerm_logger/tools/*.py
+      - name: JavaScript prüfen
+        run: for f in laerm_logger/app/web/*.js; do node --check "$f"; done
+      - name: Texte de/en vollständig
+        working-directory: laerm_logger/app/web
+        run: node ../../tools/check_i18n.js
+      - name: Handbuch aktuell
+        run: |
+          cd laerm_logger && python tools/hb_build.py --docs ../docs && cd ..
+          git diff --exit-code -- laerm_logger/app/web/hb_inhalt.js laerm_logger/DOCS.md docs/ \
+            || { echo "::error::Handbuch neu erzeugen: cd laerm_logger && python tools/hb_build.py --docs ../docs"; exit 1; }
+      - name: Lizenzprüfung (Ed25519, Testvektor RFC 8032)
+        working-directory: laerm_logger/app
+        run: |
+          python - <<'PY'
+          import lizenz as L
+          pub = bytes.fromhex("d75a980182b10ab7d54bfed3c964073a0ee172f3daa62325af021a68f707511a")
+          sig = bytes.fromhex("e5564300c360ac729086e2cc806e828a84877f1eb8e5d974d873e065224901555fb8821590a33bacc61e39701cf9b46bd25bf5f0595bbe24655141438e7a100b")
+          assert L.ed25519_verify(pub, b"", sig) and not L.ed25519_verify(pub, b"x", sig)
+          assert L.check("GL1-AAAAA")["state"] == "invalid" and len(L.PUBLIC_KEY_HEX) == 64
+          print("ok")
+          PY
+      - name: Version in config.yaml und laerm.py gleich
+        run: |
+          a=$(grep -oP '^version: "\K[^"]+' laerm_logger/config.yaml); b=$(grep -oP '^VERSION = "\K[^"]+' laerm_logger/app/laerm.py)
+          echo "config.yaml $a, laerm.py $b"; test "$a" = "$b"

@@ -1,0 +1,51 @@
+name: 🐞 Fehler melden / Bug report
+description: Etwas funktioniert nicht wie beschrieben / something does not work as described
+labels: [fehler]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Danke! Bitte keine Lizenzschlüssel, Namen, Adressen oder Notizen mit persönlichen Daten posten.
+        Thanks! Please do not post licence keys, names, addresses or notes containing personal data.
+  - type: input
+    id: version
+    attributes:
+      label: GasLighter-Version
+      description: Steht oben neben dem Namen, z. B. v1.46.0 / shown next to the name
+      placeholder: v1.46.0
+    validations:
+      required: true
+  - type: input
+    id: ha
+    attributes:
+      label: Home Assistant (Version, Installationsart / version, installation type)
+      placeholder: 2026.10.1, Home Assistant OS, Raspberry Pi 5
+    validations:
+      required: true
+  - type: textarea
+    id: what
+    attributes:
+      label: Was ist passiert? / What happened?
+    validations:
+      required: true
+  - type: textarea
+    id: expected
+    attributes:
+      label: Was hast du erwartet? / What did you expect?
+  - type: textarea
+    id: steps
+    attributes:
+      label: Schritte zum Nachstellen / Steps to reproduce
+      placeholder: "1. … 2. … 3. …"
+  - type: textarea
+    id: log
+    attributes:
+      label: Protokoll der App / App log
+      description: Einstellungen → Apps → GasLighter → Protokoll (die letzten 50 Zeilen) / Settings → Apps → GasLighter → Log (last 50 lines)
+      render: text
+  - type: textarea
+    id: diag
+    attributes:
+      label: Diagnose (optional)
+      description: GasLighter → ⚙ Einstellungen → Allgemein → Diagnose / Settings → General → Diagnostics
+      render: text

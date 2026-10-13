@@ -1,0 +1,68 @@
+# Home Assistant
+
+GasLighter works together with Home Assistant: rules read states (TV on, washing machine running, sensor triggered), and via MQTT the app reports disturbances, checksums and switches back.
+
+<a id="regeln"></a>
+
+## Rules: pause or record state
+
+![Home Assistant rule with name](../../laerm_logger/app/web/hb/regeln_en.png)
+
+⚙ Settings → Times & pauses → **Home Assistant: pause or record state** → **Add rule**.
+
+| Field | Meaning |
+|---|---|
+| Entity | e.g. `media_player.tv`, `binary_sensor.vibration_wall` |
+| Device | which microphone the rule applies to (or all) |
+| **Name** | The rule is recorded under this name, e.g. “wall vibration”. Empty = name from Home Assistant. |
+| Action | **only record state** (keep recording and write it down) or **pause** (do not record during that time) |
+| on when / pause when | `on, playing` = one of them, `!off` = everything except off, `>1` = number above 1 |
+| Delay, at most | only with “pause”: keep pausing this long afterwards, maximum duration |
+
+“now: …” shows live what Home Assistant reports – so you see which state a device really has. When in doubt, it records.
+
+**Record state** writes every change to `ha_zustand.csv`. Each disturbance then shows e.g. “TV: on · 🔊 18 %”, the history shows a **blue band**, and the noise log names the state. If the TV reports its volume, it is recorded too.
+
+> Entries already recorded keep their name, even if you change it later.
+
+<a id="zigbee"></a>
+
+## Zigbee sensors (vibration, motion, door)
+
+Sensors integrated in Home Assistant (e.g. via Zigbee2MQTT or ZHA) work the same way:
+
+1. Add a rule, choose the sensor entity (e.g. `binary_sensor.vibration_ceiling_occupancy`).
+2. Enter a name, e.g. “ceiling vibration”.
+3. Action **only record state**, “on when” `on`.
+
+From then on every disturbance shows whether a vibration was reported at the same time – a strong hint at footfall or knocking through the building.
+
+<a id="mqtt"></a>
+
+## MQTT: control and reports
+
+With MQTT set up, Home Assistant shows the device **GasLighter** with:
+
+- Switch **Recording**, **Record manually (outside hours)**, number **Pause (minutes)**, buttons **Pause 15 min**, **Pause 1 h**, **Resume**, sensor **Paused until**.
+- Per device: event **Disturbance (trigger)** (start, end, detected – with peak, duration, type, profile), device triggers for automations, sensor “Last sound type” and hourly the current **checksum** (stored independently in Home Assistant).
+
+Example – pause for 10 minutes while the litter box cleans:
+
+```yaml
+automation:
+  - alias: "Pause GasLighter while the litter box cleans"
+    trigger:
+      - platform: state
+        entity_id: sensor.litter_box_status
+        to: "cleaning"
+    action:
+      - service: mqtt.publish
+        data:
+          topic: laerm_logger/pause/set
+          payload: '{"minutes": 10, "reason": "litter box"}'
+```
+
+Recording stopped by hand is not restarted automatically by a pause from Home Assistant.
+
+---
+[← Devices](06-geraete.md) · [Contents](README.md) · [Printing and noise log →](08-drucken.md)

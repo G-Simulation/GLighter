@@ -1,0 +1,76 @@
+configuration:
+  device:
+    name: Mikrofon / Aufnahmequelle
+    description: "default = in Home Assistant gewähltes Eingabegerät. Bequemer: Auswahl in der Oberfläche unter ⚙ Einstellungen."
+  mic_volume:
+    name: Mikrofon-Lautstärke (%)
+    description: "Über 100 % = digitale Verstärkung für leise Mikrofone. 0 = nicht verändern."
+  sample_rate:
+    name: Abtastrate (Hz)
+  thr_mode:
+    name: Schwellen-Modus
+    description: "fixed = fester Wert, dynamic = Hintergrund + Abstand, bounded = dynamisch mit Unter- und Obergrenze (empfohlen)."
+  offset_db:
+    name: Abstand über Hintergrund (dB)
+  thr_fixed_db:
+    name: Feste Schwelle (dBFS)
+  min_db:
+    name: Untergrenze der Schwelle (dBFS)
+  thr_max_db:
+    name: Obergrenze der Schwelle (dBFS)
+  bg_window:
+    name: Hintergrund aus den letzten …
+  bg_unit:
+    name: Einheit (s = Sekunden, min = Minuten)
+  bg_stat:
+    name: Berechnungsart
+    description: "median = typischer Pegel, quiet = Ruhepegel (leiseste 10 %), robust gegen anhaltenden Lärm, min = leisester Wert, mean = Durchschnitt, max = lautester Wert des Zeitraums."
+  rise_s:
+    name: Anpassung nach oben (Sekunden)
+  fall_s:
+    name: Anpassung nach unten (Sekunden)
+  min_event_ms:
+    name: Mindestdauer eines Ereignisses (ms)
+  pre_roll_s:
+    name: Vorlauf (Sekunden)
+  post_roll_s:
+    name: Nachlauf (Sekunden)
+  max_clip_s:
+    name: Maximale Clip-Länge (Sekunden)
+  save_clips:
+    name: Audioclips speichern
+  clip_dir:
+    name: Ordner für Clips (leer = output_dir/clips)
+  video_width:
+    name: Video-Breite in Pixel (0 = Original)
+  video_fps:
+    name: Video-Bilder pro Sekunde
+  video_crf:
+    name: Video-Qualität (18 = beste, 40 = kleinste Datei)
+  classify:
+    name: Geräuschart erkennen (lokale KI)
+  auto_delete:
+    name: Alte Clips automatisch löschen
+  retention_days:
+    name: Clips löschen nach (Tagen)
+  active_from:
+    name: Erfassung ab (HH:MM)
+  active_to:
+    name: Erfassung bis (HH:MM)
+  mqtt:
+    name: MQTT-Sensoren anlegen
+  output_dir:
+    name: Speicherort
+  language:
+    name: Sprache der Oberfläche
+  baseline_minutes:
+    name: (veraltet, ab 1.6 ohne Wirkung)
+  fast_drop:
+    name: (veraltet, ab 1.6 ohne Wirkung)
+  drop_window_s:
+    name: (veraltet, ab 1.6 ohne Wirkung)
+  mic_port:
+    name: "Eingang (Buchse) der Soundkarte"
+    description: "Leer = automatisch. Z. B. analog-input-mic für den Mikrofon-Eingang."
+network:
+  8443/tcp: "Handys als Mikrofon (HTTPS)"

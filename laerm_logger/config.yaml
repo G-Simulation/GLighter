@@ -1,0 +1,103 @@
+name: "GasLighter"
+version: "1.46.0"
+slug: laerm_logger
+description: "Lärmprotokoll: misst Lärm rund um die Uhr und protokolliert Störungen manipulationssicher – ohne Tonaufnahme / Noise log: measures noise 24/7 and logs disturbances tamper-evident – no audio recording"
+url: "https://www.gsimulations.de/gaslighter/"
+arch: [amd64, aarch64]
+# Fertige Images (GitHub Actions, .github/workflows/build.yaml). Erst einschalten, wenn der erste Build
+# erfolgreich war und das Paket auf ghcr.io öffentlich ist – sonst kann Home Assistant die App nicht installieren.
+# image: "ghcr.io/g-simulation/{arch}-gaslighter"
+init: false
+startup: application
+boot: auto
+# Home Assistant startet das Add-on neu, falls es unerwartet beendet wird (Schalter „Watchdog“ auf der Add-on-Seite)
+watchdog: "tcp://[HOST]:[PORT:8099]"
+audio: true
+# Regler der Soundkarte (Mikrofon-Aufnahmepegel) direkt stellen; fehlende Karten werden ignoriert
+devices:
+  - /dev/snd/controlC0
+  - /dev/snd/controlC1
+  - /dev/snd/controlC2
+  - /dev/snd/controlC3
+hassio_api: true
+homeassistant_api: true
+ingress: true
+ingress_port: 8099
+ports:
+  8443/tcp: 18443
+ports_description:
+  8443/tcp: "Handys als Mikrofon (HTTPS) / Phones as microphones (HTTPS)"
+panel_icon: mdi:ear-hearing
+panel_title: "GasLighter"
+services:
+  - mqtt:want
+map:
+  - share:rw
+  - media:rw
+options:
+  device: "default"
+  mic_volume: 100
+  sample_rate: 16000
+  thr_mode: "bounded"
+  offset_db: 10
+  thr_fixed_db: -60
+  min_db: -95
+  thr_max_db: -30
+  bg_window: 60
+  bg_unit: "s"
+  bg_stat: "quiet"
+  rise_s: 300
+  fall_s: 10
+  min_event_ms: 0
+  pre_roll_s: 5
+  post_roll_s: 5
+  max_clip_s: 60
+  save_clips: true
+  auto_delete: false
+  retention_days: 90
+  active_from: ""
+  active_to: ""
+  mqtt: true
+  output_dir: "/share/laerm"
+  language: "auto"
+  mic_port: ""
+  classify: true
+  clip_dir: ""
+  video_width: 640
+  video_fps: 5
+  video_crf: 30
+schema:
+  device: str
+  mic_volume: int(0,400)?
+  sample_rate: list(16000|22050|44100|48000)
+  thr_mode: list(fixed|dynamic|bounded)?
+  offset_db: float(0.5,40)
+  thr_fixed_db: float(-120,0)?
+  min_db: float(-120,-10)
+  thr_max_db: float(-120,0)?
+  bg_window: int(1,3600)?
+  bg_unit: list(s|min)?
+  bg_stat: list(median|quiet|min|mean|max)?
+  rise_s: float(0.5,3600)?
+  fall_s: float(0.5,3600)?
+  min_event_ms: int(0,2000)?
+  pre_roll_s: float(0,30)
+  post_roll_s: float(0.1,60)
+  max_clip_s: float(1,300)
+  save_clips: bool
+  auto_delete: bool
+  retention_days: int(1,3650)
+  active_from: str?
+  active_to: str?
+  mqtt: bool
+  output_dir: str
+  language: list(auto|de|en)?
+  mic_port: str?
+  classify: bool
+  clip_dir: str?
+  video_width: int(0,3840)?
+  video_fps: int(1,30)?
+  video_crf: int(18,40)?
+  baseline_minutes: int(1,60)?
+  fast_drop: bool?
+  drop_window_s: int(10,300)?

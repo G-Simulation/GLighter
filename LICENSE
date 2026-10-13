@@ -1,0 +1,42 @@
+GasLighter – Lizenz / Licence
+
+Copyright (c) 2026 G-Simulation (Patrick Gottberg). Alle Rechte vorbehalten. All rights reserved.
+
+DEUTSCH
+
+Der Quellcode von GasLighter ist öffentlich einsehbar, aber nicht frei lizenziert.
+
+Erlaubt ist:
+1. den Code anzusehen;
+2. GasLighter über dieses Repository in der eigenen Home-Assistant-Installation zu installieren und zu nutzen;
+3. Sicherungskopien für den eigenen Gebrauch anzulegen.
+
+Ohne vorherige schriftliche Zustimmung von G-Simulation nicht erlaubt ist insbesondere:
+a) den Code oder veränderte Fassungen davon weiterzugeben, zu veröffentlichen, zu verkaufen oder zu vermieten;
+b) die Lizenzprüfung von GasLighter Pro zu entfernen, zu umgehen oder Schlüssel zu erzeugen;
+c) den Code ganz oder teilweise in anderen Produkten zu verwenden.
+
+Bestandteile Dritter (siehe NOTICE.md) stehen unter ihren eigenen Lizenzen; diese gehen vor.
+
+Die kostenlose Nutzung erfolgt ohne Gewähr. Gesetzliche Ansprüche – insbesondere bei Vorsatz, grober
+Fahrlässigkeit, Verletzung von Leben, Körper oder Gesundheit sowie aus dem Kauf einer Lizenz – bleiben unberührt.
+
+ENGLISH
+
+The source code of GasLighter is publicly visible but not freely licensed.
+
+You may:
+1. view the code;
+2. install and use GasLighter from this repository in your own Home Assistant installation;
+3. make backup copies for your own use.
+
+Without prior written permission from G-Simulation you may in particular not:
+a) distribute, publish, sell or rent the code or modified versions of it;
+b) remove or circumvent the GasLighter Pro licence check or generate keys;
+c) use the code in whole or in part in other products.
+
+Third-party components (see NOTICE.md) are subject to their own licences, which take precedence.
+
+Free use is provided without warranty. Statutory rights – in particular for intent, gross negligence,
+injury to life, body or health, and arising from the purchase of a licence – remain unaffected.
+In case of doubt the German version prevails.
