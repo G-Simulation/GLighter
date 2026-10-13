@@ -1455,7 +1455,7 @@ function renderEvents() {
 /* ================= Ereignistabelle mit Tabulator (MIT, tabulator.info) =================
    Eine Zeile je Störung bzw. Sensor-Ereignis; Gruppen als aufklappbare Zeilen (dataTree).
    Sortieren per Klick auf die Spaltenüberschrift, Filter mit Mehrfachauswahl unter Quelle und Art. */
-let TBL = null, TBL_KEY = '';
+let TBL = null, TBL_KEY = '', EVDATA = [];
 const SEL = new Set();                               // ausgewählte Störungen (Schlüssel k) – überlebt Neuzeichnen, Sortieren, Filtern
 const ek = r => r.k || `${r.start}|${r.quelle_id || 'main'}|${r.datei || ''}|0`;
 function evSrcName(r) { const s = SOURCES.find(x => x.id === (r.quelle_id || 'main')); return r.quelle || (s && s.name) || r.quelle_id || ''; }
@@ -1485,7 +1485,7 @@ function evSelToggle(keys, on) {                     // eine Störung = alle Ger
 }
 function evGrid(evs, sv, useArt, grpMode) {
   const box = $('events'); if (!box || typeof Tabulator === 'undefined') return;
-  const data = evRows(evs, sv, grpMode), hasDev = evs.some(r => (r.devs || []).length > 1), hasPlay = evs.some(r => r.play);
+  const data = EVDATA = evRows(evs, sv, grpMode), hasDev = evs.some(r => (r.devs || []).length > 1), hasPlay = evs.some(r => r.play);
   const valid = new Set(EV.events.map(ek)); for (const k of [...SEL]) if (!valid.has(k)) SEL.delete(k);
   const nar = matchMedia('(max-width:600px)').matches, key = JSON.stringify([lang, useArt, nar]);
   const fmtCell = fn => cell => fn(cell.getRow().getData(), cell);
@@ -1507,11 +1507,11 @@ function evGrid(evs, sv, useArt, grpMode) {
         : d._t === 'sens' ? `${esc(fmtWhen(new Date(d.x.a).toISOString()))}${d.x.note ? `<span class="ntc" title="${esc(d.x.note)}">📝</span>` : ''}`
         : `${esc(nar ? fmtWhen(d.r.start).replace(/^\S+\s/, '') : fmtWhen(d.r.start))}${d.r.notes ? `<span class="ntc" title="${esc(t('nt_title', { n: d.r.notes }))}">📝 ${d.r.notes}</span>` : ''}`) },
     { field: 'src', title: t('src_col'), minWidth: 160, widthGrow: 2, responsive: 2, cssClass: 'srcc',
-      headerFilter: 'list', headerFilterParams: { valuesLookup: 'all', multiselect: true, clearable: true, sort: 'asc', placeholderEmpty: t('none') }, headerFilterPlaceholder: t('sf_any'), headerFilterFunc: 'in', headerFilterLiveFilter: false,
+      headerFilter: msFilter(() => [...new Set(EVDATA.flatMap(function f(d) { return [d.src].concat((d._children || []).flatMap(f)); }).filter(Boolean))].sort((a, b) => a.localeCompare(b))),
+      headerFilterFunc: (hv, rv, rd) => !hv || !hv.length || hv.includes(rv) || (rd._children || []).some(c => hv.includes(c.src)), headerFilterLiveFilter: false,
       formatter: fmtCell(d => d._t === 'ev' ? srcHTML(d.r) : d._t === 'sens' ? `<span class="si">${d.x.kind === 'ha' ? '🏠' : '📱'}</span><span class="sn"><b>${esc(d.src)}</b></span>` : d.srcs ? '<span class="mut">…</span>' : `<span class="sn"><b>${esc(d.src)}</b></span>`) },
     { field: 'tags', title: t('art_col'), minWidth: nar ? 110 : 210, widthGrow: 2, visible: useArt, responsive: 1, cssClass: 'artc', headerSort: false,
-      headerFilter: 'list', headerFilterParams: { valuesLookup: () => [...new Set(data.flatMap(function f(d) { return d.tags.concat((d._children || []).flatMap(f)); }))].sort((a, b) => a.localeCompare(b)), multiselect: true, clearable: true, placeholderEmpty: t('none') },
-      headerFilterPlaceholder: t('sf_any'), headerFilterLiveFilter: false, headerFilterFunc: (hv, rv) => !hv || !hv.length || (rv || []).some(x => hv.includes(x)),
+      headerFilter: msFilter(() => [...new Set(EVDATA.flatMap(function f(d) { return d.tags.concat((d._children || []).flatMap(f)); }))].sort((a, b) => a.localeCompare(b))), headerFilterLiveFilter: false, headerFilterFunc: (hv, rv) => !hv || !hv.length || (rv || []).some(x => hv.includes(x)),
       formatter: fmtCell(d => {
         if (d._t === 'sens') return `<span class="art sensc">${sensIcon(d.x.kind)} ${esc(sensLabel(d.x))}</span>${d.x.note ? `<div class="hant">📝 ${esc(d.x.note)}</div>` : ''}`;
         if (d._t === 'grp') return d.g.prof ? `<span class="art prof">🧩 ${esc(d.g.kind)}</span>` : d.g.kind && d.g.kind !== '?' ? artChip(d.g.kind, null, false) : esc(t('art_pending'));
@@ -1566,6 +1566,32 @@ function evGrid(evs, sv, useArt, grpMode) {
   } else setTimeout(() => { EVSIG = ''; renderEvents(); }, 200);
 }
 matchMedia('(max-width:600px)').addEventListener('change', () => { EVSIG = ''; renderEvents(); });
+/* Filter unter der Spaltenüberschrift: Liste mit Häkchen (Mehrfachauswahl), Knopf zeigt „alle“ bzw. die Auswahl */
+function msFilter(valuesFn) {
+  return (cell, onRendered, success) => {
+    const b = el('button', { type: 'button', className: 'msf' }); let cur = [];
+    const label = () => { b.textContent = (!cur.length ? t('sf_any') : cur.length === 1 ? cur[0] : t('ms_n', { n: cur.length })) + ' ▾'; b.classList.toggle('on', cur.length > 0); };
+    const v0 = cell.getValue(); if (Array.isArray(v0)) cur = v0.slice(); label();
+    b.onclick = e => {
+      e.stopPropagation(); document.querySelectorAll('.msfpop').forEach(x => x.remove());
+      const vals = (typeof valuesFn === 'function' ? valuesFn() : []).concat(cur.filter(x => !(typeof valuesFn === 'function' ? valuesFn() : []).includes(x)));
+      const pop = el('div', { className: 'msfpop sfltl' }), r = b.getBoundingClientRect();
+      pop.style.position = 'fixed'; pop.style.left = Math.max(8, Math.min(r.left, innerWidth - 280)) + 'px'; pop.style.top = (r.bottom + 4) + 'px';
+      pop.innerHTML = `<div class="sfltb"><button type="button" class="chip" data-a="all">${esc(t('sf_all'))}</button><button type="button" class="chip" data-a="none">${esc(t('ms_clear'))}</button></div>` +
+        (vals.length ? vals.map((v, i) => `<label><input type="checkbox" data-i="${i}"${cur.includes(v) ? ' checked' : ''}> ${esc(v)}</label>`).join('') : `<small class="mut">${esc(t('none'))}</small>`);
+      const apply = () => { label(); success(cur.length ? cur.slice() : ''); };
+      pop.querySelectorAll('input[data-i]').forEach(c => c.onchange = () => { const v = vals[+c.dataset.i]; cur = c.checked ? [...new Set(cur.concat([v]))] : cur.filter(x => x !== v); apply(); });
+      pop.querySelector('[data-a=all]').onclick = () => { cur = vals.slice(); pop.querySelectorAll('input[data-i]').forEach(c => c.checked = true); apply(); };
+      pop.querySelector('[data-a=none]').onclick = () => { cur = []; pop.querySelectorAll('input[data-i]').forEach(c => c.checked = false); apply(); };
+      pop.onclick = ev => ev.stopPropagation();
+      document.body.appendChild(pop);
+      const close = ev => { if (!pop.contains(ev.target) && ev.target !== b) { pop.remove(); document.removeEventListener('click', close, true); } };
+      setTimeout(() => document.addEventListener('click', close, true), 0);
+      const onScroll = ev => { if (pop.contains(ev.target)) return; pop.remove(); removeEventListener('scroll', onScroll, true); }; addEventListener('scroll', onScroll, true);   // beim Scrollen schließen (sonst steht die Liste neben der Spalte)
+    };
+    return b;
+  };
+}
 function evCount(rows) {                             // Zählung über der Tabelle: Störungen und Sensor-Ereignisse getrennt
   let e = 0, s = 0; const walk = l => { for (const d of l) { if (d._t === 'ev') e++; else if (d._t === 'sens') s++; if (d._children) walk(d._children); } }; walk(rows || []);
   const el = $('evcnt'); if (el) el.textContent = t('ev_cnt', { e, s });

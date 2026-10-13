@@ -1,5 +1,8 @@
 # Changelog
 
+## 1.50.3
+- Ereignistabelle: Die Filter unter **Quelle / Gerät** und **Art** sind jetzt eine Liste mit **Häkchen** (Mehrfachauswahl, „alle“, „keine Auswahl“); der Knopf zeigt „3 gewählt“. Vorher war die Mehrfachauswahl nicht zu erkennen.
+
 ## 1.50.2
 - **Lücken in der Tagesaufzeichnung** werden jetzt auch erkannt, wenn der Starter sie nicht protokolliert hat (z. B. beim Umzug auf eine neue Installation): Sie stehen unter „Unterbrechungen“ mit Gerät und Zeit, sind im Verlauf schraffiert („nicht aufgezeichnet“, nur in der Zeile dieses Geräts), lassen sich kommentieren und stehen im Lärmprotokoll. Bewusste Pausen zählen nicht; Handys werden nicht geprüft, weil sie oft absichtlich offline sind.
 

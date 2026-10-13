@@ -929,3 +929,7 @@ fieldset.prolocked .f{opacity:.55}
 .pnl[data-p=ha] .nhalist>h3{display:none}
 #artflt{display:none}
 .artms summary{min-width:120px}
+#events .msf{width:100%;text-align:left;background:var(--card);color:var(--tx);border:1px solid var(--bd);border-radius:6px;padding:3px 8px;font-size:12px;text-transform:none;font-weight:400;letter-spacing:0;cursor:pointer;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+#events .msf.on{border-color:var(--acc);color:var(--acc)}
+.msfpop{z-index:1000;max-width:320px}
+#events .tabulator-header-filter{text-align:left}
