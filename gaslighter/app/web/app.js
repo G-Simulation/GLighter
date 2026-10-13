@@ -1606,6 +1606,11 @@ function artMsBuild() {
   const sel = $('artflt'); if (!sel) return; let box = $('artms');
   if (!box) { box = el('span', { id: 'artms', className: 'sflt artms' }); sel.after(box); }
   const items = [...sel.options].filter(o => o.value && !o.hidden).map(o => [o.value, o.textContent]);
+  {                                                  // dazu alle Sensoren aus den Regeln und die Handys als Bewegungsmelder
+    const ha = new Set(); for (const x of (EV && EV.ha_names) || []) ha.add(x[0]); for (const x of (EV && EV.sens) || []) if (x.kind === 'ha') ha.add(x.name);
+    for (const n of [...ha].sort((a, b) => a.localeCompare(b))) items.push(['ha:' + n, '📡 ' + n]);
+    items.push(['vib', '🫨 ' + t('sens_vib')], ['cam', '🏃 ' + t('sens_cam')]);
+  }
   for (const k of [...ARTSEL]) if (!items.some(i => i[0] === k)) ARTSEL.delete(k);
   const sig = JSON.stringify([items, [...ARTSEL]]); if (box.dataset.sig === sig) return; box.dataset.sig = sig;
   const wasOpen = box.querySelector('details') && box.querySelector('details').open;
@@ -1621,7 +1626,7 @@ function shideSave() { try { localStorage.setItem('gl_shide', JSON.stringify([..
 const sensKey = x => x.kind === 'ha' ? 'ha:' + x.name : x.kind;
 const sensIcon = k => k === 'vib' ? '🫨' : k === 'cam' ? '🏃' : '📡';
 const sensLabel = x => x.kind === 'ha' ? x.name : t(x.kind === 'vib' ? 'sens_vib' : 'sens_cam');
-function sensVis() { return ((EV && EV.sens) || []).filter(x => !SHIDE.has(sensKey(x))); }
+function sensVis() { return ((EV && EV.sens) || []).filter(x => !SHIDE.has(sensKey(x)) && (!ARTSEL.size || ARTSEL.has(sensKey(x)))); }   // Art: gewählte Sensoren
 /* Auswahlliste „Sensoren“ (Mehrfachauswahl): Störungen, jede HA-Regel, Handy-Erschütterung, Handy-Bewegung */
 function sfltBuild() {
   const box = $('sflt'); if (!box) return;
