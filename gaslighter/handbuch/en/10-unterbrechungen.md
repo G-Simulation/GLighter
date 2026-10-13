@@ -34,7 +34,7 @@ Every written minute of the day recording gets a SHA-256 checksum built on the p
 
 ## Updates {#updates}
 
-**Without a recording gap:** copy the folder `laerm_logger` from the update zip via Samba to `\\homeassistant\share\laerm_update\` (overwrite existing files). After 10–20 s only the program restarts; recording continues and is delivered afterwards. If the new version does not start, the add-on automatically goes back to the previous one.
+**Without a recording gap:** copy the folder `gaslighter` from the update zip via Samba to `\\homeassistant\share\gaslighter_update\` (overwrite existing files). After 10–20 s only the program restarts; recording continues and is delivered afterwards. If the new version does not start, the add-on automatically goes back to the previous one.
 
 **Full installation** (only when a version requires it, e.g. new name or watchdog): copy the folder from the full zip to `\\homeassistant\addons\` and rebuild the add-on in Home Assistant. This causes a short gap.
 

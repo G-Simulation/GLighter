@@ -11,6 +11,7 @@ const hms = ms => { const d = new Date(ms); return pad(d.getHours()) + ':' + pad
 const esc = s => String(s == null ? '' : s).replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
 const numTxt = x => { x = String(x).replace('-', '−'); return typeof lang !== 'undefined' && lang === 'en' ? x : x.replace('.', ','); };   // deutsche Schreibweise „−70,7“
 const f1 = v => v == null || v === '' || !isFinite(+v) ? '–' : numTxt((+v).toFixed(1));
+const f2 = v => v == null || v === '' || !isFinite(+v) ? '–' : numTxt((+v).toFixed(2));
 const fdb = v => v == null || v === '' || !isFinite(+v) ? (v || '–') : numTxt(String(v));   // Werte aus der Liste (Text) wie gespeichert, nur anders geschrieben
 const fmtDur = v => { const x = parseFloat(v); return isNaN(x) ? '–' : numTxt(x < 10 ? x.toFixed(2) : x.toFixed(1)) + ' s'; };
 
@@ -2160,7 +2161,8 @@ function renderSrcBar() {
   const bar = $('srcbar');
   const html = SOURCES.map(s => {
     const [cls, tip] = srcState(s);
-    return `<button class="chip${s.id === selSrc ? ' sel' : ''}" data-id="${esc(s.id)}" title="${esc(tip)}"><i class="dot ${cls}"></i><span class="cn">${esc(s.name)}</span><em>${s.count_today || 0}</em></button>`;
+    const M = s.motion || {}, mo = (M.vib && M.vib.active ? '<b class="motact" title="' + esc(t('mot_vib')) + '">🫨</b>' : '') + (M.cam && M.cam.active ? '<b class="motact" title="' + esc(t('mot_cam')) + '">🏃</b>' : '');
+    return `<button class="chip${s.id === selSrc ? ' sel' : ''}" data-id="${esc(s.id)}" title="${esc(tip)}"><i class="dot ${cls}"></i><span class="cn">${esc(s.name)}</span>${mo}<em>${s.count_today || 0}</em></button>`;
   }).join('');
   if (bar.dataset.h !== html) {
     bar.dataset.h = html; bar.innerHTML = html;
@@ -2519,6 +2521,17 @@ function sourceRow(s) {
     if (!PHONE.ffmpeg) sub.appendChild(el('small', { textContent: t('no_ffmpeg') }));
   }
   if (s.type === 'phone') { const q = el('button', { textContent: t('connect_phone') }); q.onclick = () => showQR(s.id); sub.appendChild(q); }
+  if (s.type === 'phone') {                       // Handy als Bewegungsmelder (Erschütterung, Bewegung im Kamerabild)
+    const mb = el('div', { className: 'srcmot' }), M = s.motion || {};
+    mb.appendChild(el('b', { textContent: t('mot_title') }));
+    const mk = (key, kind) => { const l = el('label'), c = el('input', { type: 'checkbox', checked: !!(M[kind] && M[kind].on) }); l.append(c, ' ' + t(key)); c.onchange = () => upd({ ['motion_' + kind]: c.checked }); return l; };
+    mb.append(mk('mot_vib', 'vib'), mk('mot_cam', 'cam'));
+    const sens = el('select', { className: 'motsens' }); option(sens, 'high', t('mot_s_high')); option(sens, 'mid', t('mot_s_mid')); option(sens, 'low', t('mot_s_low'));
+    sens.value = s.motion_sens || 'mid'; sens.onchange = () => upd({ motion_sens: sens.value });
+    const sl = el('label', { textContent: t('mot_sens') + ' ' }); sl.appendChild(sens); mb.appendChild(sl);
+    mb.appendChild(el('small', { textContent: t('h_mot') }));
+    sub.appendChild(mb);
+  }
   const ds = el('button', { textContent: '⚙ ' + t('dev_settings') }); ds.onclick = () => { if (DEV !== s.id) setDev(s.id, true); setSTab('det'); }; sub.appendChild(ds);
   if (s.id !== 'main') {
     const del = el('button', { textContent: t('delete'), className: 'danger' });
@@ -3438,6 +3451,14 @@ function renderNight() {
     $('nnotes').prepend(...box.childNodes);
     $('nnotes').querySelectorAll('.fnr').forEach(r => { const n = fl[+r.dataset.i]; r.onclick = e => { if (e.target.closest('.fned')) { fnOpen(n); return; }
       DT.mark = [n.a, Math.max(n.b, n.a + 1000)]; DT.from = n.a - 120000; DT.to = Math.max(n.b, n.a) + 120000; dtLoad(DT, true); $('ndaybox').scrollIntoView({ behavior: 'smooth', block: 'start' }); }; });
+  }
+  const mo = d.motion || [];                        // Handys als Bewegungsmelder: Erschütterung / Bewegung im Bild
+  if (mo.length) {
+    const nm = id => viewName(id), box = el('div');
+    box.innerHTML = `<h3>🫨 ${esc(t('mot_list', { n: mo.length }))}</h3>` + mo.map((m, i) => { const a = new Date(m.a), b = new Date(m.b), L = locale();
+      return `<div class="ntrow mor" data-i="${i}" tabindex="0"><span class="ntnum" style="background:${m.kind === 'vib' ? '#e8590c' : '#1c7ed6'}">${m.kind === 'vib' ? '🫨' : '🏃'}</span><span class="ntoff">${esc(a.toLocaleDateString(L, { day: '2-digit', month: '2-digit' }))}</span><span class="ntclk">${esc(a.toLocaleTimeString(L))}–${esc(b.toLocaleTimeString(L))} · ${esc(nm(m.src))}</span><span class="nttx"><span class="ntt">${esc(t(m.kind === 'vib' ? 'mot_vib' : 'mot_cam'))} · ${esc(fmtDur(Math.max(0, (m.b - m.a) / 1000)))} · ${esc(t('mot_peak'))} ${esc(m.kind === 'vib' ? f2(m.peak) + ' m/s²' : f1(m.peak) + ' %')}${m.open ? ' · ' + esc(t('mot_open')) : ''}</span></span></div>`; }).join('');
+    $('nnotes').hidden = false; $('nnotes').append(...box.childNodes);
+    $('nnotes').querySelectorAll('.mor').forEach(r => { const m = mo[+r.dataset.i]; r.onclick = () => { DT.mark = [m.a, Math.max(m.b, m.a + 1000)]; DT.from = m.a - 120000; DT.to = Math.max(m.b, m.a) + 120000; dtLoad(DT, true); $('ndaybox').scrollIntoView({ behavior: 'smooth', block: 'start' }); }; });
   }
   drawNight();
 }

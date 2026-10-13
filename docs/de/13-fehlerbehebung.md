@@ -46,13 +46,13 @@ Schraffiert = das Add-on lief nicht. Die Ursache steht in Protokolle unter „Ni
 
 ## Update wird nicht übernommen
 
-Der Ordner muss als `\\homeassistant\share\laerm_update\laerm_logger\…` liegen. Nach 10–20 s ohne weitere Änderungen startet das Programm neu. Die Version steht oben neben dem Namen.
+Der Ordner muss als `\\homeassistant\share\gaslighter_update\gaslighter\…` liegen. Nach 10–20 s ohne weitere Änderungen startet das Programm neu. Die Version steht oben neben dem Namen.
 
 <a id="daten"></a>
 
 ## Wo liegen die Daten?
 
-`/share/laerm` (über Samba `\\homeassistant\share\laerm`): `log.csv`, `clips/` (Tagesaufzeichnung in `clips/tag/`, KI in `clips/ki/`, Notizen, Listen, Profile), Einstellungen und Geräte in `/data`.
+`/share/gaslighter` (über Samba `\\homeassistant\share\gaslighter`): `log.csv`, `clips/` (Tagesaufzeichnung in `clips/tag/`, KI in `clips/ki/`, Notizen, Listen, Profile), Einstellungen und Geräte in `/data`.
 
 ---
 [← Rechtliches und Datenschutz](12-rechtliches.md) · [Inhalt](README.md) · [GasLighter Pro →](14-pro.md)

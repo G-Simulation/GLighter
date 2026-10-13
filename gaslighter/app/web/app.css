@@ -831,3 +831,7 @@ fieldset.prolocked .f{opacity:.55}
 #probox .prokey{width:100%;box-sizing:border-box;font:12px/1.4 ui-monospace,Consolas,monospace;padding:8px;border-radius:8px;border:1px solid var(--bd);background:var(--card);color:var(--tx);resize:vertical;margin-bottom:8px}
 .prognd{max-width:440px}.prognd h3{margin:0 0 8px}.prognd p{margin:6px 0}.prognd .mut{color:var(--mut);font-size:13px}
 .prognd .ntedbtns{display:flex;flex-wrap:wrap;gap:8px;justify-content:flex-end;margin-top:12px}
+/* Handy als Bewegungsmelder */
+.srcmot{display:flex;flex-wrap:wrap;align-items:center;gap:6px 14px;width:100%;margin-top:6px;padding:8px 10px;border:1px dashed var(--bd);border-radius:10px}
+.srcmot>b{width:100%;font-size:13px}.srcmot small{width:100%;color:var(--mut)}
+.chip .motact{font-weight:400;margin-left:2px;animation:blink 1s infinite}

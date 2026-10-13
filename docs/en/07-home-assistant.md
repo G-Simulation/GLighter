@@ -6,7 +6,7 @@ GasLighter works together with Home Assistant: rules read states (TV on, washing
 
 ## Rules: pause or record state
 
-![Home Assistant rule with name](../../laerm_logger/app/web/hb/regeln_en.png)
+![Home Assistant rule with name](../../gaslighter/app/web/hb/regeln_en.png)
 
 ⚙ Settings → Times & pauses → **Home Assistant: pause or record state** → **Add rule**.
 
@@ -58,7 +58,7 @@ automation:
     action:
       - service: mqtt.publish
         data:
-          topic: laerm_logger/pause/set
+          topic: gaslighter/pause/set
           payload: '{"minutes": 10, "reason": "litter box"}'
 ```
 

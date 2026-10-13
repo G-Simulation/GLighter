@@ -18,19 +18,19 @@ jobs:
         with:
           node-version: "20"
       - name: Python übersetzen
-        run: python -m py_compile laerm_logger/app/*.py laerm_logger/tools/*.py
+        run: python -m py_compile gaslighter/app/*.py gaslighter/tools/*.py
       - name: JavaScript prüfen
-        run: for f in laerm_logger/app/web/*.js; do node --check "$f"; done
+        run: for f in gaslighter/app/web/*.js; do node --check "$f"; done
       - name: Texte de/en vollständig
-        working-directory: laerm_logger/app/web
+        working-directory: gaslighter/app/web
         run: node ../../tools/check_i18n.js
       - name: Handbuch aktuell
         run: |
-          cd laerm_logger && python tools/hb_build.py --docs ../docs && cd ..
-          git diff --exit-code -- laerm_logger/app/web/hb_inhalt.js laerm_logger/DOCS.md docs/ \
-            || { echo "::error::Handbuch neu erzeugen: cd laerm_logger && python tools/hb_build.py --docs ../docs"; exit 1; }
+          cd gaslighter && python tools/hb_build.py --docs ../docs && cd ..
+          git diff --exit-code -- gaslighter/app/web/hb_inhalt.js gaslighter/DOCS.md docs/ \
+            || { echo "::error::Handbuch neu erzeugen: cd gaslighter && python tools/hb_build.py --docs ../docs"; exit 1; }
       - name: Lizenzprüfung (Ed25519, Testvektor RFC 8032)
-        working-directory: laerm_logger/app
+        working-directory: gaslighter/app
         run: |
           python - <<'PY'
           import lizenz as L
@@ -42,5 +42,5 @@ jobs:
           PY
       - name: Version in config.yaml und laerm.py gleich
         run: |
-          a=$(grep -oP '^version: "\K[^"]+' laerm_logger/config.yaml); b=$(grep -oP '^VERSION = "\K[^"]+' laerm_logger/app/laerm.py)
+          a=$(grep -oP '^version: "\K[^"]+' gaslighter/config.yaml); b=$(grep -oP '^VERSION = "\K[^"]+' gaslighter/app/laerm.py)
           echo "config.yaml $a, laerm.py $b"; test "$a" = "$b"

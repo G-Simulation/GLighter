@@ -24,6 +24,25 @@ For streams you can switch on **🎥 Record video**: on a disturbance an mp4 fil
 
 > Camera recordings in homes can be problematic (§ 201a StGB in Germany) – only film your own rooms and no other people.
 
+## Phone as a motion sensor {#bewegung}
+
+A phone set up as a device can additionally act as a **motion sensor** – like a motion or vibration sensor in Home Assistant:
+
+- **🫨 Vibration** (accelerometer): the phone lies flat on the floor, a table or against the wall and reports vibrations – e.g. stomping, bass coming through the ceiling, slamming doors or moving furniture. This documents structure-borne noise you feel, not just hear.
+- **🏃 Motion in the camera picture**: the phone camera detects motion in the picture (e.g. in the stairwell). Sudden brightness changes (light on/off) are compensated.
+
+**Switch on:** ⚙ Settings → Devices → card of the phone → **Phone as motion sensor** → tick "Vibration" and/or "Motion in camera picture", choose the **sensitivity** (high, medium, low). Then reload the page on the phone and tap **Start**. The browser asks for the camera or (iPhone) for "motion and orientation".
+
+> **Privacy:** everything is evaluated on the phone. Only numbers are sent (vibration strength, share of changed pixels) – **no picture and no video**. The preview is only visible on the phone itself.
+
+**What you get:**
+- On the phone and in the device bar 🫨 or 🏃 blinks while triggered.
+- Each vibration or motion is stored with start, end and peak (`bewegung.csv` in the data folder). It counts as "on" until 20 s after the last trigger.
+- The **Reports** tab lists "Vibration and motion in the period"; a click shows the spot in the history. The [noise report](#drucken) contains its own table.
+- In **Home Assistant** each phone gets a "Vibration" or "Motion" sensor – usable in automations and in the [rules](#home-assistant/regeln), e.g. "only record state", so it appears with every disturbance and in the daily chart.
+
+Part of the external devices and therefore of [GasLighter Pro](#pro).
+
 ## Device card {#karte}
 
 - **Name**, **active**, **gain (dB)** and hum filter.

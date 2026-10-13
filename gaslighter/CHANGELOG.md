@@ -1,5 +1,12 @@
 # Changelog
 
+## 1.47.0
+- **Handy als Bewegungsmelder:** Ein als Gerät eingerichtetes Handy meldet auf Wunsch **🫨 Erschütterung** (Beschleunigungssensor, z. B. Trampeln, Bass durch die Decke, Türenknallen) und **🏃 Bewegung im Kamerabild**. Einschalten je Handy unter Einstellungen → Geräte, mit Empfindlichkeit hoch/mittel/niedrig.
+  - Ausgewertet wird nur auf dem Handy; gesendet werden nur Zahlen, kein Bild und kein Video.
+  - Beginn, Ende und Spitze werden gespeichert (`bewegung.csv`), stehen in Protokolle („Erschütterung und Bewegung im Zeitraum“) und im Lärmprotokoll.
+  - In Home Assistant erscheint je Handy ein Bewegungs- bzw. Vibrationssensor (MQTT), nutzbar in Automationen und Regeln.
+- **Neue Kennung `gaslighter`** (bisher `laerm_logger`): Home Assistant führt GasLighter damit als neue App. Datenordner jetzt `/share/gaslighter`, MQTT-Namen `gaslighter/…`. Updates ohne Neuinstallation liegen in `\\homeassistant\share\gaslighter_update\gaslighter\` (der alte Ordner `laerm_update` wird weiter gelesen). Umzug der bisherigen Daten: Sicherung in der alten App herunterladen und in der neuen einspielen (kostenlos).
+
 ## 1.46.0
 - **GasLighter Pro** (Jahreslizenz, 1 Installation, kein Abo): Einstellungen → Allgemein → „GasLighter Pro“ mit Status, Feld für den Lizenzschlüssel und „🛒 Pro kaufen“. Der Schlüssel wird ohne Internet geprüft (digitale Signatur) und nicht in der Sicherung gespeichert.
   - Pro schaltet frei: **Import einer Sicherung** (der erste Import ist kostenlos, z. B. für den Umzug), **erweiterte Einstellungen der Erkennung** (ohne Pro nur zum Ansehen, es gelten die Standardwerte) und **externe Geräte** (Handy, Stream, IP-Kamera).

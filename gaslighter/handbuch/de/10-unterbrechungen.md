@@ -34,7 +34,7 @@ Jede geschriebene Minute der Tagesaufzeichnung bekommt eine SHA-256-Prüfsumme, 
 
 ## Updates {#updates}
 
-**Ohne Aufnahmelücke:** den Ordner `laerm_logger` aus der Update-Zip per Samba nach `\\homeassistant\share\laerm_update\` kopieren (vorhandene Dateien überschreiben). Nach 10–20 s startet nur das Programm neu; die Aufnahme läuft weiter und wird nachgeliefert. Startet die neue Fassung nicht, nimmt das Add-on automatisch wieder die vorige.
+**Ohne Aufnahmelücke:** den Ordner `gaslighter` aus der Update-Zip per Samba nach `\\homeassistant\share\gaslighter_update\` kopieren (vorhandene Dateien überschreiben). Nach 10–20 s startet nur das Programm neu; die Aufnahme läuft weiter und wird nachgeliefert. Startet die neue Fassung nicht, nimmt das Add-on automatisch wieder die vorige.
 
 **Volle Installation** (nur wenn eine Version es verlangt, z. B. neuer Name oder Watchdog): den Ordner aus der vollen Zip nach `\\homeassistant\addons\` kopieren und das Add-on in Home Assistant neu erstellen. Das gibt eine kurze Lücke.
 

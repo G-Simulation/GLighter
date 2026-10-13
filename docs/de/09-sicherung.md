@@ -16,7 +16,7 @@ Zum Weiterverarbeiten gibt es außerdem `log.csv` (Reiter Protokolle), die Notiz
 
 > **🔒 Pro:** Der erste Import ist kostenlos (z. B. für den Umzug), weitere Importe gehören zu [GasLighter Pro](14-pro.md#umzug). Das Herunterladen einer Sicherung ist immer frei.
 
-![Vorschau beim Einspielen](../../laerm_logger/app/web/hb/sicherung_de.png)
+![Vorschau beim Einspielen](../../gaslighter/app/web/hb/sicherung_de.png)
 
 1. **📂 Sicherung wählen** und **Sicherung prüfen …** – die Datei wird hochgeladen und angesehen, noch nichts verändert.
 2. Die Vorschau zeigt Version und Datum der Sicherung und – mit „Einstellungen und Geräte übernehmen“ – jedes Gerät aus der Sicherung:

@@ -32,7 +32,7 @@ HERE = os.path.dirname(os.path.abspath(__file__))
 WEB = os.path.join(HERE, "web")
 OPTIONS_FILE = os.environ.get("LAERM_OPTIONS", "/data/options.json")
 SETTINGS_FILE = os.environ.get("LAERM_SETTINGS", "/data/settings.json")
-VERSION = "1.46.0"
+VERSION = "1.47.0"
 
 # =====================================================================
 # Einstellungen
@@ -45,7 +45,7 @@ DEFAULTS = {
     "day_track": True, "day_layers": True, "day_spec": True, "co_record": True, "fp_store": True,
     "group_pause_s": 120, "fn_assign_min": 5,
     "auto_delete": False, "retention_days": 90,
-    "active_from": "", "active_to": "", "mqtt": True, "output_dir": "/share/laerm", "language": "auto",
+    "active_from": "", "active_to": "", "mqtt": True, "output_dir": "/share/gaslighter", "language": "auto",
     "mic_port": "", "classify": True, "ki_embed": False,
     "clip_dir": "", "video_width": 640, "video_fps": 5, "video_crf": 30,
     "quiet_from": "22:00", "quiet_to": "06:00", "quiet_sunday": True,
@@ -385,7 +385,7 @@ def safe_dir(p):
 
 
 def paths():
-    out = (CFG["output_dir"] or "/share/laerm").rstrip("/")
+    out = (CFG["output_dir"] or "/share/gaslighter").rstrip("/")
     return out, safe_dir(CFG.get("clip_dir")) or out + "/clips", out + "/log.csv"
 
 
@@ -1584,6 +1584,12 @@ def clean_source(d, existing=None):
                 s["gain_db"] = int(g) if g.is_integer() else g
         except (TypeError, ValueError, OverflowError):
             pass
+    if s.get("type") == "phone":                       # Handy als Bewegungsmelder
+        for k in ("motion_vib", "motion_cam"):
+            if k in d:
+                s[k] = d[k] in (True, "true", "on", 1, "1")
+        if d.get("motion_sens") in ("low", "mid", "high"):
+            s["motion_sens"] = d["motion_sens"]
     if "url" in d and s.get("type") == "url":
         u = fix_url(d["url"])[:500]
         if re.match(r"^(https?|rtsp|rtmp|udp|tcp)://", u, re.I) or u == "":
@@ -1785,7 +1791,7 @@ class PushBuffer:
 # =====================================================================
 # MQTT
 # =====================================================================
-TOPIC = "laerm_logger"
+TOPIC = "gaslighter"
 mq = None
 STATE = {"today": dt.date.today().isoformat(), "count": 0, "total": 0, "last": None, "attr": None}
 
@@ -1798,12 +1804,130 @@ def pub(topic, payload, retain=False):
             pass
 
 
+# =====================================================================
+# Handys als Bewegungsmelder: Erschütterung (Beschleunigungssensor) und Bewegung im Kamerabild.
+# Das Handy wertet beides selbst aus und schickt nur Zahlen mit (kein Bild, kein Video);
+# hier wird daraus ein Ereignis mit Beginn, Ende und Spitze (out/bewegung.csv) und ein
+# Bewegungsmelder in Home Assistant (MQTT binary_sensor). Gehört zu den externen Geräten (Pro).
+# =====================================================================
+MOTION_KINDS = ("vib", "cam")
+MOTION_HOLD_S = 20                     # so lange nach dem letzten Auslösen gilt die Bewegung noch als an
+MOTION_THR = {"vib": {"high": 0.05, "mid": 0.12, "low": 0.30},     # m/s² (Beschleunigung ohne Schwerkraft, Spitze je 200 ms)
+              "cam": {"high": 0.5, "mid": 1.5, "low": 4.0}}       # % der Bildpunkte, die sich deutlich ändern
+MOTION_NAME = {"vib": ("Erschütterung", "Vibration"), "cam": ("Bewegung", "Motion")}
+MOTION_KEY = {"vib": "erschuetterung", "cam": "bewegung"}
+MOTION_LOCK = threading.Lock()
+
+
+def motion_cfg(src):
+    sens = src.get("motion_sens") if src.get("motion_sens") in ("low", "mid", "high") else "mid"
+    return {"vib": bool(src.get("motion_vib")), "cam": bool(src.get("motion_cam")), "sens": sens}
+
+
+def motion_path():
+    return os.path.join(paths()[0], "bewegung.csv")
+
+
+MOTION_COLS = ["start", "ende", "dauer_s", "quelle_id", "quelle", "art", "spitze", "einheit"]
+
+
+def motion_write(r, kind, st):
+    a, b = st["since"], st["last"]
+    row = {"start": dt.datetime.fromtimestamp(a).astimezone().isoformat(timespec="seconds"),
+           "ende": dt.datetime.fromtimestamp(b).astimezone().isoformat(timespec="seconds"),
+           "dauer_s": f"{max(0.0, b - a):.1f}", "quelle_id": r.id, "quelle": r.name,
+           "art": MOTION_KEY[kind], "spitze": f"{st['peak']:.3f}" if kind == "vib" else f"{st['peak']:.1f}",
+           "einheit": "m/s²" if kind == "vib" else "%"}
+    pth = motion_path()
+    with MOTION_LOCK:
+        new = not os.path.exists(pth)
+        with open(pth, "a", newline="", encoding="utf-8") as f:
+            w = csv.DictWriter(f, fieldnames=MOTION_COLS)
+            if new:
+                w.writeheader()
+            w.writerow(row)
+
+
+def motion_rows(a_ms=None, b_ms=None, src=None):
+    try:
+        with MOTION_LOCK, open(motion_path(), encoding="utf-8") as f:
+            rows = list(csv.DictReader(f))
+    except OSError:
+        rows = []
+    out = []
+    for x in rows:
+        try:
+            ta = dt.datetime.fromisoformat(x["start"]).timestamp() * 1000; tb = dt.datetime.fromisoformat(x["ende"]).timestamp() * 1000
+        except (ValueError, KeyError, TypeError):
+            continue
+        if (a_ms is not None and tb < a_ms) or (b_ms is not None and ta > b_ms) or (src and src != "all" and x.get("quelle_id") != src):
+            continue
+        out.append({"a": int(ta), "b": int(tb), "src": x.get("quelle_id"), "name": x.get("quelle"), "kind": "vib" if x.get("art") == "erschuetterung" else "cam",
+                    "peak": float(x.get("spitze") or 0), "unit": x.get("einheit") or ""})
+    # laufende Bewegungen dazu
+    with SRC_LOCK:
+        rs = list(RUNNERS.values())
+    for r in rs:
+        for kind, st in (getattr(r, "motion", None) or {}).items():
+            if st.get("on") and (not src or src == "all" or src == r.id):
+                out.append({"a": int(st["since"] * 1000), "b": int(st["last"] * 1000), "src": r.id, "name": r.name, "kind": kind,
+                            "peak": st["peak"], "unit": "m/s²" if kind == "vib" else "%", "open": True})
+    out.sort(key=lambda x: x["a"])
+    return out
+
+
+def motion_feed(r, vals, ts):
+    """vals: {"vib": Spitze, "cam": Spitze} vom Handy, ts = Zeitpunkt (s)."""
+    cfg = motion_cfg(r.src)
+    m = r.__dict__.setdefault("motion", {})
+    for kind in MOTION_KINDS:
+        v = vals.get(kind)
+        if v is None or not cfg[kind] or not math.isfinite(v):
+            continue
+        st = m.setdefault(kind, {"on": False, "since": 0.0, "last": 0.0, "peak": 0.0, "level": 0.0, "t": 0.0})
+        st["level"], st["t"] = v, time.time()
+        if v >= MOTION_THR[kind][cfg["sens"]]:
+            if not st["on"]:
+                st.update(on=True, since=ts, last=ts, peak=v)
+                pub(f"{r.topic}/{MOTION_KEY[kind]}", "ON", True)
+                log(f"[{r.name}] {MOTION_NAME[kind][0]} beginnt", f"(Spitze {v:.2f})")
+            st["last"] = max(st["last"], ts); st["peak"] = max(st["peak"], v)
+
+
+def motion_tick():
+    now = time.time()
+    with SRC_LOCK:
+        rs = list(RUNNERS.values())
+    for r in rs:
+        for kind, st in list((getattr(r, "motion", None) or {}).items()):
+            off = not motion_cfg(r.src)[kind] or not src_runs(r.src)
+            if st.get("on") and (off or now - st["last"] > MOTION_HOLD_S):
+                st["on"] = False
+                try:
+                    motion_write(r, kind, st)
+                except OSError as e:
+                    log("Bewegung nicht gespeichert:", e)
+                pub(f"{r.topic}/{MOTION_KEY[kind]}", "OFF", True)
+                log(f"[{r.name}] {MOTION_NAME[kind][0]} endet nach {st['last'] - st['since']:.0f} s")
+            if now - st.get("t", 0) > 30:
+                st["level"] = 0.0
+
+
+def motion_watch():
+    while True:
+        time.sleep(2)
+        try:
+            motion_tick()
+        except Exception as e:
+            log("Bewegung prüfen fehlgeschlagen:", e)
+
+
 def announce_source(r):
     """MQTT-Entitaeten einer Quelle. Das Server-Mikrofon behaelt die Topics und IDs von frueher."""
     de = CFG["language"] != "en"
     main = r.id == "main"
     t = r.topic
-    uid = "laerm_logger" if main else f"laerm_logger_{r.id}"
+    uid = "gaslighter" if main else f"gaslighter_{r.id}"
     dev = {"identifiers": [uid], "name": "GasLighter" + ("" if main else f" – {r.name}"),
            "manufacturer": "Local", "sw_version": VERSION}
     ents = {
@@ -1817,6 +1941,13 @@ def announce_source(r):
                                       "json_attributes_topic": f"{t}/pruefsumme_attr", "entity_category": "diagnostic"}
     if CFG.get("classify"):
         ents[("sensor", "sound_type")] = {"name": "Letzte Geräuschart" if de else "Last sound type", "icon": "mdi:ear-hearing", "json_attributes_topic": f"{t}/sound_type_attr"}
+    if r.src.get("type") == "phone":
+        mc = motion_cfg(r.src)
+        for kind, dc in (("vib", "vibration"), ("cam", "motion")):
+            if mc[kind]:
+                ents[("binary_sensor", MOTION_KEY[kind])] = {"name": MOTION_NAME[kind][0 if de else 1], "payload_on": "ON", "payload_off": "OFF", "device_class": dc}
+            else:
+                pub(f"homeassistant/binary_sensor/{uid}/{MOTION_KEY[kind]}/config", "", True)
     if main:
         ents[("sensor", "events_today")] = {"name": "Störungen heute" if de else "Events today", "state_class": "total_increasing", "icon": "mdi:counter"}
         ents[("sensor", "last_event")] = {"name": "Letzte Störung" if de else "Last event", "device_class": "timestamp", "json_attributes_topic": f"{TOPIC}/last_event_attr"}
@@ -1824,6 +1955,9 @@ def announce_source(r):
         c.update(unique_id=f"{uid}_{key}", state_topic=f"{t}/{key}", device=dev, availability_topic=f"{TOPIC}/status")
         pub(f"homeassistant/{comp}/{uid}/{key}/config", json.dumps(c), True)
     pub(f"{t}/active", "ON" if r.status.get("active") else "OFF", True)
+    for kind in MOTION_KINDS:
+        if ("binary_sensor", MOTION_KEY[kind]) in ents:
+            pub(f"{t}/{MOTION_KEY[kind]}", "ON" if (getattr(r, "motion", None) or {}).get(kind, {}).get("on") else "OFF", True)
     # Ausloeser je Geraet fuer Automationen: Ereignis-Entitaet (mit Details) und Geraete-Ausloeser
     pub(f"homeassistant/event/{uid}/ausloeser/config", json.dumps({
         "name": "Störung (Auslöser)" if de else "Disturbance (trigger)", "unique_id": f"{uid}_ausloeser", "icon": "mdi:bell-alert",
@@ -1834,8 +1968,9 @@ def announce_source(r):
 
 
 def unannounce_source(sid):
-    uid = f"laerm_logger_{sid}"
-    for comp, key in (("sensor", "level"), ("sensor", "baseline"), ("sensor", "threshold"), ("binary_sensor", "active"), ("binary_sensor", "online"), ("sensor", "sound_type"), ("sensor", "pruefsumme")):
+    uid = f"gaslighter_{sid}"
+    for comp, key in (("sensor", "level"), ("sensor", "baseline"), ("sensor", "threshold"), ("binary_sensor", "active"), ("binary_sensor", "online"), ("sensor", "sound_type"), ("sensor", "pruefsumme"),
+                      ("binary_sensor", "erschuetterung"), ("binary_sensor", "bewegung")):
         pub(f"homeassistant/{comp}/{uid}/{key}/config", "", True)
     for key in ("active", "online"):
         pub(f"{TOPIC}/{sid}/{key}", "", True)
@@ -1863,31 +1998,31 @@ def announce(client=None, *_):
     for r in runners:
         announce_source(r)
     de = CFG["language"] != "en"
-    pub(f"homeassistant/switch/laerm_logger/recording/config", json.dumps({
-        "name": "Aufzeichnung" if de else "Recording", "unique_id": "laerm_logger_recording", "icon": "mdi:record-rec",
+    pub(f"homeassistant/switch/gaslighter/recording/config", json.dumps({
+        "name": "Aufzeichnung" if de else "Recording", "unique_id": "gaslighter_recording", "icon": "mdi:record-rec",
         "state_topic": f"{TOPIC}/recording", "command_topic": f"{TOPIC}/recording/set", "payload_on": "ON", "payload_off": "OFF",
         "availability_topic": f"{TOPIC}/status",
-        "device": {"identifiers": ["laerm_logger"], "name": "GasLighter", "manufacturer": "Local", "sw_version": VERSION}}), True)
+        "device": {"identifiers": ["gaslighter"], "name": "GasLighter", "manufacturer": "Local", "sw_version": VERSION}}), True)
     pub(f"{TOPIC}/recording", "OFF" if RUN["paused"] else "ON", True)
-    devc = {"identifiers": ["laerm_logger"], "name": "GasLighter", "manufacturer": "Local", "sw_version": VERSION}
+    devc = {"identifiers": ["gaslighter"], "name": "GasLighter", "manufacturer": "Local", "sw_version": VERSION}
     av = f"{TOPIC}/status"
-    pub("homeassistant/number/laerm_logger/pause/config", json.dumps({
-        "name": "Pause (Minuten)" if de else "Pause (minutes)", "unique_id": "laerm_logger_pause", "icon": "mdi:timer-pause",
+    pub("homeassistant/number/gaslighter/pause/config", json.dumps({
+        "name": "Pause (Minuten)" if de else "Pause (minutes)", "unique_id": "gaslighter_pause", "icon": "mdi:timer-pause",
         "command_topic": f"{TOPIC}/pause/set", "state_topic": f"{TOPIC}/pause", "value_template": "{{ value_json.minutes }}",
         "min": 0, "max": 720, "step": 5, "mode": "box", "unit_of_measurement": "min", "availability_topic": av, "device": devc}), True)
-    pub("homeassistant/sensor/laerm_logger/pause_until/config", json.dumps({
-        "name": "Pause bis" if de else "Paused until", "unique_id": "laerm_logger_pause_until", "icon": "mdi:timer-sand", "device_class": "timestamp",
+    pub("homeassistant/sensor/gaslighter/pause_until/config", json.dumps({
+        "name": "Pause bis" if de else "Paused until", "unique_id": "gaslighter_pause_until", "icon": "mdi:timer-sand", "device_class": "timestamp",
         "state_topic": f"{TOPIC}/pause", "value_template": "{{ value_json.until if value_json.until else None }}",
         "json_attributes_topic": f"{TOPIC}/pause", "availability_topic": av, "device": devc}), True)
     for key, mins, nm in (("pause15", "15", ("Pause 15 min", "Pause 15 min")), ("pause60", "60", ("Pause 1 h", "Pause 1 h")), ("resume", "0", ("Fortsetzen", "Resume"))):
-        pub(f"homeassistant/button/laerm_logger/{key}/config", json.dumps({
-            "name": nm[0] if de else nm[1], "unique_id": f"laerm_logger_{key}", "icon": "mdi:play" if mins == "0" else "mdi:pause",
+        pub(f"homeassistant/button/gaslighter/{key}/config", json.dumps({
+            "name": nm[0] if de else nm[1], "unique_id": f"gaslighter_{key}", "icon": "mdi:play" if mins == "0" else "mdi:pause",
             "command_topic": f"{TOPIC}/pause/set", "payload_press": mins, "availability_topic": av, "device": devc}), True)
-    pub("homeassistant/switch/laerm_logger/force/config", json.dumps({
-        "name": "Manuell erfassen (außerhalb der Zeit)" if de else "Record outside hours", "unique_id": "laerm_logger_force", "icon": "mdi:record-circle",
+    pub("homeassistant/switch/gaslighter/force/config", json.dumps({
+        "name": "Manuell erfassen (außerhalb der Zeit)" if de else "Record outside hours", "unique_id": "gaslighter_force", "icon": "mdi:record-circle",
         "state_topic": f"{TOPIC}/force", "command_topic": f"{TOPIC}/force/set", "payload_on": "ON", "payload_off": "OFF", "availability_topic": av, "device": devc}), True)
-    pub("homeassistant/event/laerm_logger/event/config", json.dumps({
-        "name": "Störung erkannt" if de else "Disturbance detected", "unique_id": "laerm_logger_event", "icon": "mdi:bell-ring",
+    pub("homeassistant/event/gaslighter/event/config", json.dumps({
+        "name": "Störung erkannt" if de else "Disturbance detected", "unique_id": "gaslighter_event", "icon": "mdi:bell-ring",
         "state_topic": f"{TOPIC}/event", "event_types": ["stoerung", "art"], "availability_topic": av, "device": devc}), True)
     pub(f"{TOPIC}/force", "ON" if FORCE else "OFF", True)
     pub_pause()
@@ -1912,9 +2047,9 @@ def mqtt_start():
     try:
         import paho.mqtt.client as mqtt
         try:
-            c = mqtt.Client(mqtt.CallbackAPIVersion.VERSION2, client_id="laerm_logger")
+            c = mqtt.Client(mqtt.CallbackAPIVersion.VERSION2, client_id="gaslighter")
         except AttributeError:
-            c = mqtt.Client(client_id="laerm_logger")
+            c = mqtt.Client(client_id="gaslighter")
         c.username_pw_set(os.environ.get("MQTT_USER"), os.environ.get("MQTT_PASS"))
         c.will_set(f"{TOPIC}/status", "offline", retain=True)
         c.on_connect = announce
@@ -5497,6 +5632,21 @@ def protocol_html(q):
     if not evs:
         o.append('<tr><td colspan="4" class="mut">Keine Einträge im gewählten Zeitraum.</td></tr>')
     o.append('</table>' + ('<div class="small mut">* Uhrzeit aus dem Ereignisbeginn geschätzt (±1 s).</div>' if any(x.get("approx") for x in notes) else ''))
+    try:                                                # Handys als Bewegungsmelder (Erschütterung, Bewegung im Bild)
+        _a = int(dt.datetime.combine(d0, dt.time()).astimezone().timestamp() * 1000) if d0 else None
+        _b = int(dt.datetime.combine(d1 + dt.timedelta(days=1), dt.time()).astimezone().timestamp() * 1000) if d1 else None
+        mrows = motion_rows(_a, _b, src)
+    except Exception:
+        mrows = []
+    if mrows:
+        o.append('<h2>Erschütterung und Bewegung (Handys als Bewegungsmelder)</h2><table><tr><th style="width:92px">Datum</th><th style="width:150px">Uhrzeit</th>'
+                 '<th>Gerät</th><th style="width:28%">Art</th><th style="width:16%">Spitze</th></tr>')
+        for m_ in mrows:
+            ta, tb = dt.datetime.fromtimestamp(m_["a"] / 1000), dt.datetime.fromtimestamp(m_["b"] / 1000)
+            pk = (f'{m_["peak"]:.2f} m/s²' if m_["kind"] == "vib" else f'{m_["peak"]:.1f} %').replace(".", ",")
+            o.append(f'<tr><td>{h(dmy(ta.date().isoformat()))}</td><td>{ta:%H:%M:%S}–{tb:%H:%M:%S}</td><td>{h(m_["name"] or m_["src"])}</td>'
+                     f'<td>{"Erschütterung (Beschleunigungssensor)" if m_["kind"] == "vib" else "Bewegung im Kamerabild"}</td><td>{h(pk)}</td></tr>')
+        o.append('</table><div class="small mut">Ausgewertet auf dem Handy; gespeichert sind nur Beginn, Ende und Spitzenwert, kein Bild und kein Ton.</div>')
     if witnesses:
         o.append('<h2>Zeugen</h2><ul>' + "".join(f'<li>{h(w)}</li>' for w in witnesses) + '</ul>')
     if actions:
@@ -5660,6 +5810,7 @@ def night_data(date, src="all", start=None, end=None, plist="", art=""):
             "minutes": int((end - start).total_seconds() // 60), "running": start <= now < end, "src_name": src_name(src),
             "levels": [[m] + v for m, v in sorted(levels.items())], "events": events,
             "fnotes": fnotes_in(int(start.timestamp() * 1000), int(end.timestamp() * 1000), src),
+            "motion": motion_rows(int(start.timestamp() * 1000), int(end.timestamp() * 1000), src),
             "summary": dict(sm, arts=dict(collections.Counter(e["art"] for e in events if e["art"])),
                             notes_n=sum(len(e["notes"]) for e in events))}
 
@@ -6321,6 +6472,10 @@ class Runner:
                  count_today=self.count_today, count_total=self.count_total, pro_lock=bool(self.src.get("type") != "local" and not pro_ok()))
         if self.src["type"] == "phone":
             s["has_token"] = True
+            mc = motion_cfg(self.src); ms = getattr(self, "motion", None) or {}
+            s["motion"] = {k: {"on": mc[k], "active": bool(ms.get(k, {}).get("on")), "level": round(ms.get(k, {}).get("level", 0.0), 3),
+                               "thr": MOTION_THR[k][mc["sens"]]} for k in MOTION_KINDS}
+            s["motion_sens"] = mc["sens"]
         vb = self.video
         s["video_on"] = bool(vb and vb.wanted())
         s["video_sending"] = bool(vb and vb.sending())
@@ -6426,6 +6581,7 @@ def main():
         r.count_total = len(mine); r.count_today = sum(1 for x in mine if x["start"].startswith(today))
     log("Quellen:", ", ".join(f"{r.name} ({r.src['type']})" for r in RUNNERS.values()))
     mqtt_start(); cleanup()
+    threading.Thread(target=motion_watch, daemon=True).start()
     for r in list(RUNNERS.values()):
         r.start()
     threading.Thread(target=day_watch, daemon=True).start()
@@ -6639,7 +6795,7 @@ def update_sources(data):
             if dev_changed:
                 log(f"[{r.name}] Eigene Einstellungen:", "an" if r.src.get("own") else "aus",
                     json.dumps({k: nc[k] for k in dev_changed}, ensure_ascii=False))
-            if r.src["name"] != old["name"] and mq is not None:
+            if (r.src["name"] != old["name"] or motion_cfg(r.src) != motion_cfg(old)) and mq is not None:
                 announce_source(r)
         elif act == "token" and RUNNERS[sid].src["type"] == "phone":
             RUNNERS[sid].src["token"] = secrets.token_hex(16)
@@ -8455,6 +8611,13 @@ class Handler(BaseHandler):
                                 "supervisor_available": bool(os.environ.get("SUPERVISOR_TOKEN"))})
             if name == "pro":
                 return self.js(pro_state())
+            if name == "motion":                          # Erschütterung/Bewegung der Handys im Zeitraum
+                def qn(k):
+                    try:
+                        return int((q.get(k) or [""])[0])
+                    except ValueError:
+                        return None
+                return self.js({"rows": motion_rows(qn("from"), qn("to"), (q.get("src") or ["all"])[0])})
             if name == "plists":
                 return self.js(plists_payload())
             if name == "trackdays":                    # Tage mit Tagesaufzeichnung (fuer „Alle Daten“ beim Drucken)
@@ -8887,7 +9050,7 @@ class PhoneHandler(BaseHandler):
                 return self.send(404, "text/plain", b"not found")
             if m.group(2):
                 return self.js({"name": r.name, "rate": REMOTE_RATE, "version": VERSION, "enabled": r.src.get("enabled", True),
-                                "lang": CFG["language"]})
+                                "lang": CFG["language"], "motion": motion_cfg(r.src), "pro": pro_ok()})
             html = open(os.path.join(WEB, "mic.html"), "rb").read().replace(b"{{VERSION}}", VERSION.encode())
             self.send(200, "text/html; charset=utf-8", html, {"Permissions-Policy": "microphone=(self), screen-wake-lock=(self)"})
         except Exception as e:
@@ -8916,6 +9079,17 @@ class PhoneHandler(BaseHandler):
             sess = (q.get("sid") or [""])[0][:32]
             enabled = src_runs(r.src)
             res = r.push.push(sess, first, seq, body, age) if enabled else "off"
+
+            def qf(k):
+                try:
+                    v = float((q.get(k) or [""])[0])
+                    return v if math.isfinite(v) and v >= 0 else None
+                except (TypeError, ValueError):
+                    return None
+            if enabled and res in ("ok", "dup"):
+                mv, mcam = qf("mv"), qf("mc")
+                if mv is not None or mcam is not None:
+                    motion_feed(r, {"vib": mv, "cam": mcam}, time.time() - max(0, min(age or 0, 300000)) / 1000.0)
             if res == "ok":
                 info = device_from_ua(self.headers.get("User-Agent", ""))
                 dev = re.sub(r"[^\w .,()+-]", "", (q.get("dev") or [""])[0])[:40].strip()      # Modell vom Handy selbst
@@ -8932,7 +9106,8 @@ class PhoneHandler(BaseHandler):
                    "base": st.get("base"), "thr": st.get("thr"), "active": st.get("active"),
                    "learning": st.get("learning"), "name": r.name,
                    "paused": bool(RUN["paused"]), "until": RUN["until"], "reason": RUN["reason"],     # auch am Handy zeigen, wenn angehalten
-                   "hold": (st.get("ha_hold") or {}).get("label") if st.get("ha_hold") else None}
+                   "hold": (st.get("ha_hold") or {}).get("label") if st.get("ha_hold") else None,
+                   "motion": {k: bool(v.get("on")) for k, v in (getattr(r, "motion", None) or {}).items()}}
             return self.js(out, 409 if res == "busy" else 200)
         except Exception as e:
             self.fail(e)

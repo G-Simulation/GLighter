@@ -1,6 +1,6 @@
 # Einstellungen von A bis Z
 
-![Einstellungen](../../laerm_logger/app/web/hb/einstellungen_de.png)
+![Einstellungen](../../gaslighter/app/web/hb/einstellungen_de.png)
 
 Ganz oben wählst du **Alle Geräte** oder ein einzelnes Gerät. Beim Gerät lassen sich mit „Eigene Einstellungen für dieses Gerät“ abweichende Werte festlegen (Schwelle, Mindestdauer, Aufnahmezeit, Speichern). Die Leiste oben zeigt live Pegel, Hintergrund, Schwelle und die **Vorschau** (lila) deiner noch nicht gespeicherten Einstellungen. ⓘ erklärt jede Einstellung; „Hilfe anzeigen“ blendet die Texte aus.
 

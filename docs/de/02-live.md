@@ -30,7 +30,7 @@ Die Leiste unter der Notiz zeigt alle Geräte mit Anzahl der Störungen heute. A
 
 ## Die Grafik
 
-![Live-Grafik mit Schwelle, Hintergrund und Referenzlinien](../../laerm_logger/app/web/hb/livegraph_de.png)
+![Live-Grafik mit Schwelle, Hintergrund und Referenzlinien](../../gaslighter/app/web/hb/livegraph_de.png)
 
 - **Blaue Fläche** = Pegel, **graue Linie** = Hintergrund, **orange gestrichelt** = Schwelle, **rot** = Störung, gepunktete farbige Linien = eigene Referenzlinien (z. B. „Fernseher −70 dB“).
 - **Pegelspur / Lautstärke-Balken** schaltet die Darstellung um.
@@ -57,7 +57,7 @@ Weiter zurück als die letzten 10 Minuten zeigt die Grafik den **ganzen Tag** au
 
 ## 📝 Notiz jetzt
 
-![Notiz-Leiste mit Schnell-Merkmalen](../../laerm_logger/app/web/hb/notiz_de.png)
+![Notiz-Leiste mit Schnell-Merkmalen](../../gaslighter/app/web/hb/notiz_de.png)
 
 Für das, was du gerade hörst – einfach lostippen oder Merkmale antippen (oben, unten, Klopfen, Bass, aufgewacht …).
 
@@ -70,7 +70,7 @@ Für das, was du gerade hörst – einfach lostippen oder Merkmale antippen (obe
 
 ## 🏷 Bereich markieren
 
-![Bereich markieren und einer Art zuordnen](../../laerm_logger/app/web/hb/markieren_de.png)
+![Bereich markieren und einer Art zuordnen](../../gaslighter/app/web/hb/markieren_de.png)
 
 1. „🏷 Bereich markieren“ antippen – über der Grafik erscheint ein Hinweis mit **Fertig**.
 2. Den Bereich waagerecht aufziehen (0,15 s bis 2 min).

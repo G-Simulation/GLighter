@@ -46,13 +46,13 @@ Hatched = the add-on was not running. The cause is listed in Logs under “Not r
 
 ## Update is not picked up
 
-The folder must be at `\\homeassistant\share\laerm_update\laerm_logger\…`. After 10–20 s without further changes the program restarts. The version is shown at the top next to the name.
+The folder must be at `\\homeassistant\share\gaslighter_update\gaslighter\…`. After 10–20 s without further changes the program restarts. The version is shown at the top next to the name.
 
 <a id="daten"></a>
 
 ## Where is the data?
 
-`/share/laerm` (via Samba `\\homeassistant\share\laerm`): `log.csv`, `clips/` (day recording in `clips/tag/`, AI in `clips/ki/`, notes, lists, profiles), settings and devices in `/data`.
+`/share/gaslighter` (via Samba `\\homeassistant\share\gaslighter`): `log.csv`, `clips/` (day recording in `clips/tag/`, AI in `clips/ki/`, notes, lists, profiles), settings and devices in `/data`.
 
 ---
 [← Legal and privacy](12-rechtliches.md) · [Contents](README.md) · [GasLighter Pro →](14-pro.md)

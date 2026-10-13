@@ -2,7 +2,7 @@
 
 Double-clicking a disturbance opens all details.
 
-![Event window with chart, suggestions and spectrogram](../../laerm_logger/app/web/hb/ereignis_en.png)
+![Event window with chart, suggestions and spectrogram](../../gaslighter/app/web/hb/ereignis_en.png)
 
 <a id="kopfzahlen"></a>
 

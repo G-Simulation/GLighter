@@ -3,7 +3,7 @@
 
 Läuft die ganze Zeit des Add-ons und ist bewusst klein (ändert sich selten):
 - startet das eigentliche Programm (laerm.py) und startet es neu, wenn dessen Dateien aktualisiert wurden
-  (neue Fassung einfach nach /share/laerm_update/ kopieren, ohne das Add-on neu zu erstellen);
+  (neue Fassung einfach nach /share/gaslighter_update/ kopieren, ohne das Add-on neu zu erstellen);
 - hält die Aufnahme des Server-Mikrofons und der Stream-Quellen offen, auch während laerm.py neu startet.
   Der Ton liegt dabei nur im Arbeitsspeicher (höchstens 5 Minuten) und wird danach an laerm.py nachgeliefert.
   Er wird nie gespeichert.
@@ -25,7 +25,7 @@ import time
 HERE = os.path.dirname(os.path.abspath(__file__))
 DATA_DIR = os.path.dirname(os.environ.get("LAERM_SOURCES", "/data/sources.json")) or "/data"
 SOCK = os.environ.get("LAERM_RELAY", "/tmp/laerm_relay.sock")
-UPDATE_DIRS = [d for d in os.environ.get("LAERM_UPDATE_DIR", "/share/laerm_update").split(":") if d]
+UPDATE_DIRS = [d for d in os.environ.get("LAERM_UPDATE_DIR", "/share/gaslighter_update:/share/laerm_update").split(":") if d]
 RUNLOG = os.path.join(DATA_DIR, "laufzeit.jsonl")
 STATE_FILE = os.path.join(DATA_DIR, "update_state.json")
 ALIVE = os.path.join(DATA_DIR, "alive")
@@ -261,10 +261,10 @@ def vstr(v):
 
 
 def app_dirs():
-    """Mögliche Fassungen: eingebaut (/app) und Kopien unter /share/laerm_update (…/laerm_logger/app oder …/app)."""
+    """Mögliche Fassungen: eingebaut (/app) und Kopien unter /share/gaslighter_update bzw. /share/laerm_update (…/gaslighter/app, …/laerm_logger/app oder …/app)."""
     out = [HERE]
     for u in UPDATE_DIRS:
-        for d in (os.path.join(u, "laerm_logger", "app"), os.path.join(u, "app")):
+        for d in (os.path.join(u, "gaslighter", "app"), os.path.join(u, "laerm_logger", "app"), os.path.join(u, "app")):
             if os.path.isfile(os.path.join(d, "laerm.py")) and os.path.realpath(d) != os.path.realpath(HERE):
                 out.append(d)
     return out

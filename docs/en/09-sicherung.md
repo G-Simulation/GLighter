@@ -16,7 +16,7 @@ For further processing there are also `log.csv` (Logs tab), the notes as CSV (�
 
 > **🔒 Pro:** the first import is free (e.g. when moving), further imports are part of [GasLighter Pro](14-pro.md#umzug). Downloading a backup is always free.
 
-![Preview when restoring](../../laerm_logger/app/web/hb/sicherung_en.png)
+![Preview when restoring](../../gaslighter/app/web/hb/sicherung_en.png)
 
 1. **📂 Choose backup** and **Check backup …** – the file is uploaded and examined, nothing is changed yet.
 2. The preview shows version and date of the backup and – with “Take over settings and devices” – every device from the backup:

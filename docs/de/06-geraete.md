@@ -2,7 +2,7 @@
 
 Unter ⚙ Einstellungen → **Geräte** → Quellen stehen alle Mikrofone. Bis zu 9 Geräte sind möglich.
 
-![Einstellungen: Geräte](../../laerm_logger/app/web/hb/geraete_de.png)
+![Einstellungen: Geräte](../../gaslighter/app/web/hb/geraete_de.png)
 
 <a id="server"></a>
 
@@ -16,7 +16,7 @@ Das Mikrofon am Home-Assistant-Rechner. Unter **Mikrofon** wählst du Eingang, B
 
 > **🔒 Pro:** Handys, Stream-URLs und IP-Kameras sind externe Geräte und gehören zu [GasLighter Pro](14-pro.md). Das Server-Mikrofon ist immer frei.
 
-![GasLighter am Handy](../../laerm_logger/app/web/hb/handy_de.png)
+![GasLighter am Handy](../../gaslighter/app/web/hb/handy_de.png)
 
 - **Handy (Browser)**: „+ Handy (Browser)“, QR-Code scannen, Seite in Chrome öffnen, Zertifikatswarnung bestätigen, **Start**. Der Bildschirm muss an bleiben (Ladegerät). Der Link ist geheim und gehört nur zu diesem Handy.
 - **Stream (z. B. App „IP Webcam“)**: „+ Handy-App / Stream-URL“, Adresse `http://HANDY-IP:8080/audio.wav`. Läuft auch mit ausgeschaltetem Bildschirm. Mit Login: Benutzername und Passwort in die eigenen Felder.
@@ -29,6 +29,27 @@ Das Mikrofon am Home-Assistant-Rechner. Unter **Mikrofon** wählst du Eingang, B
 Bei Streams lässt sich **🎥 Video aufnehmen** einschalten: Bei einer Störung entsteht eine mp4-Datei **ohne Ton**. Ohne Störung wird nichts gespeichert. Qualität und Speicherort unter Speichern & Ton → Video & Speicherort.
 
 > Kameraaufnahmen in Wohnungen können nach § 201a StGB problematisch sein – nur eigene Räume, keine fremden Personen filmen.
+
+<a id="bewegung"></a>
+
+## Handy als Bewegungsmelder
+
+Ein als Gerät eingerichtetes Handy kann zusätzlich zum Mikrofon als **Bewegungsmelder** dienen – wie ein Bewegungs- oder Vibrationssensor in Home Assistant:
+
+- **🫨 Erschütterung** (Beschleunigungssensor): Das Handy liegt flach auf dem Boden, einem Tisch oder an der Wand und meldet Vibrationen – z. B. Trampeln, Bass, der durch die Decke kommt, Türenknallen oder Möbelrücken. Das belegt Körperschall, den man nicht nur hört, sondern spürt.
+- **🏃 Bewegung im Kamerabild**: Die Kamera des Handys erkennt Bewegung im Bild (z. B. im Treppenhaus). Plötzliche Helligkeitsänderungen (Licht an/aus) werden herausgerechnet.
+
+**Einschalten:** ⚙ Einstellungen → Geräte → Karte des Handys → **Handy als Bewegungsmelder** → „Erschütterung“ und/oder „Bewegung im Kamerabild“ anhaken, **Empfindlichkeit** wählen (hoch, mittel, niedrig). Danach am Handy die Seite neu laden und **Start** tippen. Der Browser fragt nach der Kamera bzw. (iPhone) nach „Bewegung und Ausrichtung“.
+
+> **Datenschutz:** Ausgewertet wird nur auf dem Handy. Gesendet werden nur Zahlen (Stärke der Erschütterung, Anteil der veränderten Bildpunkte) – **kein Bild und kein Video**. Das Vorschaubild sieht man nur auf dem Handy selbst.
+
+**Was dabei entsteht:**
+- Am Handy und in der Geräteleiste blinkt 🫨 bzw. 🏃, solange ausgelöst ist.
+- Jede Erschütterung bzw. Bewegung wird mit Beginn, Ende und Spitze gespeichert (`bewegung.csv` im Datenordner). Sie gilt bis 20 s nach dem letzten Auslösen als „an“.
+- Im Reiter **Protokolle** steht die Liste „Erschütterung und Bewegung im Zeitraum“; ein Klick zeigt die Stelle im Verlauf. Das [Lärmprotokoll](08-drucken.md) enthält eine eigene Tabelle.
+- In **Home Assistant** erscheint je Handy ein Sensor „Erschütterung“ (Vibration) bzw. „Bewegung“ (Bewegung) – nutzbar in Automationen und in den [Regeln](07-home-assistant.md#regeln), z. B. „nur festhalten“, damit es bei jeder Störung und im Tagesverlauf steht.
+
+Gehört zu den externen Geräten und damit zu [GasLighter Pro](14-pro.md).
 
 <a id="karte"></a>
 

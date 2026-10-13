@@ -9,6 +9,7 @@ The yearly licence **GasLighter Pro** additionally unlocks:
 | Import a backup | once for free (e.g. moving) | as often as needed |
 | Advanced detection settings (tab “Detection” → “When is something a disturbance?”) | view only, defaults | fully adjustable, also per device and in time profiles |
 | External devices: phone in the browser, phone app / stream URL, IP camera | locked | up to 8 additional devices |
+| Phone as motion sensor (vibration, motion in picture) | locked | ✔ |
 
 The server microphone (on the Home Assistant computer) always works without Pro.
 

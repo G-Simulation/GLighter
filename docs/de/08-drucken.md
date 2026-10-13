@@ -25,7 +25,7 @@ Im Browser drucken oder als PDF speichern. Das ausgedruckte Dokument heißt imme
 
 ## Verlauf drucken (Notenblatt)
 
-![Druckdialog](../../laerm_logger/app/web/hb/druckdialog_de.png)
+![Druckdialog](../../gaslighter/app/web/hb/druckdialog_de.png)
 
 Im Verlauf **🖨 Drucken**:
 
@@ -36,7 +36,7 @@ Im Verlauf **🖨 Drucken**:
 
 Der Dialog schätzt Zeilen und Seiten. **Vorschau öffnen** baut die Seiten in einem neuen Fenster auf; dort **Drucken** oder als PDF speichern. Eine aktive [Prüf-Schwelle](03-protokolle.md#pruefschwelle) wird mitgedruckt, mit Zählung je Zeile.
 
-![Druckvorschau](../../laerm_logger/app/web/hb/druckseite_de.png)
+![Druckvorschau](../../gaslighter/app/web/hb/druckseite_de.png)
 
 ---
 [← Home Assistant](07-home-assistant.md) · [Inhalt](README.md) · [Sicherung, Import und Export →](09-sicherung.md)

@@ -2,7 +2,7 @@
 
 The **Logs** tab shows a period completely: summary, week strip, history of all devices, statistics and the list of all disturbances.
 
-![Logs tab with summary and week strip](../../laerm_logger/app/web/hb/protokolle_en.png)
+![Logs tab with summary and week strip](../../gaslighter/app/web/hb/protokolle_en.png)
 
 <a id="zeitraum"></a>
 
@@ -24,7 +24,7 @@ The **circles** below are the last 7 nights or days. Tap to choose a day; the ne
 
 ## History
 
-![History with level and spectrogram](../../laerm_logger/app/web/hb/verlauf_en.png)
+![History with level and spectrogram](../../gaslighter/app/web/hb/verlauf_en.png)
 
 The history shows the devices below each other for the same period. Per row choose **device** and **display** (level trace, loudness bars, spectrogram) and toggle layers. “＋ Add row”, ↑ ↓ ✕ arrange the rows; the handle below each row changes its height.
 
@@ -39,7 +39,7 @@ Controls as in the live view: wheel/two fingers zoom, drag a range, when zoomed 
 
 ## 📏 Test threshold
 
-![Test threshold with the list of peaks](../../laerm_logger/app/web/hb/pruefschwelle_en.png)
+![Test threshold with the list of peaks](../../gaslighter/app/web/hb/pruefschwelle_en.png)
 
 With the test threshold you check afterwards which peaks were above a freely chosen value – e.g. “How often was it above −50 dB?”
 
@@ -55,7 +55,7 @@ The type comes from the disturbance if the peak lies in one, otherwise from the 
 
 ## Events in the period
 
-![List of events](../../laerm_logger/app/web/hb/ereignisliste_en.png)
+![List of events](../../gaslighter/app/web/hb/ereignisliste_en.png)
 
 - **Groups** combines disturbances of the same type (at most “Group: max. pause” apart), **All single** shows each.
 - Click = jump there in the history, double click or ▶ = [open the event](04-ereignis.md), ⋮ = more actions (download noise track, re-evaluate, delete).

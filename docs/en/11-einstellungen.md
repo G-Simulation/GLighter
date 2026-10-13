@@ -1,6 +1,6 @@
 # Settings from A to Z
 
-![Settings](../../laerm_logger/app/web/hb/einstellungen_en.png)
+![Settings](../../gaslighter/app/web/hb/einstellungen_en.png)
 
 At the very top choose **All devices** or a single device. For a device, “Own settings for this device” sets different values (threshold, minimum duration, monitoring time, storage). The bar at the top shows level, background, threshold and the **preview** (purple) of your not yet saved settings live. ⓘ explains every setting; “Show help” hides the texts.
 

@@ -1,7 +1,7 @@
 # Fertige Images für Home Assistant bauen (amd64, aarch64) und auf ghcr.io veröffentlichen.
 # Läuft bei jedem veröffentlichten Release (Tag v1.2.3) oder von Hand (Actions → Build → Run workflow).
 # Danach einmalig: Paket auf github.com/orgs/G-Simulation/packages auf „Public“ stellen und in
-# laerm_logger/config.yaml die Zeile  image: "ghcr.io/g-simulation/{arch}-gaslighter"  einschalten.
+# gaslighter/config.yaml die Zeile  image: "ghcr.io/g-simulation/{arch}-gaslighter"  einschalten.
 name: Build
 
 on:
@@ -32,7 +32,7 @@ jobs:
         with:
           args: |
             --${{ matrix.arch }} \
-            --target /data/laerm_logger \
+            --target /data/gaslighter \
             --image "${{ matrix.arch }}-gaslighter" \
             --docker-hub ghcr.io/g-simulation \
             --addon

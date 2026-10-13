@@ -51,7 +51,7 @@ Voraussetzung: Home Assistant OS oder Supervised (mit App-Store) und ein USB-Mik
 2. **GasLighter** im App-Store öffnen → **Installieren** → **Starten**. Optional „Beim Start starten“ und „Watchdog“ einschalten.
 3. **GasLighter** in der Seitenleiste öffnen. Der [Schnellstart](docs/de/01-schnellstart.md) führt durch die ersten fünf Minuten.
 
-Updates erscheinen automatisch in Home Assistant. Änderungen: [CHANGELOG](laerm_logger/CHANGELOG.md).
+Updates erscheinen automatisch in Home Assistant. Änderungen: [CHANGELOG](gaslighter/CHANGELOG.md).
 
 ### Datenschutz und Recht
 

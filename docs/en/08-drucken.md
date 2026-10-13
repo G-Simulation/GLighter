@@ -25,7 +25,7 @@ Print in the browser or save as PDF. The printed document is always titled “L�
 
 ## Print history (score sheet)
 
-![Print dialog](../../laerm_logger/app/web/hb/druckdialog_en.png)
+![Print dialog](../../gaslighter/app/web/hb/druckdialog_en.png)
 
 In the history **🖨 Print**:
 
@@ -36,7 +36,7 @@ In the history **🖨 Print**:
 
 The dialog estimates lines and pages. **Open preview** builds the pages in a new window; print there or save as PDF. An active [test threshold](03-protokolle.md#pruefschwelle) is printed along, with a count per line.
 
-![Print preview](../../laerm_logger/app/web/hb/druckseite_en.png)
+![Print preview](../../gaslighter/app/web/hb/druckseite_en.png)
 
 ---
 [← Home Assistant](07-home-assistant.md) · [Contents](README.md) · [Backup, import and export →](09-sicherung.md)

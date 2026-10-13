@@ -2,7 +2,7 @@
 
 GasLighter listens continuously and writes a **noise log**: when it was how loud, for how long and what kind of sound – with checksums so nobody can change the data unnoticed. **No sound is stored**, only measurements.
 
-![The live view right after starting](../../laerm_logger/app/web/hb/live_en.png)
+![The live view right after starting](../../gaslighter/app/web/hb/live_en.png)
 
 <a id="mikrofon"></a>
 
@@ -43,7 +43,7 @@ To compare devices: ⚙ Settings → Devices → **Level-match devices**. Put al
 ## 5. Backups and updates
 
 - Regularly download a backup under ⚙ Settings → General → **Download backup**. See [Backup](09-sicherung.md).
-- Updates without a recording gap: copy the new folder to `\\homeassistant\share\laerm_update\`. See [Updates](10-unterbrechungen.md#updates).
+- Updates without a recording gap: copy the new folder to `\\homeassistant\share\gaslighter_update\`. See [Updates](10-unterbrechungen.md#updates).
 
 > **Important:** GasLighter is a memory aid and documentation, not a calibrated dB(A) measurement. For landlords, property managers or authorities what counts most is: regular, traceable, with your own notes. See [Noise log](08-drucken.md#laermprotokoll).
 

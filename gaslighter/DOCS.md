@@ -42,7 +42,7 @@ Wenn du mehrere Geräte vergleichen willst: ⚙ Einstellungen → Geräte → **
 ### 5. Sichern und Updates
 
 - Regelmäßig unter ⚙ Einstellungen → Allgemein → **Sicherung herunterladen** eine Sicherung ziehen. Siehe Sicherung.
-- Updates ohne Aufnahmelücke: neuen Ordner nach `\\homeassistant\share\laerm_update\` kopieren. Siehe Updates.
+- Updates ohne Aufnahmelücke: neuen Ordner nach `\\homeassistant\share\gaslighter_update\` kopieren. Siehe Updates.
 
 > **Wichtig:** GasLighter ist eine Gedächtnisstütze und Dokumentation, keine geeichte Lärmmessung in dB(A). Für Vermieter, Hausverwaltung oder Behörden zählt vor allem: regelmäßig, nachvollziehbar, mit eigenen Notizen. Siehe Lärmprotokoll.
 
@@ -265,6 +265,25 @@ Bei Streams lässt sich **🎥 Video aufnehmen** einschalten: Bei einer Störung
 
 > Kameraaufnahmen in Wohnungen können nach § 201a StGB problematisch sein – nur eigene Räume, keine fremden Personen filmen.
 
+### Handy als Bewegungsmelder
+
+Ein als Gerät eingerichtetes Handy kann zusätzlich zum Mikrofon als **Bewegungsmelder** dienen – wie ein Bewegungs- oder Vibrationssensor in Home Assistant:
+
+- **🫨 Erschütterung** (Beschleunigungssensor): Das Handy liegt flach auf dem Boden, einem Tisch oder an der Wand und meldet Vibrationen – z. B. Trampeln, Bass, der durch die Decke kommt, Türenknallen oder Möbelrücken. Das belegt Körperschall, den man nicht nur hört, sondern spürt.
+- **🏃 Bewegung im Kamerabild**: Die Kamera des Handys erkennt Bewegung im Bild (z. B. im Treppenhaus). Plötzliche Helligkeitsänderungen (Licht an/aus) werden herausgerechnet.
+
+**Einschalten:** ⚙ Einstellungen → Geräte → Karte des Handys → **Handy als Bewegungsmelder** → „Erschütterung“ und/oder „Bewegung im Kamerabild“ anhaken, **Empfindlichkeit** wählen (hoch, mittel, niedrig). Danach am Handy die Seite neu laden und **Start** tippen. Der Browser fragt nach der Kamera bzw. (iPhone) nach „Bewegung und Ausrichtung“.
+
+> **Datenschutz:** Ausgewertet wird nur auf dem Handy. Gesendet werden nur Zahlen (Stärke der Erschütterung, Anteil der veränderten Bildpunkte) – **kein Bild und kein Video**. Das Vorschaubild sieht man nur auf dem Handy selbst.
+
+**Was dabei entsteht:**
+- Am Handy und in der Geräteleiste blinkt 🫨 bzw. 🏃, solange ausgelöst ist.
+- Jede Erschütterung bzw. Bewegung wird mit Beginn, Ende und Spitze gespeichert (`bewegung.csv` im Datenordner). Sie gilt bis 20 s nach dem letzten Auslösen als „an“.
+- Im Reiter **Protokolle** steht die Liste „Erschütterung und Bewegung im Zeitraum“; ein Klick zeigt die Stelle im Verlauf. Das Lärmprotokoll enthält eine eigene Tabelle.
+- In **Home Assistant** erscheint je Handy ein Sensor „Erschütterung“ (Vibration) bzw. „Bewegung“ (Bewegung) – nutzbar in Automationen und in den Regeln, z. B. „nur festhalten“, damit es bei jeder Störung und im Tagesverlauf steht.
+
+Gehört zu den externen Geräten und damit zu GasLighter Pro.
+
 ### Geräte-Karte
 
 - **Name**, **aktiv**, **Verstärkung (dB)** und Brummfilter.
@@ -339,7 +358,7 @@ automation:
     action:
       - service: mqtt.publish
         data:
-          topic: laerm_logger/pause/set
+          topic: gaslighter/pause/set
           payload: '{"minutes": 10, "reason": "Katzenklo"}'
 ```
 
@@ -446,7 +465,7 @@ Jede geschriebene Minute der Tagesaufzeichnung bekommt eine SHA-256-Prüfsumme, 
 
 ### Updates
 
-**Ohne Aufnahmelücke:** den Ordner `laerm_logger` aus der Update-Zip per Samba nach `\\homeassistant\share\laerm_update\` kopieren (vorhandene Dateien überschreiben). Nach 10–20 s startet nur das Programm neu; die Aufnahme läuft weiter und wird nachgeliefert. Startet die neue Fassung nicht, nimmt das Add-on automatisch wieder die vorige.
+**Ohne Aufnahmelücke:** den Ordner `gaslighter` aus der Update-Zip per Samba nach `\\homeassistant\share\gaslighter_update\` kopieren (vorhandene Dateien überschreiben). Nach 10–20 s startet nur das Programm neu; die Aufnahme läuft weiter und wird nachgeliefert. Startet die neue Fassung nicht, nimmt das Add-on automatisch wieder die vorige.
 
 **Volle Installation** (nur wenn eine Version es verlangt, z. B. neuer Name oder Watchdog): den Ordner aus der vollen Zip nach `\\homeassistant\addons\` kopieren und das Add-on in Home Assistant neu erstellen. Das gibt eine kurze Lücke.
 
@@ -575,11 +594,11 @@ Schraffiert = das Add-on lief nicht. Die Ursache steht in Protokolle unter „Ni
 
 ### Update wird nicht übernommen
 
-Der Ordner muss als `\\homeassistant\share\laerm_update\laerm_logger\…` liegen. Nach 10–20 s ohne weitere Änderungen startet das Programm neu. Die Version steht oben neben dem Namen.
+Der Ordner muss als `\\homeassistant\share\gaslighter_update\gaslighter\…` liegen. Nach 10–20 s ohne weitere Änderungen startet das Programm neu. Die Version steht oben neben dem Namen.
 
 ### Wo liegen die Daten?
 
-`/share/laerm` (über Samba `\\homeassistant\share\laerm`): `log.csv`, `clips/` (Tagesaufzeichnung in `clips/tag/`, KI in `clips/ki/`, Notizen, Listen, Profile), Einstellungen und Geräte in `/data`.
+`/share/gaslighter` (über Samba `\\homeassistant\share\gaslighter`): `log.csv`, `clips/` (Tagesaufzeichnung in `clips/tag/`, KI in `clips/ki/`, Notizen, Listen, Profile), Einstellungen und Geräte in `/data`.
 
 ## 14. GasLighter Pro
 
@@ -592,6 +611,7 @@ Die Jahreslizenz **GasLighter Pro** schaltet zusätzlich frei:
 | Import einer Sicherung | einmal kostenlos (z. B. Umzug) | beliebig oft |
 | Erweiterte Einstellungen der Erkennung (Reiter „Erkennung“ → „Wann gilt etwas als Störung?“) | nur ansehen, Standardwerte | frei einstellbar, auch je Gerät und in Zeitprofilen |
 | Externe Geräte: Handy im Browser, Handy-App / Stream-URL, IP-Kamera | gesperrt | bis zu 8 zusätzliche Geräte |
+| Handy als Bewegungsmelder (Erschütterung, Bewegung im Bild) | gesperrt | ✔ |
 
 Das Server-Mikrofon (am Home-Assistant-Rechner) funktioniert immer ohne Pro.
 
@@ -686,7 +706,7 @@ To compare devices: ⚙ Settings → Devices → **Level-match devices**. Put al
 ### 5. Backups and updates
 
 - Regularly download a backup under ⚙ Settings → General → **Download backup**. See Backup.
-- Updates without a recording gap: copy the new folder to `\\homeassistant\share\laerm_update\`. See Updates.
+- Updates without a recording gap: copy the new folder to `\\homeassistant\share\gaslighter_update\`. See Updates.
 
 > **Important:** GasLighter is a memory aid and documentation, not a calibrated dB(A) measurement. For landlords, property managers or authorities what counts most is: regular, traceable, with your own notes. See Noise log.
 
@@ -909,6 +929,25 @@ For streams you can switch on **🎥 Record video**: on a disturbance an mp4 fil
 
 > Camera recordings in homes can be problematic (§ 201a StGB in Germany) – only film your own rooms and no other people.
 
+### Phone as a motion sensor
+
+A phone set up as a device can additionally act as a **motion sensor** – like a motion or vibration sensor in Home Assistant:
+
+- **🫨 Vibration** (accelerometer): the phone lies flat on the floor, a table or against the wall and reports vibrations – e.g. stomping, bass coming through the ceiling, slamming doors or moving furniture. This documents structure-borne noise you feel, not just hear.
+- **🏃 Motion in the camera picture**: the phone camera detects motion in the picture (e.g. in the stairwell). Sudden brightness changes (light on/off) are compensated.
+
+**Switch on:** ⚙ Settings → Devices → card of the phone → **Phone as motion sensor** → tick "Vibration" and/or "Motion in camera picture", choose the **sensitivity** (high, medium, low). Then reload the page on the phone and tap **Start**. The browser asks for the camera or (iPhone) for "motion and orientation".
+
+> **Privacy:** everything is evaluated on the phone. Only numbers are sent (vibration strength, share of changed pixels) – **no picture and no video**. The preview is only visible on the phone itself.
+
+**What you get:**
+- On the phone and in the device bar 🫨 or 🏃 blinks while triggered.
+- Each vibration or motion is stored with start, end and peak (`bewegung.csv` in the data folder). It counts as "on" until 20 s after the last trigger.
+- The **Reports** tab lists "Vibration and motion in the period"; a click shows the spot in the history. The noise report contains its own table.
+- In **Home Assistant** each phone gets a "Vibration" or "Motion" sensor – usable in automations and in the rules, e.g. "only record state", so it appears with every disturbance and in the daily chart.
+
+Part of the external devices and therefore of GasLighter Pro.
+
 ### Device card
 
 - **Name**, **active**, **gain (dB)** and hum filter.
@@ -983,7 +1022,7 @@ automation:
     action:
       - service: mqtt.publish
         data:
-          topic: laerm_logger/pause/set
+          topic: gaslighter/pause/set
           payload: '{"minutes": 10, "reason": "litter box"}'
 ```
 
@@ -1090,7 +1129,7 @@ Every written minute of the day recording gets a SHA-256 checksum built on the p
 
 ### Updates
 
-**Without a recording gap:** copy the folder `laerm_logger` from the update zip via Samba to `\\homeassistant\share\laerm_update\` (overwrite existing files). After 10–20 s only the program restarts; recording continues and is delivered afterwards. If the new version does not start, the add-on automatically goes back to the previous one.
+**Without a recording gap:** copy the folder `gaslighter` from the update zip via Samba to `\\homeassistant\share\gaslighter_update\` (overwrite existing files). After 10–20 s only the program restarts; recording continues and is delivered afterwards. If the new version does not start, the add-on automatically goes back to the previous one.
 
 **Full installation** (only when a version requires it, e.g. new name or watchdog): copy the folder from the full zip to `\\homeassistant\addons\` and rebuild the add-on in Home Assistant. This causes a short gap.
 
@@ -1219,11 +1258,11 @@ Hatched = the add-on was not running. The cause is listed in Logs under “Not r
 
 ### Update is not picked up
 
-The folder must be at `\\homeassistant\share\laerm_update\laerm_logger\…`. After 10–20 s without further changes the program restarts. The version is shown at the top next to the name.
+The folder must be at `\\homeassistant\share\gaslighter_update\gaslighter\…`. After 10–20 s without further changes the program restarts. The version is shown at the top next to the name.
 
 ### Where is the data?
 
-`/share/laerm` (via Samba `\\homeassistant\share\laerm`): `log.csv`, `clips/` (day recording in `clips/tag/`, AI in `clips/ki/`, notes, lists, profiles), settings and devices in `/data`.
+`/share/gaslighter` (via Samba `\\homeassistant\share\gaslighter`): `log.csv`, `clips/` (day recording in `clips/tag/`, AI in `clips/ki/`, notes, lists, profiles), settings and devices in `/data`.
 
 ## 14. GasLighter Pro
 
@@ -1236,6 +1275,7 @@ The yearly licence **GasLighter Pro** additionally unlocks:
 | Import a backup | once for free (e.g. moving) | as often as needed |
 | Advanced detection settings (tab “Detection” → “When is something a disturbance?”) | view only, defaults | fully adjustable, also per device and in time profiles |
 | External devices: phone in the browser, phone app / stream URL, IP camera | locked | up to 8 additional devices |
+| Phone as motion sensor (vibration, motion in picture) | locked | ✔ |
 
 The server microphone (on the Home Assistant computer) always works without Pro.
 

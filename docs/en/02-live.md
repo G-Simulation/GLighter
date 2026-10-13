@@ -30,7 +30,7 @@ The bar below the note shows all devices with today's number of disturbances. Ta
 
 ## The chart
 
-![Live chart with threshold, background and reference lines](../../laerm_logger/app/web/hb/livegraph_en.png)
+![Live chart with threshold, background and reference lines](../../gaslighter/app/web/hb/livegraph_en.png)
 
 - **Blue area** = level, **grey line** = background, **orange dashed** = threshold, **red** = disturbance, dotted coloured lines = your own reference lines (e.g. “TV −70 dB”).
 - **Level trace / Loudness bars** switches the display.
@@ -57,7 +57,7 @@ Further back than the last 10 minutes the chart shows the **whole day** from the
 
 ## 📝 Note now
 
-![Note bar with quick tags](../../laerm_logger/app/web/hb/notiz_en.png)
+![Note bar with quick tags](../../gaslighter/app/web/hb/notiz_en.png)
 
 For what you hear right now – just start typing or tap tags (upstairs, downstairs, knocking, bass, woke up …).
 
@@ -70,7 +70,7 @@ For what you hear right now – just start typing or tap tags (upstairs, downsta
 
 ## 🏷 Mark range
 
-![Mark a range and assign it to a type](../../laerm_logger/app/web/hb/markieren_en.png)
+![Mark a range and assign it to a type](../../gaslighter/app/web/hb/markieren_en.png)
 
 1. Tap “🏷 Mark range” – a hint with **Done** appears above the chart.
 2. Drag across the range horizontally (0.15 s to 2 min).

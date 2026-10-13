@@ -52,7 +52,7 @@ automation:
     action:
       - service: mqtt.publish
         data:
-          topic: laerm_logger/pause/set
+          topic: gaslighter/pause/set
           payload: '{"minutes": 10, "reason": "litter box"}'
 ```
 

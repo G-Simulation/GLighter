@@ -2,7 +2,7 @@
 
 Der Reiter **Protokolle** zeigt einen Zeitraum vollständig: Zusammenfassung, Wochenleiste, Verlauf aller Geräte, Auswertungen und die Liste aller Störungen.
 
-![Reiter Protokolle mit Zusammenfassung und Wochenleiste](../../laerm_logger/app/web/hb/protokolle_de.png)
+![Reiter Protokolle mit Zusammenfassung und Wochenleiste](../../gaslighter/app/web/hb/protokolle_de.png)
 
 <a id="zeitraum"></a>
 
@@ -24,7 +24,7 @@ Die **Kreise** darunter sind die letzten 7 Nächte bzw. Tage. Antippen wählt de
 
 ## Verlauf
 
-![Verlauf mit Pegel und Spektrogramm](../../laerm_logger/app/web/hb/verlauf_de.png)
+![Verlauf mit Pegel und Spektrogramm](../../gaslighter/app/web/hb/verlauf_de.png)
 
 Im Verlauf stehen die Geräte untereinander, für denselben Zeitraum. Je Zeile wählst du **Gerät** und **Darstellung** (Pegelspur, Lautstärke-Balken, Spektrogramm) und blendest Ebenen ein. „＋ Zeile hinzufügen“, ↑ ↓ ✕ ordnen die Zeilen; der Griff unter jeder Zeile ändert die Höhe.
 
@@ -39,7 +39,7 @@ Bedienung wie im Live-Bild: Mausrad/zwei Finger zoomen, Bereich aufziehen, hinei
 
 ## 📏 Prüf-Schwelle
 
-![Prüf-Schwelle mit Liste der Spitzen](../../laerm_logger/app/web/hb/pruefschwelle_de.png)
+![Prüf-Schwelle mit Liste der Spitzen](../../gaslighter/app/web/hb/pruefschwelle_de.png)
 
 Mit der Prüf-Schwelle schaust du nachträglich, welche Spitzen über einem frei gewählten Wert lagen – z. B. „Wie oft war es über −50 dB?“
 
@@ -55,7 +55,7 @@ Die Art kommt aus der Störung, wenn die Spitze in einer liegt, sonst aus dem ge
 
 ## Ereignisse im Zeitraum
 
-![Liste der Ereignisse](../../laerm_logger/app/web/hb/ereignisliste_de.png)
+![Liste der Ereignisse](../../gaslighter/app/web/hb/ereignisliste_de.png)
 
 - **Gruppen** fasst gleichartige Störungen zusammen (Abstand höchstens „Gruppe: höchste Pause“), **Alle einzeln** zeigt jede.
 - Klick = im Verlauf hinspringen, Doppelklick oder ▶ = [Ereignis öffnen](04-ereignis.md), ⋮ = weitere Aktionen (Lärmspur herunterladen, KI neu bewerten, löschen).

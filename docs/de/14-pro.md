@@ -9,6 +9,7 @@ Die Jahreslizenz **GasLighter Pro** schaltet zusätzlich frei:
 | Import einer Sicherung | einmal kostenlos (z. B. Umzug) | beliebig oft |
 | Erweiterte Einstellungen der Erkennung (Reiter „Erkennung“ → „Wann gilt etwas als Störung?“) | nur ansehen, Standardwerte | frei einstellbar, auch je Gerät und in Zeitprofilen |
 | Externe Geräte: Handy im Browser, Handy-App / Stream-URL, IP-Kamera | gesperrt | bis zu 8 zusätzliche Geräte |
+| Handy als Bewegungsmelder (Erschütterung, Bewegung im Bild) | gesperrt | ✔ |
 
 Das Server-Mikrofon (am Home-Assistant-Rechner) funktioniert immer ohne Pro.
 

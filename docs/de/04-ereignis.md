@@ -2,7 +2,7 @@
 
 Ein Doppelklick auf eine Störung öffnet alle Einzelheiten.
 
-![Ereignis-Fenster mit Grafik, Vorschlägen und Spektrogramm](../../laerm_logger/app/web/hb/ereignis_de.png)
+![Ereignis-Fenster mit Grafik, Vorschlägen und Spektrogramm](../../gaslighter/app/web/hb/ereignis_de.png)
 
 <a id="kopfzahlen"></a>
 

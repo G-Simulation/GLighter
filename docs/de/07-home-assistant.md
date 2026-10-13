@@ -6,7 +6,7 @@ GasLighter arbeitet mit Home Assistant zusammen: Regeln fragen Zustände ab (Fer
 
 ## Regeln: pausieren oder festhalten
 
-![Home-Assistant-Regel mit Name](../../laerm_logger/app/web/hb/regeln_de.png)
+![Home-Assistant-Regel mit Name](../../gaslighter/app/web/hb/regeln_de.png)
 
 ⚙ Einstellungen → Zeiten & Pausen → **Home Assistant: pausieren oder festhalten** → **Regel hinzufügen**.
 
@@ -58,7 +58,7 @@ automation:
     action:
       - service: mqtt.publish
         data:
-          topic: laerm_logger/pause/set
+          topic: gaslighter/pause/set
           payload: '{"minutes": 10, "reason": "Katzenklo"}'
 ```
 
