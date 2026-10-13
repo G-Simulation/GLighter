@@ -32,7 +32,7 @@ HERE = os.path.dirname(os.path.abspath(__file__))
 WEB = os.path.join(HERE, "web")
 OPTIONS_FILE = os.environ.get("LAERM_OPTIONS", "/data/options.json")
 SETTINGS_FILE = os.environ.get("LAERM_SETTINGS", "/data/settings.json")
-VERSION = "1.50.7"
+VERSION = "1.50.8"
 
 # =====================================================================
 # Einstellungen
@@ -1405,7 +1405,7 @@ def ha_hist_add(rule, label, state, on, at_ms=None):
             if new:
                 w.writerow(["zeit", "regel", "name", "entitaet", "zustand", "an", "geraet"])
             when = dt.datetime.fromtimestamp(at_ms / 1000.0).astimezone() if at_ms else dt.datetime.now().astimezone()
-            w.writerow([when.isoformat(timespec="seconds"), rule["id"], label, rule["entity"], str(state)[:60], 1 if on else 0, rule["src"]])
+            w.writerow([when.isoformat(timespec="milliseconds"), rule["id"], label, rule["entity"], str(state)[:60], 1 if on else 0, rule["src"]])
     except OSError as e:
         log("Home-Assistant-Zustand nicht gespeichert:", e)
 
@@ -1439,7 +1439,7 @@ def ha_intervals(src_id, t_from, t_to):
         elif not on and rid in cur:
             a, n_ = cur.pop(rid)
             if t > t_from and a < t_to:
-                out.append([a, t, n_, rid, notes.get(f"{rid}|{a}", "")])
+                out.append([a, max(t, a + 1000), n_, rid, notes.get(f"{rid}|{a}", "")])   # kurze Meldung (Tilt <1 s) bleibt sichtbar
     with HA_LOCK:
         modes = {r["id"]: r.get("mode") for r in HA_RULES}
         live = {r["id"] for r in HA_RULES if r.get("mode") in ("note", "event") and r["enabled"]}

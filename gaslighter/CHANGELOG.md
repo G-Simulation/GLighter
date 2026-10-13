@@ -1,5 +1,8 @@
 # Changelog
 
+## 1.50.8
+- **Kurze Sensor-Meldungen (z. B. Türsensor Tilt) fehlten**, weil „an“ und „aus“ in derselben Sekunde gespeichert wurden und der Zeitraum dadurch die Länge 0 hatte. Zeiten werden jetzt auf die Millisekunde gespeichert, und jede Meldung ist mindestens 1 s lang sichtbar.
+
 ## 1.50.7
 - Filter **„Art“** oben enthält jetzt alle in den Regeln angelegten Geräte (z. B. Fernseher, Heizungssensor, Türsensor Erschütterung, Türsensor Tilt) sowie Handy-Erschütterung und -Bewegung – zum Anhaken zusammen mit den Geräuscharten.
 
