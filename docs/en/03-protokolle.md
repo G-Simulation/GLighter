@@ -58,6 +58,10 @@ The type comes from the disturbance if the peak lies in one, otherwise from the 
 ![List of events](../../gaslighter/app/web/hb/ereignisliste_en.png)
 
 - **Groups** combines disturbances of the same type (at most “Group: max. pause” apart), **All single** shows each.
+- **Sorting:** click a column header (start, duration, peak, threshold, background); click again to reverse. The sort order is remembered in the browser.
+- **Filter with multiple choice:** under **Source / device** and **Type** click one or more entries, e.g. only “door sensor vibration” and “voice”. The line above the table counts disturbances and sensor events separately.
+- **Sensor events** (Home Assistant rule “as event”, phone as motion sensor) are sorted in by time with an orange edge; ✎ = note.
+- On narrow screens ⊕ at the start of a row expands the remaining columns.
 - Click = jump there in the history, double click or ▶ = [open the event](04-ereignis.md), ⋮ = more actions (download noise track, re-evaluate, delete).
 - Select, then **Add to list** or delete. Deleted entries are kept in a recycle bin for safety; the day recording stays.
 - **📝 All notes**, **🔎 Check a sound** (analyse your own audio file, not stored), **🧩 Profiles & re-scan**, **Download log.csv**.

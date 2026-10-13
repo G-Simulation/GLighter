@@ -152,6 +152,10 @@ Die Art kommt aus der Störung, wenn die Spitze in einer liegt, sonst aus dem ge
 ### Ereignisse im Zeitraum
 
 - **Gruppen** fasst gleichartige Störungen zusammen (Abstand höchstens „Gruppe: höchste Pause“), **Alle einzeln** zeigt jede.
+- **Sortieren:** Klick auf eine Spaltenüberschrift (Start, Dauer, Spitze, Schwelle, Hintergrund); noch ein Klick dreht die Reihenfolge um. Die Sortierung bleibt im Browser gespeichert.
+- **Filtern mit Mehrfachauswahl:** Unter **Quelle / Gerät** und **Art** ein oder mehrere Einträge anklicken, z. B. nur „Türsensor Erschütterung“ und „Stimme“. Die Zeile über der Tabelle zählt Störungen und Sensor-Ereignisse getrennt.
+- **Sensor-Ereignisse** (Home-Assistant-Regel „als Ereignis“, Handy als Bewegungsmelder) stehen zeitlich einsortiert mit orangem Rand; ✎ = Notiz.
+- Auf schmalen Bildschirmen klappt ⊕ am Zeilenanfang die übrigen Spalten auf.
 - Klick = im Verlauf hinspringen, Doppelklick oder ▶ = Ereignis öffnen, ⋮ = weitere Aktionen (Lärmspur herunterladen, KI neu bewerten, löschen).
 - Markieren, dann **In Liste übernehmen** oder löschen. Gelöschte Einträge landen zur Sicherheit im Papierkorb; die Tagesaufzeichnung bleibt.
 - **📝 Alle Notizen**, **🔎 Geräusch prüfen** (eigene Audiodatei auswerten, wird nicht gespeichert), **🧩 Profile & neu untersuchen**, **log.csv herunterladen**.
@@ -822,6 +826,10 @@ The type comes from the disturbance if the peak lies in one, otherwise from the 
 ### Events in the period
 
 - **Groups** combines disturbances of the same type (at most “Group: max. pause” apart), **All single** shows each.
+- **Sorting:** click a column header (start, duration, peak, threshold, background); click again to reverse. The sort order is remembered in the browser.
+- **Filter with multiple choice:** under **Source / device** and **Type** click one or more entries, e.g. only “door sensor vibration” and “voice”. The line above the table counts disturbances and sensor events separately.
+- **Sensor events** (Home Assistant rule “as event”, phone as motion sensor) are sorted in by time with an orange edge; ✎ = note.
+- On narrow screens ⊕ at the start of a row expands the remaining columns.
 - Click = jump there in the history, double click or ▶ = open the event, ⋮ = more actions (download noise track, re-evaluate, delete).
 - Select, then **Add to list** or delete. Deleted entries are kept in a recycle bin for safety; the day recording stays.
 - **📝 All notes**, **🔎 Check a sound** (analyse your own audio file, not stored), **🧩 Profiles & re-scan**, **Download log.csv**.

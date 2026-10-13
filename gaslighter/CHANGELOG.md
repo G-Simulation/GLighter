@@ -1,5 +1,14 @@
 # Changelog
 
+## 1.48.0
+- **Neue Ereignistabelle** (Tabulator, MIT-Lizenz, liegt in der App – ohne Internet):
+  - Sortieren per Klick auf die Spaltenüberschrift (wird gemerkt).
+  - Filter mit **Mehrfachauswahl** unter „Quelle / Gerät“ und „Art“ – auch nach einzelnen Sensoren.
+  - Sensor-Ereignisse stehen zeitlich zwischen den Störungen (oranger Rand) statt in einem eigenen Abschnitt.
+  - Zählung „… Störungen · … Sensor-Ereignisse“ über der Tabelle, folgt dem Filter.
+  - Gruppen klappen in der Tabelle auf und zu; Auswahl, ⋮-Menü, Rechtsklick, Doppelklick und Sprung in den Verlauf wie bisher.
+  - Schmale Bildschirme: weniger wichtige Spalten klappen unter die Zeile (⊕).
+
 ## 1.47.3
 - **Home-Assistant-Regel „als Ereignis“:** neue Aktion neben „pausieren“ und „nur festhalten“, z. B. für Tür- und Vibrationssensoren. Jedes „an“ steht als eigene Zeile unter **📡 Sensor-Ereignisse** in der Ereignistabelle (Uhrzeit, Dauer, Notiz, Klick springt in den Verlauf) und zählt nicht als Störung. Gilt rückwirkend.
 - Handy als Bewegungsmelder: Erschütterung und Bewegung stehen ebenfalls als Sensor-Ereignisse in der Tabelle.

@@ -1445,66 +1445,129 @@ function renderEvents() {
   const flt = $('artflt').value, evs = SHIDE.has('_ev') ? [] : EV.events.filter(r => !flt || (flt === '_notes' ? r.notes > 0 : flt.startsWith('lb:') ? (r.labels || []).includes(flt.slice(3)) : !useArt ? true : flt === '_none' ? !r.art : r.art === flt));
   // Nur neu aufbauen, wenn sich etwas geaendert hat. Der Player ist von der Tabelle getrennt: Wiedergabe laeuft weiter.
   const grpMode = EVVIEW === 'grp';
-  const sig = JSON.stringify([useArt, lang, grpMode, [...EVOPEN], evs.map(r => [r.k, r.start, r.art, r.art_c, r.art_man, r.video, r.audio, r.datei, r.notes, r.labels, r.kinds, r.prof, r.prof_c, r.prof_ok, r.inc, r.grp, r.lead, r.devs, r.bg]), SOURCES.map(x => [x.id, x.name]), sensVis(), [...SHIDE]]);
+  const sv = sensVis();
+  const sig = JSON.stringify([useArt, lang, grpMode, evs.map(r => [r.k, r.start, r.art, r.art_c, r.art_man, r.video, r.audio, r.datei, r.notes, r.labels, r.kinds, r.prof, r.prof_c, r.prof_ok, r.inc, r.grp, r.lead, r.devs, r.bg]), SOURCES.map(x => [x.id, x.name]), sv, [...SHIDE]]);
   if (sig === EVSIG) return;
   EVSIG = sig;
-  const keepSel = new Set(selectedKeys());
-  const cols = 11 + (useArt ? 2 : 0);
-  const ek = r => r.k || `${r.start}|${r.quelle_id || 'main'}|${r.datei || ''}|0`;
-  const G = EV.grps || {};
-  const devCell = r => {                              // Spitze je Geraet in dieser Stoerung, lautestes zuerst
-    const d = r.devs || []; if (d.length < 2) return '<td class="devc nodev"><span class="noclip">–</span></td>';
-    return `<td class="devc">${d.map((x, i) => `<span class="dvp${i === 0 ? ' top' : ''}${x[3] === r.k ? ' own' : ''}" title="${esc(x[1])}">${esc(shortName(x[1]))} ${x[2] != null ? x[2].toFixed(0) : '–'}</span>`).join('')}</td>`;
-  };
+  evGrid(evs, sv, useArt, grpMode);
+}
+/* ================= Ereignistabelle mit Tabulator (MIT, tabulator.info) =================
+   Eine Zeile je Störung bzw. Sensor-Ereignis; Gruppen als aufklappbare Zeilen (dataTree).
+   Sortieren per Klick auf die Spaltenüberschrift, Filter mit Mehrfachauswahl unter Quelle und Art. */
+let TBL = null, TBL_KEY = '';
+const SEL = new Set();                               // ausgewählte Störungen (Schlüssel k) – überlebt Neuzeichnen, Sortieren, Filtern
+const ek = r => r.k || `${r.start}|${r.quelle_id || 'main'}|${r.datei || ''}|0`;
+function evSrcName(r) { const s = SOURCES.find(x => x.id === (r.quelle_id || 'main')); return r.quelle || (s && s.name) || r.quelle_id || ''; }
+function evTags(r) { const a = []; if (r.prof) a.push('🧩 ' + r.prof); for (const n of r.labels || []) a.push('🏷 ' + n); if (r.art) a.push((ART_ICON[r.art] || '') + ' ' + artName(r.art)); return a; }
+function evRows(evs, sv, grpMode) {
+  const G = EV.grps || {}, out = [], seen = new Map();
+  const one = r => ({ _t: 'ev', id: ek(r), r, start: new Date(r.start).getTime(), src: evSrcName(r), tags: evTags(r), dur: +r.dauer_s || 0, pk: r.spitze_dbfs, thr: r.schwelle_dbfs, bg: r.hintergrund_dbfs });
+  for (const r of evs) {
+    if (grpMode && r.inc != null && !r.lead) continue;      // gleiche Störung an mehreren Geräten: eine Zeile (lautestes Gerät), Spalte „Geräte“ zeigt die anderen
+    const g = grpMode && r.grp != null ? G[r.grp] : null;
+    if (g && g.n > 1) {
+      let p = seen.get(r.grp);
+      if (!p) { p = { _t: 'grp', id: 'g' + r.grp, gid: String(r.grp), g, start: new Date(g.a).getTime(), src: '', tags: [], dur: +g.dur || 0, pk: null, _children: [] }; seen.set(r.grp, p); out.push(p); }
+      const c = one(r); p._children.push(c); for (const x of c.tags) if (!p.tags.includes(x)) p.tags.push(x); if (!p.src) p.src = c.src; else if (p.src !== c.src && !p.srcs) p.srcs = true;
+      if (c.pk != null && (p.pk == null || c.pk > p.pk)) p.pk = c.pk;
+    } else out.push(one(r));
+  }
+  for (const x of sv) out.push({ _t: 'sens', id: 's:' + x.key, x, start: x.a, src: x.kind === 'ha' ? 'Home Assistant' : x.name || '', tags: [sensIcon(x.kind) + ' ' + sensLabel(x)], dur: Math.max(0, (x.b - x.a) / 1000), pk: x.peak != null ? x.peak : null });
+  out.sort((a, b) => b.start - a.start);
+  return out;
+}
+function evAllEv() { const out = []; if (!TBL) return out; const walk = rows => { for (const d of rows) { if (d._t === 'ev') out.push(d); if (d._children) walk(d._children); } }; walk(TBL.getData('active')); return out; }
+function evSelToggle(keys, on) {                     // eine Störung = alle Geräte: Auswahl gilt für alle Zeilen derselben Störung
+  for (const k of keys) { const r = EV.events.find(y => ek(y) === k); const sib = r && r.inc != null ? EV.events.filter(y => y.inc === r.inc).map(ek) : [k]; for (const x of sib) on ? SEL.add(x) : SEL.delete(x); }
+  if (TBL) TBL.getRows('active').forEach(function re(row) { row.reformat(); (row.getTreeChildren ? row.getTreeChildren() : []).forEach(re); });
+  syncDelBar();
+}
+function evGrid(evs, sv, useArt, grpMode) {
+  const box = $('events'); if (!box || typeof Tabulator === 'undefined') return;
+  const data = evRows(evs, sv, grpMode), hasDev = evs.some(r => (r.devs || []).length > 1), hasPlay = evs.some(r => r.play);
+  const valid = new Set(EV.events.map(ek)); for (const k of [...SEL]) if (!valid.has(k)) SEL.delete(k);
+  const nar = matchMedia('(max-width:600px)').matches, key = JSON.stringify([lang, useArt, nar]);
+  const fmtCell = fn => cell => fn(cell.getRow().getData(), cell);
+  const chk = d => d._t === 'ev' ? `<input type="checkbox" class="ckc"${SEL.has(d.id) ? ' checked' : ''} aria-label="${esc(t('ev_sel'))}">`
+    : d._t === 'grp' ? `<input type="checkbox" class="ckg"${d._children.every(c => SEL.has(c.id)) ? ' checked' : ''} aria-label="${esc(t('sel_all'))}">` : '';
   const profChip = r => r.prof ? `<span class="art prof${r.bg ? ' bgp' : ''}" title="${esc(t(r.prof_ok ? 'pf_ok_tip' : 'pf_auto_tip'))}">🧩 ${esc(r.prof)}${r.prof_ok ? ' ✓' : r.prof_c != null ? ` <small>${r.prof_c} %</small>` : ''}${r.bg ? ' · ' + esc(t('pf_bg_short')) : ''}</span>` : '';
-  const row = (r, cls) => `<tr data-k="${esc(ek(r))}" data-f="${esc(r.datei || '')}" data-inc="${r.inc != null ? r.inc : ''}" class="${cls}${r.bg || r.inc_bg ? ' bgrow' : ''}">
-      <td class="ck"><input type="checkbox" class="ckc" aria-label="${esc(t('ev_sel'))}"></td>
-      <td class="pl">${r.play ? `<button class="pbtn" type="button" aria-label="${esc(t('ev_play_snd'))}" title="${esc(t('ev_play_snd'))}">▶</button>` : ''}</td>
-      <td class="tm">${esc(fmtWhen(r.start))}${r.notes ? `<span class="ntc" title="${esc(t('nt_title', { n: r.notes }))}">📝 ${r.notes}</span>` : ''}</td>${srcCell(r)}
-      ${useArt ? `<td class="artc">${profChip(r)}${(r.labels || []).map(n => `<span class="art lbl" title="${esc(t('lb_own'))}">🏷 ${esc(n)}</span>`).join('')}${r.art ? artChip(r.art, r.art_c, r.art_man) : (r.datei && !(r.labels || []).length && !r.prof ? '<span class="noclip" title="' + esc(t('art_pending')) + '">…</span>' : (r.labels || []).length || r.prof ? '' : '<span class="noclip">–</span>')}</td><td class="kinds">${kindsHTML(r.kinds, EV.fine)}</td>` : ''}
-      ${devCell(r)}<td class="dur" data-l="${esc(t('dur'))}">${esc(fmtDur(r.dauer_s))}</td><td class="pk" data-l="${esc(t('peak'))}">${esc(fdb(r.spitze_dbfs))} <small>dBFS</small></td><td class="thr">${esc(fdb(r.schwelle_dbfs))}</td><td class="bgc">${esc(fdb(r.hintergrund_dbfs))}</td>
-      <td class="clipc">${r.audio ? `<span class="sndmk" title="${esc(t('snd_mark'))}" aria-label="${esc(t('snd_mark'))}">🔊</span>` : ''}${r.video ? `<button class="vbtn" data-vk="${esc(ek(r))}" title="${esc(t('vid_open'))}" aria-label="${esc(t('vid_open'))}">🎥</button>` : ''}<span class="cs">${r.clip_s && !(r.datei || '').endsWith('.ltv') ? esc(r.clip_s) + ' s' : ''}</span></td>
-      <td class="act"><button class="more" title="${esc(t('actions'))}" aria-label="${esc(t('actions'))}">⋮</button></td></tr>`;
-  let body = '';
-  if (!evs.length) body = `<tr><td colspan="${cols}" class="empty">${t('none')}</td></tr>`;
-  else if (!grpMode) body = evs.map(r => row(r, '')).join('');
-  else {                                              // Gruppen: gleiche Art bzw. gleiches Profil kurz hintereinander; je Stoerung eine Zeile (lautestes Geraet)
-    let lastG = null;
-    for (const r of evs) {
-      const g = r.grp != null ? G[r.grp] : null, open = g && EVOPEN.has(String(r.grp)), multi = g && g.n > 1;
-      if (multi && r.grp !== lastG) {
-        const kind = g.prof ? '🧩 ' + esc(g.kind) : (g.kind && g.kind !== '?' ? artChip(g.kind, null, false) : esc(t('art_pending')));
-        body += `<tr class="grph${open ? ' open' : ''}${g.bg ? ' bgrow' : ''}" data-g="${r.grp}"><td class="ck"><input type="checkbox" class="ckg" aria-label="${esc(t('sel_all'))}"></td><td colspan="${cols - 1}"><button type="button" class="gtog" aria-expanded="${open}" aria-label="${esc(t(open ? 'grp_close' : 'grp_open'))}">${open ? '▾' : '▸'}</button><span class="gkind">${kind}</span> <b>${esc(clockOf(g.a))}–${esc(clockOf(g.b))}</b> · ${esc(t('grp_n', { n: g.n }))} · ${esc(fmtDur(g.dur))}${g.bg ? ' · ' + esc(t('pf_bg_short')) : ''}</td></tr>`;
-      }
-      lastG = r.grp;
-      const hide = (multi && !open) || (r.inc != null && !r.lead);
-      body += row(r, (hide ? 'gm hid' : multi ? 'gm' : '') + (r.inc != null && !r.lead ? ' nl' : ''));
-    }
-  }
-  const sv = sensVis();
-  if (sv.length) {                                   // Sensor-Ereignisse (Regel „als Ereignis“, Handy als Bewegungsmelder): eigener Abschnitt, zählen nicht als Störung
-    body += `<tr class="sensh"><td colspan="${cols}">${esc(t('sens_head', { n: sv.length }))}</td></tr>`;
-    body += sv.map(x => `<tr class="sensr" data-sk="${esc(x.key)}"><td class="ck"></td><td class="pl"></td><td class="tm">${esc(fmtWhen(new Date(x.a).toISOString()))}${x.note ? `<span class="ntc" title="${esc(x.note)}">📝</span>` : ''}</td><td class="srcc">${esc(x.kind === 'ha' ? 'Home Assistant' : x.name || '')}</td>
-      ${useArt ? `<td class="artc"><span class="art sensc">${sensIcon(x.kind)} ${esc(sensLabel(x))}</span>${x.note ? `<div class="hant">📝 ${esc(x.note)}</div>` : ''}</td><td class="kinds"></td>` : ''}<td class="devc nodev"></td><td class="dur" data-l="${esc(t('dur'))}">${esc(fmtDur(Math.max(0, (x.b - x.a) / 1000)))}${x.open ? ' · ' + esc(t('mot_open')) : ''}</td><td class="pk">${x.peak != null ? esc(f2(x.peak)) + ' <small>' + esc(x.unit || '') + '</small>' : ''}</td><td class="thr"></td><td class="bgc"></td><td class="clipc"></td>
-      <td class="act"><button class="sned" type="button" title="${esc(t('ha_note'))}" aria-label="${esc(t('ha_note'))}">✎</button></td></tr>`).join('');
-  }
-  $('events').innerHTML = `<thead><tr><th class="ck"><input type="checkbox" id="ckall" title="${esc(t('sel_all'))}" aria-label="${esc(t('sel_all'))}"></th><th class="pl"></th><th>${t('start')}</th><th>${t('src_col')}</th>${useArt ? `<th>${t('art_col')}</th><th>${t('kinds_col')}</th>` : ''}<th class="devc">${t('devs_col')}</th><th>${t('dur')}</th><th>${t('peak')}</th><th>${t('thr_col')}</th><th>${t('bg_col')}</th><th>${t('spur_col')}</th><th class="act"></th></tr></thead><tbody>` + body + '</tbody>';
-  $('events').classList.toggle('nodevs', !evs.some(r => (r.devs || []).length > 1));   // leere Spalte „Geräte (Spitze)“ ausblenden
-  $('events').classList.toggle('noplay', !evs.some(r => r.play));      // Abspielen nur, wenn echter Ton gespeichert ist
-  document.querySelectorAll('#events tr[data-k]').forEach(tr => { if (keepSel.has(tr.dataset.k)) tr.querySelector('.ckc').checked = true; });
-  document.querySelectorAll('#events .vbtn').forEach(b => { b.onclick = () => openEvent(b.dataset.vk); });
-  document.querySelectorAll('#events tr.sensr').forEach(tr => {
-    const x = (EV.sens || []).find(y => y.key === tr.dataset.sk); if (!x) return;
-    tr.querySelector('.sned').onclick = e => { e.stopPropagation(); haPop({ a: x.a, b: x.b, name: sensLabel(x), note: x.note || '', key: x.key }); };
-    tr.onclick = e => { if (e.target.closest('button')) return; DT.mark = [x.a, Math.max(x.b, x.a + 1000)]; DT.from = x.a - 120000; DT.to = Math.max(x.b, x.a + 1000) + 120000; dtLoad(DT, true); $('ndaybox').scrollIntoView({ behavior: 'smooth', block: 'start' }); };
-  });
-  document.querySelectorAll('#events tr.grph').forEach(tr => {
-    const g = tr.dataset.g;
-    tr.querySelector('.gtog').onclick = e => { e.stopPropagation(); EVOPEN.has(g) ? EVOPEN.delete(g) : EVOPEN.add(g); EVSIG = ''; renderEvents(); };
-    tr.onclick = e => { if (e.target.closest('input,button')) return; tr.querySelector('.gtog').click(); };
-    tr.querySelector('.ckg').onchange = e => { document.querySelectorAll('#events tr[data-k]').forEach(x => { const r = EV.events.find(y => ek(y) === x.dataset.k); if (r && String(r.grp) === g) x.querySelector('.ckc').checked = e.target.checked; }); syncDelBar(); };
-  });
-  bindRows();
+  const srcHTML = r => srcCell(r).replace(/^<td[^>]*>/, '').replace(/<\/td>$/, '');
+  const cols = [
+    { formatter: 'responsiveCollapse', width: 30, minWidth: 30, hozAlign: 'center', headerSort: false, responsive: 0, cssClass: 'rcol' },
+    { field: 'sel', title: '', headerSort: false, width: nar ? 32 : 40, minWidth: 32, hozAlign: 'center', responsive: 0, cssClass: 'ck',
+      titleFormatter: () => { const c = document.createElement('input'); c.type = 'checkbox'; c.id = 'ckall'; c.title = t('sel_all'); c.onclick = e => e.stopPropagation(); c.onchange = () => { evSelToggle(evAllEv().map(d => d.id), c.checked); }; return c; },
+      formatter: fmtCell(chk),
+      cellClick: (e, cell) => { const d = cell.getRow().getData(); if (d._t === 'ev') evSelToggle([d.id], !SEL.has(d.id)); else if (d._t === 'grp') { const all = d._children.every(c => SEL.has(c.id)); evSelToggle(d._children.map(c => c.id), !all); } } },
+    { field: 'play', title: '', headerSort: false, width: 48, minWidth: 48, visible: hasPlay, responsive: 0, cssClass: 'pl',
+      formatter: fmtCell(d => d._t === 'ev' && d.r.play ? `<button class="pbtn" type="button" aria-label="${esc(t('ev_play_snd'))}" title="${esc(t('ev_play_snd'))}">▶</button>` : ''),
+      cellClick: (e, cell) => { const d = cell.getRow().getData(); if (d._t === 'ev' && e.target.closest('.pbtn')) { e.stopPropagation(); openEvent(d.id, null, true); } } },
+    { field: 'start', title: t('start'), sorter: 'number', minWidth: nar ? 120 : 230, widthGrow: 2, responsive: 0, cssClass: 'tm',
+      formatter: fmtCell(d => d._t === 'grp' ? `<b>${esc(clockOf(d.g.a).slice(0, nar ? 5 : 8))}–${esc(clockOf(d.g.b).slice(0, nar ? 5 : 8))}</b> <span class="mut">· ${nar ? '×' + d.g.n : esc(t('grp_n', { n: d.g.n }))}</span>`
+        : d._t === 'sens' ? `${esc(fmtWhen(new Date(d.x.a).toISOString()))}${d.x.note ? `<span class="ntc" title="${esc(d.x.note)}">📝</span>` : ''}`
+        : `${esc(nar ? fmtWhen(d.r.start).replace(/^\S+\s/, '') : fmtWhen(d.r.start))}${d.r.notes ? `<span class="ntc" title="${esc(t('nt_title', { n: d.r.notes }))}">📝 ${d.r.notes}</span>` : ''}`) },
+    { field: 'src', title: t('src_col'), minWidth: 160, widthGrow: 2, responsive: 2, cssClass: 'srcc',
+      headerFilter: 'list', headerFilterParams: { valuesLookup: 'all', multiselect: true, clearable: true, sort: 'asc', placeholderEmpty: t('none') }, headerFilterPlaceholder: t('sf_any'), headerFilterFunc: 'in', headerFilterLiveFilter: false,
+      formatter: fmtCell(d => d._t === 'ev' ? srcHTML(d.r) : d._t === 'sens' ? `<span class="si">${d.x.kind === 'ha' ? '🏠' : '📱'}</span><span class="sn"><b>${esc(d.src)}</b></span>` : d.srcs ? '<span class="mut">…</span>' : `<span class="sn"><b>${esc(d.src)}</b></span>`) },
+    { field: 'tags', title: t('art_col'), minWidth: nar ? 110 : 210, widthGrow: 2, visible: useArt, responsive: 1, cssClass: 'artc', headerSort: false,
+      headerFilter: 'list', headerFilterParams: { valuesLookup: () => [...new Set(data.flatMap(function f(d) { return d.tags.concat((d._children || []).flatMap(f)); }))].sort((a, b) => a.localeCompare(b)), multiselect: true, clearable: true, placeholderEmpty: t('none') },
+      headerFilterPlaceholder: t('sf_any'), headerFilterLiveFilter: false, headerFilterFunc: (hv, rv) => !hv || !hv.length || (rv || []).some(x => hv.includes(x)),
+      formatter: fmtCell(d => {
+        if (d._t === 'sens') return `<span class="art sensc">${sensIcon(d.x.kind)} ${esc(sensLabel(d.x))}</span>${d.x.note ? `<div class="hant">📝 ${esc(d.x.note)}</div>` : ''}`;
+        if (d._t === 'grp') return d.g.prof ? `<span class="art prof">🧩 ${esc(d.g.kind)}</span>` : d.g.kind && d.g.kind !== '?' ? artChip(d.g.kind, null, false) : esc(t('art_pending'));
+        const r = d.r; return `${profChip(r)}${(r.labels || []).map(n => `<span class="art lbl" title="${esc(t('lb_own'))}">🏷 ${esc(n)}</span>`).join('')}${r.art ? artChip(r.art, r.art_c, r.art_man) : (r.datei && !(r.labels || []).length && !r.prof ? '<span class="noclip" title="' + esc(t('art_pending')) + '">…</span>' : (r.labels || []).length || r.prof ? '' : '<span class="noclip">–</span>')}`; }) },
+    { field: 'kinds', title: t('kinds_col'), minWidth: 150, widthGrow: 2, visible: useArt, responsive: 4, headerSort: false, cssClass: 'kinds', formatter: fmtCell(d => d._t === 'ev' ? kindsHTML(d.r.kinds, EV.fine) : '') },
+    { field: 'devs', title: t('devs_col'), minWidth: 130, visible: hasDev, responsive: 5, headerSort: false, cssClass: 'devc',
+      formatter: fmtCell(d => { if (d._t !== 'ev') return ''; const x = d.r.devs || []; if (x.length < 2) return '<span class="noclip">–</span>';
+        return x.map((v, i) => `<span class="dvp${i === 0 ? ' top' : ''}${v[3] === d.r.k ? ' own' : ''}" title="${esc(v[1])}">${esc(shortName(v[1]))} ${v[2] != null ? v[2].toFixed(0) : '–'}</span>`).join(''); }) },
+    { field: 'dur', title: t('dur'), sorter: 'number', minWidth: 90, responsive: 2, cssClass: 'dur', formatter: fmtCell(d => esc(fmtDur(d.dur)) + (d._t === 'sens' && d.x.open ? ' · ' + esc(t('mot_open')) : '')) },
+    { field: 'pk', title: t('peak'), sorter: 'number', minWidth: 105, responsive: 3, cssClass: 'pk',
+      formatter: fmtCell(d => d.pk == null ? '' : d._t === 'sens' ? esc(f2(d.pk)) + ' <small>' + esc(d.x.unit || '') + '</small>' : esc(fdb(d.pk)) + ' <small>dBFS</small>') },
+    { field: 'thr', title: t('thr_col'), sorter: 'number', minWidth: 120, responsive: 6, formatter: fmtCell(d => d._t === 'ev' ? esc(fdb(d.thr)) : '') },
+    { field: 'bg', title: t('bg_col'), sorter: 'number', minWidth: 140, responsive: 6, formatter: fmtCell(d => d._t === 'ev' ? esc(fdb(d.bg)) : '') },
+    { field: 'clip', title: t('spur_col'), headerSort: false, minWidth: 70, responsive: 5, cssClass: 'clipc',
+      formatter: fmtCell(d => { if (d._t !== 'ev') return ''; const r = d.r; return `${r.audio ? `<span class="sndmk" title="${esc(t('snd_mark'))}">🔊</span>` : ''}${r.video ? `<button class="vbtn" title="${esc(t('vid_open'))}" aria-label="${esc(t('vid_open'))}">🎥</button>` : ''}<span class="cs">${r.clip_s && !(r.datei || '').endsWith('.ltv') ? esc(r.clip_s) + ' s' : ''}</span>`; }),
+      cellClick: (e, cell) => { const d = cell.getRow().getData(); if (d._t === 'ev' && e.target.closest('.vbtn')) { e.stopPropagation(); openEvent(d.id); } } },
+    { field: 'act', title: '', headerSort: false, width: 50, minWidth: 50, hozAlign: 'right', responsive: 0, cssClass: 'act',
+      formatter: fmtCell(d => d._t === 'ev' ? `<button class="more" title="${esc(t('actions'))}" aria-label="${esc(t('actions'))}">⋮</button>` : d._t === 'sens' ? `<button class="sned" type="button" title="${esc(t('ha_note'))}" aria-label="${esc(t('ha_note'))}">✎</button>` : ''),
+      cellClick: (e, cell) => { const row = cell.getRow(), d = row.getData(); e.stopPropagation();
+        if (d._t === 'ev') { const b = cell.getElement().getBoundingClientRect(); openRowMenu(row.getElement(), b.right - 190, b.bottom + 4); }
+        else if (d._t === 'sens') haPop({ a: d.x.a, b: d.x.b, name: sensLabel(d.x), note: d.x.note || '', key: d.x.key }); } },
+  ];
+  if (!TBL || TBL_KEY !== key) {
+    if (TBL) { try { TBL.destroy(); } catch (e) { } TBL = null; }
+    TBL_KEY = key; box.innerHTML = '';
+    TBL = new Tabulator(box, {
+      data, columns: cols, index: 'id', layout: 'fitColumns', responsiveLayout: 'collapse', responsiveLayoutCollapseStartOpen: false,
+      dataTree: true, dataTreeElementColumn: 'start', dataTreeStartExpanded: row => EVOPEN.has(row.getData().gid || ''), dataTreeChildIndent: 14, dataTreeBranchElement: false,
+      dataTreeCollapseElement: '<span class="gtog">▾</span>', dataTreeExpandElement: '<span class="gtog">▸</span>',
+      renderVertical: data.length > 400 ? 'virtual' : 'basic', height: data.length > 400 ? '75vh' : false, maxHeight: '75vh',
+      placeholder: t('none'), headerSortElement: '<span class="srt"></span>', initialSort: [{ column: 'start', dir: 'desc' }],
+      persistence: { sort: true, columns: ['width'] }, persistenceID: 'gl_evtbl',
+      rowFormatter: row => { const d = row.getData(), el = row.getElement();
+        el.dataset.k = d._t === 'ev' ? d.id : ''; el.dataset.f = d._t === 'ev' ? d.r.datei || '' : ''; el.dataset.inc = d._t === 'ev' && d.r.inc != null ? d.r.inc : '';
+        el.classList.toggle('grph', d._t === 'grp'); el.classList.toggle('sensr', d._t === 'sens'); el.classList.toggle('sel', d._t === 'ev' && SEL.has(d.id));
+        el.classList.toggle('bgrow', !!(d._t === 'ev' ? d.r.bg || d.r.inc_bg : d._t === 'grp' && d.g.bg)); el.classList.toggle('gm', row.getTreeParent && !!row.getTreeParent()); },
+    });
+    TBL.on('rowClick', (e, row) => { if (e.target.closest('input,button,a,.ck,.gtog')) return; const d = row.getData();
+      if (d._t === 'ev') dtJump(d.id, row.getElement());
+      else if (d._t === 'grp') row.treeToggle();
+      else if (d._t === 'sens') { const x = d.x; DT.mark = [x.a, Math.max(x.b, x.a + 1000)]; DT.from = x.a - 120000; DT.to = Math.max(x.b, x.a + 1000) + 120000; dtLoad(DT, true); $('ndaybox').scrollIntoView({ behavior: 'smooth', block: 'start' }); } });
+    TBL.on('rowDblClick', (e, row) => { const d = row.getData(); if (d._t === 'ev' && !e.target.closest('input,button,a')) openEvent(d.id); });
+    TBL.on('rowContext', (e, row) => { const d = row.getData(); if (d._t !== 'ev') return; e.preventDefault(); openRowMenu(row.getElement(), e.clientX, e.clientY); });
+    TBL.on('dataTreeRowExpanded', row => { EVOPEN.add(row.getData().gid); });
+    TBL.on('dataTreeRowCollapsed', row => { EVOPEN.delete(row.getData().gid); });
+    TBL.on('dataFiltered', (f, rows) => { evCount(rows.map(r => r.getData())); });
+    TBL.on('tableBuilt', () => { TBL._built = true; evCount(data); syncDelBar(); });
+  } else if (TBL._built) {
+    TBL.replaceData(data);
+    for (const [f, v] of [['play', hasPlay], ['devs', hasDev]]) { try { v ? TBL.showColumn(f) : TBL.hideColumn(f); } catch (e) { } }
+    evCount(TBL.getData('active')); syncDelBar();
+  } else setTimeout(() => { EVSIG = ''; renderEvents(); }, 200);
+}
+matchMedia('(max-width:600px)').addEventListener('change', () => { EVSIG = ''; renderEvents(); });
+function evCount(rows) {                             // Zählung über der Tabelle: Störungen und Sensor-Ereignisse getrennt
+  let e = 0, s = 0; const walk = l => { for (const d of l) { if (d._t === 'ev') e++; else if (d._t === 'sens') s++; if (d._children) walk(d._children); } }; walk(rows || []);
+  const el = $('evcnt'); if (el) el.textContent = t('ev_cnt', { e, s });
 }
 const EVOPEN = new Set();
 /* Sensor-Filter (Mehrfachauswahl): ausgeblendete Sensoren als 'ha:<Name>', 'vib', 'cam', '_ev' (Störungen) */
@@ -1553,14 +1616,13 @@ function srcCell(r) {
   const dev = s ? (s.device_info || (type === 'local' ? t('input_dev', { d: (CUR && CUR.device) || 'default' }) : t('type_' + type))) : t('src_gone');
   return `<td class="srcc"><span class="si" title="${esc(type ? t('type_' + type) : t('src_gone'))}">${SRC_ICON[type] || '❓'}</span><span class="sn"><b>${esc(name)}</b><small>${esc(dev)}</small></span></td>`;
 }
-function selectedKeys() { return [...document.querySelectorAll('#events .ckc:checked')].map(c => c.closest('tr').dataset.k); }
+function selectedKeys() { return [...SEL]; }
 function syncDelBar() {
   const n = selectedKeys().length, bar = $('delbar');
   bar.style.display = n ? 'flex' : 'none'; $('artsel').hidden = !!(CUR && CUR.classify === false); $('events').classList.toggle('selmode', n > 0);
   $('delcount').textContent = t('sel_count', { n });
-  document.querySelectorAll('#events tr[data-k]').forEach(tr => tr.classList.toggle('sel', tr.querySelector('.ckc').checked));
-  const all = $('ckall'), boxes = document.querySelectorAll('#events .ckc');
-  if (all) { all.checked = n > 0 && n === boxes.length; all.indeterminate = n > 0 && n < boxes.length; }
+  const all = $('ckall'), tot = evAllEv().length;
+  if (all) { all.checked = n > 0 && n >= tot; all.indeterminate = n > 0 && n < tot; }
 }
 async function deleteEvents(keys) {
   if (!keys.length) return;
@@ -1582,13 +1644,13 @@ function openRowMenu(tr, x, y) {
   m.querySelector('.view1').onclick = () => { closeRowMenu(); openEvent(tr.dataset.k); };
   const a1 = m.querySelector('.art1'); a1.hidden = !f || /\.wav$/i.test(f) || (CUR && CUR.classify === false);
   a1.onclick = () => { closeRowMenu(); recheckEvents([f]); };
-  m.querySelector('.sel1').onclick = () => { closeRowMenu(); const c = tr.querySelector('.ckc'); c.checked = !c.checked; syncDelBar(); };
-  { const on = tr.querySelector('.ckc').checked, s1 = m.querySelector('.sel1'); s1.querySelector('.mi').textContent = on ? '☑' : '☐'; s1.querySelector('span').textContent = t(on ? 'm_unselect' : 'm_select'); }
+  m.querySelector('.sel1').onclick = () => { closeRowMenu(); evSelToggle([tr.dataset.k], !SEL.has(tr.dataset.k)); };
+  { const on = SEL.has(tr.dataset.k), s1 = m.querySelector('.sel1'); s1.querySelector('.mi').textContent = on ? '☑' : '☐'; s1.querySelector('span').textContent = t(on ? 'm_unselect' : 'm_select'); }
   m.style.display = 'block';
   const w = m.offsetWidth, h = m.offsetHeight;
   m.style.left = Math.max(8, Math.min(x, innerWidth - w - 8)) + 'px';
   m.style.top = Math.max(8, Math.min(y, innerHeight - h - 8)) + 'px';
-  document.querySelectorAll('#events tr.menu').forEach(r => r.classList.remove('menu')); tr.classList.add('menu');
+  document.querySelectorAll('#events .menu').forEach(r => r.classList.remove('menu')); tr.classList.add('menu');
   const first = m.querySelector('a.dl:not(.dis)') || m.querySelector('.sel1'); MENU_AT = Date.now(); if (first) first.focus({ preventScroll: true });
 }
 /* ---------- Ereignis ansehen: gespeicherte Laermspur, "Ablauf zeigen", Marker und benannte Bereiche ---------- */
@@ -2150,23 +2212,7 @@ function ntBind() {
   }
   setInterval(() => { if ($('evdlg').open && !NTE) ntSyncBtn(); }, 250);
 }
-function closeRowMenu() { $('rowmenu').style.display = 'none'; document.querySelectorAll('#events tr.menu').forEach(r => r.classList.remove('menu')); }
-function bindRows() {
-  document.querySelectorAll('#events tr[data-k]').forEach(tr => {
-    tr.querySelector('.ckc').onchange = e => {         // eine Stoerung = alle Geraete: Auswahl gilt fuer alle Zeilen derselben Stoerung
-      const inc = tr.dataset.inc; if (inc !== '' && EVVIEW === 'grp') document.querySelectorAll(`#events tr[data-inc="${inc}"] .ckc`).forEach(c => { c.checked = e.target.checked; });
-      syncDelBar();
-    };
-    tr.querySelector('.more').onclick = e => { e.stopPropagation(); const b = e.currentTarget.getBoundingClientRect(); openRowMenu(tr, b.right - 190, b.bottom + 4); };
-    const pb = tr.querySelector('.pbtn'); if (pb) pb.onclick = e => { e.stopPropagation(); openEvent(tr.dataset.k, null, true); };
-    tr.oncontextmenu = e => { e.preventDefault(); openRowMenu(tr, e.clientX, e.clientY); };
-    tr.onclick = e => { if (e.target.closest('input,button,a,.ck')) return; dtJump(tr.dataset.k, tr); };   // Zeile anklicken = im Verlauf dorthin springen
-    tr.ondblclick = e => { if (e.target.closest('input,button,a,.ck')) return; openEvent(tr.dataset.k); };   // Doppelklick = Ereignis ansehen
-  });
-  const all = $('ckall');
-  if (all) all.onchange = () => { document.querySelectorAll('#events .ckc').forEach(c => { c.checked = all.checked; }); syncDelBar(); };
-  syncDelBar();
-}
+function closeRowMenu() { $('rowmenu').style.display = 'none'; document.querySelectorAll('#events .menu').forEach(r => r.classList.remove('menu')); }
 document.addEventListener('click', e => { if (!e.target.closest('#rowmenu')) closeRowMenu(); });
 document.addEventListener('keydown', e => { if (e.key === 'Escape') closeRowMenu(); });
 document.addEventListener('focusin', e => { if ($('rowmenu').style.display === 'block' && !e.target.closest('#rowmenu')) closeRowMenu(); });
@@ -3786,8 +3832,8 @@ async function init() {
   $('plrmsel').onclick = async () => { const keys = selectedKeys(); if (!PV.cur || !keys.length) return; try { await plPost('plist_mem', { id: PV.cur, keys, add: false }); loadNight(); } catch (e) { alert(t('saveerr')); } };
   $('plnote').addEventListener('blur', plNoteSave);
   plFetch();
-  $('artsel').onclick = () => recheckEvents([...document.querySelectorAll('#events .ckc:checked')].map(c => c.closest('tr').dataset.f));
-  $('delsel').onclick = () => deleteEvents(selectedKeys()); $('delnone').onclick = () => { document.querySelectorAll('#events .ckc').forEach(c => { c.checked = false; }); syncDelBar(); }; $('srcadd').onclick = () => { openSettings().then(() => { const b = openSec('srcbox'); if (b) b.scrollIntoView(); }); };
+  $('artsel').onclick = () => recheckEvents([...SEL].map(k => (EV.events.find(r => ek(r) === k) || {}).datei).filter(Boolean));
+  $('delsel').onclick = () => deleteEvents(selectedKeys()); $('delnone').onclick = () => { SEL.clear(); evSelToggle([], false); }; $('srcadd').onclick = () => { openSettings().then(() => { const b = openSec('srcbox'); if (b) b.scrollIntoView(); }); };
   $('qx').onclick = () => $('qrdlg').close();
   await loadSources(); setInterval(() => { if (!document.hidden) loadSources(); }, 2000);
   setInterval(() => { if (NV.open && !document.hidden) { loadEvents(); if (DT.from == null && !DT.drag && NV.data && new Date(NV.data.end).getTime() > nowServer()) dtLoad(DT, true); } }, 60000);   // laufender Tag: Verlauf wächst rechts mit
@@ -4370,7 +4416,7 @@ function dtJump(k, tr) {                             // Ereignis in der Tabelle 
   DT.mark = [t0, t0 + dur]; DT.from = t0 - Math.max(60000, span * 0.5); DT.to = t0 + span + 60000;   // Störung markiert, mit Umfeld
   const es = r.quelle_id || 'main';                // nur eine Zeile und anderes Gerät: die Zeile schaltet auf das Gerät der Störung um
   if (DT.rows && DT.rows.length === 1 && DT.rows[0].src !== es) { DT.rows[0].src = es; dtRowsSave(DT.rows); }
-  document.querySelectorAll('#events tr.cur').forEach(x => x.classList.remove('cur')); if (tr) tr.classList.add('cur');
+  document.querySelectorAll('#events .cur').forEach(x => x.classList.remove('cur')); if (tr) tr.classList.add('cur');
   dtLoad(DT, true); $('ndaybox').scrollIntoView({ behavior: 'smooth', block: 'start' });
 }
 /* Grenzen des Berichts (gewählter Zeitraum): weiter als hier wird nicht gescrollt bzw. herausgezoomt */
