@@ -1,5 +1,8 @@
 # Changelog
 
+## 1.51.3
+- Notizen: Sind nur Markierungen gesetzt und kein Text eingegeben, wird beim Speichern **ein Satz daraus gebildet** (z. B. „Deutliche Schritte im Treppenhaus“, „Starkes Klopfen von oben, aufgewacht“). Der Satz steht als Notiztext und lässt sich später ändern. Gilt für „Notiz jetzt“, Notiz-Dialog und Ereignis-Notiz, deutsch und englisch.
+
 ## 1.51.2
 - Notizbereich: **„Mehr …“ blendet von/bis und Zeuge direkt im Bereich ein** statt ein Fenster zu öffnen – auch im abgedockten Fenster. Der Zustand wird gemerkt, wer es immer offen will, lässt es offen. Leere Zeiten = automatisch wie bisher.
 

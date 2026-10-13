@@ -54,6 +54,7 @@ Für das, was du gerade hörst – einfach lostippen oder Merkmale antippen (obe
 - **Ohne eigene Uhrzeit**: Liegt kurz vorher eine Störung (Einstellung „Notiz zuordnen“, Standard 5 min), gilt die Notiz für sie. Die Leiste zeigt vorher, wohin sie kommt.
 - **läuft noch**: Die Notiz bekommt einen Zeitraum von der ersten Eingabe bis zum Speichern.
 - **Mehr …** blendet im Bereich von/bis und Zeuge ein (bleibt offen, bis du „Weniger“ wählst).
+- **Nur Markierungen, kein Text?** Dann bildet GasLighter beim Speichern einen Satz daraus, z. B. „Deutliche Schritte im Treppenhaus“. Du kannst ihn später ändern.
 
 **Abdocken (Pro):** Mit **⧉** neben dem Titel löst du den Notizbereich als eigenes kleines Fenster heraus. In Chrome und Edge bleibt es über anderen Programmen liegen (z. B. über einem Spiel oder Film), sonst ist es ein normales Zusatzfenster. **Zurückholen** oder das Fenster schließen setzt ihn wieder ein.
 - [[Strg]] + [[Enter]] speichert. Am Handy ist die Leiste zunächst zugeklappt.

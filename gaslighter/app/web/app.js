@@ -2353,10 +2353,36 @@ async function ntPost(action, body) {
   EVV.notes = r.notes; renderNotes(); evDraw(); EVSIG = ''; loadEvents();
   return r;
 }
+/* Aus den Markierungen einen Satz bilden (nur wenn kein eigener Text da ist), z. B. „Deutliche Schritte im Treppenhaus“ */
+const TS_DE = {
+  kind: { klopfen: ['Klopfen', 'n'], schritte: ['Schritte', 'p'], musik: ['Musik/Bass', 'p'], stimmen: ['Stimmen', 'p'], tuer: ['Türgeräusch', 'n'], moebel: ['Möbelrücken', 'n'], bohren: ['Bohren', 'n'], hund: ['Hundegebell', 'n'] },
+  lvl: { leicht: ['Leichtes', 'Leichte', 'leicht'], deutlich: ['Deutliches', 'Deutliche', 'deutlich'], stark: ['Starkes', 'Starke', 'stark'] },
+  src: { oben: 'von oben', unten: 'von unten', nebenan: 'von nebenan', treppenhaus: 'im Treppenhaus', draussen: 'von draußen', unklar: 'Herkunft unklar' },
+  rest: { aufgewacht: 'aufgewacht', kind_geweckt: 'Kind geweckt', kein_schlaf: 'kein Einschlafen', gestoert: 'gestört', geklingelt: 'geklingelt', angesprochen: 'Nachbarn angesprochen', verwaltung: 'Hausverwaltung informiert', polizei: 'Polizei/Ordnungsamt informiert', zeuge: 'Zeuge anwesend', serie: 'wiederholt' }, noise: 'Geräusche', and: ' und ' };
+const TS_EN = {
+  kind: { klopfen: ['knocking', 'n'], schritte: ['footsteps', 'p'], musik: ['music/bass', 'n'], stimmen: ['voices', 'p'], tuer: ['door noise', 'n'], moebel: ['moving furniture', 'n'], bohren: ['drilling', 'n'], hund: ['dog barking', 'n'] },
+  lvl: { leicht: ['Slight', 'Slight', 'slight'], deutlich: ['Clear', 'Clear', 'clear'], stark: ['Strong', 'Strong', 'strong'] },
+  src: { oben: 'from above', unten: 'from below', nebenan: 'from next door', treppenhaus: 'in the stairwell', draussen: 'from outside', unklar: 'origin unclear' },
+  rest: { aufgewacht: 'woke up', kind_geweckt: 'child woken', kein_schlaf: 'could not sleep', gestoert: 'disturbed', geklingelt: 'rang the bell', angesprochen: 'talked to them', verwaltung: 'informed management', polizei: 'police/authority informed', zeuge: 'witness present', serie: 'repeated' }, noise: 'noise', and: ' and ' };
+function tagSentence(tags) {
+  const tg = [...(tags || [])]; if (!tg.length) return '';
+  const D = lang === 'en' ? TS_EN : TS_DE, de = lang !== 'en';
+  const kinds = tg.filter(x => D.kind[x]), lvl = tg.find(x => D.lvl[x]), src = tg.find(x => D.src[x]);
+  const rest = tg.filter(x => D.rest[x] && !(x === 'serie' && false)).map(x => D.rest[x]);
+  let main = '';
+  if (kinds.length === 1) { const [nm, g] = D.kind[kinds[0]]; main = lvl ? (de ? D.lvl[lvl][g === 'n' ? 0 : 1] + ' ' + nm : D.lvl[lvl][0] + ' ' + nm) : nm; }
+  else if (kinds.length > 1) main = kinds.map(x => D.kind[x][0]).join(', ').replace(/, ([^,]*)$/, D.and + '$1') + (lvl ? ' (' + D.lvl[lvl][2] + ')' : '');
+  else if (lvl) main = de ? D.lvl[lvl][1] + ' ' + D.noise : D.lvl[lvl][0] + ' ' + D.noise;
+  else if (src && src !== 'unklar') main = D.noise;
+  if (src) main = main ? main + ' ' + D.src[src] : D.src[src];
+  const out = [main, ...rest].filter(Boolean).join(', ');
+  return out ? out.charAt(0).toUpperCase() + out.slice(1) : '';
+}
+const autoText = (text, tags) => (text || '').trim() ? text : tagSentence(tags);
 async function ntSave() {
   if (!NTE) return;
   const off = clamp(parseFloat($('ntoff').value) || 0, 0, 3600);
-  const body = { off, text: $('nttext').value, tags: [...NTE.tags], witness: $('ntwit').value };
+  const body = { off, text: autoText($('nttext').value, NTE.tags), tags: [...NTE.tags], witness: $('ntwit').value };
   try { await ntPost(NTE.id ? 'edit' : 'add', NTE.id ? Object.assign(body, { id: NTE.id }) : body); ntEditorClose(); evDraw(); }
   catch (e) { alert(e.message); }
 }
@@ -5169,7 +5195,7 @@ function fnOpen(n) {
   $('fndlg').showModal(); setTimeout(() => $('fntext').focus(), 50);
 }
 async function fnSave(del) {
-  const body = del ? { action: 'del', id: FN.edit.id } : { action: FN.edit ? 'edit' : 'add', id: FN.edit ? FN.edit.id : '', from: $('fnfrom').value, to: $('fnto').value, src: $('fnsrc').value, text: $('fntext').value, tags: [...FN.tags], witness: $('fnwit').value };
+  const body = del ? { action: 'del', id: FN.edit.id } : { action: FN.edit ? 'edit' : 'add', id: FN.edit ? FN.edit.id : '', from: $('fnfrom').value, to: $('fnto').value, src: $('fnsrc').value, text: autoText($('fntext').value, FN.tags), tags: [...FN.tags], witness: $('fnwit').value };
   if (del && !confirm(t('fn_del_q'))) return;
   try {
     const r = await (await fetch('fnote', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) })).json();
@@ -5249,7 +5275,7 @@ async function fnpSave() {
   const from = FNP.from == null ? nowServer() : FNP.from;
   const run = $('fnprun').checked;
   const fv = $('fnpfromi').value, tv = $('fnptoi').value;      // eigene Zeiten (Mehr …); leer = automatisch
-  const body = { action: 'add', id: '', from: fv || dtl(new Date(from)), to: tv || (run ? dtl(new Date(nowServer())) : ''), src: $('fnpsrc').value, text: $('fnptext').value, tags: [...FNP.tags], witness: $('fnpwit').value, auto: !run && !fv && !tv };
+  const body = { action: 'add', id: '', from: fv || dtl(new Date(from)), to: tv || (run ? dtl(new Date(nowServer())) : ''), src: $('fnpsrc').value, text: autoText($('fnptext').value, FNP.tags), tags: [...FNP.tags], witness: $('fnpwit').value, auto: !run && !fv && !tv };
   const msg = $('fnpmsg'); msg.className = 'fnpmsg';
   try {
     const r = await (await fetch('fnote', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) })).json();
