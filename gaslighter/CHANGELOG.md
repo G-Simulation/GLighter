@@ -1,5 +1,8 @@
 # Changelog
 
+## 1.47.2
+- Sicherung einspielen: Bei Tagen, die es hier noch nicht gab (neue Installation, neues Gerät), ging das Spektrum verloren – danach meldete die Datenkette „passt nicht“. Behoben. Dieselbe Sicherung noch einmal einspielen repariert bereits eingespielte Tage (fehlendes Spektrum wird ergänzt, Vorhandenes bleibt unverändert); der Bericht nennt die reparierten Tage.
+
 ## 1.47.1
 - Sicherung einspielen: Große Sicherungen (über 16 MB) scheiterten in Home Assistant mit „Einspielen fehlgeschlagen: 413“, weil die Seitenleiste nur kleine Uploads durchlässt. Die Datei wird jetzt in Teilen zu 8 MB hochgeladen (mit Fortschritt und automatischem Wiederholen).
 

@@ -32,7 +32,7 @@ HERE = os.path.dirname(os.path.abspath(__file__))
 WEB = os.path.join(HERE, "web")
 OPTIONS_FILE = os.environ.get("LAERM_OPTIONS", "/data/options.json")
 SETTINGS_FILE = os.environ.get("LAERM_SETTINGS", "/data/settings.json")
-VERSION = "1.47.1"
+VERSION = "1.47.2"
 
 # =====================================================================
 # Einstellungen
@@ -7844,7 +7844,24 @@ def day_merge(sid, day, inc):
         if not mn:
             return ("same", 0)
         if set(mn) & set(mh):
-            return ("same" if set(mn) <= set(mh) else "overlap", 0)
+            if set(mn) <= set(mh):
+                # gleiche Minuten: fehlendes Spektrum nachtragen (bis 1.47.1 ging es beim Einspielen neuer Tage verloren,
+                # dann passt die Pruefsummen-Kette nicht) - nur wenn es hier fehlt, Vorhandenes bleibt unveraendert
+                fixed = 0
+                for ext, data in inc.items():
+                    if ext == ".lts" or ext.endswith(".ltp"):
+                        f_ = spec_path(sid, day) if ext == ".lts" else os.path.join(day_dir(), f"{day}_{sid}{ext}")
+                        if data and not os.path.exists(f_):
+                            with open(f_ + ".tmp", "wb") as fh:
+                                fh.write(data); fh.flush(); os.fsync(fh.fileno())
+                            os.replace(f_ + ".tmp", f_); fixed += 1
+                if fixed:
+                    for c_ in (DAY_CACHE, CHAIN_CK, SPEC_LTS_CACHE, FP_CACHE):
+                        c_.clear()
+                    log(f"Sicherung: Tag {day} ({sid}) – fehlendes Spektrum ergaenzt")
+                    return ("repaired", len(mn))
+                return ("same", 0)
+            return ("overlap", 0)
         cf = chain_file(sid, day)
         try:
             ch_have = [l for l in open(cf, encoding="utf-8").read().splitlines() if l.strip()]
@@ -8039,6 +8056,14 @@ def restore_run(path, with_settings, pick=None, off=None):
             with SRC_LOCK:
                 vdir = {r.id: safe_dir(r.src.get("video_dir")) for r in RUNNERS.values()}
             dgrp = {}                                   # (Geraet, Tag) -> {Endung: Bytes} fuer Tage, die es schon gibt
+            pre_days = set()                            # Tage, die es VOR dem Einspielen schon gab (nicht erst durch diese Sicherung)
+            try:
+                for fn_ in os.listdir(day_dir()):
+                    m_ = re.match(r"^(\d{4}-\d{2}-\d{2})_(.+?)\.ltg$", fn_)
+                    if m_:
+                        pre_days.add((m_.group(2), m_.group(1)))
+            except OSError:
+                pass
             stores = {"notes.json": (NOTES_LOCK, notes_all, notes_save), "bereiche.json": (LABELS_LOCK, labels_all, labels_save),
                       "art.json": (ART_LOCK, art_all, art_save)}
             for i in names:
@@ -8150,7 +8175,7 @@ def restore_run(path, with_settings, pick=None, off=None):
                     st["merged"] += 1
                     continue
                 gm = DAY_GRP_RE.match(parts[-1]) if parts[0] == "clips" and len(parts) == 3 and parts[1] == "tag" else None
-                if gm and os.path.exists(day_path(gm.group(2), gm.group(1))):   # Tag gibt es hier schon: nach dem Durchlauf zusammenfuehren
+                if gm and (gm.group(2), gm.group(1)) in pre_days:   # Tag gab es hier schon: nach dem Durchlauf zusammenfuehren
                     dgrp.setdefault((gm.group(2), gm.group(1)), {})[gm.group(3)] = zf.read(i)
                     continue
                 if os.path.exists(dst):
@@ -8165,13 +8190,15 @@ def restore_run(path, with_settings, pick=None, off=None):
                     except (OverflowError, ValueError):
                         pass
                 st["new"] += 1
-            st["days_merged"] = []; st["days_skipped"] = []
+            st["days_merged"] = []; st["days_skipped"] = []; st["days_repaired"] = []
             for (sid_, day_), inc_ in sorted(dgrp.items(), key=lambda x: (x[0][1], x[0][0])):
                 if ".ltg" not in inc_:
                     continue
                 res_, n_ = day_merge(sid_, day_, inc_)
                 if res_ == "merged":
                     st["days_merged"].append([day_, sid_, n_])
+                elif res_ == "repaired":
+                    st["days_repaired"].append([day_, sid_])
                 elif res_ == "same":
                     st["same"] += 1
                 else:

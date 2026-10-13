@@ -2472,6 +2472,7 @@ async function bkPoll(msg, done) {
   msg.textContent = t('bk_done', { a: s.new || 0, b: s.same || 0, r: s.rows || 0, l: s.lists || 0 });
   const nm = id => viewName(id), dd = x => x.slice(8, 10) + '.' + x.slice(5, 7) + '.';
   const rep = [];                                    // ausführlicher Bericht, bleibt stehen
+  if ((s.days_repaired || []).length) rep.push('✔ ' + t('bk_r_repaired', { l: s.days_repaired.map(x => dd(x[0]) + ' ' + nm(x[1])).join(', ') }));
   if ((s.days_merged || []).length) rep.push('✔ ' + t('bk_r_merged', { l: s.days_merged.map(x => dd(x[0]) + ' ' + nm(x[1]) + ' (+' + x[2] + ' min)').join(', ') }));
   if ((s.days_skipped || []).length) rep.push('⚠ ' + t('bk_r_skipped', { l: s.days_skipped.map(x => dd(x[0]) + ' ' + nm(x[1])).join(', ') }));
   if (s.devices) rep.push('✔ ' + t('bk_r_devs', { n: s.devices.length }) + (s.devices_off && s.devices_off.length ? ' · ' + t('bk_r_off', { n: s.devices_off.length }) : ''));
