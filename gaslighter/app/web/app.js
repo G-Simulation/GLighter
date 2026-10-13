@@ -1511,7 +1511,7 @@ function evGrid(evs, sv, useArt, grpMode) {
       headerFilterFunc: (hv, rv, rd) => !hv || !hv.length || hv.includes(rv) || (rd._children || []).some(c => hv.includes(c.src)), headerFilterLiveFilter: false,
       formatter: fmtCell(d => d._t === 'ev' ? srcHTML(d.r) : d._t === 'sens' ? `<span class="si">${d.x.kind === 'ha' ? '🏠' : '📱'}</span><span class="sn"><b>${esc(d.src)}</b></span>` : d.srcs ? '<span class="mut">…</span>' : `<span class="sn"><b>${esc(d.src)}</b></span>`) },
     { field: 'tags', title: t('art_col'), minWidth: nar ? 110 : 210, widthGrow: 2, visible: useArt, responsive: 1, cssClass: 'artc', headerSort: false,
-      headerFilter: msFilter(() => [...new Set(EVDATA.flatMap(function f(d) { return d.tags.concat((d._children || []).flatMap(f)); }))].sort((a, b) => a.localeCompare(b))), headerFilterLiveFilter: false, headerFilterFunc: (hv, rv) => !hv || !hv.length || (rv || []).some(x => hv.includes(x)),
+      headerFilter: msFilter(() => [...new Set(EVDATA.flatMap(function f(d) { return d.tags.concat((d._children || []).flatMap(f)); }).concat(((EV && EV.ha_names) || []).filter(x => x[1] === 'event').map(x => sensIcon('ha') + ' ' + x[0])))].sort((a, b) => a.localeCompare(b))), headerFilterLiveFilter: false, headerFilterFunc: (hv, rv) => !hv || !hv.length || (rv || []).some(x => hv.includes(x)),
       formatter: fmtCell(d => {
         if (d._t === 'sens') return `<span class="art sensc">${sensIcon(d.x.kind)} ${esc(sensLabel(d.x))}</span>${d.x.note ? `<div class="hant">📝 ${esc(d.x.note)}</div>` : ''}`;
         if (d._t === 'grp') return d.g.prof ? `<span class="art prof">🧩 ${esc(d.g.kind)}</span>` : d.g.kind && d.g.kind !== '?' ? artChip(d.g.kind, null, false) : esc(t('art_pending'));
@@ -1627,6 +1627,7 @@ function sfltBuild() {
   const box = $('sflt'); if (!box) return;
   const ha = new Set(); for (const x of (EV && EV.sens) || []) if (x.kind === 'ha') ha.add(x.name); for (const a of (NV.data && NV.data.ha) || []) ha.add(a[2]);
   for (const r of (HAR && HAR.rules) || []) if (r.enabled !== false && r.mode !== 'pause') ha.add(r.label || r.name || r.entity);
+  for (const x of (EV && EV.ha_names) || []) ha.add(x[0]);   // alle angelegten Regeln, auch ohne Meldung im Zeitraum
   const items = [['_ev', '🔴 ' + t('sf_ev')], ...[...ha].filter(Boolean).sort((a, b) => a.localeCompare(b)).map(n => ['ha:' + n, '📡 ' + n]), ['vib', '🫨 ' + t('sens_vib')], ['cam', '🏃 ' + t('sens_cam')]];
   const sig = JSON.stringify([items, [...SHIDE], lang]); if (box.dataset.sig === sig) return; box.dataset.sig = sig;
   const on = items.filter(i => !SHIDE.has(i[0])).length, wasOpen = box.querySelector('details') && box.querySelector('details').open;

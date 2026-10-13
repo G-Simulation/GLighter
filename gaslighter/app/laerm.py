@@ -32,7 +32,7 @@ HERE = os.path.dirname(os.path.abspath(__file__))
 WEB = os.path.join(HERE, "web")
 OPTIONS_FILE = os.environ.get("LAERM_OPTIONS", "/data/options.json")
 SETTINGS_FILE = os.environ.get("LAERM_SETTINGS", "/data/settings.json")
-VERSION = "1.50.5"
+VERSION = "1.50.6"
 
 # =====================================================================
 # Einstellungen
@@ -1297,8 +1297,9 @@ def ha_watch():
                 with HA_LOCK:
                     HA_STATE[r["id"]] = {"state": val, "name": name, "active": act, "capped": False, "since": prev.get("since") if (act and prev.get("active")) else (now if act else None),
                                          "until": None, "hold": False, "err": err, "checked": now, "note": True, "vol": vol, "mute": mute}
-                if val is not None and (act != prev.get("active") or val != prev.get("state") or not prev.get("note")):
-                    ha_hist_add(r, r["label"] or name, val, act)
+                if HA_SYNC["ok"] is not True and val is not None and (act != prev.get("active") or val != prev.get("state") or not prev.get("note")):
+                    ha_hist_add(r, r["label"] or name, val, act)   # nur ohne Historie: sonst schreibt ha_hist_sync mit genauer Uhrzeit
+                    HA_SYNC["act"][r["id"]] = act; HA_SYNC["last"][r["id"]] = int(now * 1000)
                 continue
             since = prev.get("since") if (act and prev.get("active")) else (now if act else None)
             capped = bool(act and r["max_h"] > 0 and since and now - since > r["max_h"] * 3600)
@@ -1320,16 +1321,82 @@ def ha_watch():
                 rec_log("pausiert (Home Assistant)" if hold else "fortgesetzt (Home Assistant)", f"{label}: {val}")
             if capped and not prev.get("capped"):
                 log(f"Home-Assistant-Regel: {label} seit über {r['max_h']:g} h aktiv - Pause aufgehoben, es wird wieder aufgenommen")
+        try:
+            ha_hist_sync([r for r in rules if r.get("mode") in ("note", "event")])
+        except Exception as e:                            # nie die Abfrage stoeren
+            HA_SYNC["ok"] = False; log("Home-Assistant-Historie:", e)
 
 
 HA_HIST = {"key": None, "rows": []}
+HA_SYNC = {"ok": None, "last": {}, "act": {}}          # Abgleich mit der Historie von Home Assistant (je Regel: bis wann gelesen, zuletzt an/aus)
+
+
+def ha_last_rows():
+    """Letzter festgehaltener Zustand je Regel aus ha_zustand.csv: {rid: (ms, an)}."""
+    out = {}
+    try:
+        with open(ha_hist_path(), newline="", encoding="utf-8", errors="replace") as fh:
+            for r in csv.DictReader(fh):
+                t_ = ms_of(r.get("zeit"))
+                if t_ is not None and (r.get("regel") not in out or t_ >= out[r["regel"]][0]):
+                    out[r["regel"]] = (t_, r.get("an") == "1")
+    except OSError:
+        pass
+    return out
+
+
+def ha_hist_sync(rules):
+    """Regeln „nur festhalten“/„als Ereignis“: jeden Wechsel aus der Historie von Home Assistant mit genauer Uhrzeit uebernehmen.
+    So fehlen auch kurze Meldungen nicht (z. B. Tilt nur 1 s an), die zwischen zwei Abfragen (alle 5 s) liegen.
+    False = Historie nicht erreichbar (dann schreibt die 5-s-Abfrage wie bisher)."""
+    if not rules:
+        return True
+    now_ms = int(time.time() * 1000)
+    if not HA_SYNC.get("init"):                       # beim Start: ab dem letzten festgehaltenen Zustand nachholen (höchstens 6 h)
+        HA_SYNC["init"] = True; lr = ha_last_rows()
+        for r in rules:
+            t_, on_ = lr.get(r["id"], (None, None))
+            HA_SYNC["last"][r["id"]] = max(t_ or 0, now_ms - 6 * 3600 * 1000)
+            HA_SYNC["act"][r["id"]] = on_
+    for r in rules:
+        HA_SYNC["last"].setdefault(r["id"], now_ms - 60000); HA_SYNC["act"].setdefault(r["id"], None)
+    since = min(HA_SYNC["last"][r["id"]] for r in rules) - 1000
+    iso = lambda ms: dt.datetime.fromtimestamp(ms / 1000.0).astimezone().isoformat(timespec="seconds")
+    ents = ",".join(sorted({r["entity"] for r in rules}))
+    try:
+        d = ha_get("/history/period/" + urllib.parse.quote(iso(since)) + "?filter_entity_id=" + urllib.parse.quote(ents, safe=",") +
+                   "&end_time=" + urllib.parse.quote(iso(now_ms + 1000)) + "&minimal_response&no_attributes&significant_changes_only=0", timeout=8)
+    except Exception:
+        HA_SYNC["ok"] = False
+        return False
+    by = {}
+    for lst in d if isinstance(d, list) else []:
+        if lst and isinstance(lst, list) and isinstance(lst[0], dict) and lst[0].get("entity_id"):
+            by[lst[0]["entity_id"]] = lst
+    for r in rules:
+        last, act0 = HA_SYNC["last"][r["id"]], HA_SYNC["act"][r["id"]]
+        for x in by.get(r["entity"], []):
+            t_ = ms_of(x.get("last_changed") or x.get("last_updated"))
+            if t_ is None or t_ <= last:
+                continue
+            st_ = x.get("state")
+            if st_ in ("unavailable", "unknown", None):
+                continue
+            act = rule_match(r["states"], st_)
+            if act != act0:
+                ha_hist_add(r, r["label"] or (HA_STATE.get(r["id"]) or {}).get("name") or r["entity"], st_, act, at_ms=t_)
+                act0 = act
+            last = t_
+        HA_SYNC["last"][r["id"]] = max(last, now_ms - 2000); HA_SYNC["act"][r["id"]] = act0
+    HA_SYNC["ok"] = True
+    return True
 
 
 def ha_hist_path():
     return os.path.join(paths()[0], "ha_zustand.csv")
 
 
-def ha_hist_add(rule, label, state, on):
+def ha_hist_add(rule, label, state, on, at_ms=None):
     """Zustandswechsel einer Festhalte-Regel mitschreiben (Zeit, Regel, Name, Entitaet, Zustand, an)."""
     try:
         f = ha_hist_path(); os.makedirs(os.path.dirname(f), exist_ok=True); new = not os.path.exists(f)
@@ -1337,7 +1404,8 @@ def ha_hist_add(rule, label, state, on):
             w = csv.writer(fh)
             if new:
                 w.writerow(["zeit", "regel", "name", "entitaet", "zustand", "an", "geraet"])
-            w.writerow([dt.datetime.now().astimezone().isoformat(timespec="seconds"), rule["id"], label, rule["entity"], str(state)[:60], 1 if on else 0, rule["src"]])
+            when = dt.datetime.fromtimestamp(at_ms / 1000.0).astimezone() if at_ms else dt.datetime.now().astimezone()
+            w.writerow([when.isoformat(timespec="seconds"), rule["id"], label, rule["entity"], str(state)[:60], 1 if on else 0, rule["src"]])
     except OSError as e:
         log("Home-Assistant-Zustand nicht gespeichert:", e)
 
@@ -1358,6 +1426,7 @@ def ha_intervals(src_id, t_from, t_to):
                     rows.append((int(dt.datetime.fromisoformat(r["zeit"]).timestamp() * 1000), r["regel"], r["name"], r["an"] == "1", r.get("geraet") or "all"))
                 except (ValueError, KeyError, TypeError):
                     continue
+        rows.sort(key=lambda x: x[0])                       # Einträge aus der Historie können nachträglich (mit früherer Uhrzeit) dazukommen
         HA_HIST.update(key=key, rows=rows)
     cur, out = {}, []
     now = int(time.time() * 1000)
@@ -1382,6 +1451,22 @@ def ha_intervals(src_id, t_from, t_to):
     for x in out:                                         # Art der Regel: note = nur festhalten (Leiste), event = als Ereignis; dazu die gewählte Farbe
         x.append("event" if modes.get(x[3]) == "event" else "note"); x.append(cols.get(x[3], ""))
     out.sort(key=lambda x: x[0])
+    return out
+
+
+def ha_rule_names():
+    """Alle Regeln „nur festhalten“/„als Ereignis“ (für die Auswahllisten, auch ohne Meldung im Zeitraum): [[Name, mode]]."""
+    last = {}
+    for t_, rid, nm, on, src in HA_HIST.get("rows") or []:
+        last[rid] = nm
+    with HA_LOCK:
+        rules = [dict(r) for r in HA_RULES]
+    out = []
+    for r in rules:
+        if r.get("enabled", True) and r.get("mode") in ("note", "event"):
+            nm = last.get(r["id"]) or r.get("label") or (HA_STATE.get(r["id"]) or {}).get("name") or r.get("entity") or ""
+            if nm and nm not in [x[0] for x in out]:
+                out.append([nm, r["mode"]])
     return out
 
 
@@ -8649,7 +8734,7 @@ def events_summary(src="all", n=200, plist="", rng=None, art=""):
     return {"total": sum(days.values()), "rows": len(rows), "bg_n": bg_n, "today": days.get(dt.date.today().isoformat(), 0), "hours": hours,
             "days": sorted(days.items(), reverse=True)[:(62 if rng else 14)], "n": n,
             "events": out_rows, "grps": {str(k): v for k, v in G.items() if k in used_g},
-            "sens": _sens_for(src, rng),
+            "sens": _sens_for(src, rng), "ha_names": ha_rule_names(),
             "fine": classify.fine_meta("en" if CFG.get("language") == "en" else "de") if classify is not None else {}}
 
 

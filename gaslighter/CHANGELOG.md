@@ -1,5 +1,9 @@
 # Changelog
 
+## 1.50.6
+- **Kurze Sensor-Meldungen gehen nicht mehr verloren** (z. B. Türsensor Tilt nur 1 s an): Für Regeln „nur festhalten“ und „als Ereignis“ übernimmt GasLighter jeden Wechsel mit genauer Uhrzeit aus der Historie von Home Assistant, statt nur alle 5 s den aktuellen Zustand abzufragen. Nach einem Neustart werden bis zu 6 h nachgeholt. Ist die Historie nicht erreichbar, geht es wie bisher.
+- Auswahllisten (📡 Sensoren, Art in der Tabelle) enthalten alle angelegten Regeln, auch wenn ein Sensor im Zeitraum nichts gemeldet hat.
+
 ## 1.50.5
 - Sensor-Ereignisse: Das Fähnchen oben im Verlauf hat je Sensor eine **eigene Farbe** (auch in der Legende); die rote Linie bleibt. Farbe frei wählbar unter Einstellungen → Home Assistant → Regel → **Farbe** (↺ = automatisch).
 
