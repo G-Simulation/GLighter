@@ -53,7 +53,7 @@ For what you hear right now – just start typing or tap tags (upstairs, downsta
 
 - **Without a time of its own**: if there was a disturbance shortly before (setting “Assign note”, default 5 min), the note belongs to it. The bar shows beforehand where it goes.
 - **still going**: the note gets a period from the first input until saving.
-- **More …** shows from/to and witness right in the area (stays open until you choose “Less”).
+- **From / to and witness** are always shown right in the area; leave them empty for “automatic” (time at saving).
 - **Only tags, no text?** GasLighter builds a sentence from them when saving, e.g. “Clear footsteps in the stairwell”. You can edit it later.
 
 **Detach (Pro):** **⧉** next to the title detaches the note area into its own small window. In Chrome and Edge it stays on top of other programs (e.g. over a game or film), otherwise it is a normal extra window. **Bring back** or closing the window puts it back.

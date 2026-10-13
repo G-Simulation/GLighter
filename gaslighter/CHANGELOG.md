@@ -1,5 +1,8 @@
 # Changelog
 
+## 1.51.7
+- Notizbereich: Der Button „Mehr …“ ist weg; von/bis und Zeuge sind **immer sichtbar** (auch im abgedockten Fenster).
+
 ## 1.51.6
 - Live-Verlauf: **Zoomen mit dem Mausrad hält die Stelle unter der Maus fest** (Spitze, Sensor-Ereignis), ohne vorher klicken zu müssen. Dafür wird Live angehalten und der Verlauf bleibt dort stehen („Zurück zu Live“ geht zurück). Nur am rechten Rand bleibt es live.
 

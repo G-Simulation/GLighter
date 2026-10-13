@@ -5305,13 +5305,7 @@ function initFnp() {
   $('fnpsrc').addEventListener('change', fnpTarget);
   $('fnpsave').onclick = fnpSave;
   enterSave($('fnptext'), fnpSave);
-  const ext = open_ => {                             // „Mehr …“: von/bis und Zeuge direkt im Bereich einblenden (auch abgedockt); Zustand wird gemerkt
-    $('fnpext').hidden = !open_; $('fnpwit').hidden = !open_; $('fnpmore').textContent = t(open_ ? 'fnp_less' : 'fnp_more'); $('fnpmore').classList.toggle('on', open_);
-    try { localStorage.setItem('laerm_fnpx', open_ ? '1' : '0'); } catch (e) { }
-  };
-  let xo = false; try { xo = localStorage.getItem('laerm_fnpx') === '1'; } catch (e) { }
-  ext(xo); FNP.ext = ext;
-  $('fnpmore').onclick = () => ext($('fnpext').hidden);
+  $('fnpext').hidden = false; $('fnpwit').hidden = false;                     // von/bis und Zeuge sind immer sichtbar (auch abgedockt)
   $('fnpfnow').onclick = () => { FNP.fixed = false; $('fnpfromi').value = dtl(new Date(nowServer())); };
   $('fnpfromi').addEventListener('input', () => { FNP.fixed = true; const v = new Date($('fnpfromi').value).getTime(); if (!isNaN(v)) FNP.from = v; fnpShow(); });
   $('fnptnow').onclick = () => { $('fnptoi').value = dtl(new Date(nowServer())); };
