@@ -1,5 +1,8 @@
 # Changelog
 
+## 1.50.18
+- Live-Verlauf: Kurze Zeitfenster (Live-Puffer) und lange Zeitfenster (Tagesaufzeichnung) sehen jetzt **gleich** aus: gleiche Farbe und gleiche Achsenbeschriftung (ohne „dB“-Zusatz) bei jedem Zoom.
+
 ## 1.50.17
 - Verlauf: Fähnchen der Sensor-Ereignisse werden nach der Pegelkurve gezeichnet und liegen damit über Kurve und gestrichelter Linie.
 

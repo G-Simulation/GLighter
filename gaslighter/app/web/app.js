@@ -543,11 +543,11 @@ function upGet(cv, cfg) {
     if (cfg.kind === 'wave') {                        // Balken gespiegelt um die Mitte: Beschriftung oben in dB
       yAxis = { scale: 'y', size: cfg.L, stroke: axisCol, font, gap: 4, grid: { stroke: gridCol, width: 1 }, ticks: { show: false },
         splits: u => { const m = u._wv; if (!m) return [0]; const out = [0]; for (const k of m.ticks) { const f = m.F(k.v); if (f > 0.04) out.push(f, -f); } return out; },
-        values: (u, sp) => sp.map(v => { const m = u._wv; if (!m || v <= 0) return ''; const k = m.ticks.find(q => Math.abs(m.F(q.v) - v) < 1e-9); return k ? m.fmt(k.v) + (cfg.day || cfg.L < 52 ? '' : ' dB') : ''; }) };
+        values: (u, sp) => sp.map(v => { const m = u._wv; if (!m || v <= 0) return ''; const k = m.ticks.find(q => Math.abs(m.F(q.v) - v) < 1e-9); return k ? m.fmt(k.v) + '' : ''; }) };
     } else {
       yAxis = { scale: 'y', size: cfg.L, stroke: axisCol, font, gap: 4, grid: { stroke: gridCol, width: 1 }, ticks: { stroke: gridCol, width: 1, size: 3 },
         splits: (u, ai, a, b) => dbTicks(a, b, u.bbox.height, cfg.day ? 18 : 24).ticks.filter(k => k.major).map(k => k.v),
-        values: (u, sp) => { const f = dbTicks(u.scales.y.min, u.scales.y.max, u.bbox.height, cfg.day ? 18 : 24).fmt; return sp.map(v => f(v) + (cfg.day || cfg.L < 52 ? '' : ' dB')); } };
+        values: (u, sp) => { const f = dbTicks(u.scales.y.min, u.scales.y.max, u.bbox.height, cfg.day ? 18 : 24).fmt; return sp.map(v => f(v)); } };
     }
     let series;
     if (cfg.kind === 'wave') {
@@ -589,7 +589,7 @@ function dayData(r, wave, F) {                       // Verlauf: Abschnitte (Mit
   }
   return [X, P, Bg, Th, Ac];
 }
-const livePal = () => ({ acc: C.acc, bgl: C.bgl, thr: C.thr, red: C.red, warn: C.thr, grid: C.grid, mut: C.mut });
+const livePal = () => ({ acc: (getComputedStyle(document.documentElement).getPropertyValue('--nacc') || '').trim() || C.acc, bgl: C.bgl, thr: C.thr, red: C.red, warn: C.thr, grid: C.grid, mut: C.mut });
 function liveLvlData() {                             // Live-Pegelspur: Zeit, Pegel, Hintergrund, Schwelle (Lücken unterbrechen die Linie)
   const n = recs.length, X = [], P = [], Bg = [], Th = [];
   for (let i = 0; i < n; i++) {
