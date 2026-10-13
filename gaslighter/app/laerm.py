@@ -32,7 +32,7 @@ HERE = os.path.dirname(os.path.abspath(__file__))
 WEB = os.path.join(HERE, "web")
 OPTIONS_FILE = os.environ.get("LAERM_OPTIONS", "/data/options.json")
 SETTINGS_FILE = os.environ.get("LAERM_SETTINGS", "/data/settings.json")
-VERSION = "1.50.1"
+VERSION = "1.50.2"
 
 # =====================================================================
 # Einstellungen
@@ -5059,6 +5059,82 @@ def run_note_set(key, text):
     return {"ok": True, "key": key, "note": text}
 
 
+GAP_MIN_S = 90                                          # so lange ohne Messwert = Luecke in der Tagesaufzeichnung
+
+
+def day_times(sid, day):
+    """Zeitpunkte (ms) der Tagesaufzeichnung; abgeschlossene Tage aus dem Suchverzeichnis (10 s), sonst aus der Datei."""
+    p_ = day_path(sid, day)
+    if not os.path.exists(p_):
+        return None
+    if SIDX is not None and day < dt.date.today().isoformat():
+        try:
+            st_ = os.stat(p_); sig = f"{st_.st_size}:{st_.st_mtime_ns}"
+            a_ = SIDX.agg_get(sid, day, sig)
+            if a_ is None:
+                full = day_load(p_)
+                a_ = _sx.SuchIndex.agg_make(full) if full is not None else None
+                if a_ is not None:
+                    SIDX.agg_put(sid, day, sig, a_)
+            if a_ is not None:
+                return a_["t"]
+        except OSError:
+            pass
+    d_ = day_load(p_)
+    return d_["t"] if d_ is not None else None
+
+
+def rec_pauses(t_from, t_to):
+    """Zeitraeume, in denen bewusst nicht aufgezeichnet wurde (Aufzeichnung gestoppt, Pause durch Home Assistant)."""
+    out, cur = [], None
+    try:
+        with open(os.path.join(paths()[0], "aufzeichnung.csv"), newline="", encoding="utf-8") as fh:
+            for r in csv.DictReader(fh):
+                t_ = ms_of(r.get("zeit")); a_ = (r.get("aktion") or "").lower()
+                if t_ is None:
+                    continue
+                if a_.startswith(("gestoppt", "pausiert")):
+                    cur = cur if cur is not None else t_
+                elif a_.startswith(("gestartet", "fortgesetzt")) and cur is not None:
+                    out.append((cur, t_)); cur = None
+    except OSError:
+        pass
+    if cur is not None:
+        out.append((cur, int(time.time() * 1000)))
+    return [x for x in out if x[1] >= t_from and x[0] <= t_to]
+
+
+def data_gaps(t_from, t_to, downs):
+    """Luecken in der Tagesaufzeichnung, die sonst nirgends stehen (z. B. Neuinstallation, Umzug, Starter ohne Protokoll).
+    Nur Geraete, die dauernd aufnehmen (Mikrofon am Rechner, Streams) – Handys sind oft absichtlich offline.
+    Bewusste Pausen und bereits gemeldete Unterbrechungen zaehlen nicht."""
+    with SRC_LOCK:
+        srcs = {r.id: r.src for r in RUNNERS.values()}
+    skip = [(a - 60000, b + 60000) for a, b in downs] + [(a - 15000, b + 15000) for a, b in rec_pauses(t_from, t_to)]
+    out = []
+    day = dt.datetime.fromtimestamp(t_from / 1000.0).date(); d1 = dt.datetime.fromtimestamp(t_to / 1000.0).date()
+    while day <= d1:
+        for f in sorted(glob.glob(os.path.join(day_dir(), f"{day.isoformat()}_*{DAY_EXT}"))):
+            sid = os.path.basename(f)[11:-len(DAY_EXT)]
+            src = srcs.get(sid)
+            if src is None or src.get("type") == "phone":
+                continue
+            ts = day_times(sid, day.isoformat())
+            if ts is None or len(ts) < 2:
+                continue
+            step = 10000 if ts.dtype == np.int64 and len(ts) > 1 and np.median(np.diff(ts[: min(len(ts), 500)])) >= 9000 else 0
+            dif = np.diff(ts); idx = np.flatnonzero(dif > GAP_MIN_S * 1000 + step)
+            for i in idx:
+                a, b = int(ts[i]) + step, int(ts[i + 1])
+                if b < t_from or a > t_to or any(x0 <= a and b <= x1 or (a < x1 and b > x0 and min(b, x1) - max(a, x0) > 0.5 * (b - a)) for x0, x1 in skip):
+                    continue
+                out.append({"kind": "down", "cause": "gap", "reason": "gap", "sid": sid, "name": src.get("name") or sid,
+                            "from": dt.datetime.fromtimestamp(a / 1000.0).astimezone().isoformat(timespec="seconds"),
+                            "to": dt.datetime.fromtimestamp(b / 1000.0).astimezone().isoformat(timespec="seconds"), "version_new": ""})
+        day += dt.timedelta(days=1)
+    return out
+
+
 def runtime_info(t_from=None, t_to=None):
     """Laufzeit-Protokoll des Starters (Start, Stopp, Update, Unterbrechung, Rueckfall) und Pruefsummen-Kette je Geraet und Tag."""
     now = int(time.time() * 1000)
@@ -5095,6 +5171,13 @@ def runtime_info(t_from=None, t_to=None):
             e["note"] = notes.get(e["key"], "")
             # vom Starter sauber beendet (Home Assistant hat angehalten / neu gestartet) oder ohne Abmelden weg (Strom, Absturz)
             e["cause"] = "stopped" if a_ is not None and any(x is not None and -15000 <= x - a_ <= 40000 for x in stops) else "lost"
+    try:                                               # Luecken, die der Starter nicht gesehen hat (z. B. Umzug auf eine neue Installation)
+        downs_ = [(ms_of(e.get("from")), ms_of(e.get("to"))) for e in ev if e.get("kind") == "down"]
+        for g_ in data_gaps(t_from, t_to, [x for x in downs_ if x[0] is not None and x[1] is not None]):
+            g_["key"] = g_["from"]; g_["note"] = notes.get(g_["key"], ""); ev.append(g_)
+        ev.sort(key=lambda e: e.get("from") or e.get("at") or "")
+    except Exception as e:                             # nie das Protokoll verhindern
+        log("Lücken prüfen:", e)
     return {"ok": True, "events": ev, "chains": chains, "relay": relay_on(), "version": VERSION,
             "code": os.environ.get("LAERM_CODE_DIR", HERE), "start": os.environ.get("LAERM_START_REASON", "")}
 
@@ -5817,7 +5900,9 @@ def protocol_html(q):
             o.append('<h2>Unterbrechungen und Updates</h2><table><tr><th style="width:280px">Zeit</th><th>Vorgang</th></tr>')
             fm_ = lambda iso: dt.datetime.fromisoformat(iso).strftime("%d.%m.%Y %H:%M:%S") if iso else ""
             for e in rev_:
-                if e["kind"] == "down":
+                if e["kind"] == "down" and e.get("cause") == "gap":
+                    o.append(f'<tr><td>{h(fm_(e.get("from")))} – {h(fm_(e.get("to")))}</td><td>nicht aufgezeichnet: {h(e.get("name", ""))} (Lücke in der Tagesaufzeichnung, Ursache nicht protokolliert, z. B. Umzug auf eine neue Installation){(" – Kommentar: " + h(e["note"])) if e.get("note") else ""}</td></tr>')
+                elif e["kind"] == "down":
                     o.append(f'<tr><td>{h(fm_(e.get("from")))} – {h(fm_(e.get("to")))}</td><td>nicht aufgezeichnet ({"Update" if e.get("reason") == "update" else "von Home Assistant angehalten bzw. neu gestartet" if e.get("cause") == "stopped" else "ohne Herunterfahren beendet, z. B. Stromausfall"}; danach Version {h(e.get("version_new", ""))}){(" – Kommentar: " + h(e["note"])) if e.get("note") else ""}</td></tr>')
                 elif e["kind"] == "update":
                     o.append(f'<tr><td>{h(fm_(e.get("at")))}</td><td>Programm aktualisiert {h(e.get("version_old", ""))} → {h(e.get("version_new", ""))}; die Aufnahme lief dabei weiter</td></tr>')

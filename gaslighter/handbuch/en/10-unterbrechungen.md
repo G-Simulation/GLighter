@@ -7,6 +7,7 @@ If the add-on is not running (power cut, Home Assistant restarted, update via th
 - **ended without shutdown, e.g. power cut** – the add-on could not sign off (power gone, crash).
 - **stopped / restarted by Home Assistant** – ended cleanly (restart, add-on stopped).
 - **Update** – a new version was installed.
+- **Gap in the day recording, cause not logged** – more than 90 seconds are missing in the data without the start noticing (e.g. moving to a new installation). Applies to the microphone on the computer and streams; deliberate pauses do not count, phones are not checked.
 
 After a power cut Home Assistant starts the add-on by itself as soon as the computer runs again.
 

@@ -9,6 +9,7 @@ Läuft das Add-on nicht (Stromausfall, Home Assistant neu gestartet, Update übe
 - **ohne Herunterfahren beendet, z. B. Stromausfall** – das Add-on konnte sich nicht abmelden (Strom weg, Absturz).
 - **von Home Assistant angehalten / neu gestartet** – sauber beendet (Neustart, Add-on gestoppt).
 - **Update** – neue Fassung installiert.
+- **Lücke in der Tagesaufzeichnung, Ursache nicht protokolliert** – in den Daten fehlen mehr als 90 Sekunden, ohne dass der Start es gemerkt hat (z. B. Umzug auf eine neue Installation). Gilt für das Mikrofon am Rechner und Streams; bewusste Pausen zählen nicht, Handys werden nicht geprüft.
 
 Nach einem Stromausfall startet Home Assistant das Add-on von selbst, sobald der Rechner wieder läuft.
 

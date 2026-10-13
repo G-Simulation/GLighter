@@ -3618,7 +3618,7 @@ async function loadRun() {
   const chainTxt = !ch.length ? '' : bad.length
     ? '⚠ ' + t('run_chain_bad', { l: bad.map(c => c.name + ' ' + c.day.slice(8, 10) + '.' + c.day.slice(5, 7) + '. ' + (c.bad ? new Date(c.bad).toLocaleTimeString(L, { hour: '2-digit', minute: '2-digit' }) : '')).join(', ') })
     : '🛡 ' + t(none.length === ch.length ? 'run_chain_none' : 'run_chain_ok', { n: ch.filter(c => c.ok).length });
-  const evTxt = evs.map(e => e.kind === 'down' ? t('run_down', { a: fm(e.from), b: fm(e.to), v: e.version_new || '', r: t(e.reason === 'update' ? 'run_r_update' : e.cause === 'lost' ? 'run_r_lost' : 'run_r_restart') })
+  const evTxt = evs.map(e => e.kind === 'down' && e.cause === 'gap' ? t('run_gap', { a: fm(e.from), b: fm(e.to), s: e.name || viewName(e.sid) }) : e.kind === 'down' ? t('run_down', { a: fm(e.from), b: fm(e.to), v: e.version_new || '', r: t(e.reason === 'update' ? 'run_r_update' : e.cause === 'lost' ? 'run_r_lost' : 'run_r_restart') })
     : e.kind === 'import' ? t('run_import', { a: fm(e.at), s: viewName(e.sid), n: e.minutes })
     : e.kind === 'update' ? t('run_update', { a: fm(e.at), o: e.version_old, n: e.version_new }) : e.kind === 'fallback' ? t('run_fallback', { a: fm(e.at), v: e.version, b: e.to }) : t('run_crash', { a: fm(e.at), v: e.version }));
   box.hidden = !chainTxt && !evTxt.length;
@@ -4206,6 +4206,7 @@ function dtDraw(S, hoverX) {
   }
   S.downHit = [];
   for (const g of NV.down || []) {                  // Nicht aufgezeichnet (Add-on aus / Neustart): schraffiert, damit es nicht wie Stille aussieht
+    if (g[5] && g[5].sid && S.src && S.src !== 'all' && g[5].sid !== S.src) continue;   // Lücke nur eines Geräts: nur in dessen Zeile
     const x0 = X(Math.max(g[0], r.from)), x1 = X(Math.min(g[1], r.to)); if (x1 - x0 < 1) continue;
     const hov = hoverX != null && !MK.on && hoverX * d >= x0 && hoverX * d <= x1;   // darüber: etwas heller (anklickbar)
     c.save(); c.beginPath(); c.rect(x0, T, x1 - x0, ph); c.clip(); c.fillStyle = ca(NC.mut, hov ? 0.16 : 0.07); c.fillRect(x0, T, x1 - x0, ph);

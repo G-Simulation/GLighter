@@ -1,5 +1,8 @@
 # Changelog
 
+## 1.50.2
+- **Lücken in der Tagesaufzeichnung** werden jetzt auch erkannt, wenn der Starter sie nicht protokolliert hat (z. B. beim Umzug auf eine neue Installation): Sie stehen unter „Unterbrechungen“ mit Gerät und Zeit, sind im Verlauf schraffiert („nicht aufgezeichnet“, nur in der Zeile dieses Geräts), lassen sich kommentieren und stehen im Lärmprotokoll. Bewusste Pausen zählen nicht; Handys werden nicht geprüft, weil sie oft absichtlich offline sind.
+
 ## 1.50.1
 - Filter **„Art“** oben in Protokolle mit **Mehrfachauswahl**, z. B. Stimme + TV/Musik. Gilt für Kopfzahlen, Verlauf und Tabelle; eine passende Art genügt.
 

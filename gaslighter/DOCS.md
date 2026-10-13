@@ -471,6 +471,7 @@ Läuft das Add-on nicht (Stromausfall, Home Assistant neu gestartet, Update übe
 - **ohne Herunterfahren beendet, z. B. Stromausfall** – das Add-on konnte sich nicht abmelden (Strom weg, Absturz).
 - **von Home Assistant angehalten / neu gestartet** – sauber beendet (Neustart, Add-on gestoppt).
 - **Update** – neue Fassung installiert.
+- **Lücke in der Tagesaufzeichnung, Ursache nicht protokolliert** – in den Daten fehlen mehr als 90 Sekunden, ohne dass der Start es gemerkt hat (z. B. Umzug auf eine neue Installation). Gilt für das Mikrofon am Rechner und Streams; bewusste Pausen zählen nicht, Handys werden nicht geprüft.
 
 Nach einem Stromausfall startet Home Assistant das Add-on von selbst, sobald der Rechner wieder läuft.
 
@@ -1166,6 +1167,7 @@ If the add-on is not running (power cut, Home Assistant restarted, update via th
 - **ended without shutdown, e.g. power cut** – the add-on could not sign off (power gone, crash).
 - **stopped / restarted by Home Assistant** – ended cleanly (restart, add-on stopped).
 - **Update** – a new version was installed.
+- **Gap in the day recording, cause not logged** – more than 90 seconds are missing in the data without the start noticing (e.g. moving to a new installation). Applies to the microphone on the computer and streams; deliberate pauses do not count, phones are not checked.
 
 After a power cut Home Assistant starts the add-on by itself as soon as the computer runs again.
 
