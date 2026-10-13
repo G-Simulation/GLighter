@@ -1091,3 +1091,9 @@ fieldset.prolocked .f{opacity:.55}
 .tabg .msf{width:100%;text-align:left;background:var(--card);color:var(--tx);border:1px solid var(--bd);border-radius:6px;padding:3px 8px;font-size:12px;text-transform:none;font-weight:400;letter-spacing:0;cursor:pointer;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .tabg .msf.on{border-color:var(--acc);color:var(--acc)}
 .tabg .tabulator-header-filter{text-align:left}
+
+/* Notizbereich abgedockt (Pro) */
+.fnpph{padding:10px 14px;font-size:14px}
+.fnpopbody{margin:0;padding:8px;background:var(--bg)}
+.fnpanel.inpop{margin:0;max-width:none;box-shadow:none}
+.fnppop .protag{margin-left:4px}

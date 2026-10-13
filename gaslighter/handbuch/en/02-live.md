@@ -54,6 +54,8 @@ For what you hear right now – just start typing or tap tags (upstairs, downsta
 - **Without a time of its own**: if there was a disturbance shortly before (setting “Assign note”, default 5 min), the note belongs to it. The bar shows beforehand where it goes.
 - **still going**: the note gets a period from the first input until saving.
 - **More …** opens the dialog with from/to, device and witness.
+
+**Detach (Pro):** **⧉** next to the title detaches the note area into its own small window. In Chrome and Edge it stays on top of other programs (e.g. over a game or film), otherwise it is a normal extra window. **Bring back** or closing the window puts it back.
 - [[Ctrl]] + [[Enter]] saves. On a phone the bar starts collapsed.
 
 ## 🏷 Mark range {#markieren}

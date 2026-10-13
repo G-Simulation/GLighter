@@ -3,7 +3,8 @@
 'use strict';
 
 /* ================= Grundlagen ================= */
-const $ = id => document.getElementById(id);
+let FNPOP = null;                                    // Fenster, in das der Notizbereich abgedockt ist (Pro)
+const $ = id => document.getElementById(id) || (FNPOP && !FNPOP.closed ? FNPOP.document.getElementById(id) : null);
 const DPR = () => window.devicePixelRatio || 1;
 const clamp = (v, a, b) => Math.max(a, Math.min(b, v));
 const pad = n => String(n).padStart(2, '0');
@@ -3056,6 +3057,7 @@ function proDate(d) { try { return new Date(d + 'T12:00:00').toLocaleDateString(
 function proBuyLink(cls) { const a = el('a', { className: cls || 'chip pri', href: PRO.buy, target: '_blank', rel: 'noopener', textContent: '🛒 ' + t('pro_buy') }); return a; }
 /* Hinweis kurz vor Ablauf (14 Tage) bzw. nach Ablauf – einmal je Ablaufdatum wegklickbar */
 function proBanner() {
+  { const pb = $('fnppop'); if (pb) { const tg = pb.querySelector('.protag'); if (!PRO.ok && !tg) pb.appendChild(proLockTag()); else if (PRO.ok && tg) tg.remove(); } }
   const b = $('b_pro'); if (!b) return;
   let key = '', html = '';
   if (PRO.ok && PRO.days_left != null && PRO.days_left <= 14) { key = 'soon_' + PRO.until; html = t('pro_soon', { d: esc(proDate(PRO.until)), n: PRO.days_left }); }
@@ -3088,7 +3090,7 @@ function proBox() {
   else if (P.state === 'expired') st.innerHTML = `<b class="proexp">⚠ ${esc(t('pro_expired', { d: proDate(P.until) }))}</b>`;
   else st.innerHTML = `<b>${esc(t('pro_free'))}</b>`;
   const ul = el('ul', { className: 'prolist' });
-  for (const f of ['imp', 'thr', 'dev']) ul.appendChild(el('li', { textContent: (P.ok ? '✔ ' : '🔒 ') + t('pro_f_' + f) }));
+  for (const f of ['imp', 'thr', 'dev', 'pop']) ul.appendChild(el('li', { textContent: (P.ok ? '✔ ' : '🔒 ') + t('pro_f_' + f) }));
   fs.appendChild(ul);
   fs.appendChild(el('small', { className: 'prohelp', textContent: t('h_pro') + (!P.ok && P.free_import ? ' ' + t('pro_free_import') : '') }));
   const row = el('div', { className: 'bkrow prorow' });
@@ -5118,6 +5120,32 @@ function haPop(h) {                                  // Sensor aus Home Assistan
   ta.onkeydown = e => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); save(ta.value.trim()); } };
   d.showModal(); setTimeout(() => ta.focus(), 50);
 }
+/* Notizbereich abdocken (Pro): eigenes Fenster, das über anderen Programmen liegt (Chrome/Edge: „Bild-im-Bild“-Fenster, sonst ein kleines Zusatzfenster) */
+async function fnPop() {
+  if (!PRO.ok) { proGate('pop'); return; }
+  if (FNPOP && !FNPOP.closed) { try { FNPOP.focus(); } catch (e) { } return; }
+  const panel = $('fnpanel'); if (!panel) return;
+  let w = null, pip = false;
+  try { if (window.documentPictureInPicture) { w = await documentPictureInPicture.requestWindow({ width: 460, height: 360 }); pip = true; } } catch (e) { w = null; }
+  if (!w) { try { w = window.open('', 'gl_note', 'popup=yes,width=480,height=380'); } catch (e) { w = null; } }
+  if (!w) { alert(t('pop_fail')); return; }
+  const doc = w.document;
+  doc.title = 'GasLighter – ' + t('fn_btn');
+  const vp = doc.createElement('meta'); vp.name = 'viewport'; vp.content = 'width=device-width,initial-scale=1'; doc.head.appendChild(vp);
+  for (const l of document.querySelectorAll('link[rel=stylesheet]')) { const n = doc.createElement('link'); n.rel = 'stylesheet'; n.href = l.href; doc.head.appendChild(n); }
+  doc.documentElement.className = document.documentElement.className;
+  for (const at of document.documentElement.attributes) if (at.name.startsWith('data-')) doc.documentElement.setAttribute(at.name, at.value);
+  doc.body.className = (document.body.className + ' fnpopbody').trim();
+  const parent = panel.parentNode, next = panel.nextSibling;
+  const ph = el('div', { className: 'card fnpph' }); const pb = el('button', { type: 'button', className: 'chip', textContent: t('pop_back') });
+  ph.append(document.createTextNode('📝 ' + t('pop_open') + ' '), pb); parent.insertBefore(ph, panel);
+  doc.body.appendChild(panel); panel.classList.add('inpop'); FNPOP = w;
+  const back = () => { if (FNPOP !== w) return; FNPOP = null; ph.remove(); try { parent.insertBefore(panel, next && next.parentNode === parent ? next : null); } catch (e) { parent.appendChild(panel); } panel.classList.remove('inpop'); };
+  pb.onclick = () => { try { w.close(); } catch (e) { } back(); };
+  w.addEventListener('pagehide', back);
+  addEventListener('pagehide', () => { try { w.close(); } catch (e) { } });
+  const tx = doc.getElementById('fnptext'); if (tx) setTimeout(() => tx.focus(), 100);
+}
 function fnOpen(n) {
   FN.fromPanel = false; FN.edit = n && n.id ? n : null; FN.tags = new Set((n && n.tags) || []);
   $('fnfrom').value = n && n.from ? dtl(new Date(n.from)) : dtl(new Date(nowServer()));     // „von“ = Zeitpunkt des Öffnens
@@ -5225,6 +5253,7 @@ function initFnp() {
   if (!$('fnpanel')) return;
   let open = innerWidth >= 700; try { const v = localStorage.getItem('laerm_fnp'); if (v != null) open = v !== '0'; } catch (e) { }   // Handy: zu, damit das Live-Bild oben steht
   fnpFold(open); fnpTags(); fnpSrc(); fnpShow();
+  { const pb = $('fnppop'); if (pb) pb.onclick = fnPop; }
   $('fnptog').onclick = () => { const o = $('fnpbody').hidden; fnpFold(o); if (o) $('fnptext').focus(); };
   $('fnptext').addEventListener('input', () => { if ($('fnptext').value.trim()) fnpStart(); });
   $('fnprun').onchange = () => { fnpStart(); fnpShow(); };

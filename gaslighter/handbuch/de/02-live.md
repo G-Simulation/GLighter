@@ -54,6 +54,8 @@ Für das, was du gerade hörst – einfach lostippen oder Merkmale antippen (obe
 - **Ohne eigene Uhrzeit**: Liegt kurz vorher eine Störung (Einstellung „Notiz zuordnen“, Standard 5 min), gilt die Notiz für sie. Die Leiste zeigt vorher, wohin sie kommt.
 - **läuft noch**: Die Notiz bekommt einen Zeitraum von der ersten Eingabe bis zum Speichern.
 - **Mehr …** öffnet den Dialog mit von/bis, Gerät und Zeuge.
+
+**Abdocken (Pro):** Mit **⧉** neben dem Titel löst du den Notizbereich als eigenes kleines Fenster heraus. In Chrome und Edge bleibt es über anderen Programmen liegen (z. B. über einem Spiel oder Film), sonst ist es ein normales Zusatzfenster. **Zurückholen** oder das Fenster schließen setzt ihn wieder ein.
 - [[Strg]] + [[Enter]] speichert. Am Handy ist die Leiste zunächst zugeklappt.
 
 ## 🏷 Bereich markieren {#markieren}

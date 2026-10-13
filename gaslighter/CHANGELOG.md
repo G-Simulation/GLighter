@@ -1,5 +1,8 @@
 # Changelog
 
+## 1.51.0
+- **Pro: Notizbereich abdocken.** Der Button ⧉ im Notizbereich löst ihn als eigenes kleines Fenster heraus. In Chrome und Edge ist es ein Bild-im-Bild-Fenster, das über anderen Programmen liegen bleibt (verschiebbar, Größe änderbar); sonst ein normales Zusatzfenster. „Zurückholen“ oder Schließen setzt den Bereich wieder ein.
+
 ## 1.50.18
 - Live-Verlauf: Kurze Zeitfenster (Live-Puffer) und lange Zeitfenster (Tagesaufzeichnung) sehen jetzt **gleich** aus: gleiche Farbe und gleiche Achsenbeschriftung (ohne „dB“-Zusatz) bei jedem Zoom.
 
