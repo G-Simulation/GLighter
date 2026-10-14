@@ -32,7 +32,7 @@ HERE = os.path.dirname(os.path.abspath(__file__))
 WEB = os.path.join(HERE, "web")
 OPTIONS_FILE = os.environ.get("LAERM_OPTIONS", "/data/options.json")
 SETTINGS_FILE = os.environ.get("LAERM_SETTINGS", "/data/settings.json")
-VERSION = "1.53.1"
+VERSION = "1.54.0"
 
 # =====================================================================
 # Einstellungen
@@ -1451,7 +1451,7 @@ def ha_heal(rules, now_ms):
             pass
         tmp = f + ".tmp"
         with open(tmp, "w", newline="", encoding="utf-8") as fh:
-            w = csv.writer(fh); w.writerow(head); w.writerows(body)
+            w = csv.writer(fh); w.writerow(head); w.writerows(body); fh.flush(); os.fsync(fh.fileno())
         os.replace(tmp, f)
     return fixed
 
@@ -1470,6 +1470,7 @@ def ha_hist_add(rule, label, state, on, at_ms=None):
                 w.writerow(["zeit", "regel", "name", "entitaet", "zustand", "an", "geraet"])
             when = dt.datetime.fromtimestamp(at_ms / 1000.0).astimezone() if at_ms else dt.datetime.now().astimezone()
             w.writerow([when.isoformat(timespec="milliseconds"), rule["id"], label, rule["entity"], str(state)[:60], 1 if on else 0, rule["src"]])
+            fh.flush(); os.fsync(fh.fileno())
     except OSError as e:
         log("Home-Assistant-Zustand nicht gespeichert:", e)
 
@@ -3609,6 +3610,8 @@ def fp_load(sid, day):
         raw = open(p, "rb").read()
     except OSError:
         return None
+    lo_, hi_ = day_window(p)
+    raw, _sk = realign_records(raw, FP_REC.size, lo_, hi_)
     n = len(raw) // FP_REC.size
     if not n:
         return None
@@ -3674,6 +3677,7 @@ def fp_worker():
             for (sid, day), recs in buf.items():
                 try:
                     os.makedirs(day_dir(), exist_ok=True)
+                    pad_tail(fp_path(sid, day), FP_REC.size)
                     with open(fp_path(sid, day), "ab") as fh:
                         fh.write(b"".join(recs))
                 except OSError as e:
@@ -5240,7 +5244,7 @@ def run_note_set(key, text):
             d.pop(key, None)
         tmp = run_notes_path() + ".tmp"
         with open(tmp, "w", encoding="utf-8") as f:
-            json.dump(d, f, ensure_ascii=False, indent=1)
+            json.dump(d, f, ensure_ascii=False, indent=1); f.flush(); os.fsync(f.fileno())
         os.replace(tmp, run_notes_path())
     log("Unterbrechung " + key + ": Kommentar " + ("gesetzt" if text else "entfernt"))
     return {"ok": True, "key": key, "note": text}
@@ -5271,7 +5275,7 @@ def run_ack_set(keys, on):
                 d.pop(k, None)
         tmp = run_acks_path() + ".tmp"
         with open(tmp, "w", encoding="utf-8") as f:
-            json.dump(d, f, ensure_ascii=False, indent=1)
+            json.dump(d, f, ensure_ascii=False, indent=1); f.flush(); os.fsync(f.fileno())
         os.replace(tmp, run_acks_path())
     return {"ok": True, "n": len(keys)}
 
@@ -7317,6 +7321,61 @@ SPEC_MAGIC = b"LTS1"
 SPEC_MAGIC2 = b"LTS2"     # wie LTS1, Zeitabstaende aber 4 Byte (Pausen ueber 65 s innerhalb einer Stunde)
 
 
+_PADDED = set()
+
+
+def pad_tail(path, rl):
+    """Datei mit festen Datensaetzen: ein beim Stromausfall halb geschriebener letzter Satz wuerde alle spaeter angehaengten
+    verschieben. Deshalb vor dem ersten Anhaengen nach dem Start mit Nullen auffuellen (nichts wird geloescht)."""
+    if path in _PADDED:
+        return
+    try:
+        sz = os.path.getsize(path)
+        if sz % rl:
+            with open(path, "ab") as fh:
+                fh.write(b"\0" * (rl - sz % rl))
+            log("Datei nach Unterbrechung aufgefuellt:", os.path.basename(path))
+    except OSError:
+        pass
+    if len(_PADDED) > 500:
+        _PADDED.clear()
+    _PADDED.add(path)
+
+
+def day_window(path):
+    """Plausibler Zeitbereich (ms) einer Tagesdatei aus ihrem Namen: der Tag +- 1 Tag."""
+    try:
+        d = dt.datetime.combine(dt.date.fromisoformat(os.path.basename(path)[:10]), dt.time())
+        t0 = int(d.timestamp() * 1000)
+        return t0 - 86400000, t0 + 2 * 86400000
+    except (ValueError, OSError):
+        return 1, 1 << 62
+
+
+def realign_records(raw, rl, t_lo, t_hi):
+    """Feste Datensaetze (Zeit als <i8 am Anfang): Verschobenes/Beschaedigtes (z. B. nach Stromausfall mitten im Satz)
+    ueberspringen und ab dem naechsten gueltigen Satz weiterlesen. Rueckgabe: (bereinigte Bytes, uebersprungene Bytes)."""
+    n = len(raw)
+    if not n:
+        return raw, 0
+    a = np.frombuffer(raw[:n // rl * rl], dtype=np.uint8).reshape(-1, rl)
+    t = a[:, :8].copy().view("<i8").reshape(-1)
+    good = (t >= t_lo) & (t < t_hi)
+    if good.all() and n % rl == 0:
+        return raw, 0
+    out, pos, skipped = [], 0, 0
+    ok = lambda p: p + rl <= n and t_lo <= int.from_bytes(raw[p:p + 8], "little", signed=True) < t_hi
+    while pos + rl <= n:
+        if ok(pos):
+            st = pos
+            while ok(pos):
+                pos += rl
+            out.append(raw[st:pos])
+        else:
+            pos += 1; skipped += 1
+    return b"".join(out), skipped + (n - pos)
+
+
 def spec_write(sid, frames):
     """Spektrum (23 Terzbaender je 125 ms) zunaechst roh je Stunde anhaengen (absturzsicher), zur vollen Stunde verdichtet (spec_pack)."""
     by = {}
@@ -7326,7 +7385,8 @@ def spec_write(sid, frames):
             by.setdefault((t.date().isoformat(), t.hour), []).append(f)
     with SPEC_LOCK:
         for (day, hour), fr in by.items():
-            with open(spec_part(sid, day, hour), "ab") as fh:
+            sp_ = spec_part(sid, day, hour); pad_tail(sp_, 8 + len(Terz.CENTERS))
+            with open(sp_, "ab") as fh:
                 fh.write(b"".join(int(f[0]).to_bytes(8, "little") + bytes(f[7]) for f in fr))
 
 
@@ -7336,6 +7396,8 @@ def spec_read_part(path):
         raw = open(path, "rb").read()
     except OSError:
         return np.zeros(0, np.int64), np.zeros((0, nb), np.uint8)
+    lo_, hi_ = day_window(path)
+    raw, _sk = realign_records(raw, rl, lo_, hi_)
     n = len(raw) // rl
     a = np.frombuffer(raw[:n * rl], dtype=np.uint8).reshape(n, rl)
     return a[:, :8].copy().view("<i8").reshape(n), a[:, 8:].copy()
@@ -7387,9 +7449,8 @@ def spec_load(sid, day):
         T.extend(pc[1]); B.extend(pc[2]); p = None
     if p and psz >= 0:
         try:
-            with gzip.open(p, "rb") as fh:
-                raw = fh.read()
-        except (OSError, EOFError, zlib.error):
+            raw, _bad = gz_bytes(p)
+        except OSError:
             raw = b""
         i = 0
         while i + 16 <= len(raw) and raw[i:i + 4] in (SPEC_MAGIC, SPEC_MAGIC2):
@@ -7470,23 +7531,36 @@ def chain_spec_bytes(ts_list, bands_list):
     return b"".join(int(t).to_bytes(8, "little") + bytes(b) for t, b in zip(ts_list, bands_list))
 
 
+HEX64 = re.compile(r"[0-9a-f]{64}")
+
+
 def chain_add(sid, day, m, line, spec_frames):
     with CHAIN_LOCK:
         key = (sid, day)
         prev = CHAIN.get(key)
+        cf = chain_file(sid, day)
+        need_nl = False
         if prev is None:
             prev = chain_seed(sid, day)
             try:
-                with open(chain_file(sid, day), "rb") as fh:
-                    fh.seek(0, 2); n = fh.tell(); fh.seek(max(0, n - 200))
-                    last = fh.read().decode(errors="replace").strip().splitlines()
-                if last:
-                    prev = last[-1].split()[1]
-            except (OSError, IndexError):
+                with open(cf, "rb") as fh:
+                    fh.seek(0, 2); n = fh.tell(); fh.seek(max(0, n - 600))
+                    tail = fh.read()
+                need_nl = bool(tail) and not tail.endswith(b"\n")      # halb geschriebene letzte Zeile (Stromausfall): auf neue Zeile schreiben
+                for ln in reversed(tail.decode(errors="replace").splitlines()):   # letzte vollstaendige Summe, ein abgeschnittener Rest zaehlt nicht
+                    pts = ln.split()
+                    if len(pts) >= 2 and HEX64.fullmatch(pts[1]):
+                        prev = pts[1]; break
+            except OSError:
                 pass
         h = hashlib.sha256(prev.encode() + line.encode() + chain_spec_bytes([f[0] for f in spec_frames], [f[7] for f in spec_frames])).hexdigest()
-        with open(chain_file(sid, day), "a") as fh:
-            fh.write(f"{m} {h}\n")
+        with open(cf, "a") as fh:
+            fh.write(("\n" if need_nl else "") + f"{m} {h}\n")
+            fh.flush()
+            try:
+                os.fsync(fh.fileno())
+            except OSError:
+                pass
         CHAIN[key] = h
         if len(CHAIN) > 64:
             CHAIN.pop(next(iter(CHAIN)))
@@ -7564,9 +7638,11 @@ def chain_check_full(sid, day):
         return {"ok": True, "n": 0, "bad": None, "head": "", "none": True}
     try:
         with open(cf) as fh:
-            links = [l.split() for l in fh if l.strip()]
+            links_all = [l.split() for l in fh if l.strip()]
     except OSError:
         return {"ok": None, "n": 0, "bad": None, "head": "", "none": True}
+    links = [l for l in links_all if len(l) >= 2 and HEX64.fullmatch(l[1])]            # beim Stromausfall abgeschnittene Summe: nicht pruefbar, Minute merken
+    torn = {int(l[0]) for l in links_all if l and l[0].lstrip("-").isdigit() and not (len(l) >= 2 and HEX64.fullmatch(l[1]))}
     lines = []
     try:
         lines, _bad = gz_lines(dp)                      # ein beim Stromausfall halb geschriebener Block wird uebersprungen statt den ganzen Tag zu verwerfen
@@ -7592,6 +7668,8 @@ def chain_check_full(sid, day):
             if j is None:
                 return {"ok": False, "n": n, "bad": int(m_s), "head": links[-1][1], "none": False, "missing": True, "segs": segs}
             li = j
+        while li < len(lines) and lm[li] is not None and lm[li] < int(m_s) and lm[li] in torn:   # Minute, deren Summe beim Stromausfall abgeschnitten wurde
+            li += 1
         if li >= len(lines):
             return {"ok": False, "n": n, "bad": int(m_s), "head": links[-1][1], "none": False, "missing": True, "segs": segs}
         line = lines[li]
@@ -7639,10 +7717,10 @@ def _day_parse(text_lines):
             "dom": np.asarray(cols[8], np.float64), "cen": np.asarray(cols[9], np.float64)}
 
 
-def gz_lines(path):
-    """Tagesdatei (je Minute ein gzip-Block) lesen und einen beschaedigten Block ueberspringen. Bricht der Strom mitten im
-    Schreiben ab, bleibt ein halber Block zurueck; danach angehaengte Bloecke (nach dem Neustart) waeren mit gzip.open nicht mehr
-    lesbar. Hier wird ab dem naechsten gzip-Kopf weitergelesen. Die Datei selbst wird nie veraendert. Rueckgabe: (Zeilen, uebersprungene Bloecke)."""
+def gz_bytes(path):
+    """gzip-Datei aus aneinandergehaengten Bloecken lesen und einen beschaedigten Block ueberspringen. Bricht der Strom mitten
+    im Schreiben ab, bleibt ein halber Block zurueck; danach angehaengte Bloecke (nach dem Neustart) waeren mit gzip.open nicht mehr
+    lesbar. Hier wird ab dem naechsten gzip-Kopf weitergelesen. Die Datei selbst wird nie veraendert. Rueckgabe: (Bytes, uebersprungene Bloecke)."""
     with open(path, "rb") as fh:
         raw = fh.read()
     mv, n, pos, bad, parts = memoryview(raw), len(raw), 0, 0, []
@@ -7665,7 +7743,13 @@ def gz_lines(path):
         if nxt < 0:
             break
         pos = nxt
-    return b"".join(parts).decode("utf-8", "replace").splitlines(), bad
+    return b"".join(parts), bad
+
+
+def gz_lines(path):
+    """Wie gz_bytes, als Textzeilen. Rueckgabe: (Zeilen, uebersprungene Bloecke)."""
+    data, bad = gz_bytes(path)
+    return data.decode("utf-8", "replace").splitlines(), bad
 
 
 def day_load(path):

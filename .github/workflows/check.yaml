@@ -1,5 +1,6 @@
 # Prüfung bei jedem Push und Pull Request: Python übersetzbar, JavaScript gültig, alle Texte auf Deutsch
-# und Englisch, Handbuch (App, DOCS.md, docs/) aus denselben Quellen erzeugt, Lizenzprüfung funktioniert.
+# und Englisch, Handbuch (App, DOCS.md, docs/) aus denselben Quellen erzeugt, Lizenzprüfung funktioniert,
+# Regressionstests der Datenpfade und ein Oberflächen-Rauchtest im Browser.
 name: Prüfung
 
 on:
@@ -40,7 +41,24 @@ jobs:
           assert L.check("GL1-AAAAA")["state"] == "invalid" and len(L.PUBLIC_KEY_HEX) == 64
           print("ok")
           PY
+      - name: Regressionstests (Tagesdatei, Kette, Home Assistant, Meldungen)
+        run: |
+          pip install numpy
+          cd gaslighter && python -m unittest discover -s tests -v
       - name: Version in config.yaml und laerm.py gleich
         run: |
           a=$(grep -oP '^version: "\K[^"]+' gaslighter/config.yaml); b=$(grep -oP '^VERSION = "\K[^"]+' gaslighter/app/laerm.py)
           echo "config.yaml $a, laerm.py $b"; test "$a" = "$b"
+
+  oberflaeche:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Oberflächen-Rauchtest (Browser)
+        run: |
+          pip install numpy playwright
+          playwright install --with-deps chromium
+          cd gaslighter && python tests/smoke_ui.py

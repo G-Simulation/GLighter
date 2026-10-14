@@ -1,5 +1,11 @@
 # Changelog
 
+## 1.54.0
+- Stromausfall, alle Dateien: Spektrum- (`.lts` und laufende Stunde), Fingerabdruck- und Prüfsummen-Datei werden nach einem Ausfall vollständig weitergelesen. Verschobene oder halbe Datensätze werden übersprungen, neue Datensätze beginnen wieder sauber (nichts wird gelöscht, nur mit Nullen aufgefüllt). Eine abgeschnittene Prüfsumme gilt nicht mehr als Fehler.
+- Wichtige kleine Dateien (Unterbrechungs-Notizen, gelesen-Markierungen, Home-Assistant-Zustand, Prüfsummen) werden nach jedem Schreiben auf den Datenträger gesichert.
+- Browser-Tab zeigt jetzt das Ohr-Symbol (vorher fehlendes Icon, 404).
+- Neu im Repository: Regressionstests (`gaslighter/tests/`) für Tagesdatei, Prüfsummen-Kette, Home-Assistant-Abgleich und Meldungen sowie ein Oberflächen-Rauchtest; sie laufen bei jedem Push in GitHub.
+
 ## 1.53.1
 - Live-Verlauf mit sehr langem Zeitfenster (über 14 Tage): Die Suche nach unbekannten Lücken in den Tagesdateien entfällt dort, damit das Zoomen nicht ausgebremst wird. Protokolle und Bericht prüfen weiter vollständig.
 
