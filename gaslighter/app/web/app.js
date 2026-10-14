@@ -621,10 +621,49 @@ function upDraw(e, dk, mkData, x0, x1, y0, y1) {
     u.setScale('y', { min: y0, max: y1 });
   });
 }
+/* Live-Pegelspur: KI-Symbole oben, Sensor-Fähnchen und rote Marken unten – wie im Verlauf, auch beim Zoomen */
+const LOV = { el: { cv: 'main' }, data: null, key: '', at: 0, busy: false, ahits: [] };
+function lovFetch(t0, t1) {
+  const now = Date.now(), key = selSrc + '|' + Math.round(t0 / 2000) + '|' + Math.round(t1 / 2000);
+  if (LOV.busy || (key === LOV.key && now - LOV.at < 5000)) return;
+  LOV.busy = true; LOV.key = key; LOV.at = now;
+  const date = isoDay(new Date(t1));
+  fetch('daytrack?src=' + encodeURIComponent(selSrc || 'main') + '&date=' + date + '&n=60&free=1&nospec=1&from=' + Math.floor(t0) + '&to=' + Math.ceil(t1), { cache: 'no-store' })
+    .then(r => r.json()).then(j => { LOV.data = j && (j.art || j.subs || j.ha) ? j : null; }).catch(() => { }).finally(() => { LOV.busy = false; });
+}
+function lovHas() { const r = LOV.data; return !!(r && ((r.art || []).length || (r.subs || []).length || (r.ha || []).some(a => a[5] === 'event' || a[5] === 'note'))); }
+function lovDraw(c, X, L, T, pw, ph, d, t0, t1) {
+  LOV.ahits = []; const r = LOV.data; if (!r) return;
+  const span = t1 - t0, haV = (r.ha || []).filter(a => a[5] !== 'pause' && a[5] !== 'quiet' && !SHIDE.has('ha:' + a[2]) && a[1] >= t0 && a[0] <= t1), haLane = haLanes(haV);
+  c.save(); c.beginPath(); c.rect(L, 0, pw, T + ph + 12 * d); c.clip();
+  for (const a of haV) {                               // Fähnchen oben im Bild, gestrichelte Linie ab Oberkante des Fähnchens, rote Marke unter dem Bild
+    const x0 = X(Math.max(a[0], t0)), x1 = Math.max(X(Math.min(a[1], t1)), x0 + 3 * d), hb = a[7] ? 2 : 1, ly = T + (haLane.get(a[2]) || 0) * 6 * d;
+    const ev = a[5] === 'event', col = ev ? sensCol(a) : '#1c7ed6';
+    if (ev) { c.fillStyle = ca(NC.red || '#e03131', 0.10); c.fillRect(x0, T, x1 - x0, ph);
+      c.strokeStyle = ca(NC.red || '#e03131', 0.75); c.lineWidth = hb * d; c.setLineDash([3 * d, 3 * d]); c.beginPath(); c.moveTo(x0 + 0.5 * d, ly); c.lineTo(x0 + 0.5 * d, T + ph); c.stroke(); c.setLineDash([]); }
+    c.fillStyle = col; c.fillRect(x0, ly, x1 - x0, (a[4] ? 5 : 4) * d * hb);
+    if (ev) { c.fillRect(x0, ly, 2 * d * hb, 12 * d * hb); c.fillStyle = NC.red || '#e03131'; c.fillRect(x0 - 1 * d * hb, T + ph + 1 * d, Math.max(3 * d, x1 - x0), (a[7] ? 8 : 4) * d); }
+  }
+  c.restore();
+  const y0 = T - 20 * d, fine = r.fine || {}; let lastX = -1e9;
+  c.save(); c.beginPath(); c.rect(L - 10 * d, 0, pw + 20 * d, T); c.clip(); c.textAlign = 'center'; c.font = (12 * d) + 'px system-ui';
+  const icon = (xx, g, ic, nm, col) => {
+    if (ART_MUTE.has(g)) return; const hs = ART_HI.has(g) ? 2 : 1;
+    c.fillStyle = col; c.fillRect(xx - 0.75 * d * hs, y0 + 14 * d, 1.5 * d * hs, T - y0 - 14 * d);
+    if (xx - lastX <= 16 * d * hs) return;
+    c.font = (12 * hs * d) + 'px system-ui'; c.fillText(ic, xx, y0 + 12 * d); c.font = (12 * d) + 'px system-ui';
+    LOV.ahits.push({ x: xx / d, y: (y0 + 6 * d) / d, w: 12 * hs, g, n: nm, i: ic }); lastX = xx;
+    if (nm && span <= 20 * 60000) { c.font = '600 ' + (9.5 * d) + 'px system-ui'; c.textAlign = 'left'; c.fillText(nm, xx + 8 * d * hs, y0 + 11 * d); c.textAlign = 'center'; c.font = (12 * d) + 'px system-ui'; lastX = xx + c.measureText(nm).width; }
+  };
+  if ((r.subs || []).length) for (const x of r.subs) { const xx = X(x[0]); if (xx < L || xx > L + pw) continue; const f = fine[x[1]] || { icon: '❓', group: 'other', name: x[1] }; icon(xx, f.group, f.icon, f.name, ART_HEX[f.group] || NC.mut); }
+  else for (const a of r.art || []) { const xx = X(a[0]); if (xx < L || xx > L + pw) continue; if (a[3]) continue; icon(xx, a[1], ART_ICON[a[1]] || '❓', artName(a[1]), ART_HEX[a[1]] || NC.mut); }
+  c.restore();
+}
 function drawLevel(cv, t0, t1) {
   fit(cv);
   const d = DPR(), c = cv.getContext('2d'), w = cv.width, h = cv.height;
-  const L = AXL() * d, R = 14 * d, T = 10 * d, B = 22 * d, pw = w - L - R, ph = h - T - B;   // unten Platz für die Zeitachse
+  lovFetch(t0, t1); const ov = lovHas() ? 1 : 0, Tp = ov ? 30 : 10; LOV.geo = [Tp, ov ? 30 : 22];   // oben Platz für KI-Symbole und Fähnchen
+  const L = AXL() * d, R = 14 * d, T = Tp * d, B = (ov ? 30 : 22) * d, pw = w - L - R, ph = h - T - B;   // unten Platz für die Zeitachse (und rote Marken)
   const X = ts => L + pw * (ts - t0) / (t1 - t0);
   const i0 = Math.max(0, lowerBound(t0 - 200)), i1 = Math.min(recs.length - 1, lowerBound(t1 + 200));
   // Auto-Zoom
@@ -645,7 +684,7 @@ function drawLevel(cv, t0, t1) {
   const Y = v => T + ph * (1 - clamp((v - yv.lo) / (yv.hi - yv.lo), 0, 1));
   c.clearRect(0, 0, w, h);
   // Raster, Achsen, Pegel, Hintergrund, Schwelle: uPlot
-  const up = upGet(cv, { kind: 'lvl', L: AXL(), R: 14, T: 10, B: 22, pal: livePal });
+  const up = upGet(cv, { kind: 'lvl', L: AXL(), R: 14, T: Tp, B: ov ? 30 : 22, pal: livePal });
   up.u.setSeries(1, { show: !!LAY.lvl }); up.u.setSeries(2, { show: !!LAY.bg }); up.u.setSeries(3, { show: !!LAY.thr });
   upDraw(up, recs.length + ':' + (recs.length ? recs[0].s + ':' + recs[recs.length - 1].s : ''), liveLvlData, t0, t1, yv.lo, yv.hi);
   if (i1 < i0) return;
@@ -669,6 +708,7 @@ function drawLevel(cv, t0, t1) {
     c.strokeStyle = C.acc; c.globalAlpha = 1 - p; c.lineWidth = 1.5 * d; c.beginPath(); c.arc(x, y, (4 + 9 * p) * d, 0, 7); c.stroke(); c.globalAlpha = 1;
   }
   c.restore();
+  lovDraw(c, X, L, T, pw, ph, d, t0, t1);
   // Beschriftung rechts
   if (lr) {
     c.font = '600 ' + (11 * d) + 'px system-ui'; c.textAlign = 'right';
@@ -1088,7 +1128,7 @@ function bindCanvas(cv, isSpec) {
     } else {
       const f = Math.exp(clamp(dy, -300, 300) * (e.ctrlKey ? 0.008 : 0.0014));   // Mausrad-Raster ≈ 15 %, Touchpad fein
       if (view.mode === 'level') {
-        const r = cv.getBoundingClientRect(), ph = r.height - 32, fy = clamp((e.clientY - r.top - 10) / ph, 0, 1);
+        const r = cv.getBoundingClientRect(), g_ = view.mode === 'level' ? LOV.geo || [10, 22] : [10, 22], ph = r.height - g_[0] - g_[1], fy = clamp((e.clientY - r.top - g_[0]) / ph, 0, 1);
         zoomY(f, yv.hi - fy * (yv.hi - yv.lo));
       } else zoomY(f);
     }
@@ -4362,7 +4402,7 @@ function artHiPop(g, name, icon, ev) {
 }
 document.addEventListener('click', e => {
   const cv = e.target; if (!cv || cv.tagName !== 'CANVAS') return;
-  for (const S of [DT, ...(DT.subs || [])]) { if (!S || !S.ahits || !S.el || $(S.el.cv) !== cv) continue;
+  for (const S of [DT, ...(DT.subs || []), LOV]) { if (!S || !S.ahits || !S.el || $(S.el.cv) !== cv) continue;
     const rc = cv.getBoundingClientRect(), x = e.clientX - rc.left, y = e.clientY - rc.top;
     const h = S.ahits.find(q => Math.abs(q.x - x) <= q.w * 0.7 + 3 && Math.abs(q.y - y) <= q.w * 0.9 + 3);
     if (h) { e.stopPropagation(); artHiPop(h.g, h.n, h.i, e); return; } }
@@ -5309,7 +5349,8 @@ function fnMarks(c, list, X, T, ph, L, pw, d, wide) {
 }
 function drawFnLive(cv, t0, t1) {
   if (!FN.list.length) return;
-  const d = DPR(), c = cv.getContext('2d'), w = cv.width, h = cv.height, L = AXL() * d, R = 14 * d, T = 10 * d, B = 22 * d, pw = w - L - R, ph = h - T - B;
+  const g_ = view.mode === 'level' && LOV.geo ? LOV.geo : [10, 22];
+  const d = DPR(), c = cv.getContext('2d'), w = cv.width, h = cv.height, L = AXL() * d, R = 14 * d, T = g_[0] * d, B = g_[1] * d, pw = w - L - R, ph = h - T - B;
   const src = selSrc; fnMarks(c, FN.list.filter(n => (n.src || 'all') === 'all' || n.src === src), ts => L + pw * (ts - t0) / (t1 - t0), T, ph, L, pw, d, (t1 - t0) <= 20 * 60000);
 }
 function renderEvFn(list) {

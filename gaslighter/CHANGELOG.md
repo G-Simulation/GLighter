@@ -1,5 +1,8 @@
 # Changelog
 
+## 1.58.0
+- Live-Pegelspur wie im Verlauf: oben die KI-Symbole (anklickbar: hervorheben, ausblenden, nicht melden), Sensor-Fähnchen mit gestrichelter Linie, unten die roten Marken – immer sichtbar, auch beim Zoomen.
+
 ## 1.57.4
 - „Unterbrechungen“ ohne offene Meldungen: eingeklappt, lässt sich aber per Pfeil wieder aufklappen (zeigt dann „Bestätigte anzeigen“).
 - Handbuch neu erzeugt; Oberflächentest angepasst.
