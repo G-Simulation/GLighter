@@ -227,6 +227,56 @@ class NotizAusHA(unittest.TestCase):
         self.assertEqual(len(self.notizen()), 0)
 
 
+class SicherungsZiel(unittest.TestCase):
+    """Tägliche Sicherung: inkrementell, nichts geht verloren, Auslagern lässt Protokolle weiter lesen."""
+    def setUp(self):
+        self.tmp = tempfile.mkdtemp(); self.out = os.path.join(self.tmp, "out"); self.dst = os.path.join(self.tmp, "nas")
+        os.makedirs(os.path.join(self.out, "clips", "tag")); os.makedirs(self.dst)
+        self.f = os.path.join(self.out, "clips", "tag", "mic_2026-01-01.ltd")
+        open(self.f, "wb").write(b"alt" * 1000)
+        self.keep = (laerm.DATA_DIR, laerm.backup_items, laerm.public_settings, dict(laerm.CFG))
+        laerm.DATA_DIR = self.tmp
+        laerm.backup_items = lambda: [("clips/tag/mic_2026-01-01.ltd", self.f)]
+        laerm.public_settings = lambda: {"x": 1}
+        laerm.CFG.update(output_dir=self.out, mirror_dir=self.dst, mirror_offload=False, retention_days=30)
+        os.environ["LAERM_MIRROR_SAMEDEV"] = "1"
+
+    def tearDown(self):
+        laerm.DATA_DIR, laerm.backup_items, laerm.public_settings, cfg = self.keep
+        laerm.CFG.clear(); laerm.CFG.update(cfg); os.environ.pop("LAERM_MIRROR_SAMEDEV", None)
+
+    def test_inkrementell_und_alte_fassung(self):
+        self.assertTrue(laerm.mirror_run("test")); self.assertEqual(laerm.MIRROR["copied"], 2)
+        d = os.path.join(self.dst, "clips", "tag", "mic_2026-01-01.ltd")
+        self.assertEqual(open(d, "rb").read(), b"alt" * 1000)
+        self.assertTrue(laerm.mirror_run("test")); self.assertEqual(laerm.MIRROR["copied"], 0)   # nichts Neues: nichts kopiert
+        old = time.time() - 3 * 86400; os.utime(d, (old, old))
+        open(self.f, "wb").write(b"neu")                       # nachträglich geändert: alte Fassung bleibt im Ziel
+        self.assertTrue(laerm.mirror_run("test"))
+        self.assertEqual(open(d, "rb").read(), b"neu")
+        alts = [x for x in os.listdir(os.path.dirname(d)) if ".alt-" in x]
+        self.assertEqual(len(alts), 1)
+
+    def test_auslagern_liest_weiter(self):
+        old = time.time() - 60 * 86400; os.utime(self.f, (old, old))
+        laerm.CFG["mirror_offload"] = True
+        self.assertTrue(laerm.mirror_run("test"))
+        self.assertTrue(os.path.islink(self.f))
+        self.assertEqual(open(self.f, "rb").read(), b"alt" * 1000)   # Protokolle lesen weiter (aus dem Ziel)
+        self.assertTrue(laerm.mirror_verified(self.f))
+        self.assertTrue(laerm.mirror_run("test"))                   # zweiter Lauf: ausgelagerte Datei bleibt, nichts kaputt
+        self.assertTrue(os.path.isfile(os.path.join(self.dst, "clips", "tag", "mic_2026-01-01.ltd")))
+
+    def test_ziel_fehlt(self):
+        laerm.CFG["mirror_dir"] = os.path.join(self.tmp, "nicht_da")
+        self.assertFalse(laerm.mirror_run("test")); self.assertFalse(laerm.MIRROR["ok"])
+        self.assertFalse(os.path.exists(os.path.join(self.tmp, "nicht_da")))   # legt nichts auf dem eigenen Speicher an
+
+    def test_gleicher_speicher_abgelehnt(self):
+        os.environ.pop("LAERM_MIRROR_SAMEDEV", None)
+        self.assertIn("demselben Speicher", laerm.mirror_check_target(self.dst))
+
+
 class ArtStumm(unittest.TestCase):
     def test_liste(self):
         laerm.CFG["art_silent"] = laerm.clean_value("art_silent", "animal,knock") if hasattr(laerm, "clean_value") else "animal,knock"

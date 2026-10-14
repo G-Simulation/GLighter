@@ -53,7 +53,7 @@ function hbOpen(at) { const th = document.documentElement.getAttribute('data-the
 document.addEventListener('click', e => { const a = e.target.closest && e.target.closest('[data-hb]'); if (!a) return; e.preventDefault(); e.stopPropagation(); hbOpen(a.dataset.hb); });
 const HB_SEC = { s_pro: 'pro', s_thr: 'einstellungen/s_thr', s_time: 'einstellungen/s_time', s_ha: 'home-assistant/regeln', habox: 'home-assistant/regeln', s_sched: 'einstellungen/s_sched', schedbox: 'einstellungen/s_sched',
   s_notes: 'einstellungen/s_notes', s_rec: 'einstellungen/s_rec', s_wav: 'einstellungen/s_wav', s_video: 'einstellungen/s_video', s_misc: 'einstellungen/s_misc', s_audio: 'einstellungen/s_audio',
-  srcbox: 'geraete', srcbox1: 'geraete/karte', calbox: 'geraete/einpegeln', s_cal: 'geraete/einpegeln', pfbox: 'ki/tonprofile', s_prof: 'ki/tonprofile', bkbox: 'sicherung', s_backup: 'sicherung',
+  srcbox: 'geraete', srcbox1: 'geraete/karte', calbox: 'geraete/einpegeln', s_cal: 'geraete/einpegeln', pfbox: 'ki/tonprofile', s_prof: 'ki/tonprofile', bkbox: 'sicherung', s_backup: 'sicherung', s_mirror: 'sicherung/ziel',
   rsbox: 'sicherung/zuruecksetzen', s_reset: 'sicherung/zuruecksetzen', diagset: 'fehlerbehebung', s_diag: 'fehlerbehebung' };
 function toggleHMenu(e) {
   e.stopPropagation(); const m = $('hmenu'); m.hidden = !m.hidden;
@@ -2751,7 +2751,7 @@ function makeCollapsible() {
 function openSec(key) { if (SEC_TAB[key]) setSTab(SEC_TAB[key]); const fs = $('sbody').querySelector(`fieldset[data-sec="${key}"], fieldset#${key}`); if (fs && fs.classList.contains('shut')) fs.querySelector(':scope > legend').click(); return fs; }
 /* Einstellungen in Reitern; Inhalte der Bereiche bleiben unveraendert. Bereiche ohne Reiter (Auswahl des Geraets) stehen in jedem Reiter. */
 const STABS = [['dev', 'st_dev'], ['det', 'st_det'], ['time', 'st_time'], ['save', 'st_save'], ['gen', 'st_gen']];
-const SEC_TAB = { s_pro: 'gen', s_wav: 'save', s_reset: 'gen', rsbox: 'gen', s_prof: 'det', pfbox: 'det', srcbox1: 'dev', diagset: 'gen', s_diag: 'gen', srcbox: 'dev', calbox: 'dev', s_cal: 'dev', s_audio: 'dev', s_thr: 'det', s_time: 'time', s_sched: 'time', schedbox: 'time', s_ha: 'time', habox: 'time', s_notes: 'time', s_rec: 'save', s_video: 'save', s_misc: 'gen', s_backup: 'gen', bkbox: 'gen' };
+const SEC_TAB = { s_pro: 'gen', s_wav: 'save', s_mirror: 'save', s_reset: 'gen', rsbox: 'gen', s_prof: 'det', pfbox: 'det', srcbox1: 'dev', diagset: 'gen', s_diag: 'gen', srcbox: 'dev', calbox: 'dev', s_cal: 'dev', s_audio: 'dev', s_thr: 'det', s_time: 'time', s_sched: 'time', schedbox: 'time', s_ha: 'time', habox: 'time', s_notes: 'time', s_rec: 'save', s_video: 'save', s_misc: 'gen', s_backup: 'gen', bkbox: 'gen' };
 let STAB = 'dev'; try { STAB = localStorage.getItem('laerm_stab') || 'dev'; } catch (e) { }
 if (!STABS.some(x => x[0] === STAB)) STAB = 'dev';
 function applySTab() {
@@ -3171,6 +3171,24 @@ function proGate(feat) {
 }
 function proLockTag() { const s = el('span', { className: 'protag', textContent: '🔒 Pro' }); s.title = t('pro_title'); return s; }
 /* Einstellungen → Allgemein → Pro */
+/* Tägliche Sicherung ins Ziel (Netzlaufwerk/NAS/USB): Stand und „Jetzt sichern“ */
+function mirrorBox() {
+  const b = el('div', { className: 'mirrorbox', id: 'mirrorbox' });
+  const show = m => {
+    m = m || {}; const L = locale(), when = x => x ? new Date(x * 1000).toLocaleString(L, { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' }) : '–';
+    const st = !CUR || !CUR.mirror_dir ? t('mir_none') : m.running ? '⏳ ' + t('mir_running') : m.ok === false ? '⚠ ' + t('mir_err', { e: m.error || '' }) : m.ok ? '✓ ' + t('mir_ok', { a: when(m.last), n: m.files || 0, c: m.copied || 0 }) : t('mir_wait');
+    b.innerHTML = `<div class="${m.ok === false ? 'bad' : ''}">${esc(st)}</div>${m.next ? `<small>${esc(t('mir_next', { a: when(m.next) }))}</small>` : ''}${m.offloaded ? `<small>${esc(t('mir_off', { n: m.offloaded }))}</small>` : ''}
+      <button type="button" class="chip" id="mirnow"${!CUR || !CUR.mirror_dir || m.running ? ' disabled' : ''}>💾 ${esc(t('mir_now'))}</button>`;
+    $('mirnow').onclick = async () => {
+      $('mirnow').disabled = true;
+      try { const r = await (await fetch('mirror_now', { method: 'POST' })).json(); if (!r.ok) { show(Object.assign({}, m, r.mirror || {}, { ok: false, error: r.error })); return; } } catch (e) { toast(t('saveerr')); }
+      poll();
+    };
+  };
+  let n = 0; const poll = async () => { try { const r = await (await fetch('mirror_state', { method: 'POST' })).json(); show(r.mirror); if (r.mirror && r.mirror.running && n++ < 600) setTimeout(poll, 2000); } catch (e) { } };
+  show(MIRROR_ST); poll();
+  return b;
+}
 function proBox() {
   const fs = el('fieldset', { id: 'probox' }); fs.dataset.sec = 's_pro';
   fs.appendChild(el('legend', { textContent: t('s_pro') }));
@@ -3248,6 +3266,7 @@ const FORM = [
     ['min_event_ms', 'num', 0, 2000, 20]]],
   ['s_rec', [['ctx_s', 'num', 0, 120, 1], ['day_layers', 'chk'], ['day_spec', 'chk'], ['fp_store', 'chk'], ['auto_delete', 'chk'], ['retention_days', 'num', 1, 3650, 1]]],
   ['s_wav', [['save_audio', 'chk'], ['audio_novoice', 'chk', 'save_audio'], ['pre_roll_s', 'num', 0, 30, 0.1, 'save_audio'], ['post_roll_s', 'num', 0.1, 60, 0.1, 'save_audio'], ['max_clip_s', 'num', 1, 300, 0.5, 'save_audio'], ['co_record', 'chk', 'save_audio']]],
+  ['s_mirror', [['mirror_dir', 'text'], ['mirror_time', 'time'], ['mirror_offload', 'chk']]],
   ['s_video', [['clip_dir', 'text'], ['video_width', 'num', 0, 3840, 10], ['video_fps', 'num', 1, 30, 1], ['video_crf', 'num', 18, 40, 1]]],
   ['s_notes', [['quiet_from', 'time'], ['quiet_to', 'time'], ['quiet_sunday', 'chk']]],
   ['s_misc', [['classify', 'chk'], ['ki_embed', 'chk'], ['group_pause_s', 'num', 10, 3600, 10], ['fn_assign_min', 'num', 0, 60, 1], ['language', 'sel', ['auto', 'de', 'en'], { auto: 'lauto', de: '#Deutsch', en: '#English' }]]],
@@ -3269,7 +3288,7 @@ function fillPorts(sel, dev, val) {
 /* Pro Geraet einstellbare Werte (wie PER_KEYS im Server) */
 const PER = ['thr_mode', 'offset_db', 'thr_fixed_db', 'min_db', 'thr_max_db', 'bg_window', 'bg_unit', 'bg_stat', 'rise_s', 'fall_s',
   'min_event_ms', 'pre_roll_s', 'post_roll_s', 'max_clip_s', 'active_from', 'active_to', 'save_audio', 'audio_novoice', 'day_track', 'day_layers', 'day_spec', 'fp_store'];
-const GLOBAL_ONLY = ['retention_days', 'auto_delete', 'classify', 'ki_embed', 'ctx_s', 'co_record', 'group_pause_s', 'fn_assign_min', 'clip_dir', 'video_width', 'video_fps', 'video_crf', 'quiet_from', 'quiet_to', 'quiet_sunday'];
+const GLOBAL_ONLY = ['mirror_dir', 'mirror_time', 'mirror_offload', 'retention_days', 'auto_delete', 'classify', 'ki_embed', 'ctx_s', 'co_record', 'group_pause_s', 'fn_assign_min', 'clip_dir', 'video_width', 'video_fps', 'video_crf', 'quiet_from', 'quiet_to', 'quiet_sunday'];
 let DEV = '';                                  // '' = Alle Geraete (Standard), sonst Quellen-ID
 function srcById(id) { return SOURCES.find(s => s.id === id); }
 /* Geräte zum Ansehen: eingerichtete und ehemalige (Daten vorhanden, Gerät nicht mehr eingerichtet, z. B. nach dem Einspielen) */
@@ -3440,7 +3459,7 @@ function applyDevState() {
   const own = !!(DEV && $('devown') && $('devown').checked);
   document.querySelectorAll('#sbody fieldset.ff').forEach(fs => {
     const sec = fs.dataset.sec;
-    fs.classList.toggle('devhide', !!DEV && (sec === 's_misc' || sec === 's_video' || sec === 's_notes' || (sec === 's_audio' && DEV !== 'main')));
+    fs.classList.toggle('devhide', !!DEV && (sec === 's_misc' || sec === 's_mirror' || sec === 's_video' || sec === 's_notes' || (sec === 's_audio' && DEV !== 'main')));
     fs.querySelectorAll('.f[data-key]').forEach(r => {
       const k = r.dataset.key, per = PER.includes(k);
       r.classList.toggle('devhide', !!DEV && GLOBAL_ONLY.includes(k));
@@ -3569,6 +3588,7 @@ function buildForm(base) {
   syncModeRows();
   applyDevState();
   body.appendChild(bkBox()); body.appendChild(rsBox()); body.appendChild(diagBox());
+  { const mf = body.querySelector('fieldset[data-sec="s_mirror"]'); if (mf) mf.appendChild(mirrorBox()); }
   { const misc = body.querySelector('fieldset[data-sec="s_misc"]'); const pb = proBox(); if (misc) misc.before(pb); else body.appendChild(pb); }
   proApplyForm();
   formDirty = false; makeCollapsible();
@@ -3597,7 +3617,7 @@ async function openSettings() {
   try {
     const r = await (await fetch('settings', { cache: 'no-store' })).json();
     if (r.pro && r.pro.state) { PRO = r.pro; proBanner(); }
-    SRC = r.sources || []; CUR = r.settings; SCHED = r.schedule || []; SRC_DET = r.src_details || []; DEF_SRC = r.default_source || ''; initSTabs(); buildForm(CUR); await loadSources(); await plFetch(); buildSources(); applySTab(); $('dlg').showModal();
+    MIRROR_ST = r.mirror || null; SRC = r.sources || []; CUR = r.settings; SCHED = r.schedule || []; SRC_DET = r.src_details || []; DEF_SRC = r.default_source || ''; initSTabs(); buildForm(CUR); await loadSources(); await plFetch(); buildSources(); applySTab(); $('dlg').showModal();
   } catch (e) { $('smsg').textContent = t('saveerr'); }
 }
 async function saveSettings() {
@@ -4101,7 +4121,7 @@ function initNight() {
 
 async function init() {
   applyTheme(); readColors(); buildLUT();
-  try { const r = await (await fetch('settings', { cache: 'no-store' })).json(); CUR = r.settings; SRC = r.sources || []; SCHED = r.schedule || []; if (r.pro && r.pro.state) PRO = r.pro; } catch (e) { }
+  try { const r = await (await fetch('settings', { cache: 'no-store' })).json(); CUR = r.settings; SRC = r.sources || []; SCHED = r.schedule || []; MIRROR_ST = r.mirror || null; if (r.pro && r.pro.state) PRO = r.pro; } catch (e) { }
   pickLang(CUR && CUR.language); dashInit(); tr(); setLive(true); syncRec(null); initHelp();
   proBanner(); setInterval(proLoad, 6 * 3600 * 1000);
   bindCanvas($('main'), false); bindCanvas($('spec'), true);
@@ -4305,6 +4325,7 @@ function haInfo(g) {
 }
 
 /* ================= Ganzer Tag (Tagesspur): im Nachtbericht und in der Live-Ansicht ================= */
+let MIRROR_ST = null;
 const DT = { el: { cv: 'ndcv', hover: 'ndhover', none: 'ndnone', range: 'ndrange', reset: 'ndreset' }, hide: (() => { try { return new Set(JSON.parse(localStorage.getItem('laerm_dthide') || '[]')); } catch (e) { return new Set(); } })(), src: '', date: '', from: null, to: null, data: null, drag: null, req: 0 };
 const LDT = { el: { cv: 'ldcv', hover: 'ldhover', none: 'ldnone', range: 'ldrange' }, live: true, src: '', date: '', from: null, to: null, data: null, drag: null, req: 0, timer: null };
 const LONG_SPAN = s => s > 600;                     // Live-Ansicht: ab 1 h aus der Tagesaufzeichnung
@@ -4626,6 +4647,7 @@ function dtRowsSave(rows) { try { localStorage.setItem('laerm_dtrows', JSON.stri
 /* Ladesymbol über den Grafik-Zeilen, solange Daten geladen werden (erscheint erst nach kurzer Zeit, damit es bei schnellen Antworten nicht flackert) */
 function spinEl() { const d = el('div', { className: 'ldspin' }); d.innerHTML = '<i></i><span>' + esc(t('loading')) + '</span>'; return d; }
 function dtBusy(S, on) {
+  clearTimeout(S._slowT); if (on) S._slowT = setTimeout(() => document.querySelectorAll('.ldspin span').forEach(x => { x.textContent = t('loading_slow'); }), 4000); else document.querySelectorAll('.ldspin span').forEach(x => { x.textContent = t('loading'); });
   if (S === LDT) { const b = $('ldaybox'); if (b) b.classList.toggle('loading', on); return; }
   const box = $('ndmulti'); if (!box) return;
   if (on && !box.querySelector('canvas') && !box.querySelector('.ndph')) { const ph = el('div', { className: 'ndph ndcvw' }); ph.appendChild(spinEl()); box.appendChild(ph); }

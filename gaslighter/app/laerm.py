@@ -48,7 +48,7 @@ DEFAULTS = {
     "active_from": "", "active_to": "", "mqtt": True, "output_dir": "/share/gaslighter", "language": "auto",
     "mic_port": "", "classify": True, "ki_embed": False,
     "clip_dir": "", "video_width": 640, "video_fps": 5, "video_crf": 30,
-    "quiet_from": "22:00", "quiet_to": "06:00", "quiet_sunday": True, "art_silent": "",
+    "quiet_from": "22:00", "quiet_to": "06:00", "quiet_sunday": True, "art_silent": "", "mirror_dir": "", "mirror_time": "03:30", "mirror_offload": False,
 }
 SPEC = {
     # ("num", min, max, Aufloesung): Kommazahlen, auf die Aufloesung gerundet
@@ -62,7 +62,7 @@ SPEC = {
     "active_from": ("time",), "active_to": ("time",), "mqtt": ("bool",), "output_dir": ("str",),
     "language": ("choice", ["auto", "de", "en"]), "mic_port": ("optstr",), "classify": ("bool",), "ki_embed": ("bool",),
     "clip_dir": ("optstr",), "video_width": ("int", 0, 3840), "video_fps": ("int", 1, 30), "video_crf": ("int", 18, 40),
-    "quiet_from": ("time",), "quiet_to": ("time",), "quiet_sunday": ("bool",), "art_silent": ("optstr",),
+    "quiet_from": ("time",), "quiet_to": ("time",), "quiet_sunday": ("bool",), "art_silent": ("optstr",), "mirror_dir": ("optstr",), "mirror_time": ("time",), "mirror_offload": ("bool",),
 }
 # Diese Werte erfordern einen Neustart der Aufnahme
 RESTART_KEYS = {"device", "sample_rate"}
@@ -6651,7 +6651,7 @@ def cleanup():
             glob.glob(clips + "/tag/*" + DAY_EXT) + glob.glob(clips + "/tag/*.lts") + glob.glob(clips + "/tag/*.ltp") + glob.glob(clips + "/tag/*.chk") + \
             glob.glob(clips + "/tag/*" + FP_EXT) + glob.glob(clips + "/scan/*.json") + glob.glob(clips + "/mit/*" + SPUR_EXT) + glob.glob(clips + "/geloescht/mit/*" + SPUR_EXT):
         try:
-            if os.path.getmtime(p) < limit:
+            if os.path.getmtime(p) < limit and (not mirror_target() or mirror_verified(p)):   # mit Sicherungsziel: nur löschen, was dort geprüft liegt
                 os.remove(p)
         except OSError:
             pass
@@ -7213,6 +7213,7 @@ def main():
     threading.Thread(target=audio_watch, daemon=True).start()
     threading.Thread(target=video_worker, daemon=True).start()
     threading.Thread(target=pause_watch, daemon=True).start()
+    threading.Thread(target=mirror_watch, daemon=True).start()
     threading.Thread(target=ha_watch, daemon=True).start()
     if classify is not None:
         threading.Thread(target=art_worker, daemon=True).start()
@@ -8521,6 +8522,214 @@ def backup_write(stream):
     log(f"Sicherung heruntergeladen: {n} Dateien")
 
 
+# =====================================================================
+# Tägliche Sicherung in einen zweiten Ordner (Netzlaufwerk, NAS, USB-Platte)
+# Inkrementell: nur neue oder geänderte Dateien werden kopiert und danach geprüft (SHA-256).
+# Im Ziel wird nie etwas gelöscht; eine dort schon gesicherte Datei, die sich hier nachträglich
+# ändert, bleibt als „….alt-JJJJMMTT-hhmmss“ erhalten. Ist das Ziel nicht erreichbar, holt der
+# nächste Lauf alles Fehlende nach.
+# =====================================================================
+MIRROR = {"running": False, "last": None, "ok": None, "copied": 0, "files": 0, "bytes": 0, "error": "", "next": None}
+MIRROR_LOCK = threading.Lock()
+
+
+def mirror_target():
+    return safe_dir(CFG.get("mirror_dir"))
+
+
+def mirror_index_path():
+    return os.path.join(DATA_DIR, "sicherung_index.json")
+
+
+def mirror_index_load():
+    try:
+        with open(mirror_index_path(), encoding="utf-8") as f:
+            x = json.load(f)
+        return x if isinstance(x, dict) else {}
+    except (OSError, ValueError):
+        return {}
+
+
+def mirror_check_target(d):
+    """Fehlertext oder ''. Das Ziel muss es schon geben (eingebundenes Netzlaufwerk) und darf nicht
+    auf demselben Speicher liegen wie die Daten – sonst würde ein nicht eingebundenes Laufwerk
+    unbemerkt den eigenen Speicher füllen."""
+    if not d:
+        return "kein Ziel"
+    if not os.path.isdir(d):
+        return "Ziel nicht erreichbar: " + d
+    out = paths()[0]
+    try:
+        if os.path.isdir(out) and os.stat(d).st_dev == os.stat(out).st_dev and not os.environ.get("LAERM_MIRROR_SAMEDEV"):
+            return "Ziel liegt auf demselben Speicher wie die Daten (Netzlaufwerk nicht eingebunden?): " + d
+        if os.path.realpath(d).startswith(os.path.realpath(out) + os.sep) or os.path.realpath(out).startswith(os.path.realpath(d) + os.sep):
+            return "Ziel darf nicht im Datenordner liegen (und umgekehrt): " + d
+        t = os.path.join(d, ".gaslighter_schreibtest")
+        with open(t, "w") as f:
+            f.write("ok")
+        os.remove(t)
+    except OSError as e:
+        return f"Ziel nicht beschreibbar: {d} ({e})"
+    return ""
+
+
+def _sha_copy(src, dst_tmp):
+    h = hashlib.sha256(); n = 0
+    with open(src, "rb") as fi, open(dst_tmp, "wb") as fo:
+        while True:
+            b = fi.read(1 << 20)
+            if not b:
+                break
+            h.update(b); fo.write(b); n += len(b)
+        fo.flush(); os.fsync(fo.fileno())
+    return h.hexdigest(), n
+
+
+def _sha_file(p):
+    h = hashlib.sha256()
+    with open(p, "rb") as f:
+        for b in iter(lambda: f.read(1 << 20), b""):
+            h.update(b)
+    return h.hexdigest()
+
+
+def mirror_run(reason="täglich"):
+    d = mirror_target()
+    if not d:
+        MIRROR.update(ok=None, error="")
+        return False
+    if not MIRROR_LOCK.acquire(blocking=False):
+        return False
+    MIRROR.update(running=True, error="")
+    copied = nbytes = 0
+    try:
+        err = mirror_check_target(d)
+        if err:
+            raise OSError(err)
+        idx = mirror_index_load(); items = backup_items()
+        stamp = dt.datetime.now().strftime("%Y%m%d-%H%M%S")
+        for arc, f in [("data/settings.json", None)] + items:
+            if f is None:                               # Einstellungen ohne Geheimnisse (wie in der Sicherung)
+                tmpf = os.path.join(DATA_DIR, ".mirror_settings.json")
+                with open(tmpf, "w", encoding="utf-8") as fo:
+                    json.dump(public_settings(), fo, ensure_ascii=False, indent=1)
+                f = tmpf
+            if os.path.islink(f):
+                continue                                 # schon ausgelagert: liegt nur noch im Ziel
+            try:
+                st = os.stat(f)
+            except OSError:
+                continue
+            dst = os.path.join(d, *arc.split("/"))
+            old = idx.get(arc)
+            sig = [st.st_size, st.st_mtime_ns]
+            if old and old.get("sig") == sig and os.path.isfile(dst) and os.path.getsize(dst) == st.st_size:
+                continue                                 # unverändert und schon gesichert
+            os.makedirs(os.path.dirname(dst), exist_ok=True)
+            tmp = dst + ".tmp-gaslighter"
+            sha, n = _sha_copy(f, tmp)
+            if os.path.isfile(dst):
+                if old and old.get("sha") == sha:
+                    os.remove(tmp); idx[arc] = {"sig": sig, "sha": sha, "f": f, "at": old.get("at")}; continue
+                # schon gesicherte, inzwischen geänderte Datei: alte Fassung bleibt erhalten (wachsende Datei von heute ausgenommen)
+                if old and old.get("sha") and time.time() - os.path.getmtime(dst) > 86400:
+                    os.replace(dst, dst + ".alt-" + stamp)
+            os.replace(tmp, dst)
+            try:
+                os.utime(dst, ns=(st.st_atime_ns, st.st_mtime_ns))   # Zeitstempel wie im Original
+            except OSError:
+                pass
+            if _sha_file(dst) != sha:
+                raise OSError("Prüfsumme im Ziel stimmt nicht: " + arc)
+            idx[arc] = {"sig": sig, "sha": sha, "f": f, "at": int(time.time())}
+            copied += 1; nbytes += n
+        with open(mirror_index_path() + ".tmp", "w", encoding="utf-8") as fo:
+            json.dump(idx, fo)
+        os.replace(mirror_index_path() + ".tmp", mirror_index_path())
+        with open(os.path.join(d, "gaslighter_sicherung.json"), "w", encoding="utf-8") as fo:
+            json.dump({"app": VERSION, "zuletzt": dt.datetime.now().astimezone().isoformat(timespec="seconds"), "dateien": len(idx),
+                       "hinweis": "Inkrementelle Sicherung von GasLighter. Nichts wird hier gelöscht. Einspielen: ZIP aus diesem Ordner packen oder Dateien zurückkopieren."},
+                      fo, ensure_ascii=False, indent=1)
+        off = mirror_offload(d, idx) if CFG.get("mirror_offload") else 0
+        MIRROR.update(ok=True, last=int(time.time()), copied=copied, files=len(idx), bytes=nbytes, offloaded=off)
+        log(f"Sicherung ({reason}) nach {d}: {copied} Datei(en) neu/geändert, {nbytes // 1024} KB, {len(idx)} gesichert")
+        pub(f"{TOPIC}/backup_last", dt.datetime.now().astimezone().isoformat(timespec="seconds"), True)
+        return True
+    except Exception as e:
+        MIRROR.update(ok=False, error=str(e)[:300], copied=copied, bytes=nbytes)
+        log("Sicherung fehlgeschlagen:", e)
+        return False
+    finally:
+        MIRROR["running"] = False
+        MIRROR_LOCK.release()
+
+
+def mirror_offload(d, idx):
+    """Platz sparen: Dateien älter als „Aufbewahren (Tage)“, die geprüft im Ziel liegen, werden hier durch
+    einen Verweis auf die Kopie im Ziel ersetzt. Protokolle, Verlauf und Prüfsummen-Kette lesen dann aus dem
+    Ziel (beim ersten Zugriff ggf. etwas langsamer, wenn das Netzlaufwerk erst aufwacht). Einstellungen,
+    log.csv und Dateien von heute bleiben immer hier."""
+    limit = time.time() - int(CFG.get("retention_days") or 90) * 86400; n = 0; freed = 0
+    for arc, v in list(idx.items()):
+        if not arc.startswith(("out/", "clips/", "video/")) or arc.endswith("/log.csv"):
+            continue
+        f = v.get("f"); dst = os.path.join(d, *arc.split("/"))
+        try:
+            if not f or os.path.islink(f) or not os.path.isfile(f):
+                continue
+            st = os.stat(f)
+            if st.st_mtime >= limit or v.get("sig") != [st.st_size, st.st_mtime_ns] or not os.path.isfile(dst) or os.path.getsize(dst) != st.st_size:
+                continue
+            tmpl = f + ".lnk-gaslighter"
+            if os.path.lexists(tmpl):
+                os.remove(tmpl)
+            os.symlink(dst, tmpl); os.replace(tmpl, f)    # atomar: Original erst weg, wenn der Verweis steht
+            n += 1; freed += st.st_size
+        except OSError as e:
+            log("Auslagern übersprungen:", arc, e)
+    if n:
+        log(f"Ausgelagert: {n} Datei(en), {freed // (1024 * 1024)} MB frei")
+    return n
+
+
+def mirror_verified(p):
+    """True, wenn diese Datei unverändert im Sicherungsziel liegt (für „Automatisch löschen“)."""
+    try:
+        st = os.stat(p)
+    except OSError:
+        return False
+    rp = os.path.realpath(p)
+    for v in mirror_index_load().values():
+        if v.get("f") and os.path.realpath(v["f"]) == rp:
+            return v.get("sig") == [st.st_size, st.st_mtime_ns] and bool(v.get("sha"))
+    return False
+
+
+def mirror_watch():
+    time.sleep(120)
+    last_day = None; last_t = mirror_target()
+    while True:
+        try:
+            if mirror_target() != last_t:                  # anderes Ziel eingestellt: gleich alles hinüber
+                last_t = mirror_target(); MIRROR.update(last=None, ok=None, error="")
+            if mirror_target():
+                now = dt.datetime.now()
+                hh, mm = (str(CFG.get("mirror_time") or "03:30") + ":30").split(":")[:2]
+                due = now.replace(hour=int(hh or 3), minute=int(mm or 30), second=0, microsecond=0)
+                MIRROR["next"] = int((due if now < due else due + dt.timedelta(days=1)).timestamp())
+                if MIRROR["last"] is None:
+                    mirror_run("Start")                      # nach dem Start: Fehlendes nachholen
+                elif now >= due and last_day != now.date():
+                    last_day = now.date(); mirror_run("täglich")
+                elif MIRROR["ok"] is False and time.time() - (MIRROR.get("tried") or 0) > 3600:
+                    MIRROR["tried"] = time.time(); mirror_run("nachholen")   # Ziel war nicht erreichbar: stündlich erneut
+            else:
+                MIRROR["next"] = None
+        except Exception as e:
+            log("Sicherung: Fehler im Zeitplan:", e)
+        time.sleep(60)
+
+
 def merge_json(dst, src):
     """Fehlendes aus src in dst uebernehmen; Vorhandenes bleibt. Listen: nur neue Eintraege anhaengen."""
     if isinstance(dst, dict) and isinstance(src, dict):
@@ -9468,7 +9677,7 @@ class Handler(BaseHandler):
             if name == "settings":
                 src, default = list_sources()
                 return self.js({"settings": public_settings(), "sources": src, "default_source": default, "version": VERSION, "schedule": SCHED,
-                                "src_details": source_details(), "pro": pro_state(),
+                                "src_details": source_details(), "pro": pro_state(), "mirror": {k: v for k, v in MIRROR.items() if k != "tried"},
                                 "supervisor_available": bool(os.environ.get("SUPERVISOR_TOKEN"))})
             if name == "pro":
                 return self.js(pro_state())
@@ -9800,6 +10009,17 @@ class Handler(BaseHandler):
                 if not isinstance(data, dict):
                     return self.js({"ok": False, "error": "bad request"}, 400)
                 return self.js(pro_del() if data.get("action") == "del" else pro_set(str(data.get("key") or "")[:2000]))
+            if name == "mirror_now":                     # Sicherung ins Ziel jetzt starten (läuft im Hintergrund)
+                if not mirror_target():
+                    return self.js({"ok": False, "error": "kein Ziel eingestellt"})
+                err = mirror_check_target(mirror_target())
+                if err:
+                    MIRROR.update(ok=False, error=err)
+                    return self.js({"ok": False, "error": err, "mirror": MIRROR})
+                threading.Thread(target=mirror_run, args=("von Hand",), daemon=True).start()
+                return self.js({"ok": True})
+            if name == "mirror_state":
+                return self.js({"ok": True, "mirror": {k: v for k, v in MIRROR.items() if k != "tried"}})
             if name == "run_ack":                        # Meldungen als gelesen markieren (nur Anzeige)
                 data = json.loads(body or b"{}")
                 if not isinstance(data, dict):

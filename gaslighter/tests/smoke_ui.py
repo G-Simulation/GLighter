@@ -18,9 +18,11 @@ def main():
     json.dump({}, open(os.path.join(tmp, "settings.json"), "w"))
     now = dt.datetime.now().astimezone().replace(microsecond=0)
     iso = lambda d: d.isoformat(timespec="seconds")
-    ev = [{"at": iso(now - dt.timedelta(hours=3)), "kind": "stop"},
-          {"kind": "down", "from": iso(now - dt.timedelta(hours=2)), "to": iso(now - dt.timedelta(hours=1, minutes=30)), "version_new": "9.9"},
-          {"at": iso(now - dt.timedelta(minutes=30)), "kind": "update", "version_old": "9.8", "version_new": "9.9"}]
+    m = (now - now.replace(hour=0, minute=0, second=0)).total_seconds() / 60 - 2      # alles heute, auch kurz nach Mitternacht
+    k = lambda x: dt.timedelta(minutes=x * min(1.0, m / 180))
+    ev = [{"at": iso(now - k(180)), "kind": "stop"},
+          {"kind": "down", "from": iso(now - k(120)), "to": iso(now - k(90)), "version_new": "9.9"},
+          {"at": iso(now - k(30)), "kind": "update", "version_old": "9.8", "version_new": "9.9"}]
     open(os.path.join(data, "laufzeit.jsonl"), "w").write("\n".join(json.dumps(e) for e in ev) + "\n")
     env = dict(os.environ, LAERM_OPTIONS=os.path.join(tmp, "options.json"), LAERM_SETTINGS=os.path.join(tmp, "settings.json"),
                LAERM_SOURCES=os.path.join(data, "sources.json"), LAERM_PORT=str(port), LAERM_ALLOW_ALL="1", LAERM_PHONE_PORT="0")
