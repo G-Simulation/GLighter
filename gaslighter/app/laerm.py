@@ -32,7 +32,7 @@ HERE = os.path.dirname(os.path.abspath(__file__))
 WEB = os.path.join(HERE, "web")
 OPTIONS_FILE = os.environ.get("LAERM_OPTIONS", "/data/options.json")
 SETTINGS_FILE = os.environ.get("LAERM_SETTINGS", "/data/settings.json")
-VERSION = "1.51.9"
+VERSION = "1.52.0"
 
 # =====================================================================
 # Einstellungen
@@ -7386,6 +7386,11 @@ def _day_write(sid, frames):
                           separators=(",", ":"))
         with open(day_path(sid, day), "ab") as fh:
             fh.write(gzip.compress((line + "\n").encode(), compresslevel=6))
+            fh.flush()
+            try:
+                os.fsync(fh.fileno())                       # nach jeder Minute auf den Datentraeger: bei Stromausfall geht hoechstens der laufende Block verloren
+            except OSError:
+                pass
         try:
             chain_add(sid, day, m, line, [f for f in fr if len(f) > 7 and f[7] is not None and len(f[7]) == len(Terz.CENTERS)])
         except Exception as e:
@@ -7574,6 +7579,35 @@ def _day_parse(text_lines):
             "dom": np.asarray(cols[8], np.float64), "cen": np.asarray(cols[9], np.float64)}
 
 
+def gz_lines(path):
+    """Tagesdatei (je Minute ein gzip-Block) lesen und einen beschaedigten Block ueberspringen. Bricht der Strom mitten im
+    Schreiben ab, bleibt ein halber Block zurueck; danach angehaengte Bloecke (nach dem Neustart) waeren mit gzip.open nicht mehr
+    lesbar. Hier wird ab dem naechsten gzip-Kopf weitergelesen. Die Datei selbst wird nie veraendert. Rueckgabe: (Zeilen, uebersprungene Bloecke)."""
+    with open(path, "rb") as fh:
+        raw = fh.read()
+    mv, n, pos, bad, parts = memoryview(raw), len(raw), 0, 0, []
+    while pos < n:
+        d = zlib.decompressobj(31); q = pos; got = []; end = None
+        try:
+            while q < n:
+                seg = mv[q:q + 65536]
+                got.append(d.decompress(seg))
+                if d.eof:
+                    end = q + len(seg) - len(d.unused_data); break
+                q += len(seg)
+        except zlib.error:
+            end = None
+        if end is not None:
+            parts.extend(got); pos = end
+            continue
+        bad += 1
+        nxt = raw.find(b"\x1f\x8b\x08", pos + 1)          # halber Block: ab dem naechsten gzip-Kopf weiter
+        if nxt < 0:
+            break
+        pos = nxt
+    return b"".join(parts).decode("utf-8", "replace").splitlines(), bad
+
+
 def day_load(path):
     """Ganze Tagesdatei als Spalten (numpy). Zwischengespeichert; waechst die Datei, wird nur der neue Teil gelesen."""
     try:
@@ -7596,11 +7630,11 @@ def day_load(path):
     if d is None:
         lines = []
         try:
-            with gzip.open(path, "rt", encoding="utf-8") as fh:
-                for line in fh:
-                    lines.append(line)
-        except (OSError, EOFError, zlib.error) as e:           # z. B. Strom weg mitten im Schreiben: Rest bis dahin gilt
-            log("Tagesspur teilweise lesbar:", os.path.basename(path), e)
+            lines, bad_ = gz_lines(path)                        # z. B. Strom weg mitten im Schreiben: beschaedigten Block ueberspringen, Rest lesen
+            if bad_:
+                log("Tagesspur:", os.path.basename(path), f"{bad_} beschädigter Block übersprungen (Rest gelesen)")
+        except OSError as e:
+            log("Tagesspur nicht lesbar:", os.path.basename(path), e)
         d = _day_parse(lines)
     if len(d["t"]) > 1 and np.any(np.diff(d["t"]) < 0):
         o = np.argsort(d["t"], kind="stable"); d = {k: v[o] for k, v in d.items()}

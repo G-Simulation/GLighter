@@ -1,5 +1,9 @@
 # Changelog
 
+## 1.52.0
+- Stromausfall: Ein beim Ausfall halb geschriebener Minutenblock der Tagesaufzeichnung machte bisher alles dahinter (die Daten nach dem Neustart) unlesbar – der Verlauf zeigte dort nichts. Jetzt wird nur der beschädigte Block übersprungen und ab dem nächsten gelesen. Bereits aufgezeichnete Daten tauchen damit wieder auf; die Dateien selbst und die Prüfsummen-Kette werden nicht verändert.
+- Jede Minute wird nach dem Schreiben auf den Datenträger gesichert, damit bei Stromausfall höchstens der laufende Block verloren geht.
+
 ## 1.51.9
 - Sensor-Ereignisse (Home-Assistant-Regeln): GasLighter gleicht die letzten 24 Stunden alle 10 Minuten mit dem Verlauf von Home Assistant ab und korrigiert verpasste An/Aus-Wechsel in `ha_zustand.csv` (Sicherung als `.bak`). Ein verpasstes „Frei" lässt ein Ereignis nicht mehr stundenlang offen. Aufzeichnung und Prüfsummen-Kette bleiben unberührt.
 - Ein Sensor-Intervall läuft nicht mehr durch eine Zeit ohne Aufzeichnung (Stromausfall, Neustart) hindurch, sondern endet an deren Beginn.
