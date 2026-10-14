@@ -32,7 +32,7 @@ HERE = os.path.dirname(os.path.abspath(__file__))
 WEB = os.path.join(HERE, "web")
 OPTIONS_FILE = os.environ.get("LAERM_OPTIONS", "/data/options.json")
 SETTINGS_FILE = os.environ.get("LAERM_SETTINGS", "/data/settings.json")
-VERSION = "1.51.7"
+VERSION = "1.51.8"
 
 # =====================================================================
 # Einstellungen
@@ -5227,7 +5227,7 @@ def data_gaps(t_from, t_to, downs):
     return out
 
 
-def runtime_info(t_from=None, t_to=None):
+def runtime_info(t_from=None, t_to=None, with_chains=True):
     """Laufzeit-Protokoll des Starters (Start, Stopp, Update, Unterbrechung, Rueckfall) und Pruefsummen-Kette je Geraet und Tag."""
     now = int(time.time() * 1000)
     t_to = t_to or now; t_from = t_from if t_from is not None else t_to - 86400000
@@ -5248,7 +5248,7 @@ def runtime_info(t_from=None, t_to=None):
     day = dt.datetime.fromtimestamp(t_from / 1000.0).date(); d1 = dt.datetime.fromtimestamp(t_to / 1000.0).date()
     with SRC_LOCK:
         names = {r.id: r.name for r in RUNNERS.values()}
-    while day <= d1:
+    while with_chains and day <= d1:
         for f in sorted(glob.glob(os.path.join(day_dir(), f"{day.isoformat()}_*{DAY_EXT}"))):
             sid = os.path.basename(f)[11:-len(DAY_EXT)]
             c = chain_check(sid, day.isoformat())
@@ -9114,7 +9114,7 @@ class Handler(BaseHandler):
                 return self.js(dict(SCAN))
             if name == "runtime":                      # Laufzeit (Start, Update, Unterbrechung) und Pruefsummen-Kette
                 gi = lambda k: int(q[k][0]) if q.get(k) and q[k][0].lstrip("-").isdigit() else None
-                return self.js(runtime_info(gi("from"), gi("to")))
+                return self.js(runtime_info(gi("from"), gi("to"), gi("nochain") != 1))
             if name == "fnotes":                       # freie Notizen eines Zeitraums (ms) fuer das Live-Bild
                 try:
                     a_, b_ = int(q["from"][0]), int(q["to"][0])

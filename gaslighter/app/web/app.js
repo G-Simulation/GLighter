@@ -4261,8 +4261,19 @@ async function dtLoad(S, keep) {
   try {
     const r = await (await fetch(q, { cache: 'no-store' })).json();
     if (id === S.req) { if (S.zoom && (S.from !== f0 || S.to !== t0_) && r && r.has) { r.from = S.from; r.to = S.to; } S.data = r; dtRender(S); }
+    if (S === LDT) ldDown(f0, t0_);
   } catch (e) { }
   finally { S.busy = false; if (S.pend) { S.pend = false; dtLoad(S, true); } else dtBusy(S, false); }
+}
+/* Live-Verlauf: Unterbrechungen (Strom weg, Neustart, Lücke) des sichtbaren Zeitfensters laden, damit sie schraffiert und benennbar sind */
+let LDDK = '';
+async function ldDown(f, t1) {
+  const k = Math.floor(f / 60000) + '|' + Math.floor(t1 / 60000); if (k === LDDK) return; LDDK = k;
+  try {
+    const j = await (await fetch('runtime?nochain=1&from=' + Math.round(f) + '&to=' + Math.round(t1), { cache: 'no-store' })).json();
+    LDT.down = (j.events || []).filter(e => e.kind === 'down').map(e => [new Date(e.from).getTime(), new Date(e.to).getTime(), e.note || '', e.key || e.from, e.cause, e]).filter(g => g[1] > g[0]);
+    if (LDT.data) dtDraw(LDT);
+  } catch (e) { LDDK = ''; }
 }
 function dtRangeTxt(r) {                             // „Mo., 05.10. 21:55–21:57“ bzw. über mehrere Tage „29.09. – 05.10.“
   const L = locale(), f = new Date(r.from), tt = new Date(r.to), e1 = new Date(r.to - 1), hm = d => pad(d.getHours()) + ':' + pad(d.getMinutes());
@@ -4337,7 +4348,7 @@ function dtDraw(S, hoverX) {
     const bands = (r.spec && r.spec.bands) || []; for (const f of bands.length ? [100, 500, 2000, 8000] : []) { const k = bands.findIndex(x => x >= f); if (k < 0) continue; const y = T + ph * (1 - (k + 0.5) / bands.length); c.fillText(f >= 1000 ? f / 1000 + 'k' : f + '', L - 4 * d, y + 3 * d); }
   }
   S.downHit = [];
-  for (const g of NV.down || []) {                  // Nicht aufgezeichnet (Add-on aus / Neustart): schraffiert, damit es nicht wie Stille aussieht
+  for (const g of (S === LDT ? S.down : NV.down) || []) {                  // Nicht aufgezeichnet (Add-on aus / Neustart): schraffiert, damit es nicht wie Stille aussieht
     if (g[5] && g[5].sid && S.src && S.src !== 'all' && g[5].sid !== S.src) continue;   // Lücke nur eines Geräts: nur in dessen Zeile
     const x0 = X(Math.max(g[0], r.from)), x1 = X(Math.min(g[1], r.to)); if (x1 - x0 < 1) continue;
     const hov = hoverX != null && !MK.on && hoverX * d >= x0 && hoverX * d <= x1;   // darüber: etwas heller (anklickbar)
@@ -4876,7 +4887,7 @@ function rnOpen(g, cx, cy) {
       const g2 = RN.g; if (!g2) return;
       try { const r = await (await fetch('run_note', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ key: g2[3], text: txt }) })).json(); if (!r.ok) throw new Error(r.error || 'error'); }
       catch (er) { alert(t('saveerr') + ' ' + er.message); return; }
-      rnClose(); loadRun();
+      rnClose(); loadRun(); LDDK = ''; if (LDT.from != null) ldDown(LDT.from, LDT.to);
     };
     $('rnsave').onclick = () => save($('rntext').value); $('rndel').onclick = () => save(''); $('rncancel').onclick = rnClose;
     $('rntext').addEventListener('keydown', e => { if (e.key === 'Enter') { e.preventDefault(); save($('rntext').value); } else if (e.key === 'Escape') rnClose(); });

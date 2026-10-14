@@ -1,5 +1,8 @@
 # Changelog
 
+## 1.51.8
+- Live-Verlauf: Zeiten ohne Aufzeichnung (Stromausfall, Neustart, Lücke) sind jetzt auch dort schraffiert und per Klick benennbar, nicht nur im Protokoll-Bereich. Die Aufzeichnung selbst bleibt unverändert.
+
 ## 1.51.7
 - Notizbereich: Der Button „Mehr …“ ist weg; von/bis und Zeuge sind **immer sichtbar** (auch im abgedockten Fenster).
 
