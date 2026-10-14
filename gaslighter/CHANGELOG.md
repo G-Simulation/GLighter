@@ -1,5 +1,8 @@
 # Changelog
 
+## 1.56.2
+- Die Änderung aus 1.56.1 ist zurückgenommen: Die Notizleiste im Live-Bild ist in schmalen Fenstern (unter 700 Pixel, z. B. Handy) wieder standardmäßig zugeklappt, in breiten Fenstern offen. Dein Klick darauf wird weiter gemerkt.
+
 ## 1.56.1
 - Die Notizleiste („📝 Notiz“) im Live-Bild ist jetzt standardmäßig **aufgeklappt**, auch im schmalen Home-Assistant-Fenster und am Handy (vorher dort zugeklappt). Wer sie von Hand einklappt, behält das.
 
