@@ -227,5 +227,75 @@ class NotizAusHA(unittest.TestCase):
         self.assertEqual(len(self.notizen()), 0)
 
 
+class RegelKeineStoerung(unittest.TestCase):
+    """Regel-Art „keine Störung melden“: Graph läuft weiter, es wird nur nichts als Störung erkannt."""
+    def setUp(self):
+        self.r = laerm.clean_rules([{"id": "q1", "entity": "binary_sensor.tuer", "states": "on", "after_min": 10, "max_h": 1, "mode": "quiet"},
+                                    {"id": "p1", "entity": "binary_sensor.fenster", "states": "on", "mode": "pause"}])
+        laerm.HA_RULES[:] = self.r
+        laerm.HA_STATE.clear()
+
+    def test_modus_bleibt_erhalten(self):
+        self.assertEqual([x["mode"] for x in self.r], ["quiet", "pause"])
+        self.assertEqual(self.r[0]["after_min"], 10.0)
+
+    def test_aktiv_und_nachlauf(self):
+        laerm.HA_STATE["q1"] = {"hold": True, "active": True, "state": "on", "name": "Tür"}
+        self.assertIsNotNone(laerm.ha_quiet_for("x"))
+        self.assertIsNone(laerm.ha_hold_for("x"))               # pausiert die Aufnahme nicht (Graph läuft weiter)
+        laerm.HA_STATE["q1"] = {"hold": True, "active": False, "until": time.time() + 300, "state": "off", "name": "Tür"}
+        self.assertIsNotNone(laerm.ha_quiet_for("x"))           # Nachlauf (10 min) gilt noch
+        laerm.HA_STATE["q1"] = {"hold": True, "active": False, "until": time.time() - 1, "state": "off", "name": "Tür"}
+        self.assertIsNone(laerm.ha_quiet_for("x"))              # Nachlauf vorbei
+
+    def test_pausenregel_zaehlt_nicht_als_ruhig(self):
+        laerm.HA_STATE["p1"] = {"hold": True, "active": True, "state": "on", "name": "Fenster"}
+        self.assertIsNone(laerm.ha_quiet_for("x")); self.assertIsNotNone(laerm.ha_hold_for("x"))
+
+    def test_gerätefilter(self):
+        laerm.HA_RULES[0]["src"] = "mic1"
+        laerm.HA_STATE["q1"] = {"hold": True, "active": True, "state": "on", "name": "Tür"}
+        self.assertIsNone(laerm.ha_quiet_for("mic2")); self.assertIsNotNone(laerm.ha_quiet_for("mic1"))
+
+
+class RuheKnopf(unittest.TestCase):
+    """Knopf/Dauer aus Home Assistant: keine Störung melden für eine einstellbare Zeit."""
+    def setUp(self):
+        self.tmp = tempfile.mkdtemp()
+        laerm.SETTINGS_FILE = os.path.join(self.tmp, "settings.json")
+        laerm.paths = lambda: (self.tmp, self.tmp)
+        laerm.pub = lambda *a, **k: None
+        laerm.HA_RULES[:] = []; laerm.HA_STATE.clear()
+        laerm.QUIET.update(until=0.0, minutes=10.0)
+
+    def test_standarddauer_zehn_minuten(self):
+        self.assertTrue(laerm.quiet_start())
+        q = laerm.ha_quiet_for("irgendein_geraet")
+        self.assertIsNotNone(q)
+        self.assertAlmostEqual(laerm.QUIET["until"] - time.time(), 600, delta=3)
+
+    def test_dauer_einstellbar_und_begrenzt(self):
+        laerm.quiet_set_minutes("25"); self.assertEqual(laerm.QUIET["minutes"], 25.0)
+        laerm.quiet_set_minutes("9999"); self.assertEqual(laerm.QUIET["minutes"], 240.0)
+        laerm.quiet_set_minutes("abc"); self.assertEqual(laerm.QUIET["minutes"], 240.0)
+        laerm.quiet_set_minutes("25"); laerm.quiet_start()
+        self.assertAlmostEqual(laerm.QUIET["until"] - time.time(), 1500, delta=3)
+
+    def test_stop_und_ablauf(self):
+        laerm.quiet_start(5); laerm.quiet_stop()
+        self.assertIsNone(laerm.ha_quiet_for("x"))
+        laerm.QUIET["until"] = time.time() - 1
+        self.assertIsNone(laerm.ha_quiet_for("x"))
+
+    def test_ueberlebt_neustart(self):
+        laerm.quiet_set_minutes(15); laerm.quiet_start()
+        u = laerm.QUIET["until"]; laerm.QUIET.update(until=0.0, minutes=10.0)
+        laerm.quiet_load()
+        self.assertEqual(laerm.QUIET["minutes"], 15.0); self.assertAlmostEqual(laerm.QUIET["until"], u, delta=1)
+
+    def test_ungueltige_dauer(self):
+        self.assertFalse(laerm.quiet_start("0")); self.assertFalse(laerm.quiet_start("x")); self.assertFalse(laerm.quiet_start("nan"))
+
+
 if __name__ == "__main__":
     unittest.main()

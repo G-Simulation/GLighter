@@ -72,3 +72,10 @@ With MQTT the add-on adds two elements to the "GasLighter" device:
 - **Mark disturbance now**: button. One tap creates a note "Disturbance (Home Assistant)" immediately, without text.
 
 Put both on any dashboard (for example in an "Entities" card). If a disturbance was detected just before, the note is attached to it, exactly like the note bar in the live view.
+
+## No disturbance reports (graph keeps recording)
+
+Sometimes a disturbance should not be reported while the graph keeps recording, for example when you open the door yourself.
+
+- **In a rule:** choose the action **"no disturbance reports"**. While the condition holds and for the **delay** afterwards (for example 10 minutes), no disturbance is created. The graph keeps recording, with no gap.
+- **As a dashboard button:** the "GasLighter" device has **"Start: no disturbance reports"**, **"Report disturbances again"**, an adjustable **duration** (1–240 minutes, default 10) and **"No disturbance reports until"**. Put them on your dashboard. One tap starts the set duration.

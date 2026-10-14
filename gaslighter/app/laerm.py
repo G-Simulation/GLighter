@@ -32,7 +32,7 @@ HERE = os.path.dirname(os.path.abspath(__file__))
 WEB = os.path.join(HERE, "web")
 OPTIONS_FILE = os.environ.get("LAERM_OPTIONS", "/data/options.json")
 SETTINGS_FILE = os.environ.get("LAERM_SETTINGS", "/data/settings.json")
-VERSION = "1.55.0"
+VERSION = "1.56.0"
 
 # =====================================================================
 # Einstellungen
@@ -355,6 +355,74 @@ def pub_pause():
     pub(f"{TOPIC}/pause", json.dumps({"until": RUN["until"] if RUN["paused"] else None, "reason": RUN["reason"], "minutes": pause_left_min()}), True)
 
 
+# Von Hand / per Home-Assistant-Knopf: fuer eine Zeit keine Stoerung melden (der Graph wird weiter aufgezeichnet)
+QUIET = {"until": 0.0, "minutes": 10.0}
+
+
+def quiet_file():
+    return os.path.join(os.path.dirname(SETTINGS_FILE) or ".", "ruhe_manuell.json")
+
+
+def quiet_load():
+    d = read_json(quiet_file())
+    try:
+        QUIET["minutes"] = max(1.0, min(240.0, float(d.get("minutes", 10)))) if isinstance(d, dict) else 10.0
+        QUIET["until"] = float(d.get("until", 0)) if isinstance(d, dict) else 0.0     # laeuft ueber einen Neustart weiter
+    except (TypeError, ValueError):
+        QUIET["minutes"], QUIET["until"] = 10.0, 0.0
+
+
+def quiet_save():
+    try:
+        f = quiet_file(); tmp = f + ".tmp"
+        with open(tmp, "w", encoding="utf-8") as fh:
+            json.dump({"minutes": QUIET["minutes"], "until": QUIET["until"]}, fh); fh.flush(); os.fsync(fh.fileno())
+        os.replace(tmp, f)
+    except OSError as e:
+        log("Hinweis: ruhe_manuell.json nicht geschrieben:", e)
+
+
+def quiet_left_min():
+    return max(0, math.ceil((QUIET["until"] - time.time()) / 60.0)) if QUIET["until"] > time.time() else 0
+
+
+def pub_quiet():
+    iso = dt.datetime.fromtimestamp(QUIET["until"]).astimezone().isoformat(timespec="seconds") if QUIET["until"] > time.time() else None
+    pub(f"{TOPIC}/quiet", json.dumps({"until": iso, "minutes": quiet_left_min()}), True)
+    pub(f"{TOPIC}/quiet_minutes", f"{QUIET['minutes']:g}", True)
+
+
+def quiet_start(minutes=None, by="Home Assistant"):
+    """Keine Stoerung melden fuer eine Zeit (Minuten; ohne Angabe die eingestellte Dauer)."""
+    try:
+        m = float(minutes) if minutes not in (None, "") else QUIET["minutes"]
+    except (TypeError, ValueError):
+        return False
+    if not math.isfinite(m) or m <= 0:
+        return False
+    m = min(m, 240.0)
+    QUIET["until"] = time.time() + m * 60
+    quiet_save(); pub_quiet()
+    rec_log("keine Störungsmeldung (" + by + f", {m:g} min)", by)
+    log(f"Keine Stoerungsmeldung fuer {m:g} min ({by}); der Graph wird weiter aufgezeichnet")
+    return True
+
+
+def quiet_stop(by="Home Assistant"):
+    if QUIET["until"] > time.time():
+        QUIET["until"] = 0.0; quiet_save(); pub_quiet()
+        rec_log("Störungen wieder gemeldet (" + by + ")", by)
+        log("Stoerungen werden wieder gemeldet (" + by + ")")
+
+
+def quiet_set_minutes(v):
+    try:
+        m = max(1.0, min(240.0, float(v)))
+    except (TypeError, ValueError):
+        return
+    QUIET["minutes"] = m; quiet_save(); pub_quiet()
+
+
 def pause_watch():
     """Zeitlich begrenzte Pause beenden; Restzeit regelmaessig melden."""
     n = 0
@@ -366,6 +434,11 @@ def pause_watch():
                     set_recording(True, "automatisch nach Pause")
                 elif n % 12 == 0:
                     pub_pause()
+            if QUIET["until"] and QUIET["until"] <= time.time():       # Zeit der manuellen Ruhe abgelaufen
+                QUIET["until"] = 0.0; quiet_save(); pub_quiet()
+                rec_log("Störungen wieder gemeldet (automatisch)", "Home Assistant")
+            elif QUIET["until"] and n % 12 == 0:
+                pub_quiet()
         except Exception as e:
             log("Pause-Ueberwachung:", e)
 
@@ -1180,7 +1253,7 @@ def clean_rules(lst):
             mx = 8.0
         rid = re.sub(r"[^a-z0-9]", "", str(d.get("id") or ""))[:12] or secrets.token_hex(3)
         src = re.sub(r"[^a-z0-9_]", "", str(d.get("src") or "all"))[:16] or "all"
-        mode = d.get("mode") if d.get("mode") in ("note", "event") else "pause"   # pause: anhalten; note: nur festhalten (z. B. Fernseher an/aus); event: als Ereignis (z. B. Türsensor)
+        mode = d.get("mode") if d.get("mode") in ("note", "event", "quiet") else "pause"   # pause: anhalten; note: nur festhalten (z. B. Fernseher an/aus); event: als Ereignis (z. B. Türsensor); quiet: Graph läuft weiter, aber keine Störung melden
         out.append({"id": rid, "entity": ent, "states": st, "after_min": round(after, 1), "max_h": round(mx, 1), "mode": mode,
                     "src": src, "enabled": d.get("enabled", True) is not False, "label": re.sub(r"[\x00-\x1f]", "", str(d.get("label") or ""))[:60],
                     "color": d.get("color") if re.fullmatch(r"#[0-9a-fA-F]{6}", str(d.get("color") or "")) else ""})   # Farbe im Verlauf (leer = automatisch)
@@ -1253,7 +1326,25 @@ def ha_hold_for(src_id):
     now = time.time()
     with HA_LOCK:
         for r in HA_RULES:
-            if not r["enabled"] or r.get("mode") in ("note", "event") or (r["src"] != "all" and r["src"] != src_id):
+            if not r["enabled"] or r.get("mode") in ("note", "event", "quiet") or (r["src"] != "all" and r["src"] != src_id):
+                continue
+            h = HA_STATE.get(r["id"])
+            if h and h.get("hold") and (h.get("active") or (h.get("until") or 0) > now):
+                return {"label": r["label"] or h.get("name") or r["entity"], "state": h.get("state"), "entity": r["entity"],
+                        "until": None if h.get("active") else dt.datetime.fromtimestamp(h["until"]).astimezone().isoformat(timespec="seconds")}
+    return None
+
+
+def ha_quiet_for(src_id):
+    """Gilt gerade eine Regel „keine Störung melden“? Der Graph wird dabei weiter aufgezeichnet, es entsteht aber keine Störung.
+    Liefert {label, state, until} oder None (wie ha_hold_for)."""
+    now = time.time()
+    if QUIET["until"] > now:                                  # von Hand / per Knopf gestartet (gilt fuer alle Geraete)
+        return {"label": "Home Assistant", "state": None, "entity": "",
+                "until": dt.datetime.fromtimestamp(QUIET["until"]).astimezone().isoformat(timespec="seconds")}
+    with HA_LOCK:
+        for r in HA_RULES:
+            if not r["enabled"] or r.get("mode") != "quiet" or (r["src"] != "all" and r["src"] != src_id):
                 continue
             h = HA_STATE.get(r["id"])
             if h and h.get("hold") and (h.get("active") or (h.get("until") or 0) > now):
@@ -1316,9 +1407,14 @@ def ha_watch():
             label = r["label"] or name
             if hold != was.get(r["id"], False):
                 was[r["id"]] = hold
-                msg = (f"pausiert: {label} ist „{val}“" if hold else f"fortgesetzt: {label} ist „{val}“") + ("" if r["src"] == "all" else f" (Gerät {r['src']})")
-                log("Home-Assistant-Regel", msg)
-                rec_log("pausiert (Home Assistant)" if hold else "fortgesetzt (Home Assistant)", f"{label}: {val}")
+                if r.get("mode") == "quiet":                       # Graph laeuft weiter, nur keine Stoerungsmeldung
+                    msg = (f"keine Stoerungsmeldung: {label} ist „{val}“" if hold else f"Stoerungen werden wieder gemeldet: {label} ist „{val}“") + ("" if r["src"] == "all" else f" (Gerät {r['src']})")
+                    log("Home-Assistant-Regel", msg)
+                    rec_log("keine Störungsmeldung (Home Assistant)" if hold else "Störungen wieder gemeldet (Home Assistant)", f"{label}: {val}")
+                else:
+                    msg = (f"pausiert: {label} ist „{val}“" if hold else f"fortgesetzt: {label} ist „{val}“") + ("" if r["src"] == "all" else f" (Gerät {r['src']})")
+                    log("Home-Assistant-Regel", msg)
+                    rec_log("pausiert (Home Assistant)" if hold else "fortgesetzt (Home Assistant)", f"{label}: {val}")
             if capped and not prev.get("capped"):
                 log(f"Home-Assistant-Regel: {label} seit über {r['max_h']:g} h aktiv - Pause aufgehoben, es wird wieder aufgenommen")
         try:
@@ -2306,10 +2402,25 @@ def announce(client=None, *_):
         "name": "Störung jetzt markieren" if de else "Mark disturbance now", "unique_id": "gaslighter_mark", "icon": "mdi:alert-circle-check",
         "command_topic": f"{TOPIC}/mark/set", "payload_press": "PRESS", "availability_topic": av, "device": devc}), True)
     pub(f"{TOPIC}/note", "", True)
+    pub("homeassistant/number/gaslighter/quiet_minutes/config", json.dumps({            # Dauer fuer „keine Stoerung melden“ (einstellbar)
+        "name": "Keine Störung melden: Dauer" if de else "No disturbance reports: duration", "unique_id": "gaslighter_quiet_minutes", "icon": "mdi:bell-sleep",
+        "command_topic": f"{TOPIC}/quiet_minutes/set", "state_topic": f"{TOPIC}/quiet_minutes", "min": 1, "max": 240, "step": 1, "mode": "box",
+        "unit_of_measurement": "min", "availability_topic": av, "device": devc}), True)
+    pub("homeassistant/button/gaslighter/quiet_start/config", json.dumps({
+        "name": "Keine Störung melden (Dauer starten)" if de else "Start: no disturbance reports", "unique_id": "gaslighter_quiet_start", "icon": "mdi:bell-off",
+        "command_topic": f"{TOPIC}/quiet/set", "payload_press": "START", "availability_topic": av, "device": devc}), True)
+    pub("homeassistant/button/gaslighter/quiet_stop/config", json.dumps({
+        "name": "Störungen wieder melden" if de else "Report disturbances again", "unique_id": "gaslighter_quiet_stop", "icon": "mdi:bell-ring",
+        "command_topic": f"{TOPIC}/quiet/set", "payload_press": "STOP", "availability_topic": av, "device": devc}), True)
+    pub("homeassistant/sensor/gaslighter/quiet_until/config", json.dumps({
+        "name": "Keine Störungsmeldung bis" if de else "No disturbance reports until", "unique_id": "gaslighter_quiet_until", "icon": "mdi:bell-sleep", "device_class": "timestamp",
+        "state_topic": f"{TOPIC}/quiet", "value_template": "{{ value_json.until if value_json.until else None }}",
+        "json_attributes_topic": f"{TOPIC}/quiet", "availability_topic": av, "device": devc}), True)
+    pub_quiet()
     pub_pause()
     if cl is not None:
         try:
-            for tp in ("recording/set", "pause/set", "force/set", "note/set", "mark/set"):
+            for tp in ("recording/set", "pause/set", "force/set", "note/set", "mark/set", "quiet/set", "quiet_minutes/set"):
                 cl.subscribe(f"{TOPIC}/{tp}")
             log("MQTT verbunden, Befehle abonniert (Pause, Aufzeichnung, Manuell erfassen)")
         except Exception as e:
@@ -2348,6 +2459,13 @@ def mqtt_start():
                     d = {}
                 if isinstance(d, dict):
                     pause_for(d.get("minutes", 0), "Home Assistant", d.get("reason", ""))
+            elif msg.topic == f"{TOPIC}/quiet_minutes/set":
+                quiet_set_minutes(raw)
+            elif msg.topic == f"{TOPIC}/quiet/set":
+                if raw.upper() == "STOP":
+                    quiet_stop()
+                else:                                        # START oder eine Zahl (Minuten)
+                    quiet_start(None if raw.upper() in ("START", "PRESS", "") else raw)
             elif msg.topic in (f"{TOPIC}/note/set", f"{TOPIC}/mark/set"):
                 ha_note_cmd(raw if msg.topic.endswith("/note/set") else "")
             elif msg.topic == f"{TOPIC}/force/set":
@@ -6818,7 +6936,8 @@ class Runner:
                 FORCE.discard(self.id)                   # Erfassungszeit hat begonnen: Handschalter zuruecksetzen
                 pub(f"{TOPIC}/force", "ON" if FORCE else "OFF", True)
             hold = ha_hold_for(self.id)
-            listening = (inh or self.id in FORCE) and not RUN["paused"] and not hold
+            quiet = ha_quiet_for(self.id)                  # „keine Störung melden“: Graph weiter, aber keine neue Störung
+            listening = (inh or self.id in FORCE) and not RUN["paused"] and not hold and not quiet
             virt = not C.get("save_audio")                 # ohne echten Ton: Stoerung = nur der Ausschlag, Messwerte aus der Tagesaufzeichnung
             pre_max = 1 if virt else int(round(C["pre_roll_s"] * 10)) + 1
             pre.append(blk)
@@ -6897,7 +7016,7 @@ class Runner:
             if (not RUN["paused"] and not hold) or ev is not None:      # gestoppt/pausiert = Luecke im Nachtbericht
                 self.minute_add(ms, peak, base, shown_thr, ev is not None)
             self.status.update(ts=ts, level=round(peak, 1), base=rec[2], thr=rec[3], active=ev is not None,
-                               listening=listening, forced=bool(self.id in FORCE and not inh), ha_hold=hold or None, learning=base is None and C["thr_mode"] != "fixed",
+                               listening=listening, forced=bool(self.id in FORCE and not inh), ha_hold=hold or None, ha_quiet=quiet or None, learning=base is None and C["thr_mode"] != "fixed",
                                learn_pct=bg.pct, silent=zero_n > 30, floor=at_floor, ceil=at_ceil, online=True)
             if nblk % 10 == 0:
                 pub(f"{t}/level", f"{sec_max:.1f}")
@@ -10011,6 +10130,6 @@ def start_phone_server():
 if __name__ == "__main__":
     CFG.update(load_settings())
     load_run()
-    load_sched(); load_ha_rules()
+    load_sched(); load_ha_rules(); quiet_load()
     threading.Thread(target=lambda: Server(("0.0.0.0", int(os.environ.get("LAERM_PORT", "8099"))), Handler).serve_forever(), daemon=True).start()
     main()

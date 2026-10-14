@@ -1151,6 +1151,7 @@ function updateStatus() {
   else if (st.active) { txt = t('event'); p.classList.add('a'); }
   else if (st.paused) { txt = t('stopped'); p.classList.add('w'); }
   else if (st.ha_hold) { txt = t('ha_pill', { l: st.ha_hold.label }); p.classList.add('w'); }
+  else if (st.ha_quiet) { txt = t('ha_qpill', { l: st.ha_quiet.label }); p.classList.add('w'); }
   else if (st.forced) { txt = t('outside_forced'); p.classList.add('man'); }
   else if (!st.listening) { txt = t('outside'); p.classList.add('w'); }
   const clk = !!st.forced || (!st.listening && !st.paused && txt === t('outside'));
@@ -2622,7 +2623,7 @@ function haStateTxt0(r) {
   if (r.err) return '⚠ ' + r.err;
   if (r.now_state == null) return t('ha_wait');
   if (r.mode === 'note') return (r.label ? r.label + ' · ' : r.name && r.name !== r.entity ? r.name + ' · ' : '') + t('ha_now', { s: r.now_state }) + ' · 📝 ' + t(r.active ? 'ha_noting' : 'ha_noting_off');
-  return (r.label ? r.label + ' · ' : r.name && r.name !== r.entity ? r.name + ' · ' : '') + t('ha_now', { s: r.now_state }) + ' · ' + (r.hold ? (r.active ? '⏸ ' + t('ha_holding') : '⏸ ' + t('ha_after', { u: r.until ? new Date(r.until).toLocaleTimeString(lang === 'en' ? 'en-GB' : 'de-DE', { hour: '2-digit', minute: '2-digit' }) : '' })) : (r.capped ? '⚠ ' + t('ha_capped') : '▶ ' + t('ha_rec')));
+  return (r.label ? r.label + ' · ' : r.name && r.name !== r.entity ? r.name + ' · ' : '') + t('ha_now', { s: r.now_state }) + ' · ' + (r.hold ? (r.active ? (r.mode === 'quiet' ? '🔕 ' + t('ha_qholding') : '⏸ ' + t('ha_holding')) : (r.mode === 'quiet' ? '🔕 ' : '⏸ ') + t('ha_after', { u: r.until ? new Date(r.until).toLocaleTimeString(lang === 'en' ? 'en-GB' : 'de-DE', { hour: '2-digit', minute: '2-digit' }) : '' })) : (r.capped ? '⚠ ' + t('ha_capped') : '▶ ' + t('ha_rec')));
 }
 function haStates(rows) { rows.forEach(r => { const e = document.querySelector(`#halist .harow[data-id="${r.id}"] .hanow`); if (e) { e.textContent = haStateTxt(r); e.classList.toggle('hold', !!r.hold); } }); }
 function haRender(focusLast) {
@@ -2644,11 +2645,11 @@ function haRender(focusLast) {
     const now = el('small', { className: 'hanow' + (r.hold ? ' hold' : ''), textContent: haStateTxt(r) });
     const nmi = el('input', { type: 'text', value: r.label || '', maxLength: 60, placeholder: r.name && r.name !== r.entity ? r.name : t('ha_name_ph'), className: 'haname', title: t('ha_name_tip') });   // Name, unter dem die Regel festgehalten wird
     const md = el('select', { className: 'hamode', title: t('ha_model') });   // pausieren oder nur festhalten (z. B. Fernseher an/aus)
-    option(md, 'pause', t('ha_mode_pause')); option(md, 'note', t('ha_mode_note')); option(md, 'event', t('ha_mode_event')); md.value = ['pause', 'event'].includes(r.mode) ? r.mode : 'note';          // neue Regeln: nur vermerken (Standard)
+    option(md, 'pause', t('ha_mode_pause')); option(md, 'note', t('ha_mode_note')); option(md, 'event', t('ha_mode_event')); option(md, 'quiet', t('ha_mode_quiet')); md.value = ['pause', 'event', 'quiet'].includes(r.mode) ? r.mode : 'note';          // neue Regeln: nur vermerken (Standard)
     const l1 = el('div', { className: 'harow1' }); l1.append(on, ent, src, del);
     const l2 = el('div', { className: 'harow2' });
     const lab = (txt, inp, unit) => { const L = el('label'); L.append(document.createTextNode(txt + ' '), inp); if (unit) L.append(' ' + unit); return L; };
-    const note = md.value !== 'pause';
+    const note = !['pause', 'quiet'].includes(md.value);      // pausieren und „keine Störung melden“ haben Nachlauf und Höchstdauer
     const la = lab(t('ha_afterl'), aft, 'min'), lm = lab(t('ha_maxl'), mx, 'h'); la.hidden = lm.hidden = note;
     const nmNow = r.label || r.name || r.entity || '';
     const colI = el('input', { type: 'color', className: 'hacol', value: r.color || sensCol([0, 0, nmNow]), title: t('ha_col_tip') });

@@ -1,5 +1,9 @@
 # Changelog
 
+## 1.56.0
+- Hausautomation: neue Aktion **„keine Störung melden“**. Solange die Bedingung gilt (und für den eingestellten Nachlauf danach, z. B. 10 Minuten), wird der Graph weiter aufgezeichnet, es entsteht aber keine Störung und es wird nichts an Home Assistant gemeldet. Anders als „pausieren“ gibt es keine Lücke in der Aufzeichnung. Anzeige im Gerätestatus: „Keine Störungsmeldung: …“.
+- Home Assistant: dasselbe auch als Knopf im Dashboard. Neu am Gerät „GasLighter“: **„Keine Störung melden (Dauer starten)“**, **„Störungen wieder melden“**, die einstellbare **Dauer** (1–240 Minuten, Standard 10) und **„Keine Störungsmeldung bis“**. Die Zeit läuft nach einem Neustart weiter.
+
 ## 1.55.0
 - Home Assistant: Störung direkt im Dashboard erfassen. Das Add-on meldet zwei neue Elemente über MQTT: das Textfeld **„Störung / Notiz erfassen“** (Text eingeben, Enter drücken) und den Knopf **„Störung jetzt markieren“** (ein Tipp, ohne Text). Beides legt eine freie Notiz mit der aktuellen Uhrzeit an, genau wie die Notizleiste; liegt kurz davor eine Störung, wird die Notiz ihr zugeordnet. Die Elemente lassen sich auf jedes Home-Assistant-Dashboard legen (Gerät „GasLighter“). Voraussetzung: MQTT ist an.
 
