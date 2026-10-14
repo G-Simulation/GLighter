@@ -32,7 +32,7 @@ HERE = os.path.dirname(os.path.abspath(__file__))
 WEB = os.path.join(HERE, "web")
 OPTIONS_FILE = os.environ.get("LAERM_OPTIONS", "/data/options.json")
 SETTINGS_FILE = os.environ.get("LAERM_SETTINGS", "/data/settings.json")
-VERSION = "1.56.2"
+VERSION = "1.57.0"
 
 # =====================================================================
 # Einstellungen
@@ -1256,6 +1256,7 @@ def clean_rules(lst):
         mode = d.get("mode") if d.get("mode") in ("note", "event", "quiet") else "pause"   # pause: anhalten; note: nur festhalten (z. B. Fernseher an/aus); event: als Ereignis (z. B. Türsensor); quiet: Graph läuft weiter, aber keine Störung melden
         out.append({"id": rid, "entity": ent, "states": st, "after_min": round(after, 1), "max_h": round(mx, 1), "mode": mode,
                     "src": src, "enabled": d.get("enabled", True) is not False, "label": re.sub(r"[\x00-\x1f]", "", str(d.get("label") or ""))[:60],
+                    "big": d.get("big") is True,                       # hervorgehoben: doppelt so grosses Faehnchen im Verlauf (nur „als Ereignis“)
                     "color": d.get("color") if re.fullmatch(r"#[0-9a-fA-F]{6}", str(d.get("color") or "")) else ""})   # Farbe im Verlauf (leer = automatisch)
     return out
 
@@ -1642,8 +1643,9 @@ def ha_intervals(src_id, t_from, t_to):
                 x[1] = max(d0, x[0] + 1000)
     with HA_LOCK:
         cols = {r["id"]: r.get("color") or "" for r in HA_RULES}
+        bigs = {r["id"]: 1 if r.get("big") else 0 for r in HA_RULES}
     for x in out:                                         # Art der Regel: note = nur festhalten (Leiste), event = als Ereignis; dazu die gewählte Farbe
-        x.append("event" if modes.get(x[3]) == "event" else "note"); x.append(cols.get(x[3], ""))
+        x.append("event" if modes.get(x[3]) == "event" else "note"); x.append(cols.get(x[3], "")); x.append(bigs.get(x[3], 0))
     out.sort(key=lambda x: x[0])
     return out
 

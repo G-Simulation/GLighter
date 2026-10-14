@@ -1,5 +1,10 @@
 # Changelog
 
+## 1.57.0
+- Regel „als Ereignis“: Option „hervorheben“ – doppelt so großes Fähnchen im Verlauf (Streifen, Fahne, rote Marke, dickere Linie).
+- Die rote gestrichelte Senkrechte beginnt jetzt an der Oberkante des Fähnchens und reicht nicht mehr darüber hinaus.
+- KI-Erkennungen (z. B. Katze, Klopfen): Klick auf das Symbol im Verlauf (oder im Störungs-Fenster) öffnet ein kleines Fenster mit „im Verlauf hervorheben“ (doppelt so groß) und „im Verlauf ausblenden“. Nur Anzeige, pro Browser gemerkt; Aufzeichnung und Erkennung bleiben unverändert.
+
 ## 1.56.2
 - Die Änderung aus 1.56.1 ist zurückgenommen: Die Notizleiste im Live-Bild ist in schmalen Fenstern (unter 700 Pixel, z. B. Handy) wieder standardmäßig zugeklappt, in breiten Fenstern offen. Dein Klick darauf wird weiter gemerkt.
 

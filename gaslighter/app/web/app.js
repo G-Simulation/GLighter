@@ -1305,6 +1305,10 @@ function tileTick() {
   tileBar();
 }
 /* ================= Geraeuschart (lokale KI) ================= */
+let ART_HI = new Set(); try { ART_HI = new Set(JSON.parse(localStorage.getItem('laerm_arthi') || '[]')); } catch (e) { }
+let ART_MUTE = new Set(); try { ART_MUTE = new Set(JSON.parse(localStorage.getItem('laerm_artmute') || '[]')); } catch (e) { }
+const artMuteSave = () => { try { localStorage.setItem('laerm_artmute', JSON.stringify([...ART_MUTE])); } catch (e) { } };
+const artHiSave = () => { try { localStorage.setItem('laerm_arthi', JSON.stringify([...ART_HI])); } catch (e) { } };
 const ART_ORDER = ['knock', 'door', 'steps', 'voice', 'tv', 'scrape', 'signal', 'animal', 'noise', 'other'];
 const ART_ICON = { knock: '🔨', door: '🚪', steps: '👣', voice: '🗣', tv: '📺', scrape: '🔩', signal: '🔔', animal: '🐾', noise: '〰', other: '❓' };
 const ART_COL = { knock: '#e0314b', door: '#e8590c', steps: '#f0a500', voice: '#7048e8', tv: '#1c7ed6', scrape: '#c2255c', signal: '#2b8a3e', animal: '#66a80f', noise: '#868e96', other: '#adb5bd' };
@@ -1423,8 +1427,12 @@ function renderEvArt(j) {
   const top = fk.length ? fk.map(k => `${esc(((j.fine || {})[k] || {}).name || k)} ${fm[k]} %`).join(' · ') : (a.top || []).slice(0, 3).map(x => `${esc(x[0])} ${x[1]} %`).join(' · ');
   const kd = kindsHTML(j.ki && j.ki.kinds, j.fine);                 // Liste, was alles vorkam (mit Anzahl bzw. Dauer)
   box.innerHTML = `${artChip(g, a.c, !!a.man)}${kd ? `<span class="evkinds" title="${esc(t('kinds_col'))}">${kd}</span>` : `<span title="${esc(t('art_top'))}"><small>${top}</small></span>`}${reBtn}
+    <label class="chip" title="${esc(t('art_hi_tip'))}"><input type="checkbox" id="evarthi"${ART_HI.has(g) ? ' checked' : ''}> ${esc(t('art_hi'))}</label>
+    <label class="chip" title="${esc(t('art_mute_tip'))}"><input type="checkbox" id="evartmu"${ART_MUTE.has(g) ? ' checked' : ''}> ${esc(t('art_mute'))}</label>
     <label><small>${esc(t('art_correct'))}</small> <select id="evartsel"><option value="">${esc(t('art_auto'))}</option>${ART_ORDER.map(x => `<option value="${x}"${a.man === x ? ' selected' : ''}>${ART_ICON[x]} ${esc(artName(x))}</option>`).join('')}</select></label>`;
   bindRe();
+  $('evarthi').onchange = e => { if (e.target.checked) ART_HI.add(g); else ART_HI.delete(g); artHiSave(); window.dispatchEvent(new Event('resize')); };
+  $('evartmu').onchange = e => { if (e.target.checked) ART_MUTE.add(g); else ART_MUTE.delete(g); artMuteSave(); window.dispatchEvent(new Event('resize')); };
   $('evartsel').onchange = async e => {
     const r2 = await setArt(EVV.k, e.target.value);
     if (r2) { const j2 = await (await fetch('event?k=' + encodeURIComponent(EVV.k), { cache: 'no-store' })).json(); if (j2.ok) renderEvArt(j2); }
@@ -2654,15 +2662,17 @@ function haRender(focusLast) {
     const nmNow = r.label || r.name || r.entity || '';
     const colI = el('input', { type: 'color', className: 'hacol', value: r.color || sensCol([0, 0, nmNow]), title: t('ha_col_tip') });
     const colR = el('button', { type: 'button', className: 'chip hacolr', textContent: '↺', title: t('ha_col_auto'), hidden: !r.color });
+    const bigI = el('input', { type: 'checkbox', checked: !!r.big, title: t('ha_big_tip') });
+    const lbg = lab(t('ha_big'), bigI); lbg.title = t('ha_big_tip'); lbg.hidden = md.value !== 'event';   // Hervorhebung: doppelt so großes Fähnchen
     const lc = lab(t('ha_col'), colI); lc.appendChild(colR); lc.hidden = md.value !== 'event';   // Farbe des Fähnchens im Verlauf (nur „als Ereignis“)
     colI.addEventListener('change', () => { HAR.rules[idx].color = colI.value; colR.hidden = false; haSave(); });
     colR.onclick = () => { HAR.rules[idx].color = ''; colI.value = sensCol([0, 0, nmNow]); colR.hidden = true; haSave(); };
-    l2.append(lab(t('ha_name'), nmi), lab(t('ha_model'), md), lab(t(note ? 'ha_whenn' : 'ha_when'), sts), la, lm, lc);
+    l2.append(lab(t('ha_name'), nmi), lab(t('ha_model'), md), lab(t(note ? 'ha_whenn' : 'ha_when'), sts), la, lm, lc, lbg);
     row.append(l1, l2, now); box.appendChild(row);
-    const upd = () => { Object.assign(HAR.rules[idx], { enabled: on.checked, entity: ent.value.trim(), label: nmi.value.trim(), src: src.value, states: sts.value, after_min: +aft.value, max_h: +mx.value, mode: md.value }); haSave(); };
+    const upd = () => { Object.assign(HAR.rules[idx], { enabled: on.checked, entity: ent.value.trim(), label: nmi.value.trim(), src: src.value, states: sts.value, after_min: +aft.value, max_h: +mx.value, mode: md.value, big: bigI.checked }); haSave(); };
     md.addEventListener('change', () => { upd(); haRender(); });
     ent.addEventListener('change', () => { const d = haDefaults(ent.value.trim()); if (!sts.value || sts.value === haDefaults('').states) { sts.value = d.states; aft.value = d.after_min; mx.value = d.max_h; } upd(); });
-    for (const x of [on, src, sts, aft, mx, nmi]) x.addEventListener('change', upd);
+    for (const x of [on, src, sts, aft, mx, nmi, bigI]) x.addEventListener('change', upd);
     del.onclick = () => { HAR.rules.splice(idx, 1); haSave(); haRender(); };
     if (focusLast && idx === HAR.rules.length - 1) setTimeout(() => ent.focus(), 30);
   });
@@ -4333,6 +4343,22 @@ function drawSpecInto(c, r, X, y0, hgt, L, pw, d) {
   cols.forEach(([t2, px], i) => { const nx = i + 1 < cols.length ? X(cols[i + 1][0]) - X(t2) + 0.6 : w1; img.data.set(px); tx.putImageData(img, 0, 0); c.drawImage(tc, X(t2), y0, Math.max(w1, Math.min(nx, mw * 2.5)), hgt); });
   c.restore(); return true;
 }
+/* Klick auf das KI-Symbol im Verlauf: kleines Fenster mit „hervorheben“ (nur Anzeige, pro Browser) */
+function artHiPop(g, name, icon, ev) {
+  let m = $('arthipop');
+  if (!m) { m = el('div', { id: 'arthipop', className: 'hmenu tilepop' }); document.body.appendChild(m); document.addEventListener('click', e => { if (!m.hidden && !e.target.closest('#arthipop')) m.hidden = true; }, true); }
+  m.innerHTML = `<b>${esc(icon)} ${esc(name)}</b><label class="chip"><input type="checkbox" id="arthic"${ART_HI.has(g) ? ' checked' : ''}> ${esc(t('art_hi'))}</label><label class="chip"><input type="checkbox" id="arthim"${ART_MUTE.has(g) ? ' checked' : ''}> ${esc(t('art_mute'))}</label><small>${esc(t('art_hi_tip'))} ${esc(t('art_mute_tip'))}</small>`;
+  $('arthim').onchange = e => { if (e.target.checked) ART_MUTE.add(g); else ART_MUTE.delete(g); artMuteSave(); window.dispatchEvent(new Event('resize')); };
+  $('arthic').onchange = e => { if (e.target.checked) ART_HI.add(g); else ART_HI.delete(g); artHiSave(); window.dispatchEvent(new Event('resize')); };
+  m.hidden = false; m.style.left = Math.max(8, Math.min(innerWidth - 290, ev.clientX - 20)) + 'px'; m.style.top = (ev.clientY + 14) + 'px'; m.style.right = 'auto';
+}
+document.addEventListener('click', e => {
+  const cv = e.target; if (!cv || cv.tagName !== 'CANVAS') return;
+  for (const S of [DT, ...(DT.subs || [])]) { if (!S || !S.ahits || !S.el || $(S.el.cv) !== cv) continue;
+    const rc = cv.getBoundingClientRect(), x = e.clientX - rc.left, y = e.clientY - rc.top;
+    const h = S.ahits.find(q => Math.abs(q.x - x) <= q.w * 0.7 + 3 && Math.abs(q.y - y) <= q.w * 0.9 + 3);
+    if (h) { e.stopPropagation(); artHiPop(h.g, h.n, h.i, e); return; } }
+}, true);
 function dtDraw(S, hoverX) {
   S = S || DT; const r = S.data, cv = $(S.el.cv); if (!r || !cv || !cv.offsetParent) return;
   fit(cv); readNC();
@@ -4394,21 +4420,21 @@ function dtDraw(S, hoverX) {
     c.restore();
     (S.downHit || (S.downHit = [])).push([x0 / d, x1 / d, (g[2] ? '📝 ' + g[2] + '\n' : '') + t(g[2] ? 'run_click_edit' : 'run_click_add'), g]);
   }
+  const haV = (r.ha || []).filter(a => !SHIDE.has('ha:' + a[2])), haLane = haLanes(haV);
   {                                                  // Sensor-Ereignisse (Regel „als Ereignis“): dünne rote Linie über die ganze Höhe – ganz unten, Fähnchen, Punkte und Pegelkurve liegen darüber
     c.save(); c.beginPath(); c.rect(L, 0, pw, T + ph); c.clip();
     for (const a of (r.ha || []).filter(a => a[5] === 'event' && !SHIDE.has('ha:' + a[2]))) {
       const x0 = X(Math.max(a[0], r.from)), x1 = Math.max(x0 + 2 * d, X(Math.min(a[1], r.to))); if (x1 < L || x0 > L + pw) continue;
       c.fillStyle = ca(NC.red, 0.10); c.fillRect(x0, T, x1 - x0, ph);
-      c.strokeStyle = ca(NC.red, 0.75); c.lineWidth = 1 * d; c.setLineDash([3 * d, 3 * d]); c.beginPath(); c.moveTo(x0 + 0.5 * d, T); c.lineTo(x0 + 0.5 * d, T + ph); c.stroke(); c.setLineDash([]);
+      c.strokeStyle = ca(NC.red, 0.75); c.lineWidth = (a[7] ? 2 : 1) * d; c.setLineDash([3 * d, 3 * d]); c.beginPath(); const fy = T + (haLane.get(a[2]) || 0) * 6 * d; c.moveTo(x0 + 0.5 * d, fy); c.lineTo(x0 + 0.5 * d, T + ph); c.stroke(); c.setLineDash([]);   // erst ab Oberkante des Fähnchens
     }
     c.restore();
   }
-  const haV = (r.ha || []).filter(a => !SHIDE.has('ha:' + a[2])), haLane = haLanes(haV);
   for (const a of haV) { const x0 = X(Math.max(a[0], r.from)), x1 = Math.max(X(Math.min(a[1], r.to)), X(Math.max(a[0], r.from)) + 3 * d); if (x1 <= x0 || x1 < L || x0 > L + pw) continue;
     const md = a[5] || 'note', col = md === 'event' ? sensCol(a) : '#1c7ed6', ly = T + haLane.get(a[2]) * 6 * d;
     if (md === 'pause') { c.fillStyle = ca(col, specM ? 0.0 : a[4] ? 0.26 : 0.18); c.fillRect(x0, T, x1 - x0, ph); }   // nur „pausieren“ füllt die ganze Höhe (dort wurde nicht ausgewertet)
-    c.fillStyle = col; c.fillRect(x0, ly, x1 - x0, (a[4] ? 5 : 4) * d);   // „nur festhalten“/„als Ereignis“: schmaler Streifen oben, je Sensor eine Spur
-    if (md === 'event') { c.fillRect(x0, ly, 2 * d, 12 * d); }
+    c.fillStyle = col; const hb = a[7] ? 2 : 1; c.fillRect(x0, ly, x1 - x0, (a[4] ? 5 : 4) * d * hb);   // „nur festhalten“/„als Ereignis“: schmaler Streifen oben, je Sensor eine Spur (hervorgehoben: doppelt so groß)
+    if (md === 'event') { c.fillRect(x0, ly, 2 * d * hb, 12 * d * hb); }
     if (a[4] && x1 - x0 > 30 * d) {                  // Notiz zum Sensor-Zeitraum gut sichtbar unter dem Streifen (gekürzt, ganzer Text im Tooltip)
       c.save(); c.beginPath(); c.rect(Math.max(x0, L), T, Math.min(x1, L + pw) - Math.max(x0, L), ph); c.clip();
       c.font = '600 ' + (11 * d) + 'px system-ui'; c.textAlign = 'left'; const tx = '📝 ' + a[4], mw = Math.min(x1, L + pw) - Math.max(x0, L) - 8 * d;
@@ -4465,21 +4491,24 @@ function dtDraw(S, hoverX) {
     for (const id of ['cen', 'dom', 'hi', 'mid', 'lo']) if (LY[id]) { c.fillStyle = LCOL[id]; const tx = '■ ' + t('lay_s_' + id); c.fillText(tx, lx, 15 * d); lx -= c.measureText(tx).width + 10 * d; }
   }
   if (art) {                                          // KI: je Störung die erkannte Art, beim Hineinzoomen jedes Einzelereignis mit Symbol
+    S.ahits = [];
     const y0 = T - 20 * d, fine = r.fine || {}; c.textAlign = 'center'; c.font = (12 * d) + 'px system-ui'; let lastX = -1e9;
     if ((r.subs || []).length) {
       for (const x of r.subs) { const xx = X(x[0]); if (xx < L || xx > L + pw) continue; const f = fine[x[1]] || { icon: '❓', group: 'other', name: x[1] };
-        c.fillStyle = ART_HEX[f.group] || NC.mut; c.fillRect(xx - 0.75 * d, y0 + 15 * d, 1.5 * d, T - y0 - 15 * d);
-        if (xx - lastX > 16 * d) { c.fillText(f.icon, xx, y0 + 12 * d); lastX = xx;
+        if (ART_MUTE.has(f.group)) continue;
+        c.fillStyle = ART_HEX[f.group] || NC.mut; const hs = ART_HI.has(f.group) ? 2 : 1; c.fillRect(xx - 0.75 * d * hs, y0 + 15 * d, 1.5 * d * hs, T - y0 - 15 * d);
+        if (hs > 1) c.font = (24 * d) + 'px system-ui';
+        if (xx - lastX > 16 * d * hs) { c.fillText(f.icon, xx, y0 + 12 * d); S.ahits.push({ x: xx / d, y: (y0 + 6 * d) / d, w: 12 * hs, g: f.group, n: f.name, i: f.icon }); lastX = xx; if (hs > 1) c.font = (12 * d) + 'px system-ui';
           if (span <= 20 * 60000) { c.font = '600 ' + (9.5 * d) + 'px system-ui'; c.textAlign = 'left'; c.fillText(f.name, xx + 8 * d, y0 + 11 * d); c.textAlign = 'center'; c.font = (12 * d) + 'px system-ui'; lastX = xx + c.measureText(f.name).width; } } }
     } else {
-      for (const a of r.art) { const xx = X(a[0]); if (xx < L || xx > L + pw) continue; c.fillStyle = a[4] ? '#adb5bd' : a[3] ? lbCol(a[3]) : (ART_HEX[a[1]] || NC.mut); c.fillRect(xx - 1 * d, y0 + 4 * d, 2.5 * d, 14 * d);
-        if (xx - lastX > 22 * d && span <= 6 * 3600000) { c.fillText(a[3] ? '🧩' : (ART_ICON[a[1]] || ''), xx, y0 + 2 * d); lastX = xx; } }
+      for (const a of r.art) { const xx = X(a[0]); if (xx < L || xx > L + pw) continue; if (!a[3] && ART_MUTE.has(a[1])) continue; c.fillStyle = a[4] ? '#adb5bd' : a[3] ? lbCol(a[3]) : (ART_HEX[a[1]] || NC.mut); const hs = !a[3] && ART_HI.has(a[1]) ? 2 : 1; c.fillRect(xx - 1 * d * hs, y0 + 4 * d, 2.5 * d * hs, 14 * d);
+        if (xx - lastX > 22 * d * hs && span <= 6 * 3600000) { if (hs > 1) c.font = (24 * d) + 'px system-ui'; c.fillText(a[3] ? '🧩' : (ART_ICON[a[1]] || ''), xx, y0 + 2 * d); if (!a[3]) S.ahits.push({ x: xx / d, y: (y0 - 4 * d) / d, w: 12 * hs, g: a[1], n: artName(a[1]), i: ART_ICON[a[1]] || '' }); lastX = xx; if (hs > 1) c.font = (12 * d) + 'px system-ui'; } }
     }
   }
   for (const a of haV) {                             // Fähnchen der Sensor-Ereignisse nach der Pegelkurve nochmal zeichnen: liegen über Kurve und Linie
     if (a[5] !== 'event') continue;
     const x0 = X(Math.max(a[0], r.from)), x1 = Math.max(X(Math.min(a[1], r.to)), x0 + 3 * d); if (x1 <= x0 || x1 < L || x0 > L + pw) continue;
-    const ly = T + haLane.get(a[2]) * 6 * d; c.fillStyle = sensCol(a); c.fillRect(x0, ly, x1 - x0, (a[4] ? 5 : 4) * d); c.fillRect(x0, ly, 2 * d, 12 * d);
+    const ly = T + haLane.get(a[2]) * 6 * d, hb = a[7] ? 2 : 1; c.fillStyle = sensCol(a); c.fillRect(x0, ly, x1 - x0, (a[4] ? 5 : 4) * d * hb); c.fillRect(x0, ly, 2 * d * hb, 12 * d * hb);
   }
   if ((r.pa || []).length) {                         // Bereiche aus „Neu untersuchen“ (Profile, auch unter der Schwelle)
     c.save(); c.beginPath(); c.rect(L, 0, pw, T + ph); c.clip(); let lastX = -1e9;
@@ -4491,10 +4520,10 @@ function dtDraw(S, hoverX) {
   c.fillStyle = ca(NC.red, 0.35); for (const e of r.evx || []) { const x = X(e[0]); if (x >= L && x <= L + pw) c.fillRect(x - 1 * d, T + ph + 2 * d, Math.max(2 * d, X(e[0] + e[1]) - x), 2.5 * d); }   // Störung an einem anderen Gerät
   c.fillStyle = NC.red; for (const e of r.ev || []) { const x = X(e[0]); if (x >= L && x <= L + pw) c.fillRect(x - 1 * d, T + ph + 1 * d, Math.max(2 * d, X(e[0] + e[1]) - x), 4 * d); }
   {                                                  // Sensor-Ereignisse (Regel „als Ereignis“, z. B. Türsensor): rote Marker wie bei Störungen, dazu eine dünne Linie über die ganze Höhe
-    c.save(); c.beginPath(); c.rect(L, 0, pw, T + ph + 8 * d); c.clip();
+    c.save(); c.beginPath(); c.rect(L, 0, pw, T + ph + 12 * d); c.clip();
     for (const a of (r.ha || []).filter(a => a[5] === 'event' && !SHIDE.has('ha:' + a[2]))) {
       const x0 = X(Math.max(a[0], r.from)), x1 = Math.max(x0 + 2 * d, X(Math.min(a[1], r.to))); if (x1 < L || x0 > L + pw) continue;
-      c.fillStyle = NC.red; c.fillRect(x0 - 1 * d, T + ph + 1 * d, Math.max(3 * d, x1 - x0), 4 * d);
+      c.fillStyle = NC.red; c.fillRect(x0 - 1 * d * (a[7] ? 2 : 1), T + ph + 1 * d, Math.max(3 * d, x1 - x0) * (a[7] ? 1 : 1), (a[7] ? 8 : 4) * d);
     }
     c.restore();
   }

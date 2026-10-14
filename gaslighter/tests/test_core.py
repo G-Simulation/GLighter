@@ -239,6 +239,11 @@ class RegelKeineStoerung(unittest.TestCase):
         self.assertEqual([x["mode"] for x in self.r], ["quiet", "pause"])
         self.assertEqual(self.r[0]["after_min"], 10.0)
 
+    def test_hervorheben_nur_echtes_true(self):
+        r = laerm.clean_rules([{"id": "a", "entity": "binary_sensor.x", "mode": "event", "big": True},
+                               {"id": "b", "entity": "binary_sensor.y", "mode": "event", "big": "ja"}])
+        self.assertEqual([x["big"] for x in r], [True, False])
+
     def test_aktiv_und_nachlauf(self):
         laerm.HA_STATE["q1"] = {"hold": True, "active": True, "state": "on", "name": "Tür"}
         self.assertIsNotNone(laerm.ha_quiet_for("x"))
