@@ -32,7 +32,7 @@ HERE = os.path.dirname(os.path.abspath(__file__))
 WEB = os.path.join(HERE, "web")
 OPTIONS_FILE = os.environ.get("LAERM_OPTIONS", "/data/options.json")
 SETTINGS_FILE = os.environ.get("LAERM_SETTINGS", "/data/settings.json")
-VERSION = "1.53.0"
+VERSION = "1.53.1"
 
 # =====================================================================
 # Einstellungen
@@ -5398,10 +5398,14 @@ def runtime_info(t_from=None, t_to=None, with_chains=True):
             # vom Starter sauber beendet (Home Assistant hat angehalten / neu gestartet) oder ohne Abmelden weg (Strom, Absturz)
             e["cause"] = "stopped" if a_ is not None and any(x is not None and -15000 <= x - a_ <= 40000 for x in stops) else "lost"
     try:                                               # Luecken, die der Starter nicht gesehen hat (z. B. Umzug auf eine neue Installation)
+        if not with_chains and t_to - t_from > 14 * 86400000:   # Live-Verlauf mit sehr langem Fenster: Tagesdateien nicht alle durchsuchen (zu langsam)
+            raise ValueError("window")
         downs_ = [(ms_of(e.get("from")), ms_of(e.get("to"))) for e in ev if e.get("kind") == "down"]
         for g_ in data_gaps(t_from, t_to, [x for x in downs_ if x[0] is not None and x[1] is not None]):
             g_["key"] = g_["from"]; g_["note"] = notes.get(g_["key"], ""); ev.append(g_)
         ev.sort(key=lambda e: e.get("from") or e.get("at") or "")
+    except ValueError:
+        pass
     except Exception as e:                             # nie das Protokoll verhindern
         log("Lücken prüfen:", e)
     for e in ev:                                       # offen = ungeplant (Strom weg, Absturz, Luecke, Rueckfall); Update/Neustart durch Home Assistant/Import gelten als gelesen

@@ -1,5 +1,8 @@
 # Changelog
 
+## 1.53.1
+- Live-Verlauf mit sehr langem Zeitfenster (über 14 Tage): Die Suche nach unbekannten Lücken in den Tagesdateien entfällt dort, damit das Zoomen nicht ausgebremst wird. Protokolle und Bericht prüfen weiter vollständig.
+
 ## 1.53.0
 - Unterbrechungen: Meldungen lassen sich bestätigen („✓ Bestätigen“, „Alle bestätigen“). Der Kasten zeigt nur noch offene Meldungen und verschwindet, wenn alles bestätigt ist; über „Bestätigte anzeigen“ sind die übrigen jederzeit da, ein Klick auf ↺ öffnet eine Meldung wieder. Bestätigt wird nur die Anzeige: Aufzeichnung, Prüfsummen-Kette, schraffierte Lücken im Verlauf und der Bericht bleiben vollständig.
 - Geplante Ereignisse (Update, von Home Assistant angehaltener Neustart, Import) gelten automatisch als gelesen. Offen bleiben Stromausfall/Absturz, Lücken, Rückfall und echte Kettenfehler.
