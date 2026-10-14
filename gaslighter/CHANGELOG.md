@@ -1,5 +1,9 @@
 # Changelog
 
+## 1.51.9
+- Sensor-Ereignisse (Home-Assistant-Regeln): GasLighter gleicht die letzten 24 Stunden alle 10 Minuten mit dem Verlauf von Home Assistant ab und korrigiert verpasste An/Aus-Wechsel in `ha_zustand.csv` (Sicherung als `.bak`). Ein verpasstes „Frei" lässt ein Ereignis nicht mehr stundenlang offen. Aufzeichnung und Prüfsummen-Kette bleiben unberührt.
+- Ein Sensor-Intervall läuft nicht mehr durch eine Zeit ohne Aufzeichnung (Stromausfall, Neustart) hindurch, sondern endet an deren Beginn.
+
 ## 1.51.8
 - Live-Verlauf: Zeiten ohne Aufzeichnung (Stromausfall, Neustart, Lücke) sind jetzt auch dort schraffiert und per Klick benennbar, nicht nur im Protokoll-Bereich. Die Aufzeichnung selbst bleibt unverändert.
 

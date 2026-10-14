@@ -32,7 +32,7 @@ HERE = os.path.dirname(os.path.abspath(__file__))
 WEB = os.path.join(HERE, "web")
 OPTIONS_FILE = os.environ.get("LAERM_OPTIONS", "/data/options.json")
 SETTINGS_FILE = os.environ.get("LAERM_SETTINGS", "/data/settings.json")
-VERSION = "1.51.8"
+VERSION = "1.51.9"
 
 # =====================================================================
 # Einstellungen
@@ -1322,7 +1322,10 @@ def ha_watch():
             if capped and not prev.get("capped"):
                 log(f"Home-Assistant-Regel: {label} seit über {r['max_h']:g} h aktiv - Pause aufgehoben, es wird wieder aufgenommen")
         try:
-            ha_hist_sync([r for r in rules if r.get("mode") in ("note", "event")])
+            hr_ = [r for r in rules if r.get("mode") in ("note", "event")]
+            ha_hist_sync(hr_)
+            if hr_ and HA_SYNC["ok"] is True and time.time() - HA_SYNC.get("heal", 0) > 600:     # alle 10 min (und kurz nach dem Start) mit Home Assistant abgleichen
+                HA_SYNC["heal"] = time.time(); ha_heal(hr_, int(time.time() * 1000))
         except Exception as e:                            # nie die Abfrage stoeren
             HA_SYNC["ok"] = False; log("Home-Assistant-Historie:", e)
 
@@ -1394,6 +1397,65 @@ def ha_hist_sync(rules):
     return True
 
 
+def ha_heal(rules, now_ms):
+    """Abgleich der letzten 24 h: was in ha_zustand.csv steht, mit dem Verlauf von Home Assistant vergleichen und abweichende
+    An/Aus-Wechsel korrigieren (z. B. ein verpasstes „Frei“, das sonst ein Ereignis stundenlang offen laesst).
+    Die Aufzeichnung selbst (Tagesdateien, Pruefsummen-Kette) wird nie angefasst."""
+    since = now_ms - 24 * 3600 * 1000
+    iso = lambda ms: dt.datetime.fromtimestamp(ms / 1000.0).astimezone().isoformat(timespec="seconds")
+    ents = ",".join(sorted({r["entity"] for r in rules}))
+    d = ha_get("/history/period/" + urllib.parse.quote(iso(since)) + "?filter_entity_id=" + urllib.parse.quote(ents, safe=",") +
+               "&end_time=" + urllib.parse.quote(iso(now_ms + 1000)) + "&minimal_response&no_attributes&significant_changes_only=0", timeout=15)
+    by = {}
+    for lst in d if isinstance(d, list) else []:
+        if lst and isinstance(lst, list) and isinstance(lst[0], dict) and lst[0].get("entity_id"):
+            by[lst[0]["entity_id"]] = lst
+    f = ha_hist_path()
+    try:
+        with open(f, newline="", encoding="utf-8", errors="replace") as fh:
+            rows = list(csv.reader(fh))
+    except OSError:
+        return 0
+    if not rows:
+        return 0
+    head, body = rows[0], rows[1:]
+    fixed = 0
+    for r in rules:
+        if r["entity"] not in by:
+            continue
+        truth, act0 = [], None
+        for x in by[r["entity"]]:
+            t_ = ms_of(x.get("last_changed") or x.get("last_updated")); st_ = x.get("state")
+            if t_ is None or st_ in ("unavailable", "unknown", None):
+                continue
+            act = rule_match(r["states"], st_)
+            if act != act0:
+                if act0 is not None or (act and t_ > since + 1000):     # den Anfangszustand (aus) zu Beginn des Fensters nicht als Wechsel zaehlen
+                    truth.append((t_, st_, act))
+                act0 = act
+        mine_seq = sorted((round(ms_of(row[0]) / 1000), row[5] == "1") for row in body if len(row) >= 6 and row[1] == r["id"] and (ms_of(row[0]) or 0) >= since)
+        if mine_seq == sorted((round(t_ / 1000), a) for t_, st_, a in truth):
+            continue
+        body = [row for row in body if not (len(row) >= 6 and row[1] == r["id"] and (ms_of(row[0]) or 0) >= since)]
+        lab = r["label"] or (HA_STATE.get(r["id"]) or {}).get("name") or r["entity"]
+        for t_, st_, a in truth:
+            body.append([dt.datetime.fromtimestamp(t_ / 1000.0).astimezone().isoformat(timespec="milliseconds"), r["id"], lab, r["entity"], str(st_)[:60], "1" if a else "0", r["src"]])
+        HA_SYNC["act"][r["id"]] = truth[-1][2] if truth else HA_SYNC["act"].get(r["id"])
+        fixed += 1
+        log(f"Home-Assistant-Historie: {lab} mit Home Assistant abgeglichen ({len(mine_seq)} → {len(truth)} Wechsel in 24 h)")
+    if fixed:
+        body.sort(key=lambda row: ms_of(row[0]) or 0)
+        try:
+            shutil.copyfile(f, f + ".bak")
+        except OSError:
+            pass
+        tmp = f + ".tmp"
+        with open(tmp, "w", newline="", encoding="utf-8") as fh:
+            w = csv.writer(fh); w.writerow(head); w.writerows(body)
+        os.replace(tmp, f)
+    return fixed
+
+
 def ha_hist_path():
     return os.path.join(paths()[0], "ha_zustand.csv")
 
@@ -1410,6 +1472,35 @@ def ha_hist_add(rule, label, state, on, at_ms=None):
             w.writerow([when.isoformat(timespec="milliseconds"), rule["id"], label, rule["entity"], str(state)[:60], 1 if on else 0, rule["src"]])
     except OSError as e:
         log("Home-Assistant-Zustand nicht gespeichert:", e)
+
+
+RUN_DOWNS = {"key": None, "v": []}
+
+
+def run_downs():
+    """Unterbrechungen des Starters (von, bis in ms) aus laufzeit.jsonl, zwischengespeichert nach Dateistand."""
+    f = os.path.join(DATA_DIR, "laufzeit.jsonl")
+    try:
+        st = os.stat(f); key = (st.st_mtime_ns, st.st_size)
+    except OSError:
+        return []
+    if RUN_DOWNS["key"] != key:
+        v = []
+        try:
+            with open(f, encoding="utf-8") as fh:
+                for line in fh:
+                    try:
+                        e = json.loads(line)
+                    except ValueError:
+                        continue
+                    if e.get("kind") == "down":
+                        a, b = ms_of(e.get("from")), ms_of(e.get("to"))
+                        if a is not None and b is not None and b > a:
+                            v.append((a, b))
+        except OSError:
+            pass
+        RUN_DOWNS.update(key=key, v=v)
+    return RUN_DOWNS["v"]
 
 
 def ha_intervals(src_id, t_from, t_to):
@@ -1448,6 +1539,10 @@ def ha_intervals(src_id, t_from, t_to):
     for rid, (a, n_) in cur.items():                     # noch an (oder Regel inzwischen entfernt: bis zum letzten Eintrag offen lassen)
         if rid in live and a < t_to:
             out.append([a, min(now, t_to), n_, rid, notes.get(f"{rid}|{a}", "")])
+    for x in out:                                         # nicht durch eine Zeit ohne Aufzeichnung (Strom weg, Neustart) durchziehen: am Beginn der Luecke enden
+        for d0, d1 in run_downs():
+            if x[0] < d0 < x[1]:
+                x[1] = max(d0, x[0] + 1000)
     with HA_LOCK:
         cols = {r["id"]: r.get("color") or "" for r in HA_RULES}
     for x in out:                                         # Art der Regel: note = nur festhalten (Leiste), event = als Ereignis; dazu die gewählte Farbe
