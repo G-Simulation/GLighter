@@ -32,6 +32,8 @@ Afterwards a report shows new files, merged days, skipped days and the devices t
 
 ### Daily backup to network drive, NAS or USB
 
+> **🔒 Pro:** The daily backup and “save space” are part of [GasLighter Pro](14-pro.md). **“⬇ Download backup” and `log.csv` always stay free.** If Pro expires, the daily backup pauses; days already moved stay readable.
+
 ⚙ Settings → Storage & sound → **Daily backup**. With a target set, GasLighter copies everything new there every day (default 03:30) – the same files as the ZIP backup, but **incremental**: only new and changed files, each verified with SHA-256 afterwards.
 
 - **Nothing is ever deleted in the target.** If an already backed-up file changes later, the old version stays next to it as `….alt-YYYYMMDD-hhmmss`.

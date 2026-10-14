@@ -3171,9 +3171,9 @@ function mirrorBox() {
   const b = el('div', { className: 'mirrorbox', id: 'mirrorbox' });
   const show = m => {
     m = m || {}; const L = locale(), when = x => x ? new Date(x * 1000).toLocaleString(L, { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' }) : '–';
-    const st = !CUR || !CUR.mirror_dir ? t('mir_none') : m.running ? '⏳ ' + t('mir_running') : m.ok === false ? '⚠ ' + t('mir_err', { e: m.error || '' }) : m.ok ? '✓ ' + t('mir_ok', { a: when(m.last), n: m.files || 0, c: m.copied || 0 }) : t('mir_wait');
+    const st = !PRO.ok ? t(CUR && CUR.mirror_dir ? 'mir_pro_off' : 'mir_pro') : !CUR || !CUR.mirror_dir ? t('mir_none') : m.running ? '⏳ ' + t('mir_running') : m.ok === false ? '⚠ ' + t('mir_err', { e: m.error || '' }) : m.ok ? '✓ ' + t('mir_ok', { a: when(m.last), n: m.files || 0, c: m.copied || 0 }) : t('mir_wait');
     b.innerHTML = `<div class="${m.ok === false ? 'bad' : ''}">${esc(st)}</div>${m.next ? `<small>${esc(t('mir_next', { a: when(m.next) }))}</small>` : ''}${m.offloaded ? `<small>${esc(t('mir_off', { n: m.offloaded }))}</small>` : ''}
-      <button type="button" class="chip" id="mirnow"${!CUR || !CUR.mirror_dir || m.running ? ' disabled' : ''}>💾 ${esc(t('mir_now'))}</button>`;
+      <button type="button" class="chip" id="mirnow"${!PRO.ok || !CUR || !CUR.mirror_dir || m.running ? ' disabled' : ''}>💾 ${esc(t('mir_now'))}</button>`;
     const nb = b.querySelector('#mirnow'); nb.onclick = async () => {
       nb.disabled = true;
       try { const r = await (await fetch('mirror_now', { method: 'POST' })).json(); if (!r.ok) { show(Object.assign({}, m, r.mirror || {}, { ok: false, error: r.error })); return; } } catch (e) { toast(t('saveerr')); }
@@ -3231,6 +3231,13 @@ function proRefresh() {
 }
 /* Ohne Pro: Erweiterte Einstellungen der Erkennung nur ansehen */
 function proApplyForm() {
+  { const mf = $('sbody').querySelector('fieldset[data-sec="s_mirror"]');      // tägliche Sicherung / Platz sparen: Pro
+    if (mf) { mf.classList.toggle('prolocked', !PRO.ok); const o = mf.querySelector('.proban'); if (o) o.remove();
+      if (!PRO.ok) { mf.querySelectorAll('input,select,textarea,button').forEach(x => { x.disabled = true; });
+        const ban = el('div', { className: 'proban' }); ban.append(proLockTag(), el('span', { textContent: ' ' + t('pro_mir_ban') + ' ' }));
+        const more = el('button', { type: 'button', className: 'chip', textContent: t('pro_more') }); more.onclick = () => proGate('mir'); ban.append(more);
+        const lg = mf.querySelector(':scope > legend'); if (lg) lg.after(ban); else mf.prepend(ban);
+        if (lg && !lg.querySelector('.protag')) lg.appendChild(proLockTag()); } } }
   const fs = $('sbody').querySelector('fieldset[data-sec="s_thr"]'); if (!fs) return;
   fs.classList.toggle('prolocked', !PRO.ok);
   const old = fs.querySelector('.proban'); if (old) old.remove();

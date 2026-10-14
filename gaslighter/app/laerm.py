@@ -32,7 +32,7 @@ HERE = os.path.dirname(os.path.abspath(__file__))
 WEB = os.path.join(HERE, "web")
 OPTIONS_FILE = os.environ.get("LAERM_OPTIONS", "/data/options.json")
 SETTINGS_FILE = os.environ.get("LAERM_SETTINGS", "/data/settings.json")
-VERSION = "1.59.0"
+VERSION = "1.59.1"
 
 # =====================================================================
 # Einstellungen
@@ -8598,6 +8598,9 @@ def mirror_run(reason="täglich"):
     if not d:
         MIRROR.update(ok=None, error="")
         return False
+    if not pro_ok():                                    # tägliche Sicherung und „Platz sparen“ gehören zu Pro (ZIP-Sicherung bleibt frei)
+        MIRROR.update(ok=None, error="pro")
+        return False
     if not MIRROR_LOCK.acquire(blocking=False):
         return False
     MIRROR.update(running=True, error="")
@@ -8712,7 +8715,7 @@ def mirror_watch():
         try:
             if mirror_target() != last_t:                  # anderes Ziel eingestellt: gleich alles hinüber
                 last_t = mirror_target(); MIRROR.update(last=None, ok=None, error="")
-            if mirror_target():
+            if mirror_target() and pro_ok():
                 now = dt.datetime.now()
                 hh, mm = (str(CFG.get("mirror_time") or "03:30") + ":30").split(":")[:2]
                 due = now.replace(hour=int(hh or 3), minute=int(mm or 30), second=0, microsecond=0)
@@ -10012,6 +10015,8 @@ class Handler(BaseHandler):
             if name == "mirror_now":                     # Sicherung ins Ziel jetzt starten (läuft im Hintergrund)
                 if not mirror_target():
                     return self.js({"ok": False, "error": "kein Ziel eingestellt"})
+                if not pro_ok():
+                    return self.js({"ok": False, "error": "pro"})
                 err = mirror_check_target(mirror_target())
                 if err:
                     MIRROR.update(ok=False, error=err)
@@ -10019,7 +10024,7 @@ class Handler(BaseHandler):
                 threading.Thread(target=mirror_run, args=("von Hand",), daemon=True).start()
                 return self.js({"ok": True})
             if name == "mirror_state":
-                return self.js({"ok": True, "mirror": {k: v for k, v in MIRROR.items() if k != "tried"}})
+                return self.js({"ok": True, "pro": pro_ok(), "mirror": {k: v for k, v in MIRROR.items() if k != "tried"}})
             if name == "run_ack":                        # Meldungen als gelesen markieren (nur Anzeige)
                 data = json.loads(body or b"{}")
                 if not isinstance(data, dict):

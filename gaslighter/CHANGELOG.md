@@ -1,5 +1,8 @@
 # Changelog
 
+## 1.59.1
+- Tägliche Sicherung und „Platz sparen“ gehören zu Pro. „⬇ Sicherung herunterladen“ und log.csv bleiben frei. Ohne Pro hält die tägliche Sicherung an; schon ausgelagerte Tage bleiben lesbar, „Automatisch löschen“ löscht weiter nur Geprüftes.
+
 ## 1.59.0
 - Neu: **Tägliche Sicherung** auf Netzlaufwerk, NAS oder USB-Platte (Einstellungen → Speichern & Ton). Inkrementell: nur neue und geänderte Dateien, jede mit SHA-256 geprüft. Im Ziel wird nie etwas gelöscht; nachträglich geänderte Dateien behalten ihre alte Fassung. Ist das Ziel nicht erreichbar, läuft die Aufzeichnung normal weiter und der nächste Lauf holt alles nach (stündlicher Versuch). „Jetzt sichern“ und Stand in den Einstellungen.
 - Schutz: Ziel muss vorhanden sein und darf nicht auf demselben Speicher liegen wie die Daten (sonst würde ein nicht eingebundenes Netzlaufwerk den eigenen Speicher füllen).

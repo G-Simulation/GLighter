@@ -234,15 +234,15 @@ class SicherungsZiel(unittest.TestCase):
         os.makedirs(os.path.join(self.out, "clips", "tag")); os.makedirs(self.dst)
         self.f = os.path.join(self.out, "clips", "tag", "mic_2026-01-01.ltd")
         open(self.f, "wb").write(b"alt" * 1000)
-        self.keep = (laerm.DATA_DIR, laerm.backup_items, laerm.public_settings, dict(laerm.CFG))
-        laerm.DATA_DIR = self.tmp
+        self.keep = (laerm.DATA_DIR, laerm.backup_items, laerm.public_settings, dict(laerm.CFG), laerm.pro_ok)
+        laerm.DATA_DIR = self.tmp; laerm.pro_ok = lambda: True
         laerm.backup_items = lambda: [("clips/tag/mic_2026-01-01.ltd", self.f)]
         laerm.public_settings = lambda: {"x": 1}
         laerm.CFG.update(output_dir=self.out, mirror_dir=self.dst, mirror_offload=False, retention_days=30)
         os.environ["LAERM_MIRROR_SAMEDEV"] = "1"
 
     def tearDown(self):
-        laerm.DATA_DIR, laerm.backup_items, laerm.public_settings, cfg = self.keep
+        laerm.DATA_DIR, laerm.backup_items, laerm.public_settings, cfg, laerm.pro_ok = self.keep
         laerm.CFG.clear(); laerm.CFG.update(cfg); os.environ.pop("LAERM_MIRROR_SAMEDEV", None)
 
     def test_inkrementell_und_alte_fassung(self):
@@ -266,6 +266,11 @@ class SicherungsZiel(unittest.TestCase):
         self.assertTrue(laerm.mirror_verified(self.f))
         self.assertTrue(laerm.mirror_run("test"))                   # zweiter Lauf: ausgelagerte Datei bleibt, nichts kaputt
         self.assertTrue(os.path.isfile(os.path.join(self.dst, "clips", "tag", "mic_2026-01-01.ltd")))
+
+    def test_nur_mit_pro(self):
+        laerm.pro_ok = lambda: False
+        self.assertFalse(laerm.mirror_run("test")); self.assertEqual(laerm.MIRROR["error"], "pro")
+        self.assertEqual(os.listdir(self.dst), [])                 # ohne Pro wird nichts kopiert
 
     def test_ziel_fehlt(self):
         laerm.CFG["mirror_dir"] = os.path.join(self.tmp, "nicht_da")

@@ -32,6 +32,8 @@ Danach steht ein Bericht da: neue Dateien, zusammengeführte Tage, übersprungen
 
 ### Tägliche Sicherung auf Netzlaufwerk, NAS oder USB
 
+> **🔒 Pro:** Die tägliche Sicherung und „Platz sparen“ gehören zu [GasLighter Pro](14-pro.md). **„⬇ Sicherung herunterladen“ und `log.csv` bleiben immer frei.** Läuft Pro ab, hält die tägliche Sicherung an; schon ausgelagerte Tage bleiben lesbar.
+
 ⚙ Einstellungen → Speichern & Ton → **Tägliche Sicherung**. Ist ein Ziel eingestellt, kopiert GasLighter jeden Tag (Standard 03:30) alles Neue dorthin – dieselben Dateien wie in der ZIP-Sicherung, aber **inkrementell**: nur neue und geänderte Dateien, jede danach mit SHA-256 geprüft.
 
 - **Im Ziel wird nie etwas gelöscht.** Ändert sich eine schon gesicherte Datei nachträglich, bleibt die alte Fassung als `….alt-JJJJMMTT-hhmmss` daneben liegen.

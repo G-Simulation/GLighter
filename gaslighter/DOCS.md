@@ -463,6 +463,8 @@ Danach steht ein Bericht da: neue Dateien, zusammengeführte Tage, übersprungen
 
 ### Tägliche Sicherung auf Netzlaufwerk, NAS oder USB
 
+> **🔒 Pro:** Die tägliche Sicherung und „Platz sparen“ gehören zu GasLighter Pro. **„⬇ Sicherung herunterladen“ und `log.csv` bleiben immer frei.** Läuft Pro ab, hält die tägliche Sicherung an; schon ausgelagerte Tage bleiben lesbar.
+
 ⚙ Einstellungen → Speichern & Ton → **Tägliche Sicherung**. Ist ein Ziel eingestellt, kopiert GasLighter jeden Tag (Standard 03:30) alles Neue dorthin – dieselben Dateien wie in der ZIP-Sicherung, aber **inkrementell**: nur neue und geänderte Dateien, jede danach mit SHA-256 geprüft.
 
 - **Im Ziel wird nie etwas gelöscht.** Ändert sich eine schon gesicherte Datei nachträglich, bleibt die alte Fassung als `….alt-JJJJMMTT-hhmmss` daneben liegen.
@@ -687,6 +689,7 @@ Die Jahreslizenz **GasLighter Pro** schaltet zusätzlich frei:
 | Erweiterte Einstellungen der Erkennung (Reiter „Erkennung“ → „Wann gilt etwas als Störung?“) | nur ansehen, Standardwerte | frei einstellbar, auch je Gerät und in Zeitprofilen |
 | Externe Geräte: Handy im Browser, Handy-App / Stream-URL, IP-Kamera | gesperrt | bis zu 8 zusätzliche Geräte |
 | Handy als Bewegungsmelder (Erschütterung, Bewegung im Bild) | gesperrt | ✔ |
+| Tägliche Sicherung auf Netzlaufwerk/NAS/USB und „Platz sparen“ (Sicherung) | „⬇ Sicherung herunterladen“ von Hand | jeden Tag automatisch, geprüft |
 
 Das Server-Mikrofon (am Home-Assistant-Rechner) funktioniert immer ohne Pro.
 
@@ -1202,6 +1205,8 @@ Afterwards a report shows new files, merged days, skipped days and the devices t
 
 ### Daily backup to network drive, NAS or USB
 
+> **🔒 Pro:** The daily backup and “save space” are part of GasLighter Pro. **“⬇ Download backup” and `log.csv` always stay free.** If Pro expires, the daily backup pauses; days already moved stay readable.
+
 ⚙ Settings → Storage & sound → **Daily backup**. With a target set, GasLighter copies everything new there every day (default 03:30) – the same files as the ZIP backup, but **incremental**: only new and changed files, each verified with SHA-256 afterwards.
 
 - **Nothing is ever deleted in the target.** If an already backed-up file changes later, the old version stays next to it as `….alt-YYYYMMDD-hhmmss`.
@@ -1426,6 +1431,7 @@ The yearly licence **GasLighter Pro** additionally unlocks:
 | Advanced detection settings (tab “Detection” → “When is something a disturbance?”) | view only, defaults | fully adjustable, also per device and in time profiles |
 | External devices: phone in the browser, phone app / stream URL, IP camera | locked | up to 8 additional devices |
 | Phone as motion sensor (vibration, motion in picture) | locked | ✔ |
+| Daily backup to network drive/NAS/USB and “save space” (Backup) | “⬇ Download backup” by hand | automatic every day, verified |
 
 The server microphone (on the Home Assistant computer) always works without Pro.
 
