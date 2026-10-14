@@ -5330,7 +5330,7 @@ async function fnpSave() {
 }
 function initFnp() {
   if (!$('fnpanel')) return;
-  let open = innerWidth >= 700; try { const v = localStorage.getItem('laerm_fnp'); if (v != null) open = v !== '0'; } catch (e) { }   // Handy: zu, damit das Live-Bild oben steht
+  let open = true; try { const v = localStorage.getItem('laerm_fnp'); if (v != null) open = v !== '0'; } catch (e) { }   // Standard: offen (auch im Home-Assistant-Fenster und am Handy); wer es einklappt, behält das
   fnpFold(open); fnpTags(); fnpSrc(); fnpShow();
   { const pb = $('fnppop'); if (pb) pb.onclick = fnPop; }
   $('fnptog').onclick = () => { const o = $('fnpbody').hidden; fnpFold(o); if (o) $('fnptext').focus(); };

@@ -1,5 +1,8 @@
 # Changelog
 
+## 1.56.1
+- Die Notizleiste („📝 Notiz“) im Live-Bild ist jetzt standardmäßig **aufgeklappt**, auch im schmalen Home-Assistant-Fenster und am Handy (vorher dort zugeklappt). Wer sie von Hand einklappt, behält das.
+
 ## 1.56.0
 - Hausautomation: neue Aktion **„keine Störung melden“**. Solange die Bedingung gilt (und für den eingestellten Nachlauf danach, z. B. 10 Minuten), wird der Graph weiter aufgezeichnet, es entsteht aber keine Störung und es wird nichts an Home Assistant gemeldet. Anders als „pausieren“ gibt es keine Lücke in der Aufzeichnung. Anzeige im Gerätestatus: „Keine Störungsmeldung: …“.
 - Home Assistant: dasselbe auch als Knopf im Dashboard. Neu am Gerät „GasLighter“: **„Keine Störung melden (Dauer starten)“**, **„Störungen wieder melden“**, die einstellbare **Dauer** (1–240 Minuten, Standard 10) und **„Keine Störungsmeldung bis“**. Die Zeit läuft nach einem Neustart weiter.
