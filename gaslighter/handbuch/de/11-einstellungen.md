@@ -2,7 +2,9 @@
 
 ![Einstellungen](einstellungen_{lang}.png)
 
-Ganz oben wählst du **Alle Geräte** oder ein einzelnes Gerät. Beim Gerät lassen sich mit „Eigene Einstellungen für dieses Gerät“ abweichende Werte festlegen (Schwelle, Mindestdauer, Aufnahmezeit, Speichern). Die Leiste oben zeigt live Pegel, Hintergrund, Schwelle und die **Vorschau** (lila) deiner noch nicht gespeicherten Einstellungen. ⓘ erklärt jede Einstellung; „Hilfe anzeigen“ blendet die Texte aus.
+Ganz oben wählst du **Alle Geräte** oder ein einzelnes Gerät. Beim Gerät lassen sich mit „Eigene Einstellungen für dieses Gerät“ abweichende Werte festlegen (Schwelle, Mindestdauer, Aufnahmezeit, Speichern). Die Leiste oben zeigt live Pegel, Hintergrund, Schwelle und die **Vorschau** (lila) deiner noch nicht gespeicherten Einstellungen.
+
+**🎯 Schwelle automatisch einstellen** {#auto} (🔒 Pro) – schlägt Werte für „Wann gilt etwas als Störung?“ vor, für das oben gewählte Gerät (auch ein verbundenes Handy). **Aus der letzten Nacht** nimmt die Ruhezeit der letzten Nacht ohne die Störungen darin – kein Warten, am zuverlässigsten. **Jetzt messen** (30 s, 1 min oder 5 min): in der Zeit leise sein; war es zwischendurch deutlich lauter, steht „Messung gestört – bitte wiederholen“. Der Vorschlag steht als Tabelle „jetzt → Vorschlag“ da; erst **Übernehmen** trägt ihn ein (lila Vorschau), **Speichern** behält ihn. ⓘ erklärt jede Einstellung; „Hilfe anzeigen“ blendet die Texte aus.
 
 ## Geräte {#geraete}
 

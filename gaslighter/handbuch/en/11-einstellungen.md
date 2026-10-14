@@ -2,7 +2,9 @@
 
 ![Settings](einstellungen_{lang}.png)
 
-At the very top choose **All devices** or a single device. For a device, “Own settings for this device” sets different values (threshold, minimum duration, monitoring time, storage). The bar at the top shows level, background, threshold and the **preview** (purple) of your not yet saved settings live. ⓘ explains every setting; “Show help” hides the texts.
+At the very top choose **All devices** or a single device. For a device, “Own settings for this device” sets different values (threshold, minimum duration, monitoring time, storage). The bar at the top shows level, background, threshold and the **preview** (purple) of your not yet saved settings live.
+
+**🎯 Set threshold automatically** {#auto} (🔒 Pro) – suggests values for “When does something count as a disturbance?” for the device selected at the top (also a connected phone). **From last night** uses last night’s quiet hours without the disturbances in them – no waiting, most reliable. **Measure now** (30 s, 1 min or 5 min): keep quiet during that time; if it was clearly louder in between, it says “measurement disturbed – please repeat”. The suggestion is shown as a table “now → suggestion”; only **Apply** fills it in (purple preview), **Save** keeps it. ⓘ explains every setting; “Show help” hides the texts.
 
 ## Devices {#geraete}
 

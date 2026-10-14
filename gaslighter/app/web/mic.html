@@ -139,6 +139,21 @@ function onAudio(f32) {
   send();
 }
 let sentLast = -1, dead = false;
+/* Einpegeln: dieses Handy spielt auf Anforderung gleichmäßiges Rauschen (Testgeräusch) */
+let toneSrc = null;
+function pinkBuf(c) {
+  const n = c.sampleRate * 4, b = c.createBuffer(1, n, c.sampleRate), d = b.getChannelData(0);
+  let b0 = 0, b1 = 0, b2 = 0, b3 = 0, b4 = 0, b5 = 0, b6 = 0;
+  for (let i = 0; i < n; i++) { const w = Math.random() * 2 - 1;
+    b0 = 0.99886 * b0 + w * 0.0555179; b1 = 0.99332 * b1 + w * 0.0750759; b2 = 0.96900 * b2 + w * 0.1538520; b3 = 0.86650 * b3 + w * 0.3104856; b4 = 0.55000 * b4 + w * 0.5329522; b5 = -0.7616 * b5 - w * 0.0168980;
+    d[i] = (b0 + b1 + b2 + b3 + b4 + b5 + b6 + w * 0.5362) * 0.11; b6 = w * 0.115926; }
+  return b;
+}
+function toneSet(on) {
+  if (!ctx) return;
+  if (on && !toneSrc) { try { const g = ctx.createGain(); g.gain.value = 0.8; toneSrc = ctx.createBufferSource(); toneSrc.buffer = pinkBuf(ctx); toneSrc.loop = true; toneSrc.connect(g); g.connect(ctx.destination); toneSrc.start(); } catch (e) { toneSrc = null; } }
+  else if (!on && toneSrc) { try { toneSrc.stop(); } catch (e) { } toneSrc = null; }
+}
 async function send() {
   if (sending || !queue.length || dead) return;
   sending = true;
@@ -156,6 +171,7 @@ async function send() {
       const j = await r.json();
       sentLast = last.seq; queue = queue.filter(p => p.seq > sentLast);
       sentBytes += len; lastOk = Date.now(); failCount = 0;
+      toneSet(!!j.tone);
       srvThr = j.thr; srvActive = !!j.active; srvLearning = !!j.learning; srvEnabled = j.enabled !== false; srvPaused = !!j.paused; srvHold = j.hold || null; srvMot = j.motion || {};
     } catch (e) {
       failCount++; setState(L.offline, 'err');
@@ -242,6 +258,7 @@ async function start() {
   keepAwake(); motStart();
 }
 function stop(keepMsg) {
+  toneSet(false);
   running = false;
   try { node && node.disconnect(); src && src.disconnect(); } catch (e) { }
   try { stream && stream.getTracks().forEach(t => t.stop()); } catch (e) { }

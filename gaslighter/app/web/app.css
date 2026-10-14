@@ -1104,3 +1104,12 @@ fieldset.prolocked .f{opacity:.55}
 #fnpmore.on{background:var(--nl1)}
 .mirrorbox{display:grid;gap:6px;margin-top:8px;font-size:13px}.mirrorbox .bad{color:var(--red);font-weight:600}.mirrorbox small{color:var(--mut)}.mirrorbox button{justify-self:start}
 .secintro{margin:2px 0 10px;color:var(--mut);font-size:13px;line-height:1.45}fieldset.shut>.secintro{display:none}
+.thrauto{border:1px solid var(--bd);border-radius:10px;padding:10px 12px;margin:8px 0;display:grid;gap:8px;background:var(--card)}
+.thrauto .tahead{display:flex;gap:8px;align-items:baseline;flex-wrap:wrap}.thrauto .tahead .tax{margin-left:auto}
+.thrauto .tarow{display:flex;gap:8px;align-items:center;flex-wrap:wrap}.thrauto .bad{color:var(--red);font-weight:600}.thrauto .mut{color:var(--mut)}
+.calsteps{display:flex;gap:6px;flex-wrap:wrap;margin:6px 0}.calsteps span{padding:4px 10px;border-radius:999px;border:1px solid var(--bd);color:var(--mut);font-size:13px}
+.calsteps span.on{background:var(--acc);border-color:var(--acc);color:#fff;font-weight:600}.calsteps span.done{color:var(--tx)}
+.callive{display:grid;gap:4px;margin:4px 0}.callv{display:grid;grid-template-columns:minmax(90px,160px) 1fr 54px;gap:8px;align-items:center;font-size:13px}
+.callv i{height:8px;border-radius:4px;background:var(--bd);overflow:hidden;display:block}.callv i b{display:block;height:100%;background:var(--acc)}.callv.tone i b{background:var(--mut)}.callv small{text-align:right;color:var(--mut)}
+.caltonedev{opacity:.55}
+.calst.run{font-size:17px;font-weight:600}

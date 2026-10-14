@@ -32,7 +32,7 @@ HERE = os.path.dirname(os.path.abspath(__file__))
 WEB = os.path.join(HERE, "web")
 OPTIONS_FILE = os.environ.get("LAERM_OPTIONS", "/data/options.json")
 SETTINGS_FILE = os.environ.get("LAERM_SETTINGS", "/data/settings.json")
-VERSION = "1.60.0"
+VERSION = "1.61.0"
 
 # =====================================================================
 # Einstellungen
@@ -8329,7 +8329,7 @@ def co_text(cmp):
 # Einpegeln: alle Geraete messen gleichzeitig dasselbe gleichmaessige Geraeusch; die Verstaerkung wird so
 # angepasst, dass alle denselben Pegel zeigen. Jede Messung wird protokolliert (clips/einpegeln.json).
 # =====================================================================
-CAL = {"state": "idle", "q0": 0, "q1": 0, "t0": 0, "t1": 0, "secs": 15, "ref": "", "ids": [], "target": None, "res": [], "msg": "", "base": {}}
+CAL = {"state": "idle", "q0": 0, "q1": 0, "t0": 0, "t1": 0, "secs": 15, "ref": "", "ids": [], "target": None, "res": [], "msg": "", "base": {}, "tone": None}
 CAL_LOCK = threading.Lock()
 
 
@@ -8351,7 +8351,83 @@ def cal_state(src):
     return {"ok": same, "at": c["at"], "changed": not same}
 
 
-def cal_start(secs, ids=None):
+# =====================================================================
+# Schwelle automatisch einstellen: aus der letzten Nacht oder aus einer Messung jetzt
+# Nur ein Vorschlag – übernommen wird erst im Formular („Übernehmen“) und mit Pro.
+# =====================================================================
+def _levels_between(sid, t_from, t_to):
+    """Pegel (Mittel je 125 ms) und Zustand zwischen t_from und t_to (ms): Tagesdatei, dazu was noch im Speicher liegt."""
+    lv, ac, seen = [], [], set()
+    day = dt.datetime.fromtimestamp(t_from / 1000.0).date(); d1 = dt.datetime.fromtimestamp(t_to / 1000.0).date()
+    while day <= d1:
+        d = day_load(day_path(sid, day.isoformat()))
+        if d is not None and len(d["t"]):
+            t = d["t"]; i0, i1 = np.searchsorted(t, t_from, "right"), np.searchsorted(t, t_to, "right")
+            if i1 > i0:
+                lv.append(np.asarray(d["eq"][i0:i1], dtype=float)); ac.append(np.asarray(d["act"][i0:i1], dtype=float))
+                seen.update(int(x) for x in t[i0:i1][-4000:])
+        day += dt.timedelta(days=1)
+    with SRC_LOCK:
+        r = RUNNERS.get(sid)
+    if r is not None:
+        with r.rlock:
+            ram = [x for x in r.spur if t_from < x[0] <= t_to and x[0] not in seen]
+        if ram:
+            lv.append(np.asarray([np.nan if x[2] is None else x[2] for x in ram], dtype=float)); ac.append(np.asarray([x[5] or 0 for x in ram], dtype=float))
+    if not lv:
+        return np.zeros(0), np.zeros(0)
+    return np.concatenate(lv), np.concatenate(ac)
+
+
+def _hm(s, dflt):
+    try:
+        h, m = str(s or dflt).split(":")[:2]; return int(h), int(m)
+    except (ValueError, TypeError):
+        h, m = dflt.split(":"); return int(h), int(m)
+
+
+def thr_suggest(sid, mode="night", t_from=None, t_to=None):
+    with SRC_LOCK:
+        r = RUNNERS.get(sid)
+    if r is None:
+        return {"ok": False, "error": "unknown device"}
+    now = dt.datetime.now()
+    if mode == "night":                                  # letzte Nacht: Ruhezeit (Standard 22–6 Uhr), die zuletzt zu Ende gegangen ist
+        fh, fm = _hm(CFG.get("quiet_from"), "22:00"); th, tm = _hm(CFG.get("quiet_to"), "06:00")
+        end = now.replace(hour=th, minute=tm, second=0, microsecond=0)
+        if end > now:
+            end -= dt.timedelta(days=1)
+        start = end.replace(hour=fh, minute=fm)
+        if start >= end:
+            start -= dt.timedelta(days=1)
+        t_from, t_to = int(start.timestamp() * 1000), int(end.timestamp() * 1000)
+    else:
+        t_to = int(t_to or time.time() * 1000); t_from = int(t_from or t_to - 30000)
+        if t_to - t_from < 10000 or t_to - t_from > 3 * 3600 * 1000:
+            return {"ok": False, "error": "bad range"}
+    lv, ac = _levels_between(sid, t_from, t_to)
+    want = (t_to - t_from) / Terz.STEP_MS
+    ok = np.isfinite(lv) & (lv > -125)
+    busy = int(np.sum(ok & (ac > 0)))                   # Momente, in denen eine Störung lief
+    v = lv[ok & ~(ac > 0)] if mode == "night" else lv[ok]
+    out = {"ok": True, "mode": mode, "from": t_from, "to": t_to, "n": int(len(v)), "cover": round(float(np.sum(ok)) / max(1.0, want), 2),
+           "events": busy, "name": r.name}
+    if len(v) < max(80, want * (0.05 if mode == "night" else 0.6)):
+        out.update(ok=False, error="nodata"); return out
+    p10, p50, p95 = (float(np.percentile(v, q)) for q in (10, 50, 95))
+    r5 = lambda x: round(x * 2) / 2
+    cl = lambda x, a, b: max(a, min(b, x))
+    out.update(p10=round(p10, 1), p50=round(p50, 1), p95=round(p95, 1),
+               sugg={"offset_db": cl(r5(p95 - p10 + 4), 6, 20), "min_db": cl(r5(p10 + 3), -120, -10),
+                     "thr_max_db": cl(r5(p50 + 40), r5(p10 + 10), 0), "thr_fixed_db": cl(r5(p95 + 6), -120, 0)})
+    # gestört: deutlich laute Momente (Reden, Tür …) während der Messung jetzt
+    loud = float(np.mean(v > p50 + 15)) if len(v) else 0.0
+    out["disturbed"] = bool(mode != "night" and (loud > 0.02 or busy > len(v) * 0.05))
+    out["loud_pct"] = round(loud * 100, 1)
+    return out
+
+
+def cal_start(secs, ids=None, tone=None):
     with CAL_LOCK:
         if CAL["state"] == "running":
             return {"ok": False, "error": "busy"}
@@ -8361,7 +8437,10 @@ def cal_start(secs, ids=None):
         now = int(time.time() * 1000)
         # 5 s Ruhe (Grundpegel), 3 s zum Einschalten des Geraeuschs, dann Messung
         ids = [str(x)[:16] for x in (ids or []) if isinstance(x, str)][:24]     # ausgewaehlte Geraete (leer = alle)
-        CAL.update(state="running", q0=now, q1=now + 5000, t0=now + 8000, t1=now + 8000 + secs * 1000, secs=secs, ref="mean", ids=ids, target=None, res=[], msg="", base=base)
+        tone = re.sub(r"[^a-z0-9_]", "", str(tone or ""))[:16] or None   # Handy, das das Testgeräusch abspielt (misst dann nicht mit)
+        if tone and tone in ids:
+            ids = [x for x in ids if x != tone]
+        CAL.update(state="running", q0=now, q1=now + 5000, t0=now + 8000, t1=now + 8000 + secs * 1000, secs=secs, ref="mean", ids=ids, target=None, res=[], msg="", base=base, tone=tone)
     threading.Thread(target=cal_run, daemon=True).start()
     return {"ok": True}
 
@@ -8369,7 +8448,7 @@ def cal_start(secs, ids=None):
 def cal_run():
     time.sleep(max(0.0, (CAL["t1"] - time.time() * 1000) / 1000.0 + 1.0))
     with SRC_LOCK:
-        runners = [r for r in RUNNERS.values() if not CAL["ids"] or r.id in CAL["ids"]]
+        runners = [r for r in RUNNERS.values() if (not CAL["ids"] or r.id in CAL["ids"]) and r.id != CAL.get("tone")]
     res = []
     for r in runners:
         with r.rlock:
@@ -8431,8 +8510,12 @@ def cal_apply(apply=True, note=""):
 
 def cal_payload():
     with CAL_LOCK:
-        c = {k: CAL[k] for k in ("state", "q0", "q1", "t0", "t1", "secs", "ref", "ids", "target", "res", "msg")}
+        c = {k: CAL[k] for k in ("state", "q0", "q1", "t0", "t1", "secs", "ref", "ids", "target", "res", "msg", "tone")}
     c["now"] = int(time.time() * 1000); c["log"] = cal_log()[-10:][::-1]
+    if c["state"] == "running":                          # Pegel je Gerät jetzt (zeigt, ob jedes Gerät das Geräusch hört)
+        with SRC_LOCK:
+            rs = [r for r in RUNNERS.values() if not c["ids"] or r.id in c["ids"] or r.id == c.get("tone")]
+        c["live"] = {r.id: r.status.get("level") for r in rs}
     return c
 
 
@@ -9963,7 +10046,7 @@ class Handler(BaseHandler):
                 if not isinstance(data, dict):
                     return self.js({"ok": False, "error": "bad request"}, 400)
                 if name == "cal_start":
-                    return self.js(cal_start(data.get("secs"), data.get("ids") if isinstance(data.get("ids"), list) else None))
+                    return self.js(cal_start(data.get("secs"), data.get("ids") if isinstance(data.get("ids"), list) else None, data.get("tone")))
                 if name == "cal_apply":
                     return self.js(cal_apply(bool(data.get("apply", True)), data.get("note") or ""))
                 with CAL_LOCK:
@@ -10012,6 +10095,13 @@ class Handler(BaseHandler):
                 if not isinstance(data, dict):
                     return self.js({"ok": False, "error": "bad request"}, 400)
                 return self.js(pro_del() if data.get("action") == "del" else pro_set(str(data.get("key") or "")[:2000]))
+            if name == "thr_suggest":                    # Vorschlag für die Schwelle (ändert nichts)
+                data = json.loads(body or b"{}")
+                if not isinstance(data, dict):
+                    return self.js({"ok": False, "error": "bad request"}, 400)
+                sid = re.sub(r"[^a-z0-9_]", "", str(data.get("src") or "main"))[:16] or "main"
+                gi = lambda k: int(data[k]) if isinstance(data.get(k), (int, float)) else None
+                return self.js(thr_suggest(sid, "now" if data.get("mode") == "now" else "night", gi("from"), gi("to")))
             if name == "mirror_now":                     # Sicherung ins Ziel jetzt starten (läuft im Hintergrund)
                 if not mirror_target():
                     return self.js({"ok": False, "error": "kein Ziel eingestellt"})
@@ -10285,6 +10375,9 @@ class PhoneHandler(BaseHandler):
                    "paused": bool(RUN["paused"]), "until": RUN["until"], "reason": RUN["reason"],     # auch am Handy zeigen, wenn angehalten
                    "hold": (st.get("ha_hold") or {}).get("label") if st.get("ha_hold") else None,
                    "motion": {k: bool(v.get("on")) for k, v in (getattr(r, "motion", None) or {}).items()}}
+            nms = time.time() * 1000
+            if CAL.get("state") == "running" and CAL.get("tone") == r.id and CAL["q1"] <= nms <= CAL["t1"]:
+                out["tone"] = True                             # Einpegeln: dieses Handy spielt jetzt das Testgeräusch
             return self.js(out, 409 if res == "busy" else 200)
         except Exception as e:
             self.fail(e)

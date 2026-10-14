@@ -2952,7 +2952,7 @@ function sourceRow(s) {
   const gain = el('input', { type: 'number', min: -20, max: 40, step: 0.5, value: s.gain_db || 0, className: 'n', title: t('gain_db') });
   const gl = el('label', { textContent: t('gain_db') + ' ' }); gl.appendChild(gain); sub.appendChild(gl);
   const cs = s.cal_state || {};                   // Stand des Einpegelns
-  sub.appendChild(el('small', { className: 'calbadge' + (cs.ok ? ' ok' : cs.changed ? ' warn' : ''), textContent: cs.ok ? t('cal_ok_at', { d: fmtStamp(cs.at) }) : cs.changed ? t('cal_changed') : t('cal_none') }));
+  sub.appendChild(el('small', { className: 'calbadge' + (cs.ok ? ' ok' : cs.changed ? ' warn' : ''), textContent: cs.ok ? t('cal_ok_at', { d: fmtStamp(cs.at) }) + (Date.now() - new Date(cs.at).getTime() > 90 * 864e5 ? ' · ' + t('cal_old') : '') : cs.changed ? t('cal_changed') : t('cal_none') }));
   const hum = el('select', { className: 'humsel', title: t('t_hum') });
   option(hum, '0', t('hum_off')); option(hum, '50', t('hum_50')); option(hum, '60', t('hum_60'));
   hum.value = String(s.hum || 0);
@@ -3700,27 +3700,50 @@ function drawMeter() {
   if (leg.innerHTML !== html) leg.innerHTML = html;
 }
 let calTimer = null;
+/* Schwelle automatisch einstellen: Vorschlag aus der letzten Nacht oder aus einer Messung jetzt – erst nach „Übernehmen“ im Formular, gespeichert mit „Speichern“ */
 function calibrate() {
-  if (calTimer) return;
-  const t0 = nowServer(), dur = 15;
-  $('calbtn').disabled = true;
-  let left = dur; $('calmsg').textContent = t('calrun', { s: left });
-  calTimer = setInterval(() => {
-    left--; if (left > 0) { $('calmsg').textContent = t('calrun', { s: left }); return; }
-    clearInterval(calTimer); calTimer = null; $('calbtn').disabled = false;
-    const v = recs.filter(r => r.ts >= t0 && r.l > -125).map(r => r.l).sort((a, b) => a - b);
-    if (v.length < 50) { $('calmsg').textContent = t('calfail'); return; }
-    const q = p => v[Math.min(v.length - 1, Math.floor(p * v.length))];
-    const p10 = q(0.10), p50 = q(0.5), p95 = q(0.95);
-    if (DEV && $('devown') && !$('devown').checked) { $('devown').checked = true; $('devown').dispatchEvent(new Event('change')); }   // Kalibrieren gilt dann fuer dieses Geraet
-    const set = (k, x) => { const e = $('in_' + k); if (e) { e.value = x; e.dispatchEvent(new Event('input')); } };
-    const r5 = x => Math.round(x * 2) / 2;
-    set('offset_db', clamp(r5(p95 - p10 + 4), 6, 20));
-    set('min_db', clamp(r5(p10 + 3), -120, -10));
-    set('thr_max_db', clamp(r5(p50 + 40), r5(p10 + 10), 0));
-    set('thr_fixed_db', clamp(r5(p95 + 6), -120, 0));
-    $('calmsg').textContent = t('calres', { q: p10.toFixed(1), m: p50.toFixed(1), p: p95.toFixed(1) });
-  }, 1000);
+  if (!PRO.ok) { proGate('thr'); return; }
+  let box = $('thrauto');
+  if (box) { box.remove(); return; }
+  box = el('div', { id: 'thrauto', className: 'thrauto' });
+  $('calbtn').closest('.mrow').after(box);
+  const sid = DEV || (typeof selSrc !== 'undefined' && selSrc) || 'main', name = viewName(sid);
+  box.innerHTML = `<div class="tahead"><b>🎯 ${esc(t('ta_title'))}</b> <small>${esc(DEV ? t('ta_for_dev', { n: name }) : t('ta_for_all', { n: name }))}</small><button type="button" class="chip tax" aria-label="${esc(t('a_close'))}">✕</button></div>
+    <div class="tarow"><button type="button" class="pri tanight">🌙 ${esc(t('ta_night'))}</button><span class="mut">${esc(t('ta_or'))}</span>
+      <button type="button" class="tanow">⏱ ${esc(t('ta_now'))}</button><select class="tasecs">${[30, 60, 300].map(v => `<option value="${v}"${v === 60 ? ' selected' : ''}>${v < 60 ? v + ' s' : v / 60 + ' min'}</option>`).join('')}</select></div>
+    <small class="mut">${esc(t('ta_help'))}</small><div class="tast"></div><div class="tares"></div>`;
+  const st = box.querySelector('.tast'), res = box.querySelector('.tares');
+  box.querySelector('.tax').onclick = () => { clearInterval(calTimer); calTimer = null; box.remove(); };
+  const show = async (body) => {
+    st.textContent = '⏳ ' + t('ta_eval'); res.innerHTML = '';
+    let j; try { j = await (await fetch('thr_suggest', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(Object.assign({ src: sid }, body)) })).json(); } catch (e) { st.textContent = t('saveerr'); return; }
+    if (!j.ok) { st.textContent = '⚠ ' + t(j.error === 'nodata' ? (body.mode === 'night' ? 'ta_nonight' : 'calfail') : 'saveerr'); return; }
+    const L = locale(), hm = x => new Date(x).toLocaleTimeString(L, { hour: '2-digit', minute: '2-digit' });
+    st.innerHTML = (j.disturbed ? `<div class="bad">⚠ ${esc(t('ta_disturbed', { p: j.loud_pct }))}</div>` : '') +
+      esc(t('ta_meas', { a: hm(j.from), b: hm(j.to), q: j.p10.toFixed(1), m: j.p50.toFixed(1), p: j.p95.toFixed(1) })) + (j.mode === 'night' && j.events ? ' ' + esc(t('ta_events')) : '');
+    const keys = ['offset_db', 'min_db', 'thr_max_db', 'thr_fixed_db'], cur = k => { const e = $('in_' + k); return e ? e.value : ''; };
+    res.innerHTML = `<table class="caltab"><thead><tr><th></th><th>${esc(t('ta_cur'))}</th><th>${esc(t('ta_sugg'))}</th></tr></thead><tbody>` +
+      keys.map(k => `<tr><td>${esc(t('f_' + k))}</td><td>${esc(cur(k))}</td><td><b>${esc(String(j.sugg[k]))}</b></td></tr>`).join('') + `</tbody></table>
+      <div class="tarow"><button type="button" class="pri taok">✓ ${esc(t('ta_apply'))}</button><button type="button" class="tano">${esc(t('cal_discard'))}</button></div>`;
+    res.querySelector('.tano').onclick = () => { res.innerHTML = ''; st.textContent = ''; };
+    res.querySelector('.taok').onclick = () => {
+      if (DEV && $('devown') && !$('devown').checked) { $('devown').checked = true; $('devown').dispatchEvent(new Event('change')); }   // gilt dann nur für dieses Gerät
+      for (const k of keys) { const e = $('in_' + k); if (e) { e.value = j.sugg[k]; e.dispatchEvent(new Event('input')); } }
+      formDirty = true; res.innerHTML = ''; st.textContent = '✓ ' + t('ta_done');
+    };
+  };
+  box.querySelector('.tanight').onclick = () => show({ mode: 'night' });
+  box.querySelector('.tanow').onclick = () => {
+    if (calTimer) return;
+    const dur = +box.querySelector('.tasecs').value, t0 = nowServer(); let left = dur;
+    box.querySelectorAll('button:not(.tax),select').forEach(x => { x.disabled = true; });
+    st.textContent = t('ta_quiet', { s: left }); res.innerHTML = '';
+    calTimer = setInterval(() => {
+      left--; if (left > 0) { st.textContent = t('ta_quiet', { s: left }); return; }
+      clearInterval(calTimer); calTimer = null; box.querySelectorAll('button,select').forEach(x => { x.disabled = false; });
+      show({ mode: 'now', from: Math.round(t0), to: Math.round(nowServer()) });
+    }, 1000);
+  };
 }
 
 /* ================= Start ================= */
@@ -4224,6 +4247,20 @@ async function init() {
 /* ================= Einpegeln der Geräte ================= */
 const fmtStamp = iso => { if (!iso) return ''; const d = new Date(iso); return isNaN(d) ? iso : d.toLocaleDateString(locale(), { day: '2-digit', month: '2-digit', year: 'numeric' }) + ' ' + pad(d.getHours()) + ':' + pad(d.getMinutes()); };
 const CALV = { timer: null, last: null };
+/* Testgeräusch (gleichmäßiges rosa Rauschen) für das Einpegeln – hier im Browser abgespielt */
+const TONE = { ctx: null, src: null, gain: null };
+function toneLocal(on, vol) {
+  try {
+    if (on && !TONE.src) {
+      const c = TONE.ctx || (TONE.ctx = new (window.AudioContext || window.webkitAudioContext)()); if (c.state === 'suspended') c.resume();
+      const n = c.sampleRate * 4, b = c.createBuffer(1, n, c.sampleRate), d = b.getChannelData(0); let b0 = 0, b1 = 0, b2 = 0, b3 = 0, b4 = 0, b5 = 0, b6 = 0;
+      for (let i = 0; i < n; i++) { const w = Math.random() * 2 - 1; b0 = 0.99886 * b0 + w * 0.0555179; b1 = 0.99332 * b1 + w * 0.0750759; b2 = 0.969 * b2 + w * 0.153852; b3 = 0.8665 * b3 + w * 0.3104856; b4 = 0.55 * b4 + w * 0.5329522; b5 = -0.7616 * b5 - w * 0.016898; d[i] = (b0 + b1 + b2 + b3 + b4 + b5 + b6 + w * 0.5362) * 0.11; b6 = w * 0.115926; }
+      TONE.gain = c.createGain(); TONE.gain.gain.value = vol == null ? 0.7 : vol; TONE.src = c.createBufferSource(); TONE.src.buffer = b; TONE.src.loop = true; TONE.src.connect(TONE.gain); TONE.gain.connect(c.destination); TONE.src.start();
+    } else if (!on && TONE.src) { TONE.src.stop(); TONE.src = null; }
+    else if (on && TONE.gain && vol != null) TONE.gain.gain.value = vol;
+  } catch (e) { TONE.src = null; }
+  return !!TONE.src;
+}
 function calBox() {
   const fs = el('fieldset', { id: 'calbox' }); fs.dataset.sec = 's_cal';
   const lg = el('legend', { textContent: t('s_cal') }); const ti = tipIcon('t_cal'); if (ti) lg.appendChild(ti); fs.appendChild(lg);
@@ -4240,7 +4277,19 @@ function calBox() {
   const secs = el('select', { id: 'calsecs', title: t('cal_secs') }); for (const v of [10, 15, 30]) option(secs, v, v + ' s'); secs.value = '15';
   const go = el('button', { type: 'button', className: 'pri', id: 'calgo', textContent: t('cal_start') });
   const L = (txt, e) => { const l = el('label'); l.append(txt + ' ', e); return l; };
-  r1.append(L(t('cal_secs'), secs), go); fs.appendChild(r1); go.disabled = calIds().length < 2;
+  const tone = el('select', { id: 'caltone', title: t('cal_tone_tip') });
+  option(tone, '', t('cal_tone_none')); option(tone, 'here', '🔊 ' + t('cal_tone_here'));
+  SOURCES.filter(x => x.type === 'phone').forEach(x => option(tone, x.id, '📱 ' + t('cal_tone_phone', { n: x.name })));
+  try { const v = localStorage.getItem('laerm_caltone'); if (v != null && [...tone.options].some(o => o.value === v)) tone.value = v; } catch (e) { }
+  const probe = el('button', { type: 'button', className: 'chip', textContent: '▶ ' + t('cal_probe') });
+  probe.onclick = () => { const on = !TONE.src; toneLocal(on); probe.textContent = (on ? '■ ' : '▶ ') + t(on ? 'cal_probe_stop' : 'cal_probe'); };
+  const syncTone = () => { probe.hidden = tone.value !== 'here'; try { localStorage.setItem('laerm_caltone', tone.value); } catch (e) { }
+    const ph = tone.value && tone.value !== 'here' ? tone.value : ''; devs.querySelectorAll('input').forEach(c => { const own = c.dataset.id === ph; c.closest('label').classList.toggle('caltonedev', own); c.closest('label').title = own ? t('cal_tone_self') : ''; }); };
+  tone.onchange = syncTone;
+  r1.append(L(t('cal_secs'), secs), L(t('cal_tone'), tone), probe, go); fs.appendChild(r1); go.disabled = calIds().length < 2; syncTone();
+  fs.appendChild(el('small', { className: 'calhelp', textContent: t('cal_place') }));
+  fs.appendChild(el('div', { id: 'calsteps', className: 'calsteps', hidden: true }));
+  fs.appendChild(el('div', { id: 'callive', className: 'callive', hidden: true }));
   fs.appendChild(el('div', { id: 'calst', className: 'calst' }));
   fs.appendChild(el('div', { id: 'calres', className: 'calres' }));
   const r2 = el('div', { className: 'calrow', id: 'calact' }); r2.hidden = true;
@@ -4251,7 +4300,7 @@ function calBox() {
   r2.append(note, ap, ck, ds); fs.appendChild(r2);
   fs.appendChild(el('div', { id: 'callog', className: 'callog' }));
   go.onclick = async () => {
-    try { const r = await (await fetch('cal_start', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ secs: +secs.value, ids: calIds() }) })).json(); if (!r.ok) throw new Error(r.error); calPoll(); }
+    try { const r = await (await fetch('cal_start', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ secs: +secs.value, ids: calIds().filter(id => id !== tone.value), tone: tone.value && tone.value !== 'here' ? tone.value : null }) })).json(); if (!r.ok) throw new Error(r.error); toneLocal(false); probe.textContent = '▶ ' + t('cal_probe'); calPoll(); }
     catch (e) { $('calst').textContent = t('saveerr') + ' ' + e.message; }
   };
   const fin = async apply => {
@@ -4275,19 +4324,28 @@ async function calPoll() {
   const st = $('calst'), go = $('calgo'), act = $('calact'), res = $('calres');
   const sec = x => Math.max(0, Math.ceil((x - c.now) / 1000));
   go.disabled = c.state === 'running' || document.querySelectorAll('#caldevs input:checked').length < 2; act.hidden = c.state !== 'done';
+  const stp = $('calsteps'), lv = $('callive'), here = $('caltone') && $('caltone').value === 'here';
   if (c.state === 'running') {
-    st.textContent = c.now < c.q1 ? t('cal_q', { s: sec(c.q1) }) : c.now < c.t0 ? t('cal_on', { s: sec(c.t0) }) : c.now < c.t1 ? t('cal_meas', { s: sec(c.t1) }) : t('cal_eval');
+    const ph = c.now < c.q1 ? 1 : c.now < c.t1 ? 2 : 3;
+    stp.hidden = false; stp.innerHTML = [t('cal_step1'), t('cal_step2'), t('cal_step3')].map((x, i) => `<span class="${i + 1 === ph ? 'on' : i + 1 < ph ? 'done' : ''}">${i + 1 < ph ? '✓' : i + 1} ${esc(x)}</span>`).join('');
+    if (here) toneLocal(c.now >= c.q1 && c.now < c.t1);                 // Testgeräusch hier: nach der Ruhe bis zum Ende der Messung
+    const live = c.live || {}; lv.hidden = !Object.keys(live).length;
+    lv.innerHTML = Object.keys(live).map(id => { const v = live[id], w = v == null ? 0 : clamp((v + 90) / 70 * 100, 0, 100);
+      return `<div class="callv${id === c.tone ? ' tone' : ''}"><span>${esc(viewName(id))}${id === c.tone ? ' 🔊' : ''}</span><i><b style="width:${w}%"></b></i><small>${v == null ? '–' : v.toFixed(1)}</small></div>`; }).join('');
+    st.textContent = c.now < c.q1 ? t('cal_q', { s: sec(c.q1) }) : c.now < c.t0 ? t(c.tone || here ? 'cal_on_auto' : 'cal_on', { s: sec(c.t0) }) : c.now < c.t1 ? t('cal_meas', { s: sec(c.t1) }) : t('cal_eval');
     st.className = 'calst run' + (c.now >= c.q1 && c.now < c.t0 ? ' go' : '');
     res.innerHTML = '';
     if ($('dlg').open) CALV.timer = setTimeout(calPoll, 400);
   } else if (c.state === 'done') {
+    if (here) toneLocal(false); stp.hidden = true; lv.hidden = true;
     st.className = 'calst'; st.textContent = c.msg === 'few' ? t('cal_few') : t('cal_result') + (c.target != null ? ' ' + t('cal_target', { v: c.target.toFixed(1) }) : '');
     const nm = id => viewName(id);
     tabGrid(res, `<table class="caltab"><thead><tr><th>${esc(t('cmp_dev'))}</th><th>${esc(t('cal_th_quiet'))}</th><th>${esc(t('cal_th_lvl'))}</th><th>${esc(t('cal_th_dev'))}</th><th>${esc(t('cal_th_gain'))}</th></tr></thead><tbody>` +
       c.res.map(e => `<tr class="${e.ok ? '' : 'bad'}"><td>${esc(e.name || nm(e.id))}</td><td>${e.quiet != null ? e.quiet.toFixed(1) : '–'}</td><td>${e.level != null ? e.level.toFixed(1) : '–'}${e.std != null ? ' <small>±' + e.std.toFixed(1) + '</small>' : ''}</td>` +
-        `<td>${e.ok ? (e.delta >= 0 ? '+' : '') + e.delta.toFixed(1) + ' dB' : esc(t('cal_bad_' + (e.why || 'nodata')))}</td><td>${e.ok && e.gain_new != null ? esc(String(e.gain_old)) + ' → <b>' + esc(String(e.gain_new)) + '</b> dB' : '–'}</td></tr>`).join('') + '</tbody></table>');
+        `<td>${e.ok ? (e.delta >= 0 ? '+' : '') + e.delta.toFixed(1) + ' dB' : esc(t('cal_bad_' + (e.why || 'nodata')))}<br><small>${esc(t('cal_fix_' + (e.why || 'nodata')))}</small></td><td>${e.ok && e.gain_new != null ? esc(String(e.gain_old)) + ' → <b>' + esc(String(e.gain_new)) + '</b> dB' : '–'}</td></tr>`).join('') + '</tbody></table>');
     act.querySelectorAll('button')[0].disabled = act.querySelectorAll('button')[1].disabled = c.msg === 'few';
-  } else { st.className = 'calst'; if (!/✓|festgehalten|recorded/.test(st.textContent)) st.textContent = ''; res.innerHTML = ''; }
+  } else { if (here && CALV.wasRun) toneLocal(false); stp.hidden = true; lv.hidden = true; st.className = 'calst'; if (!/✓|festgehalten|recorded/.test(st.textContent)) st.textContent = ''; res.innerHTML = ''; }
+  CALV.wasRun = c.state === 'running';
   const lg = $('callog');
   lg.innerHTML = c.log && c.log.length ? `<b>${esc(t('cal_log_head'))}</b>` + c.log.map(e => `<div>${esc(fmtStamp(e.at))} · ${esc(t(e.kind === 'apply' ? 'cal_kind_apply' : 'cal_kind_check'))} · ` +
     (e.res || []).map(x => esc(x.name) + ' ' + (x.ok ? (x.level != null ? x.level.toFixed(1) : '') + (e.kind === 'apply' && x.gain_new != null ? ' (' + x.gain_old + '→' + x.gain_new + ' dB)' : '') : '–')).join(' · ') + (e.note ? ' · ' + esc(e.note) : '') + '</div>').join('') : '';

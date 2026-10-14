@@ -1,5 +1,18 @@
 # Changelog
 
+## 1.61.0
+- „Kalibrieren“ heißt jetzt **🎯 Schwelle automatisch einstellen** (Pro) und schlägt nur noch vor:
+  - **Aus der letzten Nacht:** Ruhezeit der letzten Nacht, Störungen darin zählen nicht mit – kein Warten.
+  - **Jetzt messen:** 30 s, 1 min oder 5 min, mit Prüfung („Messung gestört – bitte wiederholen“).
+  - Tabelle „jetzt → Vorschlag“, erst **Übernehmen** trägt ein (lila Vorschau), Speichern behält.
+  - Gilt für das oben gewählte Gerät, auch für ein verbundenes Handy. Ohne Pro erklärt der Knopf, warum.
+- **Einpegeln** verbessert:
+  - **Testgeräusch:** hier abspielen (mit Probehören) oder auf einem verbundenen Handy (das dann nicht mitmisst); es startet und stoppt von selbst.
+  - Schritte **1 Ruhe → 2 Geräusch → 3 Ergebnis** groß angezeigt, dazu der Pegel jedes Geräts während der Messung.
+  - Bei „zu leise“ / „nicht gleichmäßig“ steht, was zu tun ist. Hinweis zum Aufstellen (gleicher Abstand, ca. 1 m).
+  - Liegt das Einpegeln über 3 Monate zurück, wird erneutes Einpegeln empfohlen.
+- Handbuch ergänzt (Einstellungen, Geräte einpegeln, Pro).
+
 ## 1.60.0
 - Einstellungen aufgeräumt, nach dem, was man tun will:
   - **Geräte:** Mikrofone und Handys, Server-Mikrofon, Einpegeln.

@@ -55,11 +55,13 @@ Part of the external devices and therefore of [GasLighter Pro](#pro).
 
 So that levels of different devices are comparable:
 
-1. Put all microphones side by side.
-2. **Level-match devices** → tick the devices to measure (at least two) → Start.
-3. 5 s of quiet, then a steady sound (e.g. noise from a phone speaker, at least 10 dB louder).
+1. Put all microphones side by side, about the same distance (approx. 1 m) from the speaker.
+2. **Level-match devices** → tick the devices to measure (at least two).
+3. Choose the **test sound**: **play here** (through the PC or phone where the settings are open; check the volume with **▶ Preview**), **play on phone X** (a connected phone plays the noise and therefore does not measure itself) or **own sound** (extractor hood, hair dryer …).
+4. **Start measurement**: the steps **1 Quiet → 2 Sound → 3 Result** are shown large, below them the level of each device – so you see right away whether every device hears the sound. The test sound starts and stops by itself.
+5. Check the result: if a device is too quiet or unsteady, it says what to do (e.g. “move closer to the speaker”). Then **Apply and record**.
 
-Each device gets its own gain so that all show the same value for the same sound. Every measurement is recorded and listed in the noise log. If the gain is changed by hand later, the device shows “⚠ changed since level-matching”.
+Each device gets its own gain so that all show the same value for the same sound. Every measurement is recorded and listed in the noise log. If the gain is changed by hand later, the device shows “⚠ changed since level-matching”; if level-matching is more than 3 months old, doing it again is recommended.
 
 ## Comparing rooms {#vergleich}
 

@@ -227,6 +227,65 @@ class NotizAusHA(unittest.TestCase):
         self.assertEqual(len(self.notizen()), 0)
 
 
+class SchwelleAutomatisch(unittest.TestCase):
+    """Vorschlag für die Schwelle aus gespeicherten Pegeln: Störungen zählen nicht mit, gestörte Messung wird erkannt."""
+    def setUp(self):
+        self.tmp = tempfile.mkdtemp(); self.keep = (laerm.day_dir, dict(laerm.RUNNERS))
+        laerm.day_dir = lambda: self.tmp
+        class R:                                            # Gerät ohne laufende Aufnahme
+            id = "mic"; name = "Testmikro"; spur = []
+            import threading as _t; rlock = _t.Lock()
+        laerm.RUNNERS.clear(); laerm.RUNNERS["mic"] = R()
+        laerm.DAY_CACHE.clear()
+
+    def tearDown(self):
+        laerm.day_dir = self.keep[0]; laerm.RUNNERS.clear(); laerm.RUNNERS.update(self.keep[1]); laerm.DAY_CACHE.clear()
+
+    def write(self, t0, minutes, level, act_every=0, loud_every=0):
+        rng = np.random.default_rng(1); blocks = []
+        for m in range(minutes):
+            rows = []
+            for k in range(480):
+                eq = level + rng.normal(0, 1.5); a = 0
+                if act_every and (m * 480 + k) % act_every == 0:
+                    eq, a = level + 30, 1
+                if loud_every and (m * 480 + k) % loud_every < 40:
+                    eq = level + 25
+                rows.append([k * 125, int(eq * 10) + 5, int(eq * 10), int(level * 10), int((level + 10) * 10), a])
+            blocks.append(gzip.compress((json.dumps({"m": t0 + m * 60000, "r": rows}) + "\n").encode()))
+        day = dt.datetime.fromtimestamp(t0 / 1000).date().isoformat()
+        with open(laerm.day_path("mic", day), "ab") as f:
+            f.write(b"".join(blocks))
+
+    def test_jetzt_messen(self):
+        t0 = int(time.time() * 1000) - 120000; t0 -= t0 % 60000
+        self.write(t0, 2, -62.0)
+        j = laerm.thr_suggest("mic", "now", t0, t0 + 120000)
+        self.assertTrue(j["ok"], j); self.assertFalse(j["disturbed"])
+        self.assertAlmostEqual(j["p50"], -62.0, delta=1.0)
+        self.assertTrue(6 <= j["sugg"]["offset_db"] <= 20); self.assertLess(j["sugg"]["min_db"], -55)
+
+    def test_gestoerte_messung(self):
+        t0 = int(time.time() * 1000) - 120000; t0 -= t0 % 60000
+        self.write(t0, 2, -62.0, loud_every=400)          # 10 % der Zeit deutlich lauter (Reden)
+        j = laerm.thr_suggest("mic", "now", t0, t0 + 120000)
+        self.assertTrue(j["ok"]); self.assertTrue(j["disturbed"])
+
+    def test_letzte_nacht_ohne_stoerungen(self):
+        laerm.CFG.update(quiet_from="01:00", quiet_to="02:00")
+        now = dt.datetime.now(); end = now.replace(hour=2, minute=0, second=0, microsecond=0)
+        if end > now: end -= dt.timedelta(days=1)
+        t0 = int((end - dt.timedelta(hours=1)).timestamp() * 1000)
+        self.write(t0, 60, -58.0, act_every=97)            # einzelne Störungen dazwischen
+        j = laerm.thr_suggest("mic", "night")
+        self.assertTrue(j["ok"], j); self.assertGreater(j["events"], 0)
+        self.assertLess(j["p95"], -50)                     # Störungen (+30 dB) ziehen den Vorschlag nicht hoch
+
+    def test_ohne_daten(self):
+        j = laerm.thr_suggest("mic", "now", int(time.time() * 1000) - 60000, int(time.time() * 1000))
+        self.assertFalse(j["ok"]); self.assertEqual(j["error"], "nodata")
+
+
 class SicherungsZiel(unittest.TestCase):
     """Tägliche Sicherung: inkrementell, nichts geht verloren, Auslagern lässt Protokolle weiter lesen."""
     def setUp(self):

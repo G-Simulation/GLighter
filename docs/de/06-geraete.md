@@ -67,11 +67,13 @@ Gehört zu den externen Geräten und damit zu [GasLighter Pro](14-pro.md).
 
 Damit Pegel verschiedener Geräte vergleichbar sind:
 
-1. Alle Mikrofone nebeneinander legen.
-2. **Geräte einpegeln** → mitmessende Geräte anhaken (mindestens zwei) → Start.
-3. 5 s Ruhe, dann ein gleichmäßiges Geräusch (z. B. Rauschen aus einem Handy-Lautsprecher, mindestens 10 dB lauter).
+1. Alle Mikrofone nebeneinander legen, etwa gleich weit (ca. 1 m) vom Lautsprecher.
+2. **Geräte einpegeln** → mitmessende Geräte anhaken (mindestens zwei).
+3. **Testgeräusch** wählen: **hier abspielen** (über den PC oder das Handy, auf dem die Einstellungen offen sind; mit **▶ Probehören** die Lautstärke prüfen), **auf Handy X abspielen** (ein verbundenes Handy spielt das Rauschen und misst dafür selbst nicht mit) oder **eigenes Geräusch** (Dunstabzug, Föhn …).
+4. **Messung starten**: Die Schritte **1 Ruhe → 2 Geräusch → 3 Ergebnis** stehen groß da, darunter der Pegel jedes Geräts – so sieht man sofort, ob jedes Gerät das Geräusch hört. Das Testgeräusch startet und stoppt von selbst.
+5. Ergebnis prüfen: Ist ein Gerät zu leise oder unruhig, steht dabei, was zu tun ist (z. B. „näher an den Lautsprecher“). Dann **Übernehmen und festhalten**.
 
-Jedes Gerät bekommt eine eigene Verstärkung, sodass alle beim selben Geräusch denselben Wert zeigen. Jede Messung wird festgehalten und erscheint im Lärmprotokoll. Ändert sich die Verstärkung später von Hand, steht beim Gerät „⚠ seit dem Einpegeln geändert“.
+Jedes Gerät bekommt eine eigene Verstärkung, sodass alle beim selben Geräusch denselben Wert zeigen. Jede Messung wird festgehalten und erscheint im Lärmprotokoll. Ändert sich die Verstärkung später von Hand, steht beim Gerät „⚠ seit dem Einpegeln geändert“; liegt das Einpegeln über 3 Monate zurück, wird erneutes Einpegeln empfohlen.
 
 <a id="vergleich"></a>
 

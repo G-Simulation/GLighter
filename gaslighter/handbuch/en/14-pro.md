@@ -7,7 +7,7 @@ The yearly licence **GasLighter Pro** additionally unlocks:
 | Feature | Without Pro | With Pro |
 |---|---|---|
 | Import a backup | once for free (e.g. moving) | as often as needed |
-| Advanced detection settings (tab “Detection” → “When is something a disturbance?”) | view only, defaults | fully adjustable, also per device and in time profiles |
+| Advanced detection settings (tab “Detection” → “When is something a disturbance?”) and 🎯 set threshold automatically | view only, defaults | fully adjustable, also per device and in time profiles |
 | External devices: phone in the browser, phone app / stream URL, IP camera | locked | up to 8 additional devices |
 | Phone as motion sensor (vibration, motion in picture) | locked | ✔ |
 | Daily backup to network drive/NAS/USB and “save space” ([Backup](#sicherung/ziel)) | “⬇ Download backup” by hand | automatic every day, verified |

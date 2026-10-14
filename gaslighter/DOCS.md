@@ -315,11 +315,13 @@ Gehört zu den externen Geräten und damit zu GasLighter Pro.
 
 Damit Pegel verschiedener Geräte vergleichbar sind:
 
-1. Alle Mikrofone nebeneinander legen.
-2. **Geräte einpegeln** → mitmessende Geräte anhaken (mindestens zwei) → Start.
-3. 5 s Ruhe, dann ein gleichmäßiges Geräusch (z. B. Rauschen aus einem Handy-Lautsprecher, mindestens 10 dB lauter).
+1. Alle Mikrofone nebeneinander legen, etwa gleich weit (ca. 1 m) vom Lautsprecher.
+2. **Geräte einpegeln** → mitmessende Geräte anhaken (mindestens zwei).
+3. **Testgeräusch** wählen: **hier abspielen** (über den PC oder das Handy, auf dem die Einstellungen offen sind; mit **▶ Probehören** die Lautstärke prüfen), **auf Handy X abspielen** (ein verbundenes Handy spielt das Rauschen und misst dafür selbst nicht mit) oder **eigenes Geräusch** (Dunstabzug, Föhn …).
+4. **Messung starten**: Die Schritte **1 Ruhe → 2 Geräusch → 3 Ergebnis** stehen groß da, darunter der Pegel jedes Geräts – so sieht man sofort, ob jedes Gerät das Geräusch hört. Das Testgeräusch startet und stoppt von selbst.
+5. Ergebnis prüfen: Ist ein Gerät zu leise oder unruhig, steht dabei, was zu tun ist (z. B. „näher an den Lautsprecher“). Dann **Übernehmen und festhalten**.
 
-Jedes Gerät bekommt eine eigene Verstärkung, sodass alle beim selben Geräusch denselben Wert zeigen. Jede Messung wird festgehalten und erscheint im Lärmprotokoll. Ändert sich die Verstärkung später von Hand, steht beim Gerät „⚠ seit dem Einpegeln geändert“.
+Jedes Gerät bekommt eine eigene Verstärkung, sodass alle beim selben Geräusch denselben Wert zeigen. Jede Messung wird festgehalten und erscheint im Lärmprotokoll. Ändert sich die Verstärkung später von Hand, steht beim Gerät „⚠ seit dem Einpegeln geändert“; liegt das Einpegeln über 3 Monate zurück, wird erneutes Einpegeln empfohlen.
 
 ### Mehrere Räume vergleichen
 
@@ -550,7 +552,9 @@ Jeder Start, jedes Update und jede Unterbrechung steht mit Uhrzeit und Version i
 
 ## 11. Einstellungen von A bis Z
 
-Ganz oben wählst du **Alle Geräte** oder ein einzelnes Gerät. Beim Gerät lassen sich mit „Eigene Einstellungen für dieses Gerät“ abweichende Werte festlegen (Schwelle, Mindestdauer, Aufnahmezeit, Speichern). Die Leiste oben zeigt live Pegel, Hintergrund, Schwelle und die **Vorschau** (lila) deiner noch nicht gespeicherten Einstellungen. ⓘ erklärt jede Einstellung; „Hilfe anzeigen“ blendet die Texte aus.
+Ganz oben wählst du **Alle Geräte** oder ein einzelnes Gerät. Beim Gerät lassen sich mit „Eigene Einstellungen für dieses Gerät“ abweichende Werte festlegen (Schwelle, Mindestdauer, Aufnahmezeit, Speichern). Die Leiste oben zeigt live Pegel, Hintergrund, Schwelle und die **Vorschau** (lila) deiner noch nicht gespeicherten Einstellungen.
+
+**🎯 Schwelle automatisch einstellen** (🔒 Pro) – schlägt Werte für „Wann gilt etwas als Störung?“ vor, für das oben gewählte Gerät (auch ein verbundenes Handy). **Aus der letzten Nacht** nimmt die Ruhezeit der letzten Nacht ohne die Störungen darin – kein Warten, am zuverlässigsten. **Jetzt messen** (30 s, 1 min oder 5 min): in der Zeit leise sein; war es zwischendurch deutlich lauter, steht „Messung gestört – bitte wiederholen“. Der Vorschlag steht als Tabelle „jetzt → Vorschlag“ da; erst **Übernehmen** trägt ihn ein (lila Vorschau), **Speichern** behält ihn. ⓘ erklärt jede Einstellung; „Hilfe anzeigen“ blendet die Texte aus.
 
 ### Geräte
 
@@ -703,7 +707,7 @@ Die Jahreslizenz **GasLighter Pro** schaltet zusätzlich frei:
 | Funktion | Ohne Pro | Mit Pro |
 |---|---|---|
 | Import einer Sicherung | einmal kostenlos (z. B. Umzug) | beliebig oft |
-| Erweiterte Einstellungen der Erkennung (Reiter „Erkennung“ → „Wann gilt etwas als Störung?“) | nur ansehen, Standardwerte | frei einstellbar, auch je Gerät und in Zeitprofilen |
+| Erweiterte Einstellungen der Erkennung (Reiter „Erkennung“ → „Wann gilt etwas als Störung?“) und 🎯 Schwelle automatisch einstellen | nur ansehen, Standardwerte | frei einstellbar, auch je Gerät und in Zeitprofilen |
 | Externe Geräte: Handy im Browser, Handy-App / Stream-URL, IP-Kamera | gesperrt | bis zu 8 zusätzliche Geräte |
 | Handy als Bewegungsmelder (Erschütterung, Bewegung im Bild) | gesperrt | ✔ |
 | Tägliche Sicherung auf Netzlaufwerk/NAS/USB und „Platz sparen“ (Sicherung) | „⬇ Sicherung herunterladen“ von Hand | jeden Tag automatisch, geprüft |
@@ -1074,11 +1078,13 @@ Part of the external devices and therefore of GasLighter Pro.
 
 So that levels of different devices are comparable:
 
-1. Put all microphones side by side.
-2. **Level-match devices** → tick the devices to measure (at least two) → Start.
-3. 5 s of quiet, then a steady sound (e.g. noise from a phone speaker, at least 10 dB louder).
+1. Put all microphones side by side, about the same distance (approx. 1 m) from the speaker.
+2. **Level-match devices** → tick the devices to measure (at least two).
+3. Choose the **test sound**: **play here** (through the PC or phone where the settings are open; check the volume with **▶ Preview**), **play on phone X** (a connected phone plays the noise and therefore does not measure itself) or **own sound** (extractor hood, hair dryer …).
+4. **Start measurement**: the steps **1 Quiet → 2 Sound → 3 Result** are shown large, below them the level of each device – so you see right away whether every device hears the sound. The test sound starts and stops by itself.
+5. Check the result: if a device is too quiet or unsteady, it says what to do (e.g. “move closer to the speaker”). Then **Apply and record**.
 
-Each device gets its own gain so that all show the same value for the same sound. Every measurement is recorded and listed in the noise log. If the gain is changed by hand later, the device shows “⚠ changed since level-matching”.
+Each device gets its own gain so that all show the same value for the same sound. Every measurement is recorded and listed in the noise log. If the gain is changed by hand later, the device shows “⚠ changed since level-matching”; if level-matching is more than 3 months old, doing it again is recommended.
 
 ### Comparing rooms
 
@@ -1309,7 +1315,9 @@ Every start, update and interruption is listed with time and version in Logs and
 
 ## 11. Settings from A to Z
 
-At the very top choose **All devices** or a single device. For a device, “Own settings for this device” sets different values (threshold, minimum duration, monitoring time, storage). The bar at the top shows level, background, threshold and the **preview** (purple) of your not yet saved settings live. ⓘ explains every setting; “Show help” hides the texts.
+At the very top choose **All devices** or a single device. For a device, “Own settings for this device” sets different values (threshold, minimum duration, monitoring time, storage). The bar at the top shows level, background, threshold and the **preview** (purple) of your not yet saved settings live.
+
+**🎯 Set threshold automatically** (🔒 Pro) – suggests values for “When does something count as a disturbance?” for the device selected at the top (also a connected phone). **From last night** uses last night’s quiet hours without the disturbances in them – no waiting, most reliable. **Measure now** (30 s, 1 min or 5 min): keep quiet during that time; if it was clearly louder in between, it says “measurement disturbed – please repeat”. The suggestion is shown as a table “now → suggestion”; only **Apply** fills it in (purple preview), **Save** keeps it. ⓘ explains every setting; “Show help” hides the texts.
 
 ### Devices
 
@@ -1462,7 +1470,7 @@ The yearly licence **GasLighter Pro** additionally unlocks:
 | Feature | Without Pro | With Pro |
 |---|---|---|
 | Import a backup | once for free (e.g. moving) | as often as needed |
-| Advanced detection settings (tab “Detection” → “When is something a disturbance?”) | view only, defaults | fully adjustable, also per device and in time profiles |
+| Advanced detection settings (tab “Detection” → “When is something a disturbance?”) and 🎯 set threshold automatically | view only, defaults | fully adjustable, also per device and in time profiles |
 | External devices: phone in the browser, phone app / stream URL, IP camera | locked | up to 8 additional devices |
 | Phone as motion sensor (vibration, motion in picture) | locked | ✔ |
 | Daily backup to network drive/NAS/USB and “save space” (Backup) | “⬇ Download backup” by hand | automatic every day, verified |
