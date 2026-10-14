@@ -227,6 +227,14 @@ class NotizAusHA(unittest.TestCase):
         self.assertEqual(len(self.notizen()), 0)
 
 
+class ArtStumm(unittest.TestCase):
+    def test_liste(self):
+        laerm.CFG["art_silent"] = laerm.clean_value("art_silent", "animal,knock") if hasattr(laerm, "clean_value") else "animal,knock"
+        self.assertEqual(laerm.art_silent_set(), {"animal", "knock"})
+        laerm.CFG["art_silent"] = ""
+        self.assertEqual(laerm.art_silent_set(), set())
+
+
 class RegelKeineStoerung(unittest.TestCase):
     """Regel-Art „keine Störung melden“: Graph läuft weiter, es wird nur nichts als Störung erkannt."""
     def setUp(self):

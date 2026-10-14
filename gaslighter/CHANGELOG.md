@@ -1,5 +1,8 @@
 # Changelog
 
+## 1.57.1
+- KI-Arten: im Fenster nach Klick auf das Symbol zusätzlich „nicht an Home Assistant melden“ (Art löst keine Meldung aus; Aufzeichnung und Anzeige bleiben). Neue Einstellung `art_silent`.
+
 ## 1.57.0
 - Regel „als Ereignis“: Option „hervorheben“ – doppelt so großes Fähnchen im Verlauf (Streifen, Fahne, rote Marke, dickere Linie).
 - Die rote gestrichelte Senkrechte beginnt jetzt an der Oberkante des Fähnchens und reicht nicht mehr darüber hinaus.

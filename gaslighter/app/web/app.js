@@ -1308,6 +1308,11 @@ function tileTick() {
 let ART_HI = new Set(); try { ART_HI = new Set(JSON.parse(localStorage.getItem('laerm_arthi') || '[]')); } catch (e) { }
 let ART_MUTE = new Set(); try { ART_MUTE = new Set(JSON.parse(localStorage.getItem('laerm_artmute') || '[]')); } catch (e) { }
 const artMuteSave = () => { try { localStorage.setItem('laerm_artmute', JSON.stringify([...ART_MUTE])); } catch (e) { } };
+const artSilent = () => new Set(String((typeof CUR !== 'undefined' && CUR && CUR.art_silent) || '').split(',').filter(Boolean));
+async function artSilentSet(g, on) {
+  const q = artSilent(); if (on) q.add(g); else q.delete(g);
+  try { const r = await (await fetch('settings', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ art_silent: [...q].join(',') }) })).json(); if (r.ok) CUR = r.settings; else toast(t('saveerr')); } catch (e) { toast(t('saveerr')); }
+}
 const artHiSave = () => { try { localStorage.setItem('laerm_arthi', JSON.stringify([...ART_HI])); } catch (e) { } };
 const ART_ORDER = ['knock', 'door', 'steps', 'voice', 'tv', 'scrape', 'signal', 'animal', 'noise', 'other'];
 const ART_ICON = { knock: '🔨', door: '🚪', steps: '👣', voice: '🗣', tv: '📺', scrape: '🔩', signal: '🔔', animal: '🐾', noise: '〰', other: '❓' };
@@ -1429,10 +1434,12 @@ function renderEvArt(j) {
   box.innerHTML = `${artChip(g, a.c, !!a.man)}${kd ? `<span class="evkinds" title="${esc(t('kinds_col'))}">${kd}</span>` : `<span title="${esc(t('art_top'))}"><small>${top}</small></span>`}${reBtn}
     <label class="chip" title="${esc(t('art_hi_tip'))}"><input type="checkbox" id="evarthi"${ART_HI.has(g) ? ' checked' : ''}> ${esc(t('art_hi'))}</label>
     <label class="chip" title="${esc(t('art_mute_tip'))}"><input type="checkbox" id="evartmu"${ART_MUTE.has(g) ? ' checked' : ''}> ${esc(t('art_mute'))}</label>
+    <label class="chip" title="${esc(t('art_silent_tip'))}"><input type="checkbox" id="evartsi"${artSilent().has(g) ? ' checked' : ''}> ${esc(t('art_silent'))}</label>
     <label><small>${esc(t('art_correct'))}</small> <select id="evartsel"><option value="">${esc(t('art_auto'))}</option>${ART_ORDER.map(x => `<option value="${x}"${a.man === x ? ' selected' : ''}>${ART_ICON[x]} ${esc(artName(x))}</option>`).join('')}</select></label>`;
   bindRe();
   $('evarthi').onchange = e => { if (e.target.checked) ART_HI.add(g); else ART_HI.delete(g); artHiSave(); window.dispatchEvent(new Event('resize')); };
   $('evartmu').onchange = e => { if (e.target.checked) ART_MUTE.add(g); else ART_MUTE.delete(g); artMuteSave(); window.dispatchEvent(new Event('resize')); };
+  $('evartsi').onchange = e => artSilentSet(g, e.target.checked);
   $('evartsel').onchange = async e => {
     const r2 = await setArt(EVV.k, e.target.value);
     if (r2) { const j2 = await (await fetch('event?k=' + encodeURIComponent(EVV.k), { cache: 'no-store' })).json(); if (j2.ok) renderEvArt(j2); }
@@ -4347,7 +4354,8 @@ function drawSpecInto(c, r, X, y0, hgt, L, pw, d) {
 function artHiPop(g, name, icon, ev) {
   let m = $('arthipop');
   if (!m) { m = el('div', { id: 'arthipop', className: 'hmenu tilepop' }); document.body.appendChild(m); document.addEventListener('click', e => { if (!m.hidden && !e.target.closest('#arthipop')) m.hidden = true; }, true); }
-  m.innerHTML = `<b>${esc(icon)} ${esc(name)}</b><label class="chip"><input type="checkbox" id="arthic"${ART_HI.has(g) ? ' checked' : ''}> ${esc(t('art_hi'))}</label><label class="chip"><input type="checkbox" id="arthim"${ART_MUTE.has(g) ? ' checked' : ''}> ${esc(t('art_mute'))}</label><small>${esc(t('art_hi_tip'))} ${esc(t('art_mute_tip'))}</small>`;
+  m.innerHTML = `<b>${esc(icon)} ${esc(name)}</b><label class="chip"><input type="checkbox" id="arthic"${ART_HI.has(g) ? ' checked' : ''}> ${esc(t('art_hi'))}</label><label class="chip"><input type="checkbox" id="arthim"${ART_MUTE.has(g) ? ' checked' : ''}> ${esc(t('art_mute'))}</label><label class="chip"><input type="checkbox" id="arthis"${artSilent().has(g) ? ' checked' : ''}> ${esc(t('art_silent'))}</label><small>${esc(t('art_hi_tip'))} ${esc(t('art_mute_tip'))} ${esc(t('art_silent_tip'))}</small>`;
+  $('arthis').onchange = e => artSilentSet(g, e.target.checked);
   $('arthim').onchange = e => { if (e.target.checked) ART_MUTE.add(g); else ART_MUTE.delete(g); artMuteSave(); window.dispatchEvent(new Event('resize')); };
   $('arthic').onchange = e => { if (e.target.checked) ART_HI.add(g); else ART_HI.delete(g); artHiSave(); window.dispatchEvent(new Event('resize')); };
   m.hidden = false; m.style.left = Math.max(8, Math.min(innerWidth - 290, ev.clientX - 20)) + 'px'; m.style.top = (ev.clientY + 14) + 'px'; m.style.right = 'auto';

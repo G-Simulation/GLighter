@@ -32,7 +32,7 @@ HERE = os.path.dirname(os.path.abspath(__file__))
 WEB = os.path.join(HERE, "web")
 OPTIONS_FILE = os.environ.get("LAERM_OPTIONS", "/data/options.json")
 SETTINGS_FILE = os.environ.get("LAERM_SETTINGS", "/data/settings.json")
-VERSION = "1.57.0"
+VERSION = "1.57.1"
 
 # =====================================================================
 # Einstellungen
@@ -48,7 +48,7 @@ DEFAULTS = {
     "active_from": "", "active_to": "", "mqtt": True, "output_dir": "/share/gaslighter", "language": "auto",
     "mic_port": "", "classify": True, "ki_embed": False,
     "clip_dir": "", "video_width": 640, "video_fps": 5, "video_crf": 30,
-    "quiet_from": "22:00", "quiet_to": "06:00", "quiet_sunday": True,
+    "quiet_from": "22:00", "quiet_to": "06:00", "quiet_sunday": True, "art_silent": "",
 }
 SPEC = {
     # ("num", min, max, Aufloesung): Kommazahlen, auf die Aufloesung gerundet
@@ -62,7 +62,7 @@ SPEC = {
     "active_from": ("time",), "active_to": ("time",), "mqtt": ("bool",), "output_dir": ("str",),
     "language": ("choice", ["auto", "de", "en"]), "mic_port": ("optstr",), "classify": ("bool",), "ki_embed": ("bool",),
     "clip_dir": ("optstr",), "video_width": ("int", 0, 3840), "video_fps": ("int", 1, 30), "video_crf": ("int", 18, 40),
-    "quiet_from": ("time",), "quiet_to": ("time",), "quiet_sunday": ("bool",),
+    "quiet_from": ("time",), "quiet_to": ("time",), "quiet_sunday": ("bool",), "art_silent": ("optstr",),
 }
 # Diese Werte erfordern einen Neustart der Aufnahme
 RESTART_KEYS = {"device", "sample_rate"}
@@ -2635,6 +2635,10 @@ def art_fields(datei):
             "prof": p_[0] or "", "prof_c": p_[1] if p_[0] else None, "prof_ok": p_[2] == "ok", "bg": bool(p_[0]) and profile_bg(p_[0])}
 
 
+def art_silent_set():
+    return {x for x in str(CFG.get("art_silent") or "").split(",") if x}
+
+
 def art_label(g, de=None):
     de = (CFG["language"] != "en") if de is None else de
     return ART_LABEL.get(g, ART_LABEL["other"])[0 if de else 1]
@@ -2893,7 +2897,9 @@ def art_worker():
             ART_STATE["done"] += 1; ART_STATE["error"] = ""
             with SRC_LOCK:
                 r = RUNNERS.get(rid) if rid else None
-            if r is not None:
+            if r is not None and res["art"] in art_silent_set():           # Art stumm: keine Meldung an Home Assistant (Aufzeichnung und Anzeige unveraendert)
+                pub(f"{r.topic}/sound_type", art_label(res["art"]), True)
+            elif r is not None:
                 pub_trigger(r, "erkannt", art=res["art"], art_name=art_label(res["art"]), sicherheit_pct=res["conf"], datei=datei,
                             profil=pr_[0] if pr_ else "", profil_pct=pr_[1] if pr_ else None, hintergrund=bool(pr_ and profile_bg(pr_[0])))
                 pub(f"{r.topic}/sound_type", art_label(res["art"]), True)
