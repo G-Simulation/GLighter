@@ -1,5 +1,8 @@
 # Changelog
 
+## 1.55.0
+- Home Assistant: Störung direkt im Dashboard erfassen. Das Add-on meldet zwei neue Elemente über MQTT: das Textfeld **„Störung / Notiz erfassen“** (Text eingeben, Enter drücken) und den Knopf **„Störung jetzt markieren“** (ein Tipp, ohne Text). Beides legt eine freie Notiz mit der aktuellen Uhrzeit an, genau wie die Notizleiste; liegt kurz davor eine Störung, wird die Notiz ihr zugeordnet. Die Elemente lassen sich auf jedes Home-Assistant-Dashboard legen (Gerät „GasLighter“). Voraussetzung: MQTT ist an.
+
 ## 1.54.0
 - Stromausfall, alle Dateien: Spektrum- (`.lts` und laufende Stunde), Fingerabdruck- und Prüfsummen-Datei werden nach einem Ausfall vollständig weitergelesen. Verschobene oder halbe Datensätze werden übersprungen, neue Datensätze beginnen wieder sauber (nichts wird gelöscht, nur mit Nullen aufgefüllt). Eine abgeschnittene Prüfsumme gilt nicht mehr als Fehler.
 - Wichtige kleine Dateien (Unterbrechungs-Notizen, gelesen-Markierungen, Home-Assistant-Zustand, Prüfsummen) werden nach jedem Schreiben auf den Datenträger gesichert.

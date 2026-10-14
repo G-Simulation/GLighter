@@ -196,5 +196,36 @@ class Meldungen(unittest.TestCase):
         self.assertTrue(c["ok"], c); self.assertEqual(c.get("explained"), 1)
 
 
+class NotizAusHA(unittest.TestCase):
+    """Textfeld/Knopf im Home-Assistant-Dashboard legen eine freie Notiz an."""
+    def setUp(self):
+        self.tmp = tempfile.mkdtemp()
+        laerm.paths = lambda: (self.tmp, self.tmp)
+        laerm.NOTES["data"] = None
+        laerm.fnote_target = lambda *a, **k: None
+        laerm.pub = lambda *a, **k: None
+        laerm.HA_NOTE_LAST[:] = [0.0, ""]
+
+    def notizen(self):
+        return laerm.notes_all().get("free", [])
+
+    def test_text_wird_notiz(self):
+        laerm.ha_note_cmd("Klopfen von oben")
+        n = self.notizen()
+        self.assertEqual(len(n), 1); self.assertEqual(n[0]["text"], "Klopfen von oben")
+
+    def test_knopf_ohne_text_markiert_stoerung(self):
+        laerm.ha_note_cmd("")
+        self.assertIn("Störung", self.notizen()[0]["text"])
+
+    def test_doppelt_gesendet_zaehlt_einmal(self):
+        laerm.ha_note_cmd("x"); laerm.ha_note_cmd("x")
+        self.assertEqual(len(self.notizen()), 1)
+
+    def test_unknown_wird_ignoriert(self):
+        laerm.ha_note_cmd("unknown")
+        self.assertEqual(len(self.notizen()), 0)
+
+
 if __name__ == "__main__":
     unittest.main()

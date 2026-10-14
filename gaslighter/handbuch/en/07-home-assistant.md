@@ -63,3 +63,12 @@ automation:
 ```
 
 Recording stopped by hand is not restarted automatically by a pause from Home Assistant.
+
+## Log a disturbance right from the dashboard
+
+With MQTT the add-on adds two elements to the "GasLighter" device:
+
+- **Log disturbance / note**: text field. Type text, press Enter, and the note is saved with the current time. The field clears afterwards.
+- **Mark disturbance now**: button. One tap creates a note "Disturbance (Home Assistant)" immediately, without text.
+
+Put both on any dashboard (for example in an "Entities" card). If a disturbance was detected just before, the note is attached to it, exactly like the note bar in the live view.

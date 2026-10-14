@@ -32,7 +32,7 @@ HERE = os.path.dirname(os.path.abspath(__file__))
 WEB = os.path.join(HERE, "web")
 OPTIONS_FILE = os.environ.get("LAERM_OPTIONS", "/data/options.json")
 SETTINGS_FILE = os.environ.get("LAERM_SETTINGS", "/data/settings.json")
-VERSION = "1.54.0"
+VERSION = "1.55.0"
 
 # =====================================================================
 # Einstellungen
@@ -2237,6 +2237,30 @@ def pub_trigger(r, kind, **info):
         pass
 
 
+HA_NOTE_LAST = [0.0, ""]
+
+
+def ha_note_cmd(text):
+    """Aus Home Assistant (Textfeld bzw. Knopf): freie Notiz jetzt anlegen. Ohne Text: „Störung (Home Assistant)“.
+    Liegt kurz davor eine Stoerung, wird die Notiz ihr zugeordnet (wie in der Notizleiste)."""
+    text = (text or "").strip()
+    if text.lower() in ("unknown", "unavailable", "none"):
+        return
+    now = time.time()
+    if now - HA_NOTE_LAST[0] < 2 and text == HA_NOTE_LAST[1]:
+        return                                            # doppelt gesendet
+    HA_NOTE_LAST[0], HA_NOTE_LAST[1] = now, text
+    de = CFG.get("language") != "en"
+    if not text:
+        text = "Störung (Home Assistant)" if de else "Disturbance (Home Assistant)"
+    try:
+        r = fnote_change("add", {"auto": True, "from": "", "src": "all", "text": text})
+        log("Notiz aus Home Assistant:", "gespeichert" if r.get("ok") else "FEHLER " + str(r.get("error")))
+    except Exception as e:
+        log("Notiz aus Home Assistant fehlgeschlagen:", e)
+    pub(f"{TOPIC}/note", "", True)                        # Feld im Dashboard leeren
+
+
 def announce(client=None, *_):
     """Bei jeder (Neu-)Verbindung: Entitaeten melden und Befehle abonnieren.
     Der Client kommt direkt aus dem Rueckruf - sonst kann das Abonnieren beim schnellen Verbinden verloren gehen."""
@@ -2274,10 +2298,18 @@ def announce(client=None, *_):
         "name": "Störung erkannt" if de else "Disturbance detected", "unique_id": "gaslighter_event", "icon": "mdi:bell-ring",
         "state_topic": f"{TOPIC}/event", "event_types": ["stoerung", "art"], "availability_topic": av, "device": devc}), True)
     pub(f"{TOPIC}/force", "ON" if FORCE else "OFF", True)
+    pub("homeassistant/text/gaslighter/note/config", json.dumps({            # Stoerung direkt im HA-Dashboard erfassen (wie die Notizleiste)
+        "name": "Störung / Notiz erfassen" if de else "Log disturbance / note", "unique_id": "gaslighter_note", "icon": "mdi:note-edit",
+        "command_topic": f"{TOPIC}/note/set", "state_topic": f"{TOPIC}/note", "min": 0, "max": 255, "mode": "text",
+        "availability_topic": av, "device": devc}), True)
+    pub("homeassistant/button/gaslighter/mark/config", json.dumps({
+        "name": "Störung jetzt markieren" if de else "Mark disturbance now", "unique_id": "gaslighter_mark", "icon": "mdi:alert-circle-check",
+        "command_topic": f"{TOPIC}/mark/set", "payload_press": "PRESS", "availability_topic": av, "device": devc}), True)
+    pub(f"{TOPIC}/note", "", True)
     pub_pause()
     if cl is not None:
         try:
-            for tp in ("recording/set", "pause/set", "force/set"):
+            for tp in ("recording/set", "pause/set", "force/set", "note/set", "mark/set"):
                 cl.subscribe(f"{TOPIC}/{tp}")
             log("MQTT verbunden, Befehle abonniert (Pause, Aufzeichnung, Manuell erfassen)")
         except Exception as e:
@@ -2316,6 +2348,8 @@ def mqtt_start():
                     d = {}
                 if isinstance(d, dict):
                     pause_for(d.get("minutes", 0), "Home Assistant", d.get("reason", ""))
+            elif msg.topic in (f"{TOPIC}/note/set", f"{TOPIC}/mark/set"):
+                ha_note_cmd(raw if msg.topic.endswith("/note/set") else "")
             elif msg.topic == f"{TOPIC}/force/set":
                 v = raw.upper()
                 if v in ("ON", "OFF"):
