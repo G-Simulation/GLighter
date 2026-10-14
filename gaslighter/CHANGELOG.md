@@ -1,5 +1,8 @@
 # Changelog
 
+## 1.57.3
+- Verlauf im Protokoll: Verschieben, Zoomen und Pinch lassen sich nicht mehr über „jetzt“ (das Aufgezeichnete) hinaus schieben.
+
 ## 1.57.2
 - „Unterbrechungen“ klappt sich ein, wenn nichts Offenes mehr vorliegt (nur noch bestätigte); per Pfeil jederzeit aufklappbar.
 

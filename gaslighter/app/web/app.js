@@ -4794,9 +4794,9 @@ function dtFocus(a, b) {
   DT.mark = [a, e]; DT.from = a - pad; DT.to = e + pad; dtLoad(DT, true); $('ndaybox').scrollIntoView({ behavior: 'smooth', block: 'start' });
 }
 function dtSetWin(S, f, t2, load) {
-  const [b0, b1] = dtBase(S), sp = Math.min(t2 - f, b1 - b0);
+  const [b0, b1] = dtBase(S), sp = Math.min(t2 - f, b1 - b0), now = nowServer(), bl = b1 > now && now > b0 ? now : b1;   // nicht über „jetzt“ hinaus schieben
   if (sp >= b1 - b0 - 1000) { S.from = S.to = null; S.zoom = false; }
-  else { f = clamp(f, b0, b1 - sp); S.from = f; S.to = f + sp; S.zoom = true; }
+  else { f = clamp(f, b0, Math.max(b0, bl - sp)); S.from = f; S.to = f + sp; S.zoom = true; }
   const [wf, wt] = dtWin(S);
   for (const sub of S.subs || []) if (sub.data) { sub.data = Object.assign({}, sub.data, { from: wf, to: wt }); dtDraw(sub); }
   if (S.data) $('ndrange').textContent = dtRangeTxt({ from: wf, to: wt }); $('ndreset').disabled = $('ndreset').hidden = S.from == null;
