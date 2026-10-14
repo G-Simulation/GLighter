@@ -697,7 +697,7 @@ tr.bgrow td{opacity:.6}
 .pfitem .pfbg{cursor:pointer;gap:4px}
 .scanper{color:var(--mut);font-size:13px}
 .nrun{margin:6px 0 10px;padding:8px 12px;border:1px solid var(--bd);border-radius:10px;font-size:13px;display:grid;gap:3px}.nrun[hidden]{display:none}
-.nrun .bad{color:var(--red);font-weight:600}.nrun .ev{color:var(--mut)}
+.nrun .bad{color:var(--red);font-weight:600}.nrun .ev{color:var(--mut)}.nrun .acked{opacity:.6}.nrun .ackbtn{margin-left:6px;padding:2px 10px;min-height:26px;font-size:12px}.nrun .ackall,.nrun .acktoggle{display:flex;justify-content:flex-end}.nrun .ackall .ackbtn,.nrun .acktoggle .chip{margin-left:0}.nrun.quiet{border:0;padding:0;margin:2px 0 6px}.nrun.quiet .rtoggle{background:transparent;border-color:transparent;color:var(--mut);font-size:12px}
 .evprof{margin-top:6px}.evprof[hidden]{display:none}
 .pfopen{margin-left:auto;font-size:12.5px}
 .profdlg .evbody{overflow-x:hidden}.profdlg .pfres{overflow-x:auto;max-width:100%}

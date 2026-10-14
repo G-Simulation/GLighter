@@ -3748,18 +3748,40 @@ async function loadRun() {
   NV.down = evs.filter(e => e.kind === 'down').map(e => [new Date(e.from).getTime(), new Date(e.to).getTime(), e.note || '', e.key || e.from, e.cause, e]).filter(g => g[1] > g[0]);
   for (const sub of DT.subs || []) if (sub.data) dtDraw(sub);
   if (typeof LDT !== 'undefined' && histOn()) dtDraw(LDT);
-  const chainTxt = !ch.length ? '' : bad.length
-    ? '⚠ ' + t('run_chain_bad', { l: bad.map(c => c.name + ' ' + c.day.slice(8, 10) + '.' + c.day.slice(5, 7) + '. ' + (c.bad ? new Date(c.bad).toLocaleTimeString(L, { hour: '2-digit', minute: '2-digit' }) : '')).join(', ') })
-    : '🛡 ' + t(none.length === ch.length ? 'run_chain_none' : 'run_chain_ok', { n: ch.filter(c => c.ok).length }) + (ch.some(c => c.explained) ? ' · ' + t('run_chain_lost', { n: ch.reduce((a, c) => a + (c.explained || 0), 0) }) : '');
-  const evTxt = evs.map(e => e.kind === 'down' && e.cause === 'gap' ? t('run_gap', { a: fm(e.from), b: fm(e.to), s: e.name || viewName(e.sid) }) : e.kind === 'down' ? t('run_down', { a: fm(e.from), b: fm(e.to), v: e.version_new || '', r: t(e.reason === 'update' ? 'run_r_update' : e.cause === 'lost' ? 'run_r_lost' : 'run_r_restart') })
+  const chainTxt = !ch.length ? '' : '🛡 ' + t(none.length === ch.length ? 'run_chain_none' : 'run_chain_ok', { n: ch.filter(c => c.ok).length });
+  const evT = e => e.kind === 'down' && e.cause === 'gap' ? t('run_gap', { a: fm(e.from), b: fm(e.to), s: e.name || viewName(e.sid) }) : e.kind === 'down' ? t('run_down', { a: fm(e.from), b: fm(e.to), v: e.version_new || '', r: t(e.reason === 'update' ? 'run_r_update' : e.cause === 'lost' ? 'run_r_lost' : 'run_r_restart') })
     : e.kind === 'import' ? t('run_import', { a: fm(e.at), s: viewName(e.sid), n: e.minutes })
-    : e.kind === 'update' ? t('run_update', { a: fm(e.at), o: e.version_old, n: e.version_new }) : e.kind === 'fallback' ? t('run_fallback', { a: fm(e.at), v: e.version, b: e.to }) : t('run_crash', { a: fm(e.at), v: e.version }));
-  box.hidden = !chainTxt && !evTxt.length;
-  box.innerHTML = (chainTxt ? `<div class="${bad.length ? 'bad' : ''}">${esc(chainTxt)}</div>` : '') + evTxt.map((x, i) => {
-    const e = evs[i]; if (e.kind !== 'down') return `<div class="ev">${esc(x)}</div>`;
-    return `<div class="ev rdown" data-key="${esc(e.key || e.from)}">${esc(x)}${e.note ? ` <b class="rnote">📝 ${esc(e.note)}</b>` : ''} <button type="button" class="chip rnbtn">${esc(t(e.note ? 'run_note_edit' : 'run_note_add'))}</button></div>`;
-  }).join('');
-  box.querySelectorAll('.rdown .rnbtn').forEach(b => b.onclick = () => runNoteEdit(b.closest('.rdown'), evs.find(e => (e.key || e.from) === b.closest('.rdown').dataset.key)));
+    : e.kind === 'update' ? t('run_update', { a: fm(e.at), o: e.version_old, n: e.version_new }) : e.kind === 'fallback' ? t('run_fallback', { a: fm(e.at), b: e.to, v: e.version }) : t('run_crash', { a: fm(e.at), v: e.version });
+  /* Nur offene (ungelesene) Meldungen anzeigen; bestätigte nur auf Wunsch. Bestätigen ändert nichts an Aufzeichnung, Kette oder Bericht. */
+  const all = !!NV.runAll, isBadAck = c => !!c.ack, nAck = evs.filter(e => e.ack).length + bad.filter(isBadAck).length;
+  const showEv = all ? evs : evs.filter(e => !e.ack), showBad = all ? bad : bad.filter(c => !c.ack);
+  const nOpen = evs.filter(e => !e.ack).length + bad.filter(c => !c.ack).length;
+  const lostDays = new Set(ch.filter(c => c.explained).map(c => c.day)), lostN = ch.reduce((a, c) => a + (c.explained || 0), 0);
+  const rows = [];
+  if (all && chainTxt && !bad.length) rows.push(`<div>${esc(chainTxt)}</div>`);
+  for (const c of showBad) {
+    const when = c.day.slice(8, 10) + '.' + c.day.slice(5, 7) + '. ' + (c.bad ? new Date(c.bad).toLocaleTimeString(L, { hour: '2-digit', minute: '2-digit' }) : '');
+    rows.push(`<div class="${c.ack ? 'ev acked' : 'bad'}" data-ack="${esc(c.ack_key)}">${c.ack ? '' : '⚠ '}${esc(t('run_chain_bad', { l: c.name + ' ' + when }))} ${ackBtn(c.ack_key, c.ack)}</div>`);
+  }
+  function ackBtn(key, acked, by) {
+    if (acked && by === 'auto') return '';
+    return acked ? `<button type="button" class="chip ackbtn undo" data-ack="${esc(key)}" data-on="0" title="${esc(t('run_ack_undo'))}">↺</button>`
+      : `<button type="button" class="chip ackbtn" data-ack="${esc(key)}" data-on="1" title="${esc(t('run_ack_tip'))}">✓ ${esc(t('run_ack'))}</button>`;
+  }
+  for (const e of showEv) {
+    const x = evT(e), tip = e.kind === 'down' && lostDays.has(String(e.from).slice(0, 10)) && e.cause !== 'gap' ? ` title="${esc(t('run_chain_lost', { n: lostN }))}"` : '';
+    if (e.kind !== 'down') { rows.push(`<div class="ev${e.ack ? ' acked' : ''}"${tip}>${esc(x)} ${ackBtn(e.key, e.ack, e.ack_by)}</div>`); continue; }
+    rows.push(`<div class="ev rdown${e.ack ? ' acked' : ''}" data-key="${esc(e.key)}"${tip}>${esc(x)}${e.note ? ` <b class="rnote">📝 ${esc(e.note)}</b>` : ''} <button type="button" class="chip rnbtn">${esc(t(e.note ? 'run_note_edit' : 'run_note_add'))}</button> ${ackBtn(e.key, e.ack, e.ack_by)}</div>`);
+  }
+  if (nOpen > 1 && !all) rows.unshift(`<div class="ackall"><button type="button" class="chip ackbtn" data-all="1">✓ ${esc(t('run_ack_all'))}</button></div>`);
+  if (nAck || all) rows.push(`<div class="acktoggle"><button type="button" class="chip rtoggle">${esc(all ? t('run_ack_hide') : t('run_ack_show', { n: nAck }))}</button></div>`);
+  box.hidden = !rows.length;
+  box.classList.toggle('quiet', !nOpen && !all);
+  box.innerHTML = rows.join('');
+  const doAck = async (keys, on) => { try { await fetch('run_ack', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ keys, on }) }); } catch (er) { } loadRun(); };
+  box.querySelectorAll('.ackbtn').forEach(b => b.onclick = () => b.dataset.all ? doAck([...evs.filter(e => !e.ack).map(e => e.key), ...bad.filter(c => !c.ack).map(c => c.ack_key)], true) : doAck([b.dataset.ack], b.dataset.on === '1'));
+  box.querySelectorAll('.rtoggle').forEach(b => b.onclick = () => { NV.runAll = !NV.runAll; loadRun(); });
+  box.querySelectorAll('.rdown .rnbtn').forEach(b => b.onclick = () => runNoteEdit(b.closest('.rdown'), evs.find(e => e.key === b.closest('.rdown').dataset.key)));
 }
 /* Kommentar zu einer Unterbrechung (z. B. „Stromausfall“) – ändert nichts an der Aufzeichnung */
 function runNoteEdit(row, e) {

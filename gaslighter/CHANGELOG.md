@@ -1,5 +1,10 @@
 # Changelog
 
+## 1.53.0
+- Unterbrechungen: Meldungen lassen sich bestätigen („✓ Bestätigen“, „Alle bestätigen“). Der Kasten zeigt nur noch offene Meldungen und verschwindet, wenn alles bestätigt ist; über „Bestätigte anzeigen“ sind die übrigen jederzeit da, ein Klick auf ↺ öffnet eine Meldung wieder. Bestätigt wird nur die Anzeige: Aufzeichnung, Prüfsummen-Kette, schraffierte Lücken im Verlauf und der Bericht bleiben vollständig.
+- Geplante Ereignisse (Update, von Home Assistant angehaltener Neustart, Import) gelten automatisch als gelesen. Offen bleiben Stromausfall/Absturz, Lücken, Rückfall und echte Kettenfehler.
+- Die beim Stromausfall halb geschriebene Minute erscheint nicht mehr als eigene Zeile, nur noch als Hinweis beim Mouseover der Unterbrechung.
+
 ## 1.52.2
 - Datenkette: Eine Minute, die genau beim Beginn einer Unterbrechung (Stromausfall) halb geschrieben wurde, gilt nicht mehr als Fehler. Die rote Warnung entfällt dafür; stattdessen steht ein Hinweis „n Minute(n) beim Stromausfall unvollständig geschrieben“. Fehlt eine Minute an anderer Stelle oder weicht ein Wert ab, bleibt die Warnung.
 

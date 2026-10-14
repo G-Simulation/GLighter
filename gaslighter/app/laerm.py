@@ -32,7 +32,7 @@ HERE = os.path.dirname(os.path.abspath(__file__))
 WEB = os.path.join(HERE, "web")
 OPTIONS_FILE = os.environ.get("LAERM_OPTIONS", "/data/options.json")
 SETTINGS_FILE = os.environ.get("LAERM_SETTINGS", "/data/settings.json")
-VERSION = "1.52.2"
+VERSION = "1.53.0"
 
 # =====================================================================
 # Einstellungen
@@ -5246,6 +5246,36 @@ def run_note_set(key, text):
     return {"ok": True, "key": key, "note": text}
 
 
+def run_acks_path():
+    return os.path.join(DATA_DIR, "unterbrechung_gelesen.json")
+
+
+def run_acks():
+    d = read_json(run_acks_path()) if os.path.exists(run_acks_path()) else {}
+    return d if isinstance(d, dict) else {}
+
+
+def run_ack_set(keys, on):
+    """Meldungen (Unterbrechungen, Kettenwarnungen) als gelesen markieren bzw. wieder oeffnen. Reine Anzeige: aendert keine Aufzeichnung."""
+    if not isinstance(keys, list):
+        return {"ok": False, "error": "keys"}
+    with RUN_NOTES_LOCK:
+        d = run_acks(); now = int(time.time() * 1000)
+        for k in keys[:500]:
+            k = str(k or "")[:120]
+            if not k:
+                continue
+            if on:
+                d[k] = now
+            else:
+                d.pop(k, None)
+        tmp = run_acks_path() + ".tmp"
+        with open(tmp, "w", encoding="utf-8") as f:
+            json.dump(d, f, ensure_ascii=False, indent=1)
+        os.replace(tmp, run_acks_path())
+    return {"ok": True, "n": len(keys)}
+
+
 GAP_MIN_S = 90                                          # so lange ohne Messwert = Luecke in der Tagesaufzeichnung
 
 
@@ -5354,6 +5384,10 @@ def runtime_info(t_from=None, t_to=None, with_chains=True):
         ml_ = c.get("miss_list")
         if c.get("ok") is False and c.get("missing") and ml_ and all(any(a - 120000 <= m_ <= b + 60000 for a, b in dwn_) for m_ in ml_):
             c["ok"] = True; c["explained"] = len(ml_)
+    acks = run_acks()                                  # als gelesen markiert (nur Anzeige)
+    for c in chains:
+        if c.get("ok") is False:
+            c["ack_key"] = f"chain|{c.get('sid')}|{c.get('day')}|{c.get('bad')}"; c["ack"] = c["ack_key"] in acks
     notes = run_notes()                               # eigene Kommentare zu Unterbrechungen (z. B. „Stromausfall“)
     stops = [ms_of(e.get("at")) for e in ev if e.get("kind") == "stop"]
     for e in ev:
@@ -5370,6 +5404,15 @@ def runtime_info(t_from=None, t_to=None, with_chains=True):
         ev.sort(key=lambda e: e.get("from") or e.get("at") or "")
     except Exception as e:                             # nie das Protokoll verhindern
         log("Lücken prüfen:", e)
+    for e in ev:                                       # offen = ungeplant (Strom weg, Absturz, Luecke, Rueckfall); Update/Neustart durch Home Assistant/Import gelten als gelesen
+        k = e.get("key") or e.get("at") or e.get("from") or ""
+        e["key"] = k
+        if k in acks:
+            e["ack"] = True; e["ack_by"] = "user"
+        elif e.get("kind") in ("update", "import") or (e.get("kind") == "down" and (e.get("cause") == "stopped" or e.get("reason") == "update")):
+            e["ack"] = True; e["ack_by"] = "auto"
+        else:
+            e["ack"] = False
     return {"ok": True, "events": ev, "chains": chains, "relay": relay_on(), "version": VERSION,
             "code": os.environ.get("LAERM_CODE_DIR", HERE), "start": os.environ.get("LAERM_START_REASON", "")}
 
@@ -7082,10 +7125,11 @@ def reset_app(parts):
             with CHAIN_LOCK:
                 CHAIN.clear()
             HA_HIST.update(key=None, rows=[]); HA_VOL.update(key=None, rows=[])
-            try:
-                os.remove(os.path.join(DATA_DIR, "laufzeit.jsonl"))
-            except OSError:
-                pass
+            for f_ in ("laufzeit.jsonl", "unterbrechung_gelesen.json"):
+                try:
+                    os.remove(os.path.join(DATA_DIR, f_))
+                except OSError:
+                    pass
             recount()
     if "notes" in parts:                                  # Notizen, Protokolllisten, benannte Bereiche
         n += _rm([notes_path(), plists_path(), labels_path()])
@@ -9507,6 +9551,11 @@ class Handler(BaseHandler):
                 if not isinstance(data, dict):
                     return self.js({"ok": False, "error": "bad request"}, 400)
                 return self.js(pro_del() if data.get("action") == "del" else pro_set(str(data.get("key") or "")[:2000]))
+            if name == "run_ack":                        # Meldungen als gelesen markieren (nur Anzeige)
+                data = json.loads(body or b"{}")
+                if not isinstance(data, dict):
+                    return self.js({"ok": False, "error": "bad request"}, 400)
+                return self.js(run_ack_set(data.get("keys"), bool(data.get("on", True))))
             if name == "run_note":                       # Kommentar zu einer Unterbrechung (z. B. Stromausfall)
                 data = json.loads(body or b"{}")
                 if not isinstance(data, dict):
