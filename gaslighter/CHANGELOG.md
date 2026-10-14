@@ -1,5 +1,9 @@
 # Changelog
 
+## 1.57.4
+- „Unterbrechungen“ ohne offene Meldungen: eingeklappt, lässt sich aber per Pfeil wieder aufklappen (zeigt dann „Bestätigte anzeigen“).
+- Handbuch neu erzeugt; Oberflächentest angepasst.
+
 ## 1.57.3
 - Verlauf im Protokoll: Verschieben, Zoomen und Pinch lassen sich nicht mehr über „jetzt“ (das Aufgezeichnete) hinaus schieben.
 

@@ -1767,11 +1767,11 @@ function dashInit() {
       pn.append(hd, bd); ct.appendChild(pn); it.appendChild(ct);
       const L = lay[p.id]; it.setAttribute('gs-id', p.id); it.setAttribute('gs-w', String(L ? L.w : p.w)); if (L) { it.setAttribute('gs-x', L.x); it.setAttribute('gs-y', L.y); }
       gEl.appendChild(it); items.push([p, it, pn]);
-      hd.querySelector('.pcol').onclick = () => { st.col[p.id] = !st.col[p.id]; dashApply(v); dashSave(v); };
+      hd.querySelector('.pcol').onclick = () => { if (pn.classList.contains('pquiet') && !pn.classList.contains('pcolx')) { const o = pn.classList.toggle('pqopen'); hd.querySelector('.pcol').textContent = o ? '▾' : '▸'; dashResized(); dashRefresh(); return; } st.col[p.id] = !st.col[p.id]; dashApply(v); dashSave(v); };
       hd.querySelector('.phide').onclick = () => { if (!st.off.includes(p.id)) st.off.push(p.id); dashApply(v); dashSave(v); dashBar(v); };
       hd.ondblclick = e => { if (!e.target.closest('button')) hd.querySelector('.pcol').click(); };
       if (p.vis) hd.querySelector('.pvis').onclick = () => { st.vis[p.id] = !st.vis[p.id]; dashApply(v); dashSave(v); visChanged(); };
-      if (p.auto) { const n0 = ns[0]; const sync = () => pn.classList.toggle('pempty', !!n0.hidden || !n0.childElementCount || n0.classList.contains('quiet')); new MutationObserver(sync).observe(n0, { attributes: true, attributeFilter: ['hidden', 'class'], childList: true }); sync(); }
+      if (p.auto) { const n0 = ns[0]; const sync = () => { pn.classList.toggle('pempty', !!n0.hidden || !n0.childElementCount); const q = n0.classList.contains('quiet') && !n0.hidden && !!n0.childElementCount; if (!q) pn.classList.remove('pqopen'); pn.classList.toggle('pquiet', q); pn.querySelector('.pcol').textContent = pn.classList.contains('pcolx') || (q && !pn.classList.contains('pqopen')) ? '▸' : '▾'; }; new MutationObserver(sync).observe(n0, { attributes: true, attributeFilter: ['hidden', 'class'], childList: true }); sync(); }
     }
     pg_cleanup(host);
     const g = DASH.grids[v] = GridStack.init({ column: 12, cellHeight: 8, margin: 6, float: false, staticGrid: true, sizeToContent: true, handle: '.pdrag', animate: true,
@@ -1787,7 +1787,7 @@ function pg_cleanup(host) { const pg = host.querySelector('.pgrid'); if (pg && !
 function dashApply(v) {
   const g = DASH.grids[v], st = DASH.st[v]; if (!g) return;
   g.el.querySelectorAll(':scope > .grid-stack-item').forEach(it => { const id = it.getAttribute('gs-id'), pn = it.querySelector('.pnl');
-    pn.classList.toggle('pcolx', !!st.col[id]); pn.querySelector('.pcol').textContent = st.col[id] ? '▸' : '▾';
+    pn.classList.toggle('pcolx', !!st.col[id]); pn.querySelector('.pcol').textContent = st.col[id] || (pn.classList.contains('pquiet') && !pn.classList.contains('pqopen')) ? '▸' : '▾';
     const vb = pn.querySelector('.pvis'); if (vb) vb.classList.toggle('on', !!st.vis[id]);
     const off = st.off.includes(id);
     if (off && it.gridstackNode) { g.removeWidget(it, false, false); it.style.display = 'none'; }

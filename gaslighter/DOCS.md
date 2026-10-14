@@ -97,7 +97,10 @@ Für das, was du gerade hörst – einfach lostippen oder Merkmale antippen (obe
 
 - **Ohne eigene Uhrzeit**: Liegt kurz vorher eine Störung (Einstellung „Notiz zuordnen“, Standard 5 min), gilt die Notiz für sie. Die Leiste zeigt vorher, wohin sie kommt.
 - **läuft noch**: Die Notiz bekommt einen Zeitraum von der ersten Eingabe bis zum Speichern.
-- **Mehr …** öffnet den Dialog mit von/bis, Gerät und Zeuge.
+- **Von / bis und Zeuge** stehen immer direkt im Bereich; leer lassen heißt „automatisch“ (Uhrzeit beim Speichern).
+- **Nur Markierungen, kein Text?** Dann bildet GasLighter beim Speichern einen Satz daraus, z. B. „Deutliche Schritte im Treppenhaus“. Du kannst ihn später ändern.
+
+**Abdocken (Pro):** Mit **⧉** neben dem Titel löst du den Notizbereich als eigenes kleines Fenster heraus. In Chrome und Edge bleibt es über anderen Programmen liegen (z. B. über einem Spiel oder Film), sonst ist es ein normales Zusatzfenster. **Zurückholen** oder das Fenster schließen setzt ihn wieder ein.
 - Strg + Enter speichert. Am Handy ist die Leiste zunächst zugeklappt.
 
 ### 🏷 Bereich markieren
@@ -385,6 +388,22 @@ automation:
 ```
 
 Eine von Hand gestoppte Aufzeichnung wird durch eine Pause aus Home Assistant nicht automatisch wieder gestartet.
+
+### Störung direkt im Dashboard erfassen
+
+Mit MQTT meldet das Add-on zwei Elemente am Gerät „GasLighter“:
+
+- **Störung / Notiz erfassen**: Textfeld. Text eingeben, Enter drücken, schon ist die Notiz mit der aktuellen Uhrzeit gespeichert. Das Feld leert sich danach.
+- **Störung jetzt markieren**: Knopf. Ein Tipp legt sofort eine Notiz „Störung (Home Assistant)“ an, ohne Text.
+
+Beide legst du auf ein beliebiges Dashboard (z. B. als Karte „Entitäten“). Liegt kurz davor eine Störung, wird die Notiz ihr zugeordnet, genau wie bei der Notizleiste im Live-Bild.
+
+### Keine Störung melden (Graph läuft weiter)
+
+Manchmal soll eine Störung nicht gemeldet werden, der Graph aber trotzdem weiterlaufen, zum Beispiel wenn du selbst die Tür öffnest.
+
+- **In einer Regel:** Wähle bei der Aktion **„keine Störung melden“**. Solange die Bedingung gilt und für den **Nachlauf** (z. B. 10 Minuten), entsteht keine Störung. Der Graph wird weiter aufgezeichnet, es gibt keine Lücke.
+- **Als Knopf im Dashboard:** Am Gerät „GasLighter“ gibt es **„Keine Störung melden (Dauer starten)“**, **„Störungen wieder melden“**, die einstellbare **Dauer** (1–240 Minuten, Standard 10) und **„Keine Störungsmeldung bis“**. Lege sie auf dein Dashboard. Ein Tipp auf den Knopf startet die eingestellte Dauer.
 
 ## 8. Drucken und Lärmprotokoll
 
@@ -793,7 +812,10 @@ For what you hear right now – just start typing or tap tags (upstairs, downsta
 
 - **Without a time of its own**: if there was a disturbance shortly before (setting “Assign note”, default 5 min), the note belongs to it. The bar shows beforehand where it goes.
 - **still going**: the note gets a period from the first input until saving.
-- **More …** opens the dialog with from/to, device and witness.
+- **From / to and witness** are always shown right in the area; leave them empty for “automatic” (time at saving).
+- **Only tags, no text?** GasLighter builds a sentence from them when saving, e.g. “Clear footsteps in the stairwell”. You can edit it later.
+
+**Detach (Pro):** **⧉** next to the title detaches the note area into its own small window. In Chrome and Edge it stays on top of other programs (e.g. over a game or film), otherwise it is a normal extra window. **Bring back** or closing the window puts it back.
 - Ctrl + Enter saves. On a phone the bar starts collapsed.
 
 ### 🏷 Mark range
@@ -1081,6 +1103,22 @@ automation:
 ```
 
 Recording stopped by hand is not restarted automatically by a pause from Home Assistant.
+
+### Log a disturbance right from the dashboard
+
+With MQTT the add-on adds two elements to the "GasLighter" device:
+
+- **Log disturbance / note**: text field. Type text, press Enter, and the note is saved with the current time. The field clears afterwards.
+- **Mark disturbance now**: button. One tap creates a note "Disturbance (Home Assistant)" immediately, without text.
+
+Put both on any dashboard (for example in an "Entities" card). If a disturbance was detected just before, the note is attached to it, exactly like the note bar in the live view.
+
+### No disturbance reports (graph keeps recording)
+
+Sometimes a disturbance should not be reported while the graph keeps recording, for example when you open the door yourself.
+
+- **In a rule:** choose the action **"no disturbance reports"**. While the condition holds and for the **delay** afterwards (for example 10 minutes), no disturbance is created. The graph keeps recording, with no gap.
+- **As a dashboard button:** the "GasLighter" device has **"Start: no disturbance reports"**, **"Report disturbances again"**, an adjustable **duration** (1–240 minutes, default 10) and **"No disturbance reports until"**. Put them on your dashboard. One tap starts the set duration.
 
 ## 8. Printing and noise log
 

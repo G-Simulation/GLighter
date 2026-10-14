@@ -63,6 +63,12 @@ def main():
                         fails.append("Kasten zeigt nach Bestätigen noch offene Meldungen")
                     tog = pg.locator("#nrun .rtoggle")
                     if tog.count():
+                        if not tog.first.is_visible():          # nichts Offenes: Kasten ist eingeklappt, erst aufklappen
+                            pq = pg.locator(".pnl.pquiet .pcol")
+                            if not pq.count():
+                                fails.append("Kasten ohne offene Meldungen ist nicht eingeklappt")
+                            else:
+                                pq.first.click(); pg.wait_for_timeout(300)
                         tog.first.click(); pg.wait_for_timeout(800)
                         if os.environ.get("DEBUG"): print("ALLE:", repr(pg.locator("#nrun").inner_text()))
                         if "Nicht aufgezeichnet" not in pg.locator("#nrun").inner_text():

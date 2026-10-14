@@ -918,6 +918,7 @@ fieldset.prolocked .f{opacity:.55}
 .pnl.pcolx .pnlbd{display:none}
 .pnl.pempty:not(.pcolx) .pnlbd{display:none}
 .pnl.pempty .pnlhd{opacity:.6}
+.pnl.pquiet:not(.pqopen) .pnlbd{display:none}
 /* Inhalte im Panel: eigener Kartenrahmen und doppelte Überschriften entfallen */
 .pnlbd>.card,.pnlbd>.ndaybox,.pnlbd>.pevcard,.pnlbd>.nnotes,.pnlbd>.nrun,.pnlbd>.fnpanel{border:0!important;box-shadow:none!important;background:transparent!important;margin:0!important;padding:0!important}
 .pnl[data-p=hours] .pnlbd>.card>.row:first-child,.pnl[data-p=days] .pnlbd>.card>.row:first-child{display:none}
