@@ -1,5 +1,8 @@
 # Changelog
 
+## 1.52.1
+- Datenkette nach Stromausfall: Ein halb geschriebener Minutenblock ließ die Prüfung den ganzen Tag als beschädigt melden („ab 00:00“). Jetzt wird nur die betroffene Minute gemeldet, der Rest des Tages wird weiter geprüft. Die Dateien werden nicht verändert.
+
 ## 1.52.0
 - Stromausfall: Ein beim Ausfall halb geschriebener Minutenblock der Tagesaufzeichnung machte bisher alles dahinter (die Daten nach dem Neustart) unlesbar – der Verlauf zeigte dort nichts. Jetzt wird nur der beschädigte Block übersprungen und ab dem nächsten gelesen. Bereits aufgezeichnete Daten tauchen damit wieder auf; die Dateien selbst und die Prüfsummen-Kette werden nicht verändert.
 - Jede Minute wird nach dem Schreiben auf den Datenträger gesichert, damit bei Stromausfall höchstens der laufende Block verloren geht.

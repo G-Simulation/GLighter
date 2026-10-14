@@ -32,7 +32,7 @@ HERE = os.path.dirname(os.path.abspath(__file__))
 WEB = os.path.join(HERE, "web")
 OPTIONS_FILE = os.environ.get("LAERM_OPTIONS", "/data/options.json")
 SETTINGS_FILE = os.environ.get("LAERM_SETTINGS", "/data/settings.json")
-VERSION = "1.52.0"
+VERSION = "1.52.1"
 
 # =====================================================================
 # Einstellungen
@@ -7516,9 +7516,8 @@ def chain_check_full(sid, day):
         return {"ok": None, "n": 0, "bad": None, "head": "", "none": True}
     lines = []
     try:
-        with gzip.open(dp, "rt", encoding="utf-8") as fh:
-            lines = [l.rstrip("\n") for l in fh]
-    except (OSError, EOFError, zlib.error):
+        lines, _bad = gz_lines(dp)                      # ein beim Stromausfall halb geschriebener Block wird uebersprungen statt den ganzen Tag zu verwerfen
+    except OSError:
         pass
     sp = spec_load(sid, day)
     sts, sb = (sp if sp is not None else (np.zeros(0, np.int64), None))
@@ -7528,7 +7527,7 @@ def chain_check_full(sid, day):
     if k0 is None:
         return {"ok": False if links else None, "n": 0, "bad": first_m, "head": links[-1][1] if links else "", "none": not links}
     prev = chain_seed(sid, day)
-    n = 0; li = k0; segs = 1
+    n = 0; li = k0; segs = 1; first_miss = None; miss = 0
     lm = []                                            # Minute je Zeile (fuer den Beginn eines Abschnitts)
     for l_ in lines:
         mm_ = re.match(r'\{"m":(-?\d+),', l_); lm.append(int(mm_.group(1)) if mm_ else None)
@@ -7552,10 +7551,17 @@ def chain_check_full(sid, day):
             spec = chain_spec_bytes([t for t, o in zip(tl, ok_) if o], [sb[j] for j, o in zip(idx, ok_) if o])
         else:
             spec = b""
+        if m > int(m_s):                                # zu dieser Pruefsumme fehlt der Minutenblock (z. B. beim Stromausfall halb geschrieben):
+            if first_miss is None:                      # merken und mit der gespeicherten Summe weiterpruefen, der Rest des Tages bleibt nachpruefbar
+                first_miss = int(m_s)
+            prev = h_s; miss += 1
+            continue
         h = hashlib.sha256(prev.encode() + line.encode() + spec).hexdigest()
         if h != h_s or m != int(m_s):
             return {"ok": False, "n": n, "bad": int(m_s), "head": links[-1][1], "none": False, "segs": segs}
         prev = h; n += 1; li += 1
+    if first_miss is not None:
+        return {"ok": False, "n": n, "bad": first_miss, "head": prev, "none": False, "missing": True, "lost": miss, "segs": segs}
     extra = len(lines) - k0 - n
     return {"ok": True, "n": n, "bad": None, "head": prev, "none": False, "extra": max(0, extra), "segs": segs}
 
