@@ -1103,3 +1103,4 @@ fieldset.prolocked .f{opacity:.55}
 .fnpext .fnrow{display:flex;align-items:center;gap:6px}
 #fnpmore.on{background:var(--nl1)}
 .mirrorbox{display:grid;gap:6px;margin-top:8px;font-size:13px}.mirrorbox .bad{color:var(--red);font-weight:600}.mirrorbox small{color:var(--mut)}.mirrorbox button{justify-self:start}
+.secintro{margin:2px 0 10px;color:var(--mut);font-size:13px;line-height:1.45}fieldset.shut>.secintro{display:none}

@@ -2,7 +2,7 @@
 
 ## Sicherung herunterladen {#export}
 
-⚙ Einstellungen → Allgemein → **Sicherung der ganzen App** → **⬇ Sicherung herunterladen**. Die ZIP-Datei enthält alles: Einstellungen, Geräte, Zeitprofile, Regeln, `log.csv` und alle Protokolldateien, Tagesaufzeichnungen mit Prüfsummen, KI-Ergebnisse, Tonprofile, Notizen, Kommentare zu Unterbrechungen, benannte Bereiche, Listen, Videos und – falls gespeichert – Ton.
+⚙ Einstellungen → Speichern & Sicherung → **Sicherung herunterladen / einspielen (ZIP)** → **⬇ Sicherung herunterladen**. Die ZIP-Datei enthält alles: Einstellungen, Geräte, Zeitprofile, Regeln, `log.csv` und alle Protokolldateien, Tagesaufzeichnungen mit Prüfsummen, KI-Ergebnisse, Tonprofile, Notizen, Kommentare zu Unterbrechungen, benannte Bereiche, Listen, Videos und – falls gespeichert – Ton.
 
 > Die Datei kann groß werden (Hunderte MB). Am besten regelmäßig herunterladen und an einem anderen Ort aufbewahren.
 
@@ -28,7 +28,7 @@ Danach steht ein Bericht da: neue Dateien, zusammengeführte Tage, übersprungen
 
 > **🔒 Pro:** Die tägliche Sicherung und „Platz sparen“ gehören zu [GasLighter Pro](#pro). **„⬇ Sicherung herunterladen“ und `log.csv` bleiben immer frei.** Läuft Pro ab, hält die tägliche Sicherung an; schon ausgelagerte Tage bleiben lesbar.
 
-⚙ Einstellungen → Speichern & Ton → **Tägliche Sicherung**. Ist ein Ziel eingestellt, kopiert GasLighter jeden Tag (Standard 03:30) alles Neue dorthin – dieselben Dateien wie in der ZIP-Sicherung, aber **inkrementell**: nur neue und geänderte Dateien, jede danach mit SHA-256 geprüft.
+⚙ Einstellungen → Speichern & Sicherung → **Tägliche Sicherung**. Ist ein Ziel eingestellt, kopiert GasLighter jeden Tag (Standard 03:30) alles Neue dorthin – dieselben Dateien wie in der ZIP-Sicherung, aber **inkrementell**: nur neue und geänderte Dateien, jede danach mit SHA-256 geprüft.
 
 - **Im Ziel wird nie etwas gelöscht.** Ändert sich eine schon gesicherte Datei nachträglich, bleibt die alte Fassung als `….alt-JJJJMMTT-hhmmss` daneben liegen.
 - **Ziel nicht erreichbar** (NAS aus, WLAN weg): Die Aufzeichnung läuft normal weiter auf diesem Gerät. Stündlich wird es erneut versucht, und der nächste Lauf holt alles Fehlende nach.

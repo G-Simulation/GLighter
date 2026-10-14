@@ -42,7 +42,7 @@ Wenn du mehrere Geräte vergleichen willst: ⚙ Einstellungen → Geräte → **
 
 ## 5. Sichern und Updates
 
-- Regelmäßig unter ⚙ Einstellungen → Allgemein → **Sicherung herunterladen** eine Sicherung ziehen. Siehe [Sicherung](09-sicherung.md).
+- Regelmäßig unter ⚙ Einstellungen → Speichern & Sicherung → **Sicherung herunterladen** eine Sicherung ziehen. Siehe [Sicherung](09-sicherung.md).
 - Updates ohne Aufnahmelücke: neuen Ordner nach `\\homeassistant\share\gaslighter_update\` kopieren. Siehe [Updates](10-unterbrechungen.md#updates).
 
 > **Wichtig:** GasLighter ist eine Gedächtnisstütze und Dokumentation, keine geeichte Lärmmessung in dB(A). Für Vermieter, Hausverwaltung oder Behörden zählt vor allem: regelmäßig, nachvollziehbar, mit eigenen Notizen. Siehe [Lärmprotokoll](08-drucken.md#laermprotokoll).

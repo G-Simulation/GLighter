@@ -16,9 +16,9 @@ Es ist so leise, dass die Schwelle nicht tiefer darf. Das ist gewollt, wenn sehr
 
 ## Spalte „Art (KI)“ zeigt nichts {#keine-ki}
 
-- „Die KI-Erkennung ist ausgeschaltet“: ⚙ → Allgemein → **Geräuschart erkennen** einschalten.
+- „Die KI-Erkennung ist ausgeschaltet“: ⚙ → Erkennung → **Geräuschart erkennen** einschalten.
 - „KI-Modell nicht gefunden“: das Add-on einmal mit der **vollen Zip** neu installieren (Update-Zips enthalten das Modell nicht).
-- „kein Fingerabdruck an dieser Stelle“: An dieser Sekunde wurde nichts gespeichert (zu leise oder Rechner ausgelastet). Prüfe in ⚙ → Speichern & Ton, ob der Fingerabdruck läuft.
+- „kein Fingerabdruck an dieser Stelle“: An dieser Sekunde wurde nichts gespeichert (zu leise oder Rechner ausgelastet). Prüfe in ⚙ → Erkennung, ob der Fingerabdruck läuft.
 
 ## Lücke im Verlauf {#luecke}
 

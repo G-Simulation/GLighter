@@ -16,9 +16,9 @@ It is so quiet that the threshold may not go lower. That is intended if very qui
 
 ## “Type (AI)” column is empty {#keine-ki}
 
-- “AI detection is switched off”: ⚙ → General → switch on **Recognize sound type**.
+- “AI detection is switched off”: ⚙ → Detection → switch on **Recognize sound type**.
 - “AI model not found”: reinstall the add-on once with the **full zip** (update zips do not contain the model).
-- “no fingerprint at this spot”: nothing was stored at that second (too quiet or computer busy). Check in ⚙ → Storage & sound whether the fingerprint is running.
+- “no fingerprint at this spot”: nothing was stored at that second (too quiet or computer busy). Check in ⚙ → Detection whether the fingerprint is running.
 
 ## Gap in the history {#luecke}
 

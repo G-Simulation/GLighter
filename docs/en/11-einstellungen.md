@@ -33,52 +33,77 @@ At the very top choose **All devices** or a single device. For a device, “Own 
 | Adapting when it gets louder / quieter | large = noise hardly pulls the threshold along; small = follows quickly |
 | Minimum duration (ms) | 0 = every knock counts; 40–60 filters clicks |
 
+<a id="s_ki"></a>
+
+### Recognize sound type (AI)
+
+**Recognize sound type (local AI)** – classifies disturbances (door, knocking, music …), no sound is stored. **Store AI fingerprint for each disturbance** – better distinction when learning and “re-evaluate” without sound. **Also store AI fingerprint between disturbances** – continuously, for “re-examine”; see [AI fingerprint](05-ki.md#fingerabdruck).
+
 **Sound profiles** – see [AI](05-ki.md#tonprofile). **Different values at certain times** (time profiles)<a id="s_sched"></a> – e.g. more sensitive at night, general or per device.
 
 <a id="zeiten"></a>
 
 ## Times & pauses
 
-- **When to monitor?**<a id="s_time"></a> – monitor from / to (both empty = around the clock, can span midnight). Outside that nothing is counted; via the indicator at the top you can record anyway.
+- **When to monitor?**<a id="s_time"></a> – monitor from / to (both empty = around the clock, past midnight possible). Outside of it nothing is counted; you can still capture via the display at the top.
+- **Quiet hours**<a id="s_notes"></a> – quiet hours from / to (usually 22:00–6:00), Sunday all day. Notes and disturbances during quiet hours get 🌙.
+- **Different values at certain times** – see above (time profiles).
 - **Home Assistant: pause or record state**<a id="s_ha"></a> – see [Home Assistant](07-home-assistant.md#regeln).
-- **Notes & log**<a id="s_notes"></a> – quiet hours from / to (usually 22:00–6:00), Sunday all day quiet. Notes and disturbances during quiet hours get 🌙.
 
 <a id="speichern"></a>
 
-## Storage & sound
+## Storage & backup
 
 <a id="s_rec"></a>
 
-### Recording the disturbance
+### What is stored?
 
 | Setting | Meaning |
 |---|---|
-| Context (s) | this many seconds before and after the disturbance are shown when viewing |
-| … with layers | low/mid/high, frequency for the whole day (+1–2 MB per device and day) |
-| … with spectrum | spectrogram for every moment (+3–8 MB per device and day) |
-| Store AI fingerprint continuously | see [AI fingerprint](05-ki.md#fingerabdruck); below it shows whether it runs |
-| Delete old recordings automatically / after days | off = nothing is ever deleted |
+| Context before and after the disturbance (s) | this many seconds before and after the disturbance are shown when viewing |
+| Day recording with layers | low/mid/high, frequency for the whole day (+1–2 MB per device and day) |
+| Day recording with spectrum | spectrogram for every moment (+3–8 MB per device and day) |
+| Record all devices on a disturbance | the other devices store a noise track for the same period (no sound) – to compare rooms |
 
 <a id="s_wav"></a>
 
 ### Store real audio (not recommended)
 
-Default **off**. When on, a WAV file is stored with each disturbance. **Store audio only without detected voices** (recommended) prevents saving as soon as the AI detects voices anywhere. Read [Legal](12-rechtliches.md) first.
+Default **off**. When on, a WAV file is stored for each disturbance in addition. **Audio only without detected voices** (recommended) prevents storing as soon as the AI detects voices anywhere. Read [Legal](12-rechtliches.md) first.
 
 <a id="s_video"></a>
 
-### Video & storage
+### Video
 
-Folder for noise tracks, video width, frames per second, video quality.
+Video width, frames per second, video quality (for IP cameras and phones).
+
+<a id="s_place"></a>
+
+### Storage location
+
+**Folder for noise tracks** – empty = default. Only change it if new noise tracks should be stored elsewhere (e.g. `/media/gaslighter`). For a copy on the NAS use the **daily backup**, not this folder.
+
+<a id="s_keep"></a>
+
+### Keep & delete automatically
+
+**Delete old recordings automatically** and **Delete after (days)** – off = nothing is ever deleted. With the daily backup, only what is verified in the target is deleted.
+
+<a id="s_backup"></a>
+
+### Backup
+
+**Download / restore backup (ZIP)** – always free. **Daily backup** to network drive, NAS or USB (Pro). Both see [Backup](09-sicherung.md).
 
 <a id="allgemein"></a>
 
 ## General
 
-- **General**<a id="s_misc"></a> – recognize sound type (local AI), store AI fingerprint, group: max. pause, assign note, language.
-- **Backup of the whole app**<a id="s_backup"></a> – see [Backup](09-sicherung.md).
+- **Language**<a id="s_misc"></a> – German, English or like the browser.
+- **Log & notes**<a id="s_list"></a> – **Group disturbances up to (s) apart** (groups in the list), **Note belongs to the disturbance if up to (min) after it**.
+- **GasLighter Pro** – see [Pro](14-pro.md).
 - **Reset** – see [Reset](09-sicherung.md#zuruecksetzen).
-- **Diagnostics** – details on microphone and sound card for troubleshooting.
+- **Diagnostics** – details about microphone and sound card for troubleshooting.
 
 ---
 [← Interruptions, data chain and updates](10-unterbrechungen.md) · [Contents](README.md) · [Legal and privacy →](12-rechtliches.md)

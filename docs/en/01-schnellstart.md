@@ -42,7 +42,7 @@ To compare devices: ⚙ Settings → Devices → **Level-match devices**. Put al
 
 ## 5. Backups and updates
 
-- Regularly download a backup under ⚙ Settings → General → **Download backup**. See [Backup](09-sicherung.md).
+- Regularly download a backup under ⚙ Settings → Storage & backup → **Download backup**. See [Backup](09-sicherung.md).
 - Updates without a recording gap: copy the new folder to `\\homeassistant\share\gaslighter_update\`. See [Updates](10-unterbrechungen.md#updates).
 
 > **Important:** GasLighter is a memory aid and documentation, not a calibrated dB(A) measurement. For landlords, property managers or authorities what counts most is: regular, traceable, with your own notes. See [Noise log](08-drucken.md#laermprotokoll).

@@ -52,7 +52,7 @@ function placeHeader() {
 function hbOpen(at) { const th = document.documentElement.getAttribute('data-theme') || ''; const w = window.open('handbuch.html?lang=' + lang + (th ? '&theme=' + th : '') + '#' + (at || ''), 'gaslighter_hb'); if (w) w.focus(); }
 document.addEventListener('click', e => { const a = e.target.closest && e.target.closest('[data-hb]'); if (!a) return; e.preventDefault(); e.stopPropagation(); hbOpen(a.dataset.hb); });
 const HB_SEC = { s_pro: 'pro', s_thr: 'einstellungen/s_thr', s_time: 'einstellungen/s_time', s_ha: 'home-assistant/regeln', habox: 'home-assistant/regeln', s_sched: 'einstellungen/s_sched', schedbox: 'einstellungen/s_sched',
-  s_notes: 'einstellungen/s_notes', s_rec: 'einstellungen/s_rec', s_wav: 'einstellungen/s_wav', s_video: 'einstellungen/s_video', s_misc: 'einstellungen/s_misc', s_audio: 'einstellungen/s_audio',
+  s_notes: 'einstellungen/s_notes', s_quiet: 'einstellungen/s_notes', s_ki: 'ki', s_place: 'einstellungen/s_place', s_keep: 'einstellungen/s_keep', s_list: 'einstellungen/s_list', s_rec: 'einstellungen/s_rec', s_wav: 'einstellungen/s_wav', s_video: 'einstellungen/s_video', s_misc: 'einstellungen/s_misc', s_audio: 'einstellungen/s_audio',
   srcbox: 'geraete', srcbox1: 'geraete/karte', calbox: 'geraete/einpegeln', s_cal: 'geraete/einpegeln', pfbox: 'ki/tonprofile', s_prof: 'ki/tonprofile', bkbox: 'sicherung', s_backup: 'sicherung', s_mirror: 'sicherung/ziel',
   rsbox: 'sicherung/zuruecksetzen', s_reset: 'sicherung/zuruecksetzen', diagset: 'fehlerbehebung', s_diag: 'fehlerbehebung' };
 function toggleHMenu(e) {
@@ -2726,7 +2726,7 @@ async function haSave() {
   } catch (e) { alert(t('saveerr') + ' ' + e.message); }
 }
 /* Einstellungs-Bereiche einklappbar; Zustand pro Browser gemerkt */
-const SEC_OPEN_DEFAULT = { s_pro: true, s_prof: true, srcbox1: true, srcbox: true, s_time: true, s_thr: true, s_ha: true, s_backup: true, s_diag: true };
+const SEC_OPEN_DEFAULT = { s_pro: true, s_prof: true, srcbox1: true, srcbox: true, s_audio: true, s_time: true, s_quiet: true, s_thr: true, s_ki: true, s_ha: true, s_rec: true, s_keep: true, s_backup: true, s_mirror: true, s_misc: true, s_list: true, s_diag: true };
 function secState() { try { return JSON.parse(localStorage.getItem('laerm_secs') || '{}'); } catch (e) { return {}; } }
 function makeCollapsible() {
   const st = secState();
@@ -2746,7 +2746,7 @@ function makeCollapsible() {
 function openSec(key) { if (SEC_TAB[key]) setSTab(SEC_TAB[key]); const fs = $('sbody').querySelector(`fieldset[data-sec="${key}"], fieldset#${key}`); if (fs && fs.classList.contains('shut')) fs.querySelector(':scope > legend').click(); return fs; }
 /* Einstellungen in Reitern; Inhalte der Bereiche bleiben unveraendert. Bereiche ohne Reiter (Auswahl des Geraets) stehen in jedem Reiter. */
 const STABS = [['dev', 'st_dev'], ['det', 'st_det'], ['time', 'st_time'], ['save', 'st_save'], ['gen', 'st_gen']];
-const SEC_TAB = { s_pro: 'gen', s_wav: 'save', s_mirror: 'save', s_reset: 'gen', rsbox: 'gen', s_prof: 'det', pfbox: 'det', srcbox1: 'dev', diagset: 'gen', s_diag: 'gen', srcbox: 'dev', calbox: 'dev', s_cal: 'dev', s_audio: 'dev', s_thr: 'det', s_time: 'time', s_sched: 'time', schedbox: 'time', s_ha: 'time', habox: 'time', s_notes: 'time', s_rec: 'save', s_video: 'save', s_misc: 'gen', s_backup: 'gen', bkbox: 'gen' };
+const SEC_TAB = { s_ki: 'det', s_quiet: 'time', s_place: 'save', s_keep: 'save', s_list: 'gen', s_pro: 'gen', s_wav: 'save', s_mirror: 'save', s_reset: 'gen', rsbox: 'gen', s_prof: 'det', pfbox: 'det', srcbox1: 'dev', diagset: 'gen', s_diag: 'gen', srcbox: 'dev', calbox: 'dev', s_cal: 'dev', s_audio: 'dev', s_thr: 'det', s_time: 'time', s_sched: 'time', schedbox: 'time', s_ha: 'time', habox: 'time', s_notes: 'time', s_rec: 'save', s_video: 'save', s_misc: 'gen', s_backup: 'save', bkbox: 'save' };
 let STAB = 'dev'; try { STAB = localStorage.getItem('laerm_stab') || 'dev'; } catch (e) { }
 if (!STABS.some(x => x[0] === STAB)) STAB = 'dev';
 function applySTab() {
@@ -2935,7 +2935,7 @@ function buildSources() {
   fs.appendChild(add);
   fs.appendChild(el('small', { className: 'srchelp', textContent: t('src_help') }));
   body.insertBefore(fs, body.firstChild);
-  const oc = $('calbox'); if (oc) oc.remove(); if (!DEV) fs.after(calBox());
+  const oc = $('calbox'); if (oc) oc.remove(); if (!DEV) { const au = $('sbody').querySelector(':scope > fieldset[data-sec="s_audio"]'); (au || fs).after(calBox()); }
   makeCollapsible();
 }
 function sourceRow(s) {
@@ -3266,13 +3266,26 @@ const FORM = [
     ['rise_s', 'num', 0.5, 3600, 0.5, null, ['dynamic', 'bounded']],
     ['fall_s', 'num', 0.5, 3600, 0.5, null, ['dynamic', 'bounded']],
     ['min_event_ms', 'num', 0, 2000, 20]]],
-  ['s_rec', [['ctx_s', 'num', 0, 120, 1], ['day_layers', 'chk'], ['day_spec', 'chk'], ['fp_store', 'chk'], ['auto_delete', 'chk'], ['retention_days', 'num', 1, 3650, 1]]],
-  ['s_wav', [['save_audio', 'chk'], ['audio_novoice', 'chk', 'save_audio'], ['pre_roll_s', 'num', 0, 30, 0.1, 'save_audio'], ['post_roll_s', 'num', 0.1, 60, 0.1, 'save_audio'], ['max_clip_s', 'num', 1, 300, 0.5, 'save_audio'], ['co_record', 'chk', 'save_audio']]],
+  ['s_ki', [['classify', 'chk'], ['ki_embed', 'chk'], ['fp_store', 'chk']]],
+  ['s_quiet', [['quiet_from', 'time'], ['quiet_to', 'time'], ['quiet_sunday', 'chk']]],
+  ['s_rec', [['ctx_s', 'num', 0, 120, 1], ['day_layers', 'chk'], ['day_spec', 'chk'], ['co_record', 'chk']]],
+  ['s_wav', [['save_audio', 'chk'], ['audio_novoice', 'chk', 'save_audio'], ['pre_roll_s', 'num', 0, 30, 0.1, 'save_audio'], ['post_roll_s', 'num', 0.1, 60, 0.1, 'save_audio'], ['max_clip_s', 'num', 1, 300, 0.5, 'save_audio']]],
+  ['s_video', [['video_width', 'num', 0, 3840, 10], ['video_fps', 'num', 1, 30, 1], ['video_crf', 'num', 18, 40, 1]]],
+  ['s_place', [['clip_dir', 'text']]],
+  ['s_keep', [['auto_delete', 'chk'], ['retention_days', 'num', 1, 3650, 1]]],
   ['s_mirror', [['mirror_dir', 'text'], ['mirror_time', 'time'], ['mirror_offload', 'chk']]],
-  ['s_video', [['clip_dir', 'text'], ['video_width', 'num', 0, 3840, 10], ['video_fps', 'num', 1, 30, 1], ['video_crf', 'num', 18, 40, 1]]],
-  ['s_notes', [['quiet_from', 'time'], ['quiet_to', 'time'], ['quiet_sunday', 'chk']]],
-  ['s_misc', [['classify', 'chk'], ['ki_embed', 'chk'], ['group_pause_s', 'num', 10, 3600, 10], ['fn_assign_min', 'num', 0, 60, 1], ['language', 'sel', ['auto', 'de', 'en'], { auto: 'lauto', de: '#Deutsch', en: '#English' }]]],
+  ['s_misc', [['language', 'sel', ['auto', 'de', 'en'], { auto: 'lauto', de: '#Deutsch', en: '#English' }]]],
+  ['s_list', [['group_pause_s', 'num', 10, 3600, 10], ['fn_assign_min', 'num', 0, 60, 1]]],
 ];
+/* Reihenfolge der Kästen je Reiter (nach dem, was man tun will) */
+const SEC_ORDER = ['srcbox', 's_audio', 's_cal', 's_thr', 's_ki', 's_prof', 's_time', 's_quiet', 's_sched', 's_ha',
+  's_rec', 's_wav', 's_video', 's_place', 's_keep', 's_backup', 's_mirror', 's_misc', 's_list', 's_pro', 's_reset', 's_diag'];
+function secOrder(body) {
+  for (const k of SEC_ORDER) { const f = body.querySelector(`:scope > fieldset[data-sec="${k}"], :scope > fieldset#${k}`); if (f) body.appendChild(f); }
+  body.querySelectorAll(':scope > fieldset').forEach(f => { const k = f.dataset.sec || f.id; if (k && !SEC_ORDER.includes(k) && k !== 'devbox') body.appendChild(f); });
+  for (const k of SEC_ORDER) { const f = body.querySelector(`:scope > fieldset[data-sec="${k}"], :scope > fieldset#${k}`); if (!f || f.querySelector(':scope > .secintro')) continue;   // eine Zeile in einfachen Worten: wofür ist dieser Kasten?
+    const s0 = t('si_' + k); if (s0 === 'si_' + k) continue; const lg = f.querySelector(':scope > legend'); const p = el('p', { className: 'secintro', textContent: s0 }); if (lg) lg.after(p); else f.prepend(p); }
+}
 let SRC = [], SRC_DET = [], DEF_SRC = '';
 function portsFor(dev) {
   const name = !dev || dev === 'default' || dev === 'pulse' ? DEF_SRC : dev;
@@ -3461,7 +3474,7 @@ function applyDevState() {
   const own = !!(DEV && $('devown') && $('devown').checked);
   document.querySelectorAll('#sbody fieldset.ff').forEach(fs => {
     const sec = fs.dataset.sec;
-    fs.classList.toggle('devhide', !!DEV && (sec === 's_misc' || sec === 's_mirror' || sec === 's_video' || sec === 's_notes' || (sec === 's_audio' && DEV !== 'main')));
+    fs.classList.toggle('devhide', !!DEV && (['s_misc', 's_list', 's_mirror', 's_video', 's_place', 's_keep', 's_quiet', 's_ki'].includes(sec) || (sec === 's_audio' && DEV !== 'main')));
     fs.querySelectorAll('.f[data-key]').forEach(r => {
       const k = r.dataset.key, per = PER.includes(k);
       r.classList.toggle('devhide', !!DEV && GLOBAL_ONLY.includes(k));
@@ -3593,7 +3606,7 @@ function buildForm(base) {
   { const mf = body.querySelector('fieldset[data-sec="s_mirror"]'); if (mf) mf.appendChild(mirrorBox()); }
   { const misc = body.querySelector('fieldset[data-sec="s_misc"]'); const pb = proBox(); if (misc) misc.before(pb); else body.appendChild(pb); }
   proApplyForm();
-  formDirty = false; makeCollapsible();
+  secOrder(body); formDirty = false; makeCollapsible();
   body.querySelectorAll('fieldset.ff [name], #devown').forEach(e => { e.addEventListener('input', () => { formDirty = true; }); e.addEventListener('change', () => { formDirty = true; }); });
 }
 function syncModeRows() {

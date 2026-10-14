@@ -1,5 +1,17 @@
 # Changelog
 
+## 1.60.0
+- Einstellungen aufgeräumt, nach dem, was man tun will:
+  - **Geräte:** Mikrofone und Handys, Server-Mikrofon, Einpegeln.
+  - **Erkennung:** Wann gilt etwas als Störung, Geräuschart erkennen (KI), Tonprofile.
+  - **Zeiten & Pausen:** Überwachen ab/bis, Ruhezeit, Zeitprofile, Home Assistant.
+  - **Speichern & Sicherung:** Was wird gespeichert, Ton, Video, Speicherort, Aufbewahren & löschen, ZIP-Sicherung und tägliche Sicherung zusammen.
+  - **Allgemein:** Sprache, Protokoll & Notizen, Pro, Zurücksetzen, Diagnose.
+- Jeder Kasten hat oben eine Zeile in einfachen Worten, wofür er ist; die wichtigen Kästen sind aufgeklappt.
+- Klarere Namen: „KI-Fingerabdruck zu jeder Störung“ / „… auch zwischen den Störungen“, „Störungen zusammenfassen bei bis zu (s) Abstand“, „Notiz gehört zur Störung, wenn bis zu (min) danach“, „Tagesaufzeichnung mit Ebenen/Spektrum“.
+- „Bei einer Störung alle Geräte mitspeichern“ steht jetzt bei „Was wird gespeichert?“ und hängt nicht mehr am echten Ton.
+- Hinweise in der App und im Handbuch zeigen auf die neuen Stellen. An gespeicherten Daten und Einstellungswerten ändert sich nichts.
+
 ## 1.59.1
 - Tägliche Sicherung und „Platz sparen“ gehören zu Pro. „⬇ Sicherung herunterladen“ und log.csv bleiben frei. Ohne Pro hält die tägliche Sicherung an; schon ausgelagerte Tage bleiben lesbar, „Automatisch löschen“ löscht weiter nur Geprüftes.
 

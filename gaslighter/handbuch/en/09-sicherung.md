@@ -2,7 +2,7 @@
 
 ## Download a backup {#export}
 
-⚙ Settings → General → **Backup of the whole app** → **⬇ Download backup**. The ZIP file contains everything: settings, devices, time profiles, rules, `log.csv` and all log files, day recordings with checksums, AI results, sound profiles, notes, comments on interruptions, named ranges, lists, videos and – if stored – sound.
+⚙ Settings → Storage & backup → **Download / restore backup (ZIP)** → **⬇ Download backup**. The ZIP file contains everything: settings, devices, time profiles, rules, `log.csv` and all log files, day recordings with checksums, AI results, sound profiles, notes, comments on interruptions, named ranges, lists, videos and – if stored – sound.
 
 > The file can get large (hundreds of MB). Download it regularly and keep it in another place.
 
@@ -28,7 +28,7 @@ Afterwards a report shows new files, merged days, skipped days and the devices t
 
 > **🔒 Pro:** The daily backup and “save space” are part of [GasLighter Pro](#pro). **“⬇ Download backup” and `log.csv` always stay free.** If Pro expires, the daily backup pauses; days already moved stay readable.
 
-⚙ Settings → Storage & sound → **Daily backup**. With a target set, GasLighter copies everything new there every day (default 03:30) – the same files as the ZIP backup, but **incremental**: only new and changed files, each verified with SHA-256 afterwards.
+⚙ Settings → Storage & backup → **Daily backup**. With a target set, GasLighter copies everything new there every day (default 03:30) – the same files as the ZIP backup, but **incremental**: only new and changed files, each verified with SHA-256 afterwards.
 
 - **Nothing is ever deleted in the target.** If an already backed-up file changes later, the old version stays next to it as `….alt-YYYYMMDD-hhmmss`.
 - **Target unreachable** (NAS off, Wi-Fi gone): recording continues normally on this device. It is retried hourly, and the next run catches up everything missing.

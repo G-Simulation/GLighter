@@ -26,7 +26,7 @@ Das Mikrofon am Home-Assistant-Rechner. Unter **Mikrofon** wählst du Eingang, B
 
 ### Video
 
-Bei Streams lässt sich **🎥 Video aufnehmen** einschalten: Bei einer Störung entsteht eine mp4-Datei **ohne Ton**. Ohne Störung wird nichts gespeichert. Qualität und Speicherort unter Speichern & Ton → Video & Speicherort.
+Bei Streams lässt sich **🎥 Video aufnehmen** einschalten: Bei einer Störung entsteht eine mp4-Datei **ohne Ton**. Ohne Störung wird nichts gespeichert. Qualität unter Speichern & Sicherung → Video, Ordner unter Speicherort.
 
 > Kameraaufnahmen in Wohnungen können nach § 201a StGB problematisch sein – nur eigene Räume, keine fremden Personen filmen.
 

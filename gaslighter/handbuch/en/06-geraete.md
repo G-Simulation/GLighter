@@ -20,7 +20,7 @@ The microphone on the Home Assistant computer. Under **Microphone** you choose i
 
 ### Video {#video}
 
-For streams you can switch on **🎥 Record video**: on a disturbance an mp4 file **without sound** is created. Nothing is stored without a disturbance. Quality and folder under Storage & sound → Video & storage.
+For streams you can switch on **🎥 Record video**: on a disturbance an mp4 file **without sound** is created. Nothing is stored without a disturbance. Quality under Storage & backup → Video, folder under Storage location.
 
 > Camera recordings in homes can be problematic (§ 201a StGB in Germany) – only film your own rooms and no other people.
 

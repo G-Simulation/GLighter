@@ -41,7 +41,7 @@ Wenn du mehrere Geräte vergleichen willst: ⚙ Einstellungen → Geräte → **
 
 ### 5. Sichern und Updates
 
-- Regelmäßig unter ⚙ Einstellungen → Allgemein → **Sicherung herunterladen** eine Sicherung ziehen. Siehe Sicherung.
+- Regelmäßig unter ⚙ Einstellungen → Speichern & Sicherung → **Sicherung herunterladen** eine Sicherung ziehen. Siehe Sicherung.
 - Updates ohne Aufnahmelücke: neuen Ordner nach `\\homeassistant\share\gaslighter_update\` kopieren. Siehe Updates.
 
 > **Wichtig:** GasLighter ist eine Gedächtnisstütze und Dokumentation, keine geeichte Lärmmessung in dB(A). Für Vermieter, Hausverwaltung oder Behörden zählt vor allem: regelmäßig, nachvollziehbar, mit eigenen Notizen. Siehe Lärmprotokoll.
@@ -227,7 +227,7 @@ Ohne dass du etwas anlernen musst, ordnet die KI jede Störung einer von 10 Arte
 
 Dazu setzt sie etwa jede Sekunde **Marker** mit feineren Arten (Türknallen, Schublade, Geschirr, Bohren, Möbelrücken, Rufen, Lachen, Bass, Hund …). Die Kachel **Geräusch jetzt** zeigt laufend, was gerade zu hören ist.
 
-Einschalten: ⚙ Einstellungen → Allgemein → **Geräuschart erkennen (lokale KI)** (Standard an).
+Einschalten: ⚙ Einstellungen → Erkennung → **Geräuschart erkennen (lokale KI)** (Standard an).
 
 > Bei Stimmen erkennt die KI **nur die Art, nie den Inhalt**. Eine Spracherkennung gibt es bewusst nicht. Was du selbst gehört hast, trägst du als Notiz ein. Siehe Rechtliches.
 
@@ -257,7 +257,7 @@ Hat die KI ein Geräusch nicht oder falsch erkannt:
 
 Einmal pro Sekunde, wenn etwas zu hören ist (mindestens 3 dB über dem Hintergrund), speichert die App die Zahlen der KI – **kein Ton**, nicht zurückverwandelbar. Damit funktionieren „Neu untersuchen“, die Spalte „Art (KI)“ der Prüf-Schwelle und das Lernen genauer.
 
-- **KI-Fingerabdruck durchgehend speichern** (⚙ → Speichern & Ton, Standard an, je Gerät): etwa 2–10 MB pro Gerät und Tag. Darunter steht, ob er läuft und wie viele Sekunden heute gespeichert wurden.
+- **KI-Fingerabdruck auch zwischen den Störungen speichern** (⚙ → Erkennung → Geräuschart erkennen (KI), Standard an, je Gerät): etwa 2–10 MB pro Gerät und Tag. Darunter steht, ob er läuft und wie viele Sekunden heute gespeichert wurden.
 - **KI-Fingerabdruck speichern** (⚙ → Allgemein): zusätzlich der volle Fingerabdruck je Störung, für „Neu bewerten“.
 
 > Wird der Rechner zu langsam, kommen die Geräte reihum dran; dann fehlt der Fingerabdruck an einzelnen Stellen. Die KI kann irren, besonders bei sehr leisen Geräuschen.
@@ -280,7 +280,7 @@ Das Mikrofon am Home-Assistant-Rechner. Unter **Mikrofon** wählst du Eingang, B
 
 ### Video
 
-Bei Streams lässt sich **🎥 Video aufnehmen** einschalten: Bei einer Störung entsteht eine mp4-Datei **ohne Ton**. Ohne Störung wird nichts gespeichert. Qualität und Speicherort unter Speichern & Ton → Video & Speicherort.
+Bei Streams lässt sich **🎥 Video aufnehmen** einschalten: Bei einer Störung entsteht eine mp4-Datei **ohne Ton**. Ohne Störung wird nichts gespeichert. Qualität unter Speichern & Sicherung → Video, Ordner unter Speicherort.
 
 > Kameraaufnahmen in Wohnungen können nach § 201a StGB problematisch sein – nur eigene Räume, keine fremden Personen filmen.
 
@@ -441,7 +441,7 @@ Der Dialog schätzt Zeilen und Seiten. **Vorschau öffnen** baut die Seiten in e
 
 ### Sicherung herunterladen
 
-⚙ Einstellungen → Allgemein → **Sicherung der ganzen App** → **⬇ Sicherung herunterladen**. Die ZIP-Datei enthält alles: Einstellungen, Geräte, Zeitprofile, Regeln, `log.csv` und alle Protokolldateien, Tagesaufzeichnungen mit Prüfsummen, KI-Ergebnisse, Tonprofile, Notizen, Kommentare zu Unterbrechungen, benannte Bereiche, Listen, Videos und – falls gespeichert – Ton.
+⚙ Einstellungen → Speichern & Sicherung → **Sicherung herunterladen / einspielen (ZIP)** → **⬇ Sicherung herunterladen**. Die ZIP-Datei enthält alles: Einstellungen, Geräte, Zeitprofile, Regeln, `log.csv` und alle Protokolldateien, Tagesaufzeichnungen mit Prüfsummen, KI-Ergebnisse, Tonprofile, Notizen, Kommentare zu Unterbrechungen, benannte Bereiche, Listen, Videos und – falls gespeichert – Ton.
 
 > Die Datei kann groß werden (Hunderte MB). Am besten regelmäßig herunterladen und an einem anderen Ort aufbewahren.
 
@@ -465,7 +465,7 @@ Danach steht ein Bericht da: neue Dateien, zusammengeführte Tage, übersprungen
 
 > **🔒 Pro:** Die tägliche Sicherung und „Platz sparen“ gehören zu GasLighter Pro. **„⬇ Sicherung herunterladen“ und `log.csv` bleiben immer frei.** Läuft Pro ab, hält die tägliche Sicherung an; schon ausgelagerte Tage bleiben lesbar.
 
-⚙ Einstellungen → Speichern & Ton → **Tägliche Sicherung**. Ist ein Ziel eingestellt, kopiert GasLighter jeden Tag (Standard 03:30) alles Neue dorthin – dieselben Dateien wie in der ZIP-Sicherung, aber **inkrementell**: nur neue und geänderte Dateien, jede danach mit SHA-256 geprüft.
+⚙ Einstellungen → Speichern & Sicherung → **Tägliche Sicherung**. Ist ein Ziel eingestellt, kopiert GasLighter jeden Tag (Standard 03:30) alles Neue dorthin – dieselben Dateien wie in der ZIP-Sicherung, aber **inkrementell**: nur neue und geänderte Dateien, jede danach mit SHA-256 geprüft.
 
 - **Im Ziel wird nie etwas gelöscht.** Ändert sich eine schon gesicherte Datei nachträglich, bleibt die alte Fassung als `….alt-JJJJMMTT-hhmmss` daneben liegen.
 - **Ziel nicht erreichbar** (NAS aus, WLAN weg): Die Aufzeichnung läuft normal weiter auf diesem Gerät. Stündlich wird es erneut versucht, und der nächste Lauf holt alles Fehlende nach.
@@ -555,7 +555,7 @@ Ganz oben wählst du **Alle Geräte** oder ein einzelnes Gerät. Beim Gerät las
 ### Geräte
 
 - **Quellen (Mikrofone)** – siehe Geräte.
-- **Geräte einpegeln** – siehe Einpegeln.
+- **Geräte einpegeln (gleich laut stellen)** – siehe Einpegeln.
 - **Mikrofon** – Eingang am Server, Buchse, Lautstärke, Tonqualität (16000 Hz reicht für Klopfen).
 
 ### Erkennung
@@ -575,38 +575,55 @@ Ganz oben wählst du **Alle Geräte** oder ein einzelnes Gerät. Beim Gerät las
 | Anpassung, wenn es lauter / leiser wird | Groß = Lärm zieht die Schwelle kaum mit; klein = folgt schnell |
 | Mindestdauer (ms) | 0 = jeder Klopfer zählt; 40–60 filtert Knackser |
 
+### Geräuschart erkennen (KI)
+
+**Geräuschart erkennen (lokale KI)** – ordnet Störungen ein (Tür, Klopfen, Musik …), kein Ton wird gespeichert. **KI-Fingerabdruck zu jeder Störung speichern** – bessere Unterscheidung beim Lernen und „Neu bewerten“ ohne Ton. **KI-Fingerabdruck auch zwischen den Störungen speichern** – durchgehend, für „Neu untersuchen“; siehe KI-Fingerabdruck.
+
 **Tonprofile** – siehe KI. **Andere Werte zu bestimmten Uhrzeiten** (Zeitprofile) – z. B. nachts empfindlicher, allgemein oder je Gerät.
 
 ### Zeiten & Pausen
 
 - **Wann wird überwacht?** – Überwachen ab / bis (beide leer = rund um die Uhr, über Mitternacht möglich). Außerhalb davon wird nichts gezählt; über die Anzeige oben lässt sich trotzdem erfassen.
+- **Ruhezeit** – Ruhezeit ab / bis (üblich 22:00–6:00), Sonntag ganztägig Ruhezeit. Notizen und Störungen in der Ruhezeit bekommen 🌙.
+- **Andere Werte zu bestimmten Uhrzeiten** – siehe oben (Zeitprofile).
 - **Home Assistant: pausieren oder festhalten** – siehe Home Assistant.
-- **Notizen & Protokoll** – Ruhezeit ab / bis (üblich 22:00–6:00), Sonntag ganztägig Ruhezeit. Notizen und Störungen in der Ruhezeit bekommen 🌙.
 
-### Speichern & Ton
+### Speichern & Sicherung
 
-### Aufnahme der Störung
+### Was wird gespeichert?
 
 | Einstellung | Bedeutung |
 |---|---|
-| Umfeld (s) | so viele Sekunden vor und nach der Störung werden beim Ansehen gezeigt |
-| … mit Ebenen | tief/mittel/hoch, Frequenz für den ganzen Tag (+1–2 MB pro Gerät und Tag) |
-| … mit Spektrum | Spektrogramm für jeden Moment (+3–8 MB pro Gerät und Tag) |
-| KI-Fingerabdruck durchgehend speichern | siehe KI-Fingerabdruck; darunter steht, ob er läuft |
-| Alte Aufnahmen automatisch löschen / nach Tagen | aus = es wird nie etwas gelöscht |
+| Umfeld vor und nach der Störung (s) | so viele Sekunden vor und nach der Störung werden beim Ansehen gezeigt |
+| Tagesaufzeichnung mit Ebenen | tief/mittel/hoch, Frequenz für den ganzen Tag (+1–2 MB pro Gerät und Tag) |
+| Tagesaufzeichnung mit Spektrum | Spektrogramm für jeden Moment (+3–8 MB pro Gerät und Tag) |
+| Bei einer Störung alle Geräte mitspeichern | die anderen Geräte speichern für denselben Zeitraum eine Lärmspur (kein Ton) – zum Vergleich der Räume |
 
 ### Echten Ton speichern (nicht empfohlen)
 
 Standard **aus**. Eingeschaltet wird zu jeder Störung zusätzlich eine WAV-Datei gespeichert. **Ton nur ohne erkannte Stimmen** (empfohlen) verhindert das Speichern, sobald die KI irgendwo Stimmen erkennt. Lies vorher Rechtliches.
 
-### Video & Speicherort
+### Video
 
-Ordner für Lärmspuren, Video-Breite, Bilder pro Sekunde, Videoqualität.
+Video-Breite, Bilder pro Sekunde, Videoqualität (für IP-Kameras und Handys).
+
+### Speicherort
+
+**Ordner für Lärmspuren** – leer = Standard. Nur ändern, wenn neue Lärmspuren woanders liegen sollen (z. B. `/media/gaslighter`). Für eine Kopie auf dem NAS ist die **tägliche Sicherung** gedacht, nicht dieser Ordner.
+
+### Aufbewahren & automatisch löschen
+
+**Alte Aufnahmen automatisch löschen** und **Löschen nach (Tagen)** – aus = es wird nie etwas gelöscht. Mit tägliche Sicherung wird nur gelöscht, was geprüft im Ziel liegt.
+
+### Sicherung
+
+**Sicherung herunterladen / einspielen (ZIP)** – immer kostenlos. **Tägliche Sicherung** auf Netzlaufwerk, NAS oder USB (Pro). Beides siehe Sicherung.
 
 ### Allgemein
 
-- **Allgemein** – Geräuschart erkennen (lokale KI), KI-Fingerabdruck speichern, Gruppe: höchste Pause, Notiz zuordnen, Sprache.
-- **Sicherung der ganzen App** – siehe Sicherung.
+- **Sprache** – Deutsch, Englisch oder wie der Browser.
+- **Protokoll & Notizen** – **Störungen zusammenfassen bei bis zu (s) Abstand** (Gruppen in der Liste), **Notiz gehört zur Störung, wenn bis zu (min) danach**.
+- **GasLighter Pro** – siehe Pro.
 - **Zurücksetzen** – siehe Zurücksetzen.
 - **Diagnose** – Angaben zu Mikrofon und Soundkarte für die Fehlersuche.
 
@@ -655,9 +672,9 @@ Es ist so leise, dass die Schwelle nicht tiefer darf. Das ist gewollt, wenn sehr
 
 ### Spalte „Art (KI)“ zeigt nichts
 
-- „Die KI-Erkennung ist ausgeschaltet“: ⚙ → Allgemein → **Geräuschart erkennen** einschalten.
+- „Die KI-Erkennung ist ausgeschaltet“: ⚙ → Erkennung → **Geräuschart erkennen** einschalten.
 - „KI-Modell nicht gefunden“: das Add-on einmal mit der **vollen Zip** neu installieren (Update-Zips enthalten das Modell nicht).
-- „kein Fingerabdruck an dieser Stelle“: An dieser Sekunde wurde nichts gespeichert (zu leise oder Rechner ausgelastet). Prüfe in ⚙ → Speichern & Ton, ob der Fingerabdruck läuft.
+- „kein Fingerabdruck an dieser Stelle“: An dieser Sekunde wurde nichts gespeichert (zu leise oder Rechner ausgelastet). Prüfe in ⚙ → Erkennung, ob der Fingerabdruck läuft.
 
 ### Lücke im Verlauf
 
@@ -783,7 +800,7 @@ To compare devices: ⚙ Settings → Devices → **Level-match devices**. Put al
 
 ### 5. Backups and updates
 
-- Regularly download a backup under ⚙ Settings → General → **Download backup**. See Backup.
+- Regularly download a backup under ⚙ Settings → Storage & backup → **Download backup**. See Backup.
 - Updates without a recording gap: copy the new folder to `\\homeassistant\share\gaslighter_update\`. See Updates.
 
 > **Important:** GasLighter is a memory aid and documentation, not a calibrated dB(A) measurement. For landlords, property managers or authorities what counts most is: regular, traceable, with your own notes. See Noise log.
@@ -969,7 +986,7 @@ Without any training the AI assigns each disturbance to one of 10 types:
 
 It also sets **markers** with finer types about every second (door slam, drawer, dishes, drilling, furniture, shouting, laughter, bass, dog …). The **Sound now** tile shows continuously what can be heard.
 
-Switch on: ⚙ Settings → General → **Recognize sound type (local AI)** (on by default).
+Switch on: ⚙ Settings → Detection → **Recognize sound type (local AI)** (on by default).
 
 > For voices the AI detects **only the type, never the content**. There is deliberately no speech recognition. Write down what you heard yourself as a note. See Legal.
 
@@ -999,7 +1016,7 @@ If the AI missed or mislabelled a sound:
 
 Once per second, when something can be heard (at least 3 dB above the background), the app stores the numbers of the AI – **no sound**, cannot be turned back into audio. This makes “Re-scan”, the “Type (AI)” column of the test threshold and learning more accurate.
 
-- **Store AI fingerprint continuously** (⚙ → Storage & sound, on by default, per device): about 2–10 MB per device and day. Below it you see whether it is running and how many seconds were stored today.
+- **Also store AI fingerprint between disturbances** (⚙ → Detection → Recognize sound type (AI), on by default, per device): about 2–10 MB per device and day. Below it you see whether it is running and how many seconds were stored today.
 - **Store AI fingerprint** (⚙ → General): additionally the full fingerprint per disturbance, for “Re-evaluate”.
 
 > If the computer becomes too slow, the devices take turns; then the fingerprint is missing at some spots. The AI can be wrong, especially with very quiet sounds.
@@ -1022,7 +1039,7 @@ The microphone on the Home Assistant computer. Under **Microphone** you choose i
 
 ### Video
 
-For streams you can switch on **🎥 Record video**: on a disturbance an mp4 file **without sound** is created. Nothing is stored without a disturbance. Quality and folder under Storage & sound → Video & storage.
+For streams you can switch on **🎥 Record video**: on a disturbance an mp4 file **without sound** is created. Nothing is stored without a disturbance. Quality under Storage & backup → Video, folder under Storage location.
 
 > Camera recordings in homes can be problematic (§ 201a StGB in Germany) – only film your own rooms and no other people.
 
@@ -1183,7 +1200,7 @@ The dialog estimates lines and pages. **Open preview** builds the pages in a new
 
 ### Download a backup
 
-⚙ Settings → General → **Backup of the whole app** → **⬇ Download backup**. The ZIP file contains everything: settings, devices, time profiles, rules, `log.csv` and all log files, day recordings with checksums, AI results, sound profiles, notes, comments on interruptions, named ranges, lists, videos and – if stored – sound.
+⚙ Settings → Storage & backup → **Download / restore backup (ZIP)** → **⬇ Download backup**. The ZIP file contains everything: settings, devices, time profiles, rules, `log.csv` and all log files, day recordings with checksums, AI results, sound profiles, notes, comments on interruptions, named ranges, lists, videos and – if stored – sound.
 
 > The file can get large (hundreds of MB). Download it regularly and keep it in another place.
 
@@ -1207,7 +1224,7 @@ Afterwards a report shows new files, merged days, skipped days and the devices t
 
 > **🔒 Pro:** The daily backup and “save space” are part of GasLighter Pro. **“⬇ Download backup” and `log.csv` always stay free.** If Pro expires, the daily backup pauses; days already moved stay readable.
 
-⚙ Settings → Storage & sound → **Daily backup**. With a target set, GasLighter copies everything new there every day (default 03:30) – the same files as the ZIP backup, but **incremental**: only new and changed files, each verified with SHA-256 afterwards.
+⚙ Settings → Storage & backup → **Daily backup**. With a target set, GasLighter copies everything new there every day (default 03:30) – the same files as the ZIP backup, but **incremental**: only new and changed files, each verified with SHA-256 afterwards.
 
 - **Nothing is ever deleted in the target.** If an already backed-up file changes later, the old version stays next to it as `….alt-YYYYMMDD-hhmmss`.
 - **Target unreachable** (NAS off, Wi-Fi gone): recording continues normally on this device. It is retried hourly, and the next run catches up everything missing.
@@ -1317,40 +1334,57 @@ At the very top choose **All devices** or a single device. For a device, “Own 
 | Adapting when it gets louder / quieter | large = noise hardly pulls the threshold along; small = follows quickly |
 | Minimum duration (ms) | 0 = every knock counts; 40–60 filters clicks |
 
+### Recognize sound type (AI)
+
+**Recognize sound type (local AI)** – classifies disturbances (door, knocking, music …), no sound is stored. **Store AI fingerprint for each disturbance** – better distinction when learning and “re-evaluate” without sound. **Also store AI fingerprint between disturbances** – continuously, for “re-examine”; see AI fingerprint.
+
 **Sound profiles** – see AI. **Different values at certain times** (time profiles) – e.g. more sensitive at night, general or per device.
 
 ### Times & pauses
 
-- **When to monitor?** – monitor from / to (both empty = around the clock, can span midnight). Outside that nothing is counted; via the indicator at the top you can record anyway.
+- **When to monitor?** – monitor from / to (both empty = around the clock, past midnight possible). Outside of it nothing is counted; you can still capture via the display at the top.
+- **Quiet hours** – quiet hours from / to (usually 22:00–6:00), Sunday all day. Notes and disturbances during quiet hours get 🌙.
+- **Different values at certain times** – see above (time profiles).
 - **Home Assistant: pause or record state** – see Home Assistant.
-- **Notes & log** – quiet hours from / to (usually 22:00–6:00), Sunday all day quiet. Notes and disturbances during quiet hours get 🌙.
 
-### Storage & sound
+### Storage & backup
 
-### Recording the disturbance
+### What is stored?
 
 | Setting | Meaning |
 |---|---|
-| Context (s) | this many seconds before and after the disturbance are shown when viewing |
-| … with layers | low/mid/high, frequency for the whole day (+1–2 MB per device and day) |
-| … with spectrum | spectrogram for every moment (+3–8 MB per device and day) |
-| Store AI fingerprint continuously | see AI fingerprint; below it shows whether it runs |
-| Delete old recordings automatically / after days | off = nothing is ever deleted |
+| Context before and after the disturbance (s) | this many seconds before and after the disturbance are shown when viewing |
+| Day recording with layers | low/mid/high, frequency for the whole day (+1–2 MB per device and day) |
+| Day recording with spectrum | spectrogram for every moment (+3–8 MB per device and day) |
+| Record all devices on a disturbance | the other devices store a noise track for the same period (no sound) – to compare rooms |
 
 ### Store real audio (not recommended)
 
-Default **off**. When on, a WAV file is stored with each disturbance. **Store audio only without detected voices** (recommended) prevents saving as soon as the AI detects voices anywhere. Read Legal first.
+Default **off**. When on, a WAV file is stored for each disturbance in addition. **Audio only without detected voices** (recommended) prevents storing as soon as the AI detects voices anywhere. Read Legal first.
 
-### Video & storage
+### Video
 
-Folder for noise tracks, video width, frames per second, video quality.
+Video width, frames per second, video quality (for IP cameras and phones).
+
+### Storage location
+
+**Folder for noise tracks** – empty = default. Only change it if new noise tracks should be stored elsewhere (e.g. `/media/gaslighter`). For a copy on the NAS use the **daily backup**, not this folder.
+
+### Keep & delete automatically
+
+**Delete old recordings automatically** and **Delete after (days)** – off = nothing is ever deleted. With the daily backup, only what is verified in the target is deleted.
+
+### Backup
+
+**Download / restore backup (ZIP)** – always free. **Daily backup** to network drive, NAS or USB (Pro). Both see Backup.
 
 ### General
 
-- **General** – recognize sound type (local AI), store AI fingerprint, group: max. pause, assign note, language.
-- **Backup of the whole app** – see Backup.
+- **Language** – German, English or like the browser.
+- **Log & notes** – **Group disturbances up to (s) apart** (groups in the list), **Note belongs to the disturbance if up to (min) after it**.
+- **GasLighter Pro** – see Pro.
 - **Reset** – see Reset.
-- **Diagnostics** – details on microphone and sound card for troubleshooting.
+- **Diagnostics** – details about microphone and sound card for troubleshooting.
 
 ## 12. Legal and privacy
 
@@ -1397,9 +1431,9 @@ It is so quiet that the threshold may not go lower. That is intended if very qui
 
 ### “Type (AI)” column is empty
 
-- “AI detection is switched off”: ⚙ → General → switch on **Recognize sound type**.
+- “AI detection is switched off”: ⚙ → Detection → switch on **Recognize sound type**.
 - “AI model not found”: reinstall the add-on once with the **full zip** (update zips do not contain the model).
-- “no fingerprint at this spot”: nothing was stored at that second (too quiet or computer busy). Check in ⚙ → Storage & sound whether the fingerprint is running.
+- “no fingerprint at this spot”: nothing was stored at that second (too quiet or computer busy). Check in ⚙ → Detection whether the fingerprint is running.
 
 ### Gap in the history
 

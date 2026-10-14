@@ -9,7 +9,7 @@ Ganz oben wählst du **Alle Geräte** oder ein einzelnes Gerät. Beim Gerät las
 ## Geräte
 
 - **Quellen (Mikrofone)** – siehe [Geräte](06-geraete.md).
-- **Geräte einpegeln** – siehe [Einpegeln](06-geraete.md#einpegeln).
+- **Geräte einpegeln (gleich laut stellen)** – siehe [Einpegeln](06-geraete.md#einpegeln).
 - **Mikrofon**<a id="s_audio"></a> – Eingang am Server, Buchse, Lautstärke, Tonqualität (16000 Hz reicht für Klopfen).
 
 <a id="erkennung"></a>
@@ -33,6 +33,12 @@ Ganz oben wählst du **Alle Geräte** oder ein einzelnes Gerät. Beim Gerät las
 | Anpassung, wenn es lauter / leiser wird | Groß = Lärm zieht die Schwelle kaum mit; klein = folgt schnell |
 | Mindestdauer (ms) | 0 = jeder Klopfer zählt; 40–60 filtert Knackser |
 
+<a id="s_ki"></a>
+
+### Geräuschart erkennen (KI)
+
+**Geräuschart erkennen (lokale KI)** – ordnet Störungen ein (Tür, Klopfen, Musik …), kein Ton wird gespeichert. **KI-Fingerabdruck zu jeder Störung speichern** – bessere Unterscheidung beim Lernen und „Neu bewerten“ ohne Ton. **KI-Fingerabdruck auch zwischen den Störungen speichern** – durchgehend, für „Neu untersuchen“; siehe [KI-Fingerabdruck](05-ki.md#fingerabdruck).
+
 **Tonprofile** – siehe [KI](05-ki.md#tonprofile). **Andere Werte zu bestimmten Uhrzeiten** (Zeitprofile)<a id="s_sched"></a> – z. B. nachts empfindlicher, allgemein oder je Gerät.
 
 <a id="zeiten"></a>
@@ -40,24 +46,24 @@ Ganz oben wählst du **Alle Geräte** oder ein einzelnes Gerät. Beim Gerät las
 ## Zeiten & Pausen
 
 - **Wann wird überwacht?**<a id="s_time"></a> – Überwachen ab / bis (beide leer = rund um die Uhr, über Mitternacht möglich). Außerhalb davon wird nichts gezählt; über die Anzeige oben lässt sich trotzdem erfassen.
+- **Ruhezeit**<a id="s_notes"></a> – Ruhezeit ab / bis (üblich 22:00–6:00), Sonntag ganztägig Ruhezeit. Notizen und Störungen in der Ruhezeit bekommen 🌙.
+- **Andere Werte zu bestimmten Uhrzeiten** – siehe oben (Zeitprofile).
 - **Home Assistant: pausieren oder festhalten**<a id="s_ha"></a> – siehe [Home Assistant](07-home-assistant.md#regeln).
-- **Notizen & Protokoll**<a id="s_notes"></a> – Ruhezeit ab / bis (üblich 22:00–6:00), Sonntag ganztägig Ruhezeit. Notizen und Störungen in der Ruhezeit bekommen 🌙.
 
 <a id="speichern"></a>
 
-## Speichern & Ton
+## Speichern & Sicherung
 
 <a id="s_rec"></a>
 
-### Aufnahme der Störung
+### Was wird gespeichert?
 
 | Einstellung | Bedeutung |
 |---|---|
-| Umfeld (s) | so viele Sekunden vor und nach der Störung werden beim Ansehen gezeigt |
-| … mit Ebenen | tief/mittel/hoch, Frequenz für den ganzen Tag (+1–2 MB pro Gerät und Tag) |
-| … mit Spektrum | Spektrogramm für jeden Moment (+3–8 MB pro Gerät und Tag) |
-| KI-Fingerabdruck durchgehend speichern | siehe [KI-Fingerabdruck](05-ki.md#fingerabdruck); darunter steht, ob er läuft |
-| Alte Aufnahmen automatisch löschen / nach Tagen | aus = es wird nie etwas gelöscht |
+| Umfeld vor und nach der Störung (s) | so viele Sekunden vor und nach der Störung werden beim Ansehen gezeigt |
+| Tagesaufzeichnung mit Ebenen | tief/mittel/hoch, Frequenz für den ganzen Tag (+1–2 MB pro Gerät und Tag) |
+| Tagesaufzeichnung mit Spektrum | Spektrogramm für jeden Moment (+3–8 MB pro Gerät und Tag) |
+| Bei einer Störung alle Geräte mitspeichern | die anderen Geräte speichern für denselben Zeitraum eine Lärmspur (kein Ton) – zum Vergleich der Räume |
 
 <a id="s_wav"></a>
 
@@ -67,16 +73,35 @@ Standard **aus**. Eingeschaltet wird zu jeder Störung zusätzlich eine WAV-Date
 
 <a id="s_video"></a>
 
-### Video & Speicherort
+### Video
 
-Ordner für Lärmspuren, Video-Breite, Bilder pro Sekunde, Videoqualität.
+Video-Breite, Bilder pro Sekunde, Videoqualität (für IP-Kameras und Handys).
+
+<a id="s_place"></a>
+
+### Speicherort
+
+**Ordner für Lärmspuren** – leer = Standard. Nur ändern, wenn neue Lärmspuren woanders liegen sollen (z. B. `/media/gaslighter`). Für eine Kopie auf dem NAS ist die **tägliche Sicherung** gedacht, nicht dieser Ordner.
+
+<a id="s_keep"></a>
+
+### Aufbewahren & automatisch löschen
+
+**Alte Aufnahmen automatisch löschen** und **Löschen nach (Tagen)** – aus = es wird nie etwas gelöscht. Mit tägliche Sicherung wird nur gelöscht, was geprüft im Ziel liegt.
+
+<a id="s_backup"></a>
+
+### Sicherung
+
+**Sicherung herunterladen / einspielen (ZIP)** – immer kostenlos. **Tägliche Sicherung** auf Netzlaufwerk, NAS oder USB (Pro). Beides siehe [Sicherung](09-sicherung.md).
 
 <a id="allgemein"></a>
 
 ## Allgemein
 
-- **Allgemein**<a id="s_misc"></a> – Geräuschart erkennen (lokale KI), KI-Fingerabdruck speichern, Gruppe: höchste Pause, Notiz zuordnen, Sprache.
-- **Sicherung der ganzen App**<a id="s_backup"></a> – siehe [Sicherung](09-sicherung.md).
+- **Sprache**<a id="s_misc"></a> – Deutsch, Englisch oder wie der Browser.
+- **Protokoll & Notizen**<a id="s_list"></a> – **Störungen zusammenfassen bei bis zu (s) Abstand** (Gruppen in der Liste), **Notiz gehört zur Störung, wenn bis zu (min) danach**.
+- **GasLighter Pro** – siehe [Pro](14-pro.md).
 - **Zurücksetzen** – siehe [Zurücksetzen](09-sicherung.md#zuruecksetzen).
 - **Diagnose** – Angaben zu Mikrofon und Soundkarte für die Fehlersuche.
 
