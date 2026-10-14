@@ -6,3 +6,12 @@ __pycache__/
 *_private*
 lizenz.json
 suchindex.sqlite*
+
+# Lokaler Projektordner / local project folder
+Privat/
+Thumbs.db
+desktop.ini
+_alt/
+laerm_logger/
+*.zip
+*.log
