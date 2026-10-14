@@ -3750,7 +3750,7 @@ async function loadRun() {
   if (typeof LDT !== 'undefined' && histOn()) dtDraw(LDT);
   const chainTxt = !ch.length ? '' : bad.length
     ? '⚠ ' + t('run_chain_bad', { l: bad.map(c => c.name + ' ' + c.day.slice(8, 10) + '.' + c.day.slice(5, 7) + '. ' + (c.bad ? new Date(c.bad).toLocaleTimeString(L, { hour: '2-digit', minute: '2-digit' }) : '')).join(', ') })
-    : '🛡 ' + t(none.length === ch.length ? 'run_chain_none' : 'run_chain_ok', { n: ch.filter(c => c.ok).length });
+    : '🛡 ' + t(none.length === ch.length ? 'run_chain_none' : 'run_chain_ok', { n: ch.filter(c => c.ok).length }) + (ch.some(c => c.explained) ? ' · ' + t('run_chain_lost', { n: ch.reduce((a, c) => a + (c.explained || 0), 0) }) : '');
   const evTxt = evs.map(e => e.kind === 'down' && e.cause === 'gap' ? t('run_gap', { a: fm(e.from), b: fm(e.to), s: e.name || viewName(e.sid) }) : e.kind === 'down' ? t('run_down', { a: fm(e.from), b: fm(e.to), v: e.version_new || '', r: t(e.reason === 'update' ? 'run_r_update' : e.cause === 'lost' ? 'run_r_lost' : 'run_r_restart') })
     : e.kind === 'import' ? t('run_import', { a: fm(e.at), s: viewName(e.sid), n: e.minutes })
     : e.kind === 'update' ? t('run_update', { a: fm(e.at), o: e.version_old, n: e.version_new }) : e.kind === 'fallback' ? t('run_fallback', { a: fm(e.at), v: e.version, b: e.to }) : t('run_crash', { a: fm(e.at), v: e.version }));

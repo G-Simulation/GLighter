@@ -1,5 +1,8 @@
 # Changelog
 
+## 1.52.2
+- Datenkette: Eine Minute, die genau beim Beginn einer Unterbrechung (Stromausfall) halb geschrieben wurde, gilt nicht mehr als Fehler. Die rote Warnung entfällt dafür; stattdessen steht ein Hinweis „n Minute(n) beim Stromausfall unvollständig geschrieben“. Fehlt eine Minute an anderer Stelle oder weicht ein Wert ab, bleibt die Warnung.
+
 ## 1.52.1
 - Datenkette nach Stromausfall: Ein halb geschriebener Minutenblock ließ die Prüfung den ganzen Tag als beschädigt melden („ab 00:00“). Jetzt wird nur die betroffene Minute gemeldet, der Rest des Tages wird weiter geprüft. Die Dateien werden nicht verändert.
 

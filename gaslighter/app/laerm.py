@@ -32,7 +32,7 @@ HERE = os.path.dirname(os.path.abspath(__file__))
 WEB = os.path.join(HERE, "web")
 OPTIONS_FILE = os.environ.get("LAERM_OPTIONS", "/data/options.json")
 SETTINGS_FILE = os.environ.get("LAERM_SETTINGS", "/data/settings.json")
-VERSION = "1.52.1"
+VERSION = "1.52.2"
 
 # =====================================================================
 # Einstellungen
@@ -5349,6 +5349,11 @@ def runtime_info(t_from=None, t_to=None, with_chains=True):
             c = chain_check(sid, day.isoformat())
             chains.append(dict(c, sid=sid, name=names.get(sid, sid), day=day.isoformat()))
         day += dt.timedelta(days=1)
+    dwn_ = run_downs()                                 # fehlende Minute genau am Beginn einer Unterbrechung = beim Ausfall halb geschrieben, keine Manipulation
+    for c in chains:
+        ml_ = c.get("miss_list")
+        if c.get("ok") is False and c.get("missing") and ml_ and all(any(a - 120000 <= m_ <= b + 60000 for a, b in dwn_) for m_ in ml_):
+            c["ok"] = True; c["explained"] = len(ml_)
     notes = run_notes()                               # eigene Kommentare zu Unterbrechungen (z. B. „Stromausfall“)
     stops = [ms_of(e.get("at")) for e in ev if e.get("kind") == "stop"]
     for e in ev:
@@ -7527,7 +7532,7 @@ def chain_check_full(sid, day):
     if k0 is None:
         return {"ok": False if links else None, "n": 0, "bad": first_m, "head": links[-1][1] if links else "", "none": not links}
     prev = chain_seed(sid, day)
-    n = 0; li = k0; segs = 1; first_miss = None; miss = 0
+    n = 0; li = k0; segs = 1; first_miss = None; miss = 0; miss_list = []
     lm = []                                            # Minute je Zeile (fuer den Beginn eines Abschnitts)
     for l_ in lines:
         mm_ = re.match(r'\{"m":(-?\d+),', l_); lm.append(int(mm_.group(1)) if mm_ else None)
@@ -7554,6 +7559,7 @@ def chain_check_full(sid, day):
         if m > int(m_s):                                # zu dieser Pruefsumme fehlt der Minutenblock (z. B. beim Stromausfall halb geschrieben):
             if first_miss is None:                      # merken und mit der gespeicherten Summe weiterpruefen, der Rest des Tages bleibt nachpruefbar
                 first_miss = int(m_s)
+            miss_list.append(int(m_s))
             prev = h_s; miss += 1
             continue
         h = hashlib.sha256(prev.encode() + line.encode() + spec).hexdigest()
@@ -7561,7 +7567,7 @@ def chain_check_full(sid, day):
             return {"ok": False, "n": n, "bad": int(m_s), "head": links[-1][1], "none": False, "segs": segs}
         prev = h; n += 1; li += 1
     if first_miss is not None:
-        return {"ok": False, "n": n, "bad": first_miss, "head": prev, "none": False, "missing": True, "lost": miss, "segs": segs}
+        return {"ok": False, "n": n, "bad": first_miss, "head": prev, "none": False, "missing": True, "lost": miss, "miss_list": miss_list, "segs": segs}
     extra = len(lines) - k0 - n
     return {"ok": True, "n": n, "bad": None, "head": prev, "none": False, "extra": max(0, extra), "segs": segs}
 
