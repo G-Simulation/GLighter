@@ -1,5 +1,8 @@
 # Changelog
 
+## 1.57.2
+- „Unterbrechungen“ klappt sich ein, wenn nichts Offenes mehr vorliegt (nur noch bestätigte); per Pfeil jederzeit aufklappbar.
+
 ## 1.57.1
 - KI-Arten: im Fenster nach Klick auf das Symbol zusätzlich „nicht an Home Assistant melden“ (Art löst keine Meldung aus; Aufzeichnung und Anzeige bleiben). Neue Einstellung `art_silent`.
 

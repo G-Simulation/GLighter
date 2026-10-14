@@ -1771,7 +1771,7 @@ function dashInit() {
       hd.querySelector('.phide').onclick = () => { if (!st.off.includes(p.id)) st.off.push(p.id); dashApply(v); dashSave(v); dashBar(v); };
       hd.ondblclick = e => { if (!e.target.closest('button')) hd.querySelector('.pcol').click(); };
       if (p.vis) hd.querySelector('.pvis').onclick = () => { st.vis[p.id] = !st.vis[p.id]; dashApply(v); dashSave(v); visChanged(); };
-      if (p.auto) { const n0 = ns[0]; const sync = () => pn.classList.toggle('pempty', !!n0.hidden || !n0.childElementCount); new MutationObserver(sync).observe(n0, { attributes: true, attributeFilter: ['hidden'], childList: true }); sync(); }
+      if (p.auto) { const n0 = ns[0]; const sync = () => pn.classList.toggle('pempty', !!n0.hidden || !n0.childElementCount || n0.classList.contains('quiet')); new MutationObserver(sync).observe(n0, { attributes: true, attributeFilter: ['hidden', 'class'], childList: true }); sync(); }
     }
     pg_cleanup(host);
     const g = DASH.grids[v] = GridStack.init({ column: 12, cellHeight: 8, margin: 6, float: false, staticGrid: true, sizeToContent: true, handle: '.pdrag', animate: true,
