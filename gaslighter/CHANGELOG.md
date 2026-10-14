@@ -1,5 +1,13 @@
 # Changelog
 
+## 1.59.0
+- Neu: **Tägliche Sicherung** auf Netzlaufwerk, NAS oder USB-Platte (Einstellungen → Speichern & Ton). Inkrementell: nur neue und geänderte Dateien, jede mit SHA-256 geprüft. Im Ziel wird nie etwas gelöscht; nachträglich geänderte Dateien behalten ihre alte Fassung. Ist das Ziel nicht erreichbar, läuft die Aufzeichnung normal weiter und der nächste Lauf holt alles nach (stündlicher Versuch). „Jetzt sichern“ und Stand in den Einstellungen.
+- Schutz: Ziel muss vorhanden sein und darf nicht auf demselben Speicher liegen wie die Daten (sonst würde ein nicht eingebundenes Netzlaufwerk den eigenen Speicher füllen).
+- „Platz sparen“: alte, geprüft gesicherte Dateien liegen nur noch im Ziel; Protokolle, Verlauf und Prüfsummen-Kette lesen sie von dort. Beim Laden steht nach 4 s „Netzlaufwerk wacht evtl. gerade auf“.
+- „Alte Aufnahmen automatisch löschen“ löscht bei eingestelltem Ziel nur, was dort geprüft liegt.
+- Live-Graph: Zoomen hält Live nicht mehr an, nur Verschieben pausiert.
+- Handbuch: Kapitel Sicherung mit Beispielen (NAS/SMB, Medienordner, USB).
+
 ## 1.58.0
 - Live-Pegelspur wie im Verlauf: oben die KI-Symbole (anklickbar: hervorheben, ausblenden, nicht melden), Sensor-Fähnchen mit gestrichelter Linie, unten die roten Marken – immer sichtbar, auch beim Zoomen.
 

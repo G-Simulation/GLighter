@@ -461,6 +461,30 @@ Zum Weiterverarbeiten gibt es außerdem `log.csv` (Reiter Protokolle), die Notiz
 
 Danach steht ein Bericht da: neue Dateien, zusammengeführte Tage, übersprungene Tage und übernommene Geräte.
 
+### Tägliche Sicherung auf Netzlaufwerk, NAS oder USB
+
+⚙ Einstellungen → Speichern & Ton → **Tägliche Sicherung**. Ist ein Ziel eingestellt, kopiert GasLighter jeden Tag (Standard 03:30) alles Neue dorthin – dieselben Dateien wie in der ZIP-Sicherung, aber **inkrementell**: nur neue und geänderte Dateien, jede danach mit SHA-256 geprüft.
+
+- **Im Ziel wird nie etwas gelöscht.** Ändert sich eine schon gesicherte Datei nachträglich, bleibt die alte Fassung als `….alt-JJJJMMTT-hhmmss` daneben liegen.
+- **Ziel nicht erreichbar** (NAS aus, WLAN weg): Die Aufzeichnung läuft normal weiter auf diesem Gerät. Stündlich wird es erneut versucht, und der nächste Lauf holt alles Fehlende nach.
+- **Jetzt sichern** startet sofort einen Lauf; daneben stehen letzter Lauf, Anzahl der Dateien und Fehler.
+
+**Beispiele für das Ziel**
+
+| Ziel | So einrichten | Ordner eintragen |
+|---|---|---|
+| NAS / Windows-Freigabe (SMB) | Home Assistant → Einstellungen → System → Speicher → **Netzwerkspeicher hinzufügen**, Name z. B. `nas_gaslighter`, Verwendung **Freigabe** | `/share/nas_gaslighter` |
+| NAS als Medienordner | wie oben, Verwendung **Medien** | `/media/nas_gaslighter` |
+| USB-Platte am Home-Assistant-Gerät | Platte anschließen (erscheint unter `/media`) | z. B. `/media/usb/gaslighter` |
+
+> Das Ziel muss schon vorhanden sein und darf **nicht auf demselben Speicher** liegen wie die Daten. Sonst würde ein nicht eingebundenes Netzlaufwerk unbemerkt den eigenen Speicher füllen – GasLighter meldet das dann als Fehler und kopiert nichts.
+
+### Platz sparen
+
+Mit **„Platz sparen: alte Daten nur im Ziel behalten“** werden Dateien, die älter sind als „Löschen nach (Tagen)“ und geprüft im Ziel liegen, hier durch einen Verweis auf die Kopie ersetzt. **Protokolle, Verlauf, Druck und Prüfsummen-Kette funktionieren weiter** – sie lesen diese Tage aus dem Ziel. Schläft das Netzlaufwerk, dauert das erste Laden etwas länger („Netzlaufwerk wacht evtl. gerade auf“). Ist es gar nicht erreichbar, fehlen diese alten Tage, bis es wieder da ist. Einstellungen, `log.csv` und die Daten der letzten Tage bleiben immer hier.
+
+Ist zusätzlich **„Alte Aufnahmen automatisch löschen“** eingeschaltet, löscht GasLighter bei eingestelltem Ziel nur noch, was geprüft im Ziel liegt.
+
 ### Was beim Einspielen passiert
 
 - **Nichts wird doppelt und nichts überschrieben**: vorhandene Störungen, Notizen und Listen bleiben, nur Fehlendes kommt dazu. Mehrmals einspielen ist unschädlich.
@@ -1175,6 +1199,30 @@ For further processing there are also `log.csv` (Logs tab), the notes as CSV (�
 3. Set or clear the ticks and **Restore now**.
 
 Afterwards a report shows new files, merged days, skipped days and the devices taken over.
+
+### Daily backup to network drive, NAS or USB
+
+⚙ Settings → Storage & sound → **Daily backup**. With a target set, GasLighter copies everything new there every day (default 03:30) – the same files as the ZIP backup, but **incremental**: only new and changed files, each verified with SHA-256 afterwards.
+
+- **Nothing is ever deleted in the target.** If an already backed-up file changes later, the old version stays next to it as `….alt-YYYYMMDD-hhmmss`.
+- **Target unreachable** (NAS off, Wi-Fi gone): recording continues normally on this device. It is retried hourly, and the next run catches up everything missing.
+- **Back up now** starts a run immediately; last run, number of files and errors are shown next to it.
+
+**Examples for the target**
+
+| Target | How to set up | Folder to enter |
+|---|---|---|
+| NAS / Windows share (SMB) | Home Assistant → Settings → System → Storage → **Add network storage**, name e.g. `nas_gaslighter`, usage **Share** | `/share/nas_gaslighter` |
+| NAS as media folder | as above, usage **Media** | `/media/nas_gaslighter` |
+| USB drive on the Home Assistant device | plug it in (appears under `/media`) | e.g. `/media/usb/gaslighter` |
+
+> The target must already exist and must **not be on the same storage** as the data. Otherwise a network drive that is not mounted would silently fill your own storage – GasLighter reports this as an error and copies nothing.
+
+### Save space
+
+With **“Save space: keep old data only in the target”**, files older than “Delete after (days)” that are verified in the target are replaced here by a link to the copy. **Reports, history, printing and the checksum chain keep working** – they read these days from the target. If the network drive is asleep, the first load takes a little longer (“network drive may be waking up”). If it is unreachable, these old days are missing until it is back. Settings, `log.csv` and recent days always stay here.
+
+If **“Delete old recordings automatically”** is also on, GasLighter only deletes what is verified in the target once a target is set.
 
 ### What happens when restoring
 

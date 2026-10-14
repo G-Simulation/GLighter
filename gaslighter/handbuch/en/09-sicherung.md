@@ -24,7 +24,31 @@ For further processing there are also `log.csv` (Logs tab), the notes as CSV (�
 
 Afterwards a report shows new files, merged days, skipped days and the devices taken over.
 
-### What happens when restoring {#zusammenfuehren}
+### Daily backup to network drive, NAS or USB {#ziel}
+
+⚙ Settings → Storage & sound → **Daily backup**. With a target set, GasLighter copies everything new there every day (default 03:30) – the same files as the ZIP backup, but **incremental**: only new and changed files, each verified with SHA-256 afterwards.
+
+- **Nothing is ever deleted in the target.** If an already backed-up file changes later, the old version stays next to it as `….alt-YYYYMMDD-hhmmss`.
+- **Target unreachable** (NAS off, Wi-Fi gone): recording continues normally on this device. It is retried hourly, and the next run catches up everything missing.
+- **Back up now** starts a run immediately; last run, number of files and errors are shown next to it.
+
+**Examples for the target**
+
+| Target | How to set up | Folder to enter |
+|---|---|---|
+| NAS / Windows share (SMB) | Home Assistant → Settings → System → Storage → **Add network storage**, name e.g. `nas_gaslighter`, usage **Share** | `/share/nas_gaslighter` |
+| NAS as media folder | as above, usage **Media** | `/media/nas_gaslighter` |
+| USB drive on the Home Assistant device | plug it in (appears under `/media`) | e.g. `/media/usb/gaslighter` |
+
+> The target must already exist and must **not be on the same storage** as the data. Otherwise a network drive that is not mounted would silently fill your own storage – GasLighter reports this as an error and copies nothing.
+
+### Save space {#auslagern}
+
+With **“Save space: keep old data only in the target”**, files older than “Delete after (days)” that are verified in the target are replaced here by a link to the copy. **Reports, history, printing and the checksum chain keep working** – they read these days from the target. If the network drive is asleep, the first load takes a little longer (“network drive may be waking up”). If it is unreachable, these old days are missing until it is back. Settings, `log.csv` and recent days always stay here.
+
+If **“Delete old recordings automatically”** is also on, GasLighter only deletes what is verified in the target once a target is set.
+
+## What happens when restoring {#zusammenfuehren}
 
 - **Nothing twice, nothing overwritten**: existing disturbances, notes and lists stay, only missing data is added. Restoring several times does no harm.
 - **Days that already exist** (e.g. “today” after a reinstall): the missing minutes are added. The checksum chain stays verifiable – the restored part gets its own section, and “Interruptions” lists “Import …: extended by N minutes”. If the times overlap with other data, the day is skipped and named in the report.

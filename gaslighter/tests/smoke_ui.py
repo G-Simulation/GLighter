@@ -75,7 +75,11 @@ def main():
                         if os.environ.get("DEBUG"): print("ALLE:", repr(pg.locator("#nrun").inner_text()))
                         if "Nicht aufgezeichnet" not in pg.locator("#nrun").inner_text():
                             fails.append("Bestätigte lassen sich nicht anzeigen")
-            pg.click("#sbtn"); pg.wait_for_timeout(600)
+            pg.click("#sbtn"); pg.wait_for_timeout(1500)
+            if not pg.evaluate("() => !!document.getElementById('dlg') && document.getElementById('dlg').open"):
+                fails.append("Einstellungen öffnen sich nicht")
+            elif pg.locator('fieldset[data-sec="s_mirror"] #mirnow').count() != 1:
+                fails.append("Kasten tägliche Sicherung fehlt")
             pg.keyboard.press("Escape"); pg.wait_for_timeout(300)
             pg.click("#tab_live"); pg.wait_for_timeout(600)
             b.close()

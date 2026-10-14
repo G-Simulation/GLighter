@@ -1138,12 +1138,7 @@ function bindCanvas(cv, isSpec) {
    Weiter als der Arbeitsspeicher (10 min) geht es nahtlos in den Tagesverlauf. */
 function zoomLiveX(k, fx, end0) {
   const ns = clamp(Math.round(view.span * k * 10) / 10, 5, 34560000); if (ns === view.span) return;
-  if (view.live) {
-    if (fx > 0.97) { setSpan(ns); markDirty(); return; }                       // Maus am rechten Rand: weiter live
-    const [a0, b0] = viewRange(), c0 = a0 + clamp(fx, 0, 1) * (b0 - a0), nw = nowServer() - DELAY;
-    if (c0 + (1 - clamp(fx, 0, 1)) * ns * 1000 >= nw) { setSpan(ns); markDirty(); return; }
-    view.end = b0; setLive(false);                                              // sonst bleibt die Stelle unter der Maus stehen: Live wird angehalten
-  }
+  if (view.live && end0 == null) { setSpan(ns); markDirty(); return; }         // Zoomen hält Live nicht an (rechter Rand bleibt „jetzt“); nur Verschieben pausiert
   const [a, b] = viewRange(), c = a + clamp(fx, 0, 1) * (b - a), now = nowServer() - DELAY;
   let end = end0 != null ? end0 : c + (1 - clamp(fx, 0, 1)) * ns * 1000;
   if (end >= now) { setSpan(ns); setLive(true); markDirty(); return; }
@@ -3179,8 +3174,8 @@ function mirrorBox() {
     const st = !CUR || !CUR.mirror_dir ? t('mir_none') : m.running ? '⏳ ' + t('mir_running') : m.ok === false ? '⚠ ' + t('mir_err', { e: m.error || '' }) : m.ok ? '✓ ' + t('mir_ok', { a: when(m.last), n: m.files || 0, c: m.copied || 0 }) : t('mir_wait');
     b.innerHTML = `<div class="${m.ok === false ? 'bad' : ''}">${esc(st)}</div>${m.next ? `<small>${esc(t('mir_next', { a: when(m.next) }))}</small>` : ''}${m.offloaded ? `<small>${esc(t('mir_off', { n: m.offloaded }))}</small>` : ''}
       <button type="button" class="chip" id="mirnow"${!CUR || !CUR.mirror_dir || m.running ? ' disabled' : ''}>💾 ${esc(t('mir_now'))}</button>`;
-    $('mirnow').onclick = async () => {
-      $('mirnow').disabled = true;
+    const nb = b.querySelector('#mirnow'); nb.onclick = async () => {
+      nb.disabled = true;
       try { const r = await (await fetch('mirror_now', { method: 'POST' })).json(); if (!r.ok) { show(Object.assign({}, m, r.mirror || {}, { ok: false, error: r.error })); return; } } catch (e) { toast(t('saveerr')); }
       poll();
     };
