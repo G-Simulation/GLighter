@@ -1113,5 +1113,5 @@ fieldset.prolocked .f{opacity:.55}
 .callv i{height:8px;border-radius:4px;background:var(--bd);overflow:hidden;display:block}.callv i b{display:block;height:100%;background:var(--acc)}.callv.tone i b{background:var(--mut)}.callv small{text-align:right;color:var(--mut)}
 .caltonedev{opacity:.55}
 .calst.run{font-size:17px;font-weight:600}
-.fnpanel.fnmin #fnptags,.fnpanel.fnmin #fnpwit,.fnpanel.fnmin #fnpext,.fnpanel.fnmin .fnprow>label{display:none!important}
-.fnpmore{font-size:12px;margin:6px 0 2px;justify-self:start;align-self:flex-start}
+.fnpsec{display:flex;gap:6px;flex-wrap:wrap;margin:0 0 6px}.fnpsec .fnpsb{font-size:12px;padding:3px 10px;min-height:26px}.fnpsec .fnpsb:not(.on){opacity:.75}
+.fnpanel.fh-txt #fnptext,.fnpanel.fh-tags #fnptags,.fnpanel.fh-wit #fnpwit,.fnpanel.fh-ext #fnpext,.fnpanel.fh-ext .fnprow>label{display:none!important}

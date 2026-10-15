@@ -1,5 +1,8 @@
 # Changelog
 
+## 1.62.2
+- Notiz: oben eine Reihe mit vier Schaltern – **Textfeld**, **Schnellwahl**, **Zeuge**, **Zeitraum & Gerät**. Jeder klappt nur seinen Teil ein (▸) oder aus (▾); „Speichern“ bleibt immer sichtbar. Gilt auch im abgedockten Fenster, gemerkt pro Browser. Der Sammel-Knopf von 1.61.1/1.62.1 entfällt.
+
 ## 1.62.1
 - Notiz: Knopf „▾ Schnellwahl einklappen“ steht jetzt direkt über den Schnellwahl-Tasten (vorher klein unten links) und funktioniert auch, wenn der Browser noch die alte Seite im Speicher hat.
 

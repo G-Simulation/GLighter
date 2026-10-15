@@ -5515,15 +5515,24 @@ function initFnp() {
   $('fnpsave').onclick = fnpSave;
   enterSave($('fnptext'), fnpSave);
   $('fnpext').hidden = false; $('fnpwit').hidden = false;                     // von/bis und Zeuge sind immer sichtbar (auch abgedockt)
-  {                                                   // Markierungen, Zeuge, Zeitraum und Gerät einklappbar (auch abgedockt), gemerkt pro Browser
-    const pn = $('fnpanel'); let mb = $('fnpmore');
-    if (!mb) { mb = el('button', { type: 'button', id: 'fnpmore', className: 'chip fnpmore' }); }   // auch mit älterer Seite aus dem Browser-Speicher
-    $('fnptags').before(mb);                                        // direkt über den Schnellwahl-Tasten, bleibt eingeklappt sichtbar
-    let min = false; try { min = localStorage.getItem('laerm_fnpmin') === '1'; } catch (e) { }
-    const sync = () => { pn.classList.toggle('fnmin', min); mb.setAttribute('aria-expanded', String(!min));
-      const n = FNP.tags.size + ($('fnpwit').value.trim() ? 1 : 0);
-      mb.textContent = min ? '▸ ' + t('fnp_min_more') + (n ? ' (' + n + ')' : '') : '▾ ' + t('fnp_min_less'); };
-    mb.onclick = () => { min = !min; try { localStorage.setItem('laerm_fnpmin', min ? '1' : '0'); } catch (e) { } sync(); };
+  {                                                   // jeder Teil einzeln einklappbar (Textfeld, Schnellwahl, Zeuge, Zeitraum & Gerät) – auch abgedockt, gemerkt pro Browser
+    const pn = $('fnpanel'), old = $('fnpmore'); if (old) old.remove();
+    const PARTS = [['txt', 'fnp_p_txt'], ['tags', 'fnp_p_tags'], ['wit', 'fnp_p_wit'], ['ext', 'fnp_p_ext']];
+    let hid = new Set(); try { hid = new Set(JSON.parse(localStorage.getItem('laerm_fnphide') || '[]')); } catch (e) { }
+    let bar = $('fnpsec'); if (!bar) { bar = el('div', { id: 'fnpsec', className: 'fnpsec' }); $('fnpbody').prepend(bar); }
+    const sync = () => {
+      for (const [k] of PARTS) pn.classList.toggle('fh-' + k, hid.has(k));
+      const els = { txt: [$('fnptext')], tags: [$('fnptags')], wit: [$('fnpwit')], ext: [$('fnpext'), ...pn.querySelectorAll('.fnprow > label')] };   // direkt setzen: wirkt auch, falls im abgedockten Fenster die Stile fehlen
+      for (const [k] of PARTS) for (const e of els[k]) if (e) e.style.display = hid.has(k) ? 'none' : '';
+      bar.innerHTML = '';
+      for (const [k, l] of PARTS) {
+        const n = k === 'tags' && hid.has(k) && FNP.tags.size ? ' (' + FNP.tags.size + ')' : k === 'wit' && hid.has(k) && $('fnpwit').value.trim() ? ' (1)' : '';
+        const b = el('button', { type: 'button', className: 'chip fnpsb' + (hid.has(k) ? '' : ' on'), textContent: (hid.has(k) ? '▸ ' : '▾ ') + t(l) + n });
+        b.setAttribute('aria-expanded', String(!hid.has(k)));
+        b.onclick = () => { hid.has(k) ? hid.delete(k) : hid.add(k); try { localStorage.setItem('laerm_fnphide', JSON.stringify([...hid])); } catch (e) { } sync(); };
+        bar.appendChild(b);
+      }
+    };
     $('fnptags').addEventListener('click', () => setTimeout(sync, 0)); $('fnpwit').addEventListener('input', sync);
     sync();
   }
