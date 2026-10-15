@@ -1,10 +1,8 @@
 # Changelog
 
-## 1.64.0-beta.2
+## 1.64.0
 - Sperre erkennt jetzt auch einen **normalen GasLighter ohne Sperre** (ältere Version, z. B. 1.63.0): Wurden im Datenordner in den letzten 90 s Tagesdateien geschrieben, nimmt die Beta nicht auf. Wer sauber beendet, gibt die Sperre frei, damit der Wechsel sofort klappt.
 - Hinweis „Datenordner wird schon benutzt“ in der Sprache des Browsers.
-
-## 1.64.0-beta.1
 - **Sperre für den Datenordner:** Laufen normaler GasLighter und Beta mit demselben Datenordner, nimmt nur der zuerst gestartete auf. Der andere nimmt **nichts** auf und schreibt **nichts**, zeigt groß „Datenordner wird schon benutzt“ und startet von selbst, sobald der andere gestoppt ist. So werden Tagesdateien und Prüfsummen-Kette nie beschädigt. (Wirkt in beide Richtungen, sobald auch der normale GasLighter diese Version hat.)
 
 ## 1.63.0

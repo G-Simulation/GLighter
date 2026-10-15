@@ -227,6 +227,35 @@ class NotizAusHA(unittest.TestCase):
         self.assertEqual(len(self.notizen()), 0)
 
 
+class OrdnerSperre(unittest.TestCase):
+    """Normaler GasLighter und Beta nie gleichzeitig im selben Datenordner."""
+    def setUp(self):
+        self.p = os.path.join(tempfile.mkdtemp(), ".gaslighter_lock.json")
+
+    def test_fremde_frische_sperre_blockiert(self):
+        json.dump({"id": "anderer", "app": "GasLighter", "beat": time.time()}, open(self.p, "w"))
+        self.assertEqual(laerm.lock_other(self.p)["app"], "GasLighter")
+
+    def test_alte_sperre_ist_frei(self):
+        json.dump({"id": "anderer", "app": "GasLighter", "beat": time.time() - 120}, open(self.p, "w"))
+        self.assertIsNone(laerm.lock_other(self.p))
+
+    def test_aeltere_version_ohne_sperre(self):
+        d = tempfile.mkdtemp(); keep = laerm.day_dir; laerm.day_dir = lambda: d
+        try:
+            open(os.path.join(d, "2026-10-15_main" + laerm.DAY_EXT), "wb").write(b"x")    # gerade geschrieben, aber keine Sperre
+            self.assertIn("ältere Version", laerm.lock_other(self.p)["app"])
+            json.dump({"id": "anderer", "app": "GasLighter", "released": time.time() + 10}, open(self.p, "w"))
+            self.assertIsNone(laerm.lock_other(self.p))                                 # sauber beendet: frei
+        finally:
+            laerm.day_dir = keep
+
+    def test_eigene_sperre(self):
+        laerm.lock_write(self.p)
+        self.assertIsNone(laerm.lock_other(self.p))
+        self.assertEqual(laerm.lock_read(self.p)["id"], laerm.LOCK["id"])
+
+
 class VorlaufSprachassistent(unittest.TestCase):
     """„Hey Jarvis“: Störung beginnt kurz BEVOR der Assistent auf „hört zu“ wechselt – mit Vorlauf zählt sie nicht."""
     def setUp(self):

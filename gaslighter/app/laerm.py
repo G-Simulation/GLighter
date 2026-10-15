@@ -32,7 +32,7 @@ HERE = os.path.dirname(os.path.abspath(__file__))
 WEB = os.path.join(HERE, "web")
 OPTIONS_FILE = os.environ.get("LAERM_OPTIONS", "/data/options.json")
 SETTINGS_FILE = os.environ.get("LAERM_SETTINGS", "/data/settings.json")
-VERSION = "1.63.0"
+VERSION = "1.64.0"
 
 # =====================================================================
 # Einstellungen
@@ -7381,6 +7381,105 @@ def day_watch():
             cleanup()
 
 
+# =====================================================================
+# Sperre für den Datenordner: Normaler GasLighter und Beta dürfen nie gleichzeitig in denselben Ordner schreiben
+# (sonst würden Tagesdateien und Prüfsummen-Kette beschädigt). Wer zuerst läuft, setzt .gaslighter_lock.json
+# und erneuert es alle 10 s. Der andere nimmt nicht auf, bis die Sperre frei ist (oder 45 s alt).
+# =====================================================================
+LOCK = {"blocked": "", "id": f"{secrets.token_hex(4)}-{os.getpid()}", "path": "", "since": 0.0}
+LOCK_STALE_S = 45
+
+
+def lock_file():
+    return os.path.join(paths()[0], ".gaslighter_lock.json")
+
+
+def lock_read(p):
+    try:
+        with open(p, encoding="utf-8") as f:
+            d = json.load(f)
+        return d if isinstance(d, dict) else None
+    except (OSError, ValueError):
+        return None
+
+
+def lock_other(p):
+    d = lock_read(p)
+    if d and not d.get("released") and d.get("id") != LOCK["id"] and time.time() - float(d.get("beat") or 0) < LOCK_STALE_S:
+        return d
+    if not LOCK["path"] and not (d and d.get("id") == LOCK["id"]):   # noch nicht belegt: schreibt gerade eine ältere Version ohne Sperre hierher?
+        try:
+            newest = max((os.path.getmtime(f) for f in glob.glob(os.path.join(day_dir(), "*" + DAY_EXT))), default=0)
+        except Exception:
+            newest = 0
+        rel = float((d or {}).get("released") or 0)        # sauber beendet: die frischen Dateien stammen von dem, der freigegeben hat
+        if time.time() - newest < 90 and newest > rel + 5:  # Tagesdateien werden mindestens jede Minute geschrieben
+            return {"app": "GasLighter (ältere Version ohne Sperre)", "seit": dt.datetime.fromtimestamp(newest).astimezone().isoformat(timespec="seconds")}
+    return None
+
+
+def lock_write(p):
+    tmp = p + "." + LOCK["id"] + ".tmp"
+    with open(tmp, "w", encoding="utf-8") as f:
+        LOCK.setdefault("seit", dt.datetime.now().astimezone().isoformat(timespec="seconds"))
+        json.dump({"id": LOCK["id"], "app": BRAND, "version": VERSION, "beat": time.time(), "seit": LOCK["seit"]}, f)
+    os.replace(tmp, p)
+
+
+def lock_wait(on_ready=None):
+    """Vor jedem Schreiben in den Datenordner: warten, bis kein anderer GasLighter ihn benutzt.
+    on_ready startet die Oberfläche: sofort, wenn gesperrt (damit der Hinweis sichtbar ist), sonst nach dem Belegen."""
+    p = lock_file(); os.makedirs(os.path.dirname(p), exist_ok=True)
+    told = False
+    while True:
+        o = lock_other(p)
+        if not o:
+            lock_write(p); time.sleep(1.5)
+            d = lock_read(p)
+            if d and d.get("id") == LOCK["id"]:
+                break
+            continue                                   # gleichzeitig gestartet: der andere war schneller
+        LOCK.update(blocked=str(o.get("app") or "GasLighter"), since=LOCK["since"] or time.time())
+        if on_ready:
+            on_ready(); on_ready = None
+        if not told:
+            log(f"Datenordner {os.path.dirname(p)} wird schon von „{LOCK['blocked']}“ benutzt (seit {o.get('seit', '?')}). "
+                "Es wird NICHT aufgenommen, bis er gestoppt ist.")
+            told = True
+        time.sleep(10)
+    LOCK.update(blocked="", path=p)
+    if on_ready:
+        on_ready()
+    if told:
+        log("Datenordner ist frei – Aufnahme startet")
+
+    def beat():
+        while True:
+            time.sleep(10)
+            try:
+                o = lock_other(p)
+                if o:                                  # jemand anderes schreibt jetzt hierher: sofort aufhören, nichts beschädigen
+                    log(f"Sperre verloren: „{o.get('app')}“ benutzt jetzt denselben Datenordner – beende mich")
+                    os._exit(3)
+                lock_write(p)
+            except OSError as e:
+                log("Sperre nicht erneuert:", e)
+    threading.Thread(target=beat, daemon=True).start()
+
+
+def lock_release():
+    p = LOCK.get("path")
+    if p:
+        d = lock_read(p)
+        if d and d.get("id") == LOCK["id"]:
+            try:                                        # freigeben (nicht löschen): der Nächste weiß so, dass die frischen Dateien von hier stammen
+                with open(p + ".tmp", "w", encoding="utf-8") as f:
+                    json.dump({"id": LOCK["id"], "app": BRAND, "version": VERSION, "released": time.time()}, f)
+                os.replace(p + ".tmp", p)
+            except OSError:
+                pass
+
+
 def main():
     out, clips, _ = paths()
     os.makedirs(clips, exist_ok=True)
@@ -7436,6 +7535,7 @@ def main():
         except Exception:
             pass
         pub(f"{TOPIC}/status", "offline", True)
+        lock_release()
         log("Beendet")
         sys.exit(0)
     signal.signal(signal.SIGTERM, shutdown)
@@ -9858,6 +9958,8 @@ class Handler(BaseHandler):
         if not self.allowed():
             return
         p, name, q = self.route()
+        if LOCK["blocked"] and name and "." not in name and name != "lockstate":     # Datenordner gesperrt: nur Seite und Sperr-Hinweis
+            return self.js({"ok": False, "error": "locked", "blocked": LOCK["blocked"]}, 423)
         try:
             _, clips, lg = paths()
             if "/clips/" in p + "/":                    # Laermspur, stummes Video; Ton nur, wenn fuer das Geraet eingeschaltet
@@ -9917,6 +10019,8 @@ class Handler(BaseHandler):
                     last = r.recs[-1][0] if r.recs else 0
                 return self.js({"now": int(time.time() * 1000), "first": first, "last": last, "boot": BOOT, "src": r.id,
                                 "st": status_payload(r, full=since < 0), "r": recs})
+            if name == "lockstate":
+                return self.js({"blocked": LOCK["blocked"], "since": int(LOCK["since"] * 1000) if LOCK["blocked"] else None, "dir": paths()[0]})
             if name == "status":
                 return self.js(status_payload(get_runner(q)))
             if name == "sources":
@@ -10216,6 +10320,8 @@ class Handler(BaseHandler):
             return self.fail(e)
 
     def do_POST(self):
+        if LOCK["blocked"]:                             # Datenordner gesperrt: nichts annehmen, nichts schreiben
+            return self.send(423, "application/json", json.dumps({"ok": False, "error": "locked", "blocked": LOCK["blocked"]}).encode())
         if self.path.split("?")[0].rstrip("/").endswith("/restore"):
             return self.restore_upload()
         if self.path.split("?")[0].rstrip("/").endswith("/restore_part"):
@@ -10227,6 +10333,8 @@ class Handler(BaseHandler):
         if body is None:
             return self.send(413, "text/plain", b"bad length")
         p, name, q = self.route()
+        if LOCK["blocked"]:                             # Datenordner gesperrt: nichts schreiben
+            return self.js({"ok": False, "error": "locked", "blocked": LOCK["blocked"]}, 423)
         try:
             if name == "classify":                    # hochgeladene Audiodatei einordnen
                 if not body:
@@ -10656,5 +10764,5 @@ if __name__ == "__main__":
     CFG.update(load_settings())
     load_run()
     load_sched(); load_ha_rules(); quiet_load()
-    threading.Thread(target=lambda: Server(("0.0.0.0", int(os.environ.get("LAERM_PORT", "8099"))), Handler).serve_forever(), daemon=True).start()
+    lock_wait(lambda: threading.Thread(target=lambda: Server(("0.0.0.0", int(os.environ.get("LAERM_PORT", "8099"))), Handler).serve_forever(), daemon=True).start())   # erst wenn kein anderer GasLighter diesen Datenordner benutzt
     main()
