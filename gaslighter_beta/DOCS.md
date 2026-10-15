@@ -121,6 +121,8 @@ Für das, was du gerade hörst – einfach lostippen oder Merkmale antippen (obe
 
 Die Liste unten zeigt alle Störungen des Tages (alle Geräte oder das gewählte). Ein Klick öffnet die Störung, siehe Ereignis-Fenster. Spalten wählst du über ⚙. Am Handy erscheinen die Einträge als Karten.
 
+**Nur sichtbarer Bereich** (Standard: an): Die Tabelle zeigt nur, was im Graphen darüber gerade zu sehen ist. Sie läuft live mit und folgt dem Zoomen und Verschieben. Aus: alle Ereignisse ab dem Anfang des Graphen.
+
 ## 3. Protokolle
 
 Der Reiter **Protokolle** zeigt einen Zeitraum vollständig: Zusammenfassung, Wochenleiste, Verlauf aller Geräte, Auswertungen und die Liste aller Störungen.
@@ -905,6 +907,8 @@ For what you hear right now – just start typing or tap tags (upstairs, downsta
 ### Events today
 
 The list at the bottom shows all disturbances of the day (all devices or the selected one). A click opens the disturbance, see Event window. Choose columns via ⚙. On a phone the entries appear as cards.
+
+**Visible range only** (default: on): the table only shows what the chart above currently shows. It follows live, zooming and panning. Off: all events from the start of the chart.
 
 ## 3. Logs
 

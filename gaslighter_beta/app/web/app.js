@@ -5377,18 +5377,29 @@ function bindLive() {
 /* ================= Dashboard: Ereignisse des Tages als einfache Liste (Spalten und Gerät einstellbar, pro Browser gemerkt) ================= */
 const LEV_COLS = ['tm', 'src', 'art', 'kinds', 'devs', 'dur', 'pk', 'thr', 'bg', 'nt'];
 const LEV = (() => { let c = null; try { c = JSON.parse(localStorage.getItem('laerm_lev') || 'null'); } catch (e) { } c = c && typeof c === 'object' ? c : {};
-  return { cols: Array.isArray(c.cols) ? c.cols.filter(x => LEV_COLS.includes(x)) : ['tm', 'src', 'art', 'devs', 'dur', 'pk', 'bg', 'nt'], src: c.src === 'sel' ? 'sel' : 'all', key: '', data: null, req: 0 }; })();
-function levSave() { try { localStorage.setItem('laerm_lev', JSON.stringify({ cols: LEV.cols, src: LEV.src })); } catch (e) { } }
+  return { cols: Array.isArray(c.cols) ? c.cols.filter(x => LEV_COLS.includes(x)) : ['tm', 'src', 'art', 'devs', 'dur', 'pk', 'bg', 'nt'], src: c.src === 'sel' ? 'sel' : 'all', vis: c.vis !== false, key: '', data: null, req: 0, fa: 0, fb: 0, sig: '' }; })();
+function levSave() { try { localStorage.setItem('laerm_lev', JSON.stringify({ cols: LEV.cols, src: LEV.src, vis: LEV.vis })); } catch (e) { } }
 function levHead(c) { return { tm: t('start'), src: t('src_col'), art: t('art_col'), kinds: t('kinds_col'), devs: t('devs_col'), dur: t('dur'), pk: t('peak'), thr: t('thr_col'), bg: t('bg_col'), nt: '📝' }[c]; }
+function levWin() {                                   // im Live-Bild gerade sichtbarer Zeitraum (normales Live-Bild oder Verlauf, auch gezoomt/verschoben)
+  if (histOn()) return LDT.data && LDT.data.from ? [LDT.data.from, LDT.data.to] : null;
+  return viewRange();
+}
 async function levLoad(force) {
   if (NV.open || !$('ldev')) return;                 // nur im Live-Reiter
   const now = new Date(nowServer()), nx = new Date(now); nx.setDate(nx.getDate() + 1);
   const w0 = LDT.data && LDT.data.from ? LDT.data.from : (LDT.from || now.getTime() - 86400000);     // Anfang des im Live-Verlauf sichtbaren Bereichs
-  const f0 = new Date(Math.min(w0, now.getTime())), day = dtl(f0).slice(0, 16);
-  const src = LEV.src === 'sel' ? selSrc : 'all', key = [lastCount, src, Math.floor(w0 / 60000)].join('|');
+  const win = LEV.vis ? levWin() : null;
+  let fa = Math.min(w0, now.getTime()), fb = nx.setHours(0, 0, 0, 0);
+  if (win) { fa = Math.floor((win[0] - 60000) / 60000) * 60000; fb = Math.ceil((win[1] + 60000) / 60000) * 60000 + 60000; }   // nur den sichtbaren Bereich holen (mit 1 min Rand)
+  const src = LEV.src === 'sel' ? selSrc : 'all', key = [lastCount, src, fa, win ? fb : 0].join('|');
   if (!force && key === LEV.key) return; LEV.key = key;
   const id = ++LEV.req;
-  try { const j = await (await fetch('events?src=' + encodeURIComponent(src) + '&n=500&from=' + day + '&to=' + isoDay(nx) + 'T00:00', { cache: 'no-store' })).json(); if (id !== LEV.req) return; LEV.data = j; levRender(); } catch (e) { LEV.key = ''; }
+  try { const j = await (await fetch('events?src=' + encodeURIComponent(src) + '&n=500&from=' + dtl(new Date(fa)).slice(0, 16) + '&to=' + dtl(new Date(fb)).slice(0, 16), { cache: 'no-store' })).json(); if (id !== LEV.req) return; LEV.data = j; LEV.fa = fa; LEV.fb = fb; LEV.sig = ''; levRender(); } catch (e) { LEV.key = ''; }
+}
+function levTick() {                                  // sichtbarer Bereich ändert sich (Live läuft, Zoomen, Verschieben): Tabelle mitführen
+  if (!LEV.vis || NV.open || !$('ldev') || document.hidden) return;
+  const w = levWin(); if (!w) return;
+  if (w[0] < LEV.fa || w[1] > LEV.fb - 30000) levLoad(true); else levRender();
 }
 let LTBL = null, LTBL_KEY = '';
 function levRender() {
@@ -5398,13 +5409,23 @@ function levRender() {
   const sens = ((j.sens || []).filter(x => !SHIDE.has(sensKey(x))));
   const multi = evs.some(r => (r.devs || []).length > 1);
   const useArt = !CUR || CUR.classify !== false;
-  $('ldevn').textContent = t('lev_n', { n: (j.total != null ? j.total : evs.length) + sens.length });
   const txt = h => { const d = document.createElement('div'); d.innerHTML = h; return d.textContent.trim(); };
   const rows = evs.map(r => ({ id: 'e' + (r.k || r.start), k: r.k || '', start: new Date(r.start).getTime(), src: r.quelle || (SOURCES.find(x => x.id === (r.quelle_id || 'main')) || {}).name || r.quelle_id || '', r,
     tags: [].concat(r.prof ? ['🧩 ' + r.prof] : [], (r.labels || []).map(n => '🏷 ' + n)), dur: r.dauer_s, pk: r.spitze_dbfs, thr: r.schwelle_dbfs, bg: r.hintergrund_dbfs, nt: r.notes ? '📝 ' + r.notes : '' }))
     .concat(fnShow() ? fnLink(j.fnotes, j.events, j.fn_assign_min).map(([n, ev]) => ({ id: 'n' + n.id, k: '', start: n.a, src: (n.src || 'all') === 'all' ? t('all_sources') : viewName(n.src), fn: n, fev: ev,
       tags: ['📝 ' + t('fn_row')], dur: Math.max(0, ((n.b || n.a) - n.a) / 1000), pk: null, nt: '📝 ' + [n.text, ...(n.tags || []).map(x => ntLabel(x)), n.witness ? '👤 ' + n.witness : ''].filter(Boolean).join(' · ') + (ev ? ' · 🔗 ' + t('fn_link', { c: clockOf(ev.start) }) : '') })) : [])
     .concat(sens.map(x => ({ id: 's' + x.key, k: '', start: x.a, src: x.kind === 'ha' ? 'Home Assistant' : x.name || '', x, tags: [sensIcon(x.kind) + ' ' + sensLabel(x)], dur: Math.max(0, (x.b - x.a) / 1000), pk: x.peak, nt: x.note ? '📝 ' + x.note : '' })));
+  const win = LEV.vis ? levWin() : null;
+  if (win) {                                          // nur was im sichtbaren Bereich liegt (auch teilweise)
+    const inWin = d => { const a = d.start, b = a + (d.dur || 0) * 1000; return b >= win[0] && a <= win[1]; };
+    for (let i = rows.length - 1; i >= 0; i--) if (!inWin(rows[i])) rows.splice(i, 1);
+  }
+  const vh = $('ldevh'); if (vh) { vh.dataset.i = win ? 'lev_title' : 'lev_title_all'; vh.textContent = t(vh.dataset.i); }
+  const vb = $('ldevvis'); if (vb) { vb.classList.toggle('on', LEV.vis); vb.textContent = (LEV.vis ? '◧ ' : '▭ ') + t('lev_vis'); vb.title = t('lev_vis_tip'); vb.setAttribute('aria-pressed', String(LEV.vis)); }
+  const sig = rows.map(d => d.id).join(',') + '|' + (LEV.fa) + '|' + rows.length;
+  if (win && sig === LEV.sig && LTBL) return;          // nichts Neues im Bereich: Tabelle nicht neu aufbauen
+  LEV.sig = sig;
+  $('ldevn').textContent = t('lev_n', { n: win ? rows.length : (j.total != null ? j.total : evs.length) + sens.length });
   for (const d of rows) if (d.fn && d.fev) { const e = rows.find(x => x.k && x.k === d.fev.k); if (e) e.nt = [e.nt, '📝 ' + (d.fn.text || (d.fn.tags || []).map(x => ntLabel(x)).join(', '))].filter(Boolean).join(' · '); }   // Notiz auch an der Störung
   const vals = f => () => [...new Set(rows.flatMap(d => f === 'tags' ? d.tags : [d[f]]).filter(Boolean))].sort((p, q) => String(p).localeCompare(String(q)));
   const ms = f => ({ headerFilter: msFilter(vals(f)), headerFilterFunc: (hv, rv, rd) => !hv || !hv.length || (f === 'tags' ? rd.tags.some(x => hv.includes(x)) : hv.includes(rv)), headerFilterLiveFilter: false });
@@ -5443,6 +5464,8 @@ function initLev() {
   $('ldevsrc').value = LEV.src;
   $('ldevsrc').onchange = () => { LEV.src = $('ldevsrc').value; levSave(); levLoad(true); };
   $('ldevcfg').onclick = () => { const b = $('ldevcols'); b.hidden = !b.hidden; if (!b.hidden) levCols(); };
+  $('ldevvis').onclick = () => { LEV.vis = !LEV.vis; levSave(); levLoad(true); };
+  setInterval(levTick, 1000);
 }
 /* ================= Freie Notiz („📝 Notiz jetzt“): einmal gespeichert, mit Zeitraum, an allen Aufzeichnungen dieser Zeit sichtbar ================= */
 const FN = { list: [], edit: null, tags: new Set(), t: 0 };

@@ -78,3 +78,5 @@ Für das, was du gerade hörst – einfach lostippen oder Merkmale antippen (obe
 ## Ereignisse heute {#ereignisse-heute}
 
 Die Liste unten zeigt alle Störungen des Tages (alle Geräte oder das gewählte). Ein Klick öffnet die Störung, siehe [Ereignis-Fenster](#ereignis). Spalten wählst du über ⚙. Am Handy erscheinen die Einträge als Karten.
+
+**Nur sichtbarer Bereich** (Standard: an): Die Tabelle zeigt nur, was im Graphen darüber gerade zu sehen ist. Sie läuft live mit und folgt dem Zoomen und Verschieben. Aus: alle Ereignisse ab dem Anfang des Graphen.

@@ -82,6 +82,14 @@ def main():
                 fails.append("Kasten tägliche Sicherung fehlt")
             pg.keyboard.press("Escape"); pg.wait_for_timeout(300)
             pg.click("#tab_live"); pg.wait_for_timeout(600)
+            vb = pg.locator("#ldevvis")                                    # Tabelle: nur sichtbarer Bereich (an/aus)
+            if vb.count() != 1 or "on" not in (vb.get_attribute("class") or ""):
+                fails.append("Knopf Nur sichtbarer Bereich fehlt oder ist nicht an")
+            else:
+                vb.click(); pg.wait_for_timeout(800)
+                if "on" in (vb.get_attribute("class") or "") or pg.locator("#ldevh").inner_text().strip() != "Ereignisse":
+                    fails.append("Nur sichtbarer Bereich lässt sich nicht ausschalten")
+                vb.click(); pg.wait_for_timeout(800)
             if pg.locator("#fnptags .ntadd").count() != 1:                # eigene Schnellwahl im Notiz-Feld
                 fails.append("Knopf ＋ Eigene fehlt in der Schnellwahl")
             else:

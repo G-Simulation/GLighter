@@ -1,5 +1,8 @@
 # Changelog
 
+## 1.67.0
+- **Ereignis-Tabelle im Live-Reiter: Knopf „Nur sichtbarer Bereich“** (Standard an, gemerkt pro Browser). Die Tabelle zeigt nur Störungen, Sensoren und Notizen, die im Graphen darüber gerade zu sehen sind – läuft live mit, folgt Zoomen und Verschieben (normales Live-Bild und Verlauf). Anzahl oben zählt nur diese. Aus: wie bisher alle ab Anfang des Graphen.
+
 ## 1.66.0
 - **Eigene Schnellwahl im Notiz-Feld:** Knopf **＋ Eigene** am Ende der Tasten – Namen eingeben (z. B. „Waschmaschine“), fertig ist die Taste (★). Gilt in allen Notiz-Feldern (Notiz jetzt, auch abgedockt, Notiz-Dialog, Notiz im Clip) und im Filter der Notizen.
 - **Verwalten:** Rechtsklick oder lange drücken auf eine Taste → eigene umbenennen oder löschen, eingebaute aus- und wieder einblenden. Alte Notizen behalten ihre Bezeichnung (auch im Druck und in der CSV).

@@ -95,5 +95,7 @@ For what you hear right now – just start typing or tap tags (upstairs, downsta
 
 The list at the bottom shows all disturbances of the day (all devices or the selected one). A click opens the disturbance, see [Event window](04-ereignis.md). Choose columns via ⚙. On a phone the entries appear as cards.
 
+**Visible range only** (default: on): the table only shows what the chart above currently shows. It follows live, zooming and panning. Off: all events from the start of the chart.
+
 ---
 [← Quick start in 5 minutes](01-schnellstart.md) · [Contents](README.md) · [Logs →](03-protokolle.md)

@@ -95,5 +95,7 @@ Für das, was du gerade hörst – einfach lostippen oder Merkmale antippen (obe
 
 Die Liste unten zeigt alle Störungen des Tages (alle Geräte oder das gewählte). Ein Klick öffnet die Störung, siehe [Ereignis-Fenster](04-ereignis.md). Spalten wählst du über ⚙. Am Handy erscheinen die Einträge als Karten.
 
+**Nur sichtbarer Bereich** (Standard: an): Die Tabelle zeigt nur, was im Graphen darüber gerade zu sehen ist. Sie läuft live mit und folgt dem Zoomen und Verschieben. Aus: alle Ereignisse ab dem Anfang des Graphen.
+
 ---
 [← Schnellstart in 5 Minuten](01-schnellstart.md) · [Inhalt](README.md) · [Protokolle →](03-protokolle.md)
