@@ -1114,4 +1114,4 @@ fieldset.prolocked .f{opacity:.55}
 .caltonedev{opacity:.55}
 .calst.run{font-size:17px;font-weight:600}
 .fnpanel.fnmin #fnptags,.fnpanel.fnmin #fnpwit,.fnpanel.fnmin #fnpext,.fnpanel.fnmin .fnprow>label{display:none!important}
-.fnpmore{font-size:12px}
+.fnpmore{font-size:12px;margin:6px 0 2px;justify-self:start;align-self:flex-start}

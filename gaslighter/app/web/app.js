@@ -5516,7 +5516,9 @@ function initFnp() {
   enterSave($('fnptext'), fnpSave);
   $('fnpext').hidden = false; $('fnpwit').hidden = false;                     // von/bis und Zeuge sind immer sichtbar (auch abgedockt)
   {                                                   // Markierungen, Zeuge, Zeitraum und Gerät einklappbar (auch abgedockt), gemerkt pro Browser
-    const pn = $('fnpanel'), mb = $('fnpmore');
+    const pn = $('fnpanel'); let mb = $('fnpmore');
+    if (!mb) { mb = el('button', { type: 'button', id: 'fnpmore', className: 'chip fnpmore' }); }   // auch mit älterer Seite aus dem Browser-Speicher
+    $('fnptags').before(mb);                                        // direkt über den Schnellwahl-Tasten, bleibt eingeklappt sichtbar
     let min = false; try { min = localStorage.getItem('laerm_fnpmin') === '1'; } catch (e) { }
     const sync = () => { pn.classList.toggle('fnmin', min); mb.setAttribute('aria-expanded', String(!min));
       const n = FNP.tags.size + ($('fnpwit').value.trim() ? 1 : 0);

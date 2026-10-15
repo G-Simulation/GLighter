@@ -1,5 +1,8 @@
 # Changelog
 
+## 1.62.1
+- Notiz: Knopf „▾ Schnellwahl einklappen“ steht jetzt direkt über den Schnellwahl-Tasten (vorher klein unten links) und funktioniert auch, wenn der Browser noch die alte Seite im Speicher hat.
+
 ## 1.62.0
 - **IP Webcam als Bewegungsmelder:** Bei Handys mit der App IP Webcam (Stream-URL) liest GasLighter die Sensoren der App mit (`/sensors.json`): **Erschütterung** und **Neigung** aus dem Beschleunigungssensor, **Bewegung im Bild** aus der Bewegungserkennung der App. Schalter und Empfindlichkeit auf der Karte des Geräts; fehlt etwas, steht dort, was in der App einzuschalten ist.
 - **Neu: 📐 Neigung** (Handy bewegt, gekippt, angehoben) – für IP Webcam und für das Handy im Browser. Lernt nach dem Start die Ruhelage; liegt das Handy 1 min ruhig in einer neuen Lage, gilt diese als neue Ruhelage.
