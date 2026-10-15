@@ -2639,6 +2639,7 @@ const HAR = { rules: [], info: {}, ents: null, timer: 0 };
 function haDefaults(ent) {
   const dom = (ent || '').split('.')[0];
   if (dom === 'media_player') return { states: 'on, playing', after_min: 1, max_h: 8 };
+  if (dom === 'assist_satellite') return { states: '!idle', after_min: 0.5, max_h: 1, mode: 'quiet', pre_s: 3 };   // Sprachassistent: Rufwort und Antwort nicht als Störung
   if (dom === 'sensor') return { states: '>1', after_min: 30, max_h: 2 };
   return { states: 'on', after_min: 1, max_h: 8 };
 }
@@ -2707,15 +2708,17 @@ function haRender(focusLast) {
     const colR = el('button', { type: 'button', className: 'chip hacolr', textContent: '↺', title: t('ha_col_auto'), hidden: !r.color });
     const bigI = el('input', { type: 'checkbox', checked: !!r.big, title: t('ha_big_tip') });
     const lbg = lab(t('ha_big'), bigI); lbg.title = t('ha_big_tip'); lbg.hidden = md.value !== 'event';   // Hervorhebung: doppelt so großes Fähnchen
+    const preI = el('input', { type: 'number', min: 0, max: 30, step: 0.5, value: r.pre_s || 0, className: 'n', title: t('ha_pre_tip') });
+    const lpr = lab(t('ha_pre'), preI, 's'); lpr.title = t('ha_pre_tip'); lpr.hidden = md.value !== 'quiet';   // Vorlauf: auch kurz davor Begonnenes (z. B. „Hey Jarvis“) zählt nicht
     const lc = lab(t('ha_col'), colI); lc.appendChild(colR); lc.hidden = md.value !== 'event';   // Farbe des Fähnchens im Verlauf (nur „als Ereignis“)
     colI.addEventListener('change', () => { HAR.rules[idx].color = colI.value; colR.hidden = false; haSave(); });
     colR.onclick = () => { HAR.rules[idx].color = ''; colI.value = sensCol([0, 0, nmNow]); colR.hidden = true; haSave(); };
-    l2.append(lab(t('ha_name'), nmi), lab(t('ha_model'), md), lab(t(note ? 'ha_whenn' : 'ha_when'), sts), la, lm, lc, lbg);
+    l2.append(lab(t('ha_name'), nmi), lab(t('ha_model'), md), lab(t(note ? 'ha_whenn' : 'ha_when'), sts), la, lm, lpr, lc, lbg);
     row.append(l1, l2, now); box.appendChild(row);
-    const upd = () => { Object.assign(HAR.rules[idx], { enabled: on.checked, entity: ent.value.trim(), label: nmi.value.trim(), src: src.value, states: sts.value, after_min: +aft.value, max_h: +mx.value, mode: md.value, big: bigI.checked }); haSave(); };
+    const upd = () => { Object.assign(HAR.rules[idx], { enabled: on.checked, entity: ent.value.trim(), label: nmi.value.trim(), src: src.value, states: sts.value, after_min: +aft.value, max_h: +mx.value, mode: md.value, big: bigI.checked, pre_s: +preI.value || 0 }); haSave(); };
     md.addEventListener('change', () => { upd(); haRender(); });
-    ent.addEventListener('change', () => { const d = haDefaults(ent.value.trim()); if (!sts.value || sts.value === haDefaults('').states) { sts.value = d.states; aft.value = d.after_min; mx.value = d.max_h; } upd(); });
-    for (const x of [on, src, sts, aft, mx, nmi, bigI]) x.addEventListener('change', upd);
+    ent.addEventListener('change', () => { const d = haDefaults(ent.value.trim()); if (!sts.value || sts.value === haDefaults('').states) { sts.value = d.states; aft.value = d.after_min; mx.value = d.max_h; if (d.mode) { md.value = d.mode; preI.value = d.pre_s || 0; } } upd(); if (d.mode) haRender(); });
+    for (const x of [on, src, sts, aft, mx, nmi, bigI, preI]) x.addEventListener('change', upd);
     del.onclick = () => { HAR.rules.splice(idx, 1); haSave(); haRender(); };
     if (focusLast && idx === HAR.rules.length - 1) setTimeout(() => ent.focus(), 30);
   });

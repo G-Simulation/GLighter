@@ -32,7 +32,7 @@ HERE = os.path.dirname(os.path.abspath(__file__))
 WEB = os.path.join(HERE, "web")
 OPTIONS_FILE = os.environ.get("LAERM_OPTIONS", "/data/options.json")
 SETTINGS_FILE = os.environ.get("LAERM_SETTINGS", "/data/settings.json")
-VERSION = "1.63.0-beta.1"
+VERSION = "1.63.0-beta.2"
 
 # =====================================================================
 # Einstellungen
@@ -1251,12 +1251,16 @@ def clean_rules(lst):
             mx = max(0.0, min(48.0, float(d.get("max_h", 8))))
         except (TypeError, ValueError):
             mx = 8.0
+        try:
+            pre = max(0.0, min(30.0, float(d.get("pre_s", 0) or 0)))       # Vorlauf (s): auch eine Störung, die so kurz VOR dem Einschalten begann, zählt nicht
+        except (TypeError, ValueError):
+            pre = 0.0
         rid = re.sub(r"[^a-z0-9]", "", str(d.get("id") or ""))[:12] or secrets.token_hex(3)
         src = re.sub(r"[^a-z0-9_]", "", str(d.get("src") or "all"))[:16] or "all"
         mode = d.get("mode") if d.get("mode") in ("note", "event", "quiet") else "pause"   # pause: anhalten; note: nur festhalten (z. B. Fernseher an/aus); event: als Ereignis (z. B. Türsensor); quiet: Graph läuft weiter, aber keine Störung melden
         out.append({"id": rid, "entity": ent, "states": st, "after_min": round(after, 1), "max_h": round(mx, 1), "mode": mode,
                     "src": src, "enabled": d.get("enabled", True) is not False, "label": re.sub(r"[\x00-\x1f]", "", str(d.get("label") or ""))[:60],
-                    "big": d.get("big") is True,                       # hervorgehoben: doppelt so grosses Faehnchen im Verlauf (nur „als Ereignis“)
+                    "big": d.get("big") is True, "pre_s": round(pre, 1) if mode == "quiet" else 0.0,                       # hervorgehoben: doppelt so grosses Faehnchen im Verlauf (nur „als Ereignis“)
                     "color": d.get("color") if re.fullmatch(r"#[0-9a-fA-F]{6}", str(d.get("color") or "")) else ""})   # Farbe im Verlauf (leer = automatisch)
     return out
 
@@ -1354,13 +1358,59 @@ def ha_quiet_for(src_id):
     return None
 
 
+def quiet_drop_log(r, ev):
+    """Störung, die unter „keine Störung melden“ mit Vorlauf fällt: nicht gezählt, nur im Protokoll vermerkt (Pegel bleiben in der Tagesaufzeichnung)."""
+    try:
+        t = ev["start"].astimezone().strftime("%H:%M:%S")
+    except Exception:
+        t = "?"
+    log(f"[{r.name}] Störung um {t} nicht gezählt (Vorlauf der Regel „{ev.get('drop')}“)")
+    ev["blocks"] = None
+
+
+def quiet_pre(src_id):
+    """Längster Vorlauf der Regeln „keine Störung melden“ für dieses Gerät (0 = keine)."""
+    with HA_LOCK:
+        return max([r.get("pre_s") or 0.0 for r in HA_RULES if r["enabled"] and r.get("mode") == "quiet" and (r["src"] == "all" or r["src"] == src_id)] or [0.0])
+
+
+def quiet_covers(src_id, t0):
+    """Fällt eine Störung, die zur Zeit t0 (s) begann, unter eine Regel „keine Störung melden“ mit Vorlauf?
+    Z. B. Sprachassistent: „Hey Jarvis“ beginnt kurz bevor der Assistent auf „hört zu“ wechselt. Liefert die Bezeichnung oder None."""
+    with HA_LOCK:
+        for r in HA_RULES:
+            pre = r.get("pre_s") or 0.0
+            if not r["enabled"] or r.get("mode") != "quiet" or pre <= 0 or (r["src"] != "all" and r["src"] != src_id):
+                continue
+            h = HA_STATE.get(r["id"]) or {}
+            lab = r["label"] or h.get("name") or r["entity"]
+            for on in h.get("ons") or []:
+                if on - pre - 0.3 <= t0 <= on + 0.5:
+                    return lab
+            if h.get("hold") and t0 >= (h.get("since") or time.time()) - pre:
+                return lab
+    return None
+
+
+def _ha_ts(x):
+    try:
+        return dt.datetime.fromisoformat(str(x).replace("Z", "+00:00")).timestamp()
+    except (TypeError, ValueError):
+        return None
+
+
 def ha_watch():
     """Alle 5 s die Zustaende abfragen und den Pausezustand je Regel fuehren (mit Nachlauf und Hoechstdauer)."""
-    was = {}
+    was = {}; last_full = 0.0
     while True:
-        time.sleep(5)
         with HA_LOCK:
-            rules = [dict(r) for r in HA_RULES if r["enabled"]]
+            fast = any(r["enabled"] and r.get("mode") == "quiet" and (r.get("pre_s") or 0) > 0 for r in HA_RULES)
+        time.sleep(0.7 if fast else 5)                   # Regel mit Vorlauf (z. B. Sprachassistent): schnell nachsehen, nur diese Regeln
+        full = time.time() - last_full >= 4.9
+        if full:
+            last_full = time.time()
+        with HA_LOCK:
+            rules = [dict(r) for r in HA_RULES if r["enabled"] and (full or (r.get("mode") == "quiet" and (r.get("pre_s") or 0) > 0))]
         if not rules:
             continue
         for r in rules:
@@ -1369,17 +1419,18 @@ def ha_watch():
             try:
                 d = ha_get("/states/" + r["entity"])
                 val, name, err = d.get("state"), (d.get("attributes") or {}).get("friendly_name") or r["entity"], ""
+                lchg = _ha_ts(d.get("last_changed"))
                 at_ = d.get("attributes") or {}
                 vol = at_.get("volume_level"); mute = at_.get("is_volume_muted")       # Fernseher: Lautstaerke 0..1 und stumm (falls gemeldet)
                 vol = int(round(float(vol) * 100)) if isinstance(vol, (int, float)) else None
                 mute = bool(mute) if isinstance(mute, bool) else None
                 HA_INFO.update(ok=True, error="", checked=now)
             except urllib.error.HTTPError as e:
-                vol = mute = None
+                vol = mute = lchg = None
                 val, name, err = None, prev.get("name") or r["entity"], "nicht gefunden" if e.code == 404 else f"HTTP {e.code}"
                 HA_INFO.update(ok=e.code == 404, error="" if e.code == 404 else err, checked=now)
             except Exception as e:
-                vol = mute = None
+                vol = mute = lchg = None
                 val, name, err = None, prev.get("name") or r["entity"], str(e)[:120]
                 HA_INFO.update(ok=False, error=err, checked=now)
             act = rule_match(r["states"], val)
@@ -1402,9 +1453,15 @@ def ha_watch():
             else:
                 until = prev.get("until")
             hold = (act and not capped) or bool(until and until > now)
+            ons = [x for x in (prev.get("ons") or []) if now - x < 300]
+            if act and not prev.get("active"):                    # gerade eingeschaltet: genauer Zeitpunkt aus Home Assistant (für den Vorlauf)
+                on_at = lchg if (lchg and now - 60 < lchg <= now + 1) else now
+                ons = (ons + [on_at])[-20:]
+                if since:
+                    since = min(since, on_at)
             with HA_LOCK:
                 HA_STATE[r["id"]] = {"state": val, "name": name, "active": act and not capped, "capped": capped, "since": since,
-                                     "until": until, "hold": hold, "err": err, "checked": now, "vol": vol, "mute": mute}
+                                     "until": until, "hold": hold, "err": err, "checked": now, "vol": vol, "mute": mute, "ons": ons}
             label = r["label"] or name
             if hold != was.get(r["id"], False):
                 was[r["id"]] = hold
@@ -1418,6 +1475,8 @@ def ha_watch():
                     rec_log("pausiert (Home Assistant)" if hold else "fortgesetzt (Home Assistant)", f"{label}: {val}")
             if capped and not prev.get("capped"):
                 log(f"Home-Assistant-Regel: {label} seit über {r['max_h']:g} h aktiv - Pause aufgehoben, es wird wieder aufgenommen")
+        if not full:
+            continue
         try:
             hr_ = [r for r in rules if r.get("mode") in ("note", "event")]
             ha_hist_sync(hr_)
@@ -7077,10 +7136,21 @@ class Runner:
                     ev["ha"] = ha_notes(self.id)                      # Zustaende aus Home Assistant beim Beginn der Stoerung
                     ev["virt"] = virt
                     above = 0
-                    pub_trigger(self, "beginn", zeit=now.astimezone().isoformat(timespec="seconds"), schwelle_dbfs=round(thr, 1), spitze_dbfs=round(peak, 1))
+                    ev["t_wall"] = time.time(); pre_q = quiet_pre(self.id)
+                    trig = dict(zeit=now.astimezone().isoformat(timespec="seconds"), schwelle_dbfs=round(thr, 1), spitze_dbfs=round(peak, 1))
+                    if pre_q > 0:                                       # Regel mit Vorlauf: erst melden, wenn sicher keine Regel einschaltet
+                        ev["defer"] = pre_q + 2.0; ev["trig"] = trig
+                    else:
+                        pub_trigger(self, "beginn", **trig)
             else:
                 ev["blocks"].append(blk)
                 ev["peak"] = max(ev["peak"], peak)
+                if ev.get("defer") and not ev.get("drop"):
+                    lab_ = quiet_covers(self.id, ev["t_wall"])
+                    if lab_:
+                        ev["drop"] = lab_
+                    elif ev.get("trig") and time.time() - ev["t_wall"] >= ev["defer"]:
+                        pub_trigger(self, "beginn", **ev.pop("trig"))
                 end_thr = thr if thr is not None else ev["thr"]       # aktuelle Schwelle (Einstellungen gelten sofort)
                 for i, v in enumerate(fl):
                     if v < end_thr:
@@ -7094,11 +7164,31 @@ class Runner:
                     too_long = len(ev["blocks"]) - ev["pre_n"] >= int(round(C["max_clip_s"] * 10))
                     done_ = ev["quiet"] >= max(1, int(round(C["post_roll_s"] * 50)))
                 if done_ or too_long:
-                    try:
-                        save_event(ev, rate, self)
-                    except Exception as e:
-                        log(f"[{self.name}] Speichern fehlgeschlagen:", e)
+                    if ev.get("drop"):
+                        quiet_drop_log(self, ev)
+                    elif ev.get("defer") and time.time() - ev["t_wall"] < ev["defer"]:
+                        self.__dict__.setdefault("q_pend", []).append(ev)      # noch warten: schaltet gleich eine Regel ein (Sprachassistent)?
+                    else:
+                        if ev.get("trig"):
+                            pub_trigger(self, "beginn", **ev.pop("trig"))
+                        try:
+                            save_event(ev, rate, self)
+                        except Exception as e:
+                            log(f"[{self.name}] Speichern fehlgeschlagen:", e)
                     ev = None              # Vorlaufpuffer bleibt gefuellt: auch ein direkt folgendes Ereignis hat vollen Vorlauf
+            for pe in list(self.__dict__.get("q_pend") or []):          # zurückgehaltene Störungen: verwerfen oder jetzt speichern
+                lab_ = quiet_covers(self.id, pe["t_wall"])
+                if lab_ or time.time() - pe["t_wall"] >= pe["defer"]:
+                    self.q_pend.remove(pe)
+                    if lab_:
+                        pe["drop"] = lab_; quiet_drop_log(self, pe)
+                    else:
+                        if pe.get("trig"):
+                            pub_trigger(self, "beginn", **pe.pop("trig"))
+                        try:
+                            save_event(pe, rate, self)
+                        except Exception as e:
+                            log(f"[{self.name}] Speichern fehlgeschlagen:", e)
             shown_thr = thr if thr is not None else (ev["thr"] if ev is not None else None)
             seg = blk.reshape(10, -1) if len(blk) % 10 == 0 else np.array_split(blk, 10)
             w = np.empty(20, dtype=np.int16)          # je 10 ms: Minimum, Maximum
@@ -7127,7 +7217,7 @@ class Runner:
             if self.pending:
                 flush_pending(self, ms)
             if (not RUN["paused"] and not hold) or ev is not None:      # gestoppt/pausiert = Luecke im Nachtbericht
-                self.minute_add(ms, peak, base, shown_thr, ev is not None)
+                self.minute_add(ms, peak, base, shown_thr, ev is not None and not ev.get("drop"))
             self.status.update(ts=ts, level=round(peak, 1), base=rec[2], thr=rec[3], active=ev is not None,
                                listening=listening, forced=bool(self.id in FORCE and not inh), ha_hold=hold or None, ha_quiet=quiet or None, learning=base is None and C["thr_mode"] != "fixed",
                                learn_pct=bg.pct, silent=zero_n > 30, floor=at_floor, ceil=at_ceil, online=True)
@@ -7137,7 +7227,7 @@ class Runner:
                     pub(f"{t}/baseline", f"{base:.1f}")
                 if shown_thr is not None:
                     pub(f"{t}/threshold", f"{shown_thr:.1f}")
-                a = ev is not None
+                a = ev is not None and not ev.get("trig") and not ev.get("drop")    # zurückgehaltene Störung noch nicht als „an“ melden
                 if a != was_active:
                     pub(f"{t}/active", "ON" if a else "OFF", True); was_active = a
                 if was_online is not True:
