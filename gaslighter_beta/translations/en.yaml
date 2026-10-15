@@ -1,0 +1,76 @@
+configuration:
+  device:
+    name: Microphone / input source
+    description: "default = input device selected in Home Assistant. Easier: choose it in the panel under ⚙ Settings."
+  mic_volume:
+    name: Microphone volume (%)
+    description: "Above 100 % = digital boost for quiet microphones. 0 = leave unchanged."
+  sample_rate:
+    name: Sample rate (Hz)
+  thr_mode:
+    name: Threshold mode
+    description: "fixed = fixed value, dynamic = background + margin, bounded = dynamic with lower and upper limit (recommended)."
+  offset_db:
+    name: Margin above background (dB)
+  thr_fixed_db:
+    name: Fixed threshold (dBFS)
+  min_db:
+    name: Lower threshold limit (dBFS)
+  thr_max_db:
+    name: Upper threshold limit (dBFS)
+  bg_window:
+    name: Background from the last …
+  bg_unit:
+    name: Unit (s = seconds, min = minutes)
+  bg_stat:
+    name: Statistic
+    description: "median = typical level, quiet = quiet level (quietest 10 %), robust against lasting noise, min = quietest value, mean = average, max = loudest value of the period."
+  rise_s:
+    name: Adaptation upwards (seconds)
+  fall_s:
+    name: Adaptation downwards (seconds)
+  min_event_ms:
+    name: Minimum event duration (ms)
+  pre_roll_s:
+    name: Pre-roll (seconds)
+  post_roll_s:
+    name: Post-roll (seconds)
+  max_clip_s:
+    name: Maximum clip length (seconds)
+  save_clips:
+    name: Save audio clips
+  clip_dir:
+    name: Folder for clips (empty = output_dir/clips)
+  video_width:
+    name: Video width in pixels (0 = original)
+  video_fps:
+    name: Video frames per second
+  video_crf:
+    name: Video quality (18 = best, 40 = smallest file)
+  classify:
+    name: Recognize sound type (local AI)
+  auto_delete:
+    name: Delete old clips automatically
+  retention_days:
+    name: Delete clips after (days)
+  active_from:
+    name: Record from (HH:MM)
+  active_to:
+    name: Record until (HH:MM)
+  mqtt:
+    name: Create MQTT sensors
+  output_dir:
+    name: Storage location
+  language:
+    name: Panel language
+  baseline_minutes:
+    name: (deprecated, no effect since 1.6)
+  fast_drop:
+    name: (deprecated, no effect since 1.6)
+  drop_window_s:
+    name: (deprecated, no effect since 1.6)
+  mic_port:
+    name: "Sound card input (jack)"
+    description: "Empty = automatic. E.g. analog-input-mic for the microphone input."
+network:
+  8443/tcp: "Phones as microphones (HTTPS)"

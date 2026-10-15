@@ -55,6 +55,10 @@ Voraussetzung: Home Assistant OS oder Supervised (mit App-Store) und ein USB-Mik
 
 Updates erscheinen automatisch in Home Assistant. Änderungen: [CHANGELOG](gaslighter/CHANGELOG.md).
 
+### Beta (Testversion)
+
+Im selben Repository steht zusätzlich **GasLighter Beta** – die Arbeitsversion mit den neuesten Änderungen, bevor sie freigegeben werden. Sie läuft **neben** dem normalen GasLighter (eigener Datenordner `/share/gaslighter_beta`, eigene Entitäten, Handy-Port 18444) und kann Fehler enthalten. Für den Alltag den normalen GasLighter verwenden.
+
 ### Datenschutz und Recht
 
 Alle Daten bleiben auf deinem Home-Assistant-Rechner; GasLighter sendet nichts an G-Simulation oder Dritte. Details: [PRIVACY.md](PRIVACY.md). GasLighter ersetzt keine Rechtsberatung – ob ein Lärmprotokoll in deinem Fall ausreicht, klärst du am besten mit Mieterverein oder Anwalt. Siehe auch das Kapitel [Rechtliches](docs/de/12-rechtliches.md).
@@ -105,6 +109,10 @@ Requirements: Home Assistant OS or Supervised (with app store) and a USB microph
    or manually: **Settings → Apps → App store → ⋮ → Repositories** → `https://github.com/G-Simulation/GasLighter`
 2. Open **GasLighter** in the app store → **Install** → **Start**. Optionally enable "Start on boot" and "Watchdog".
 3. Open **GasLighter** in the sidebar. The [quick start](docs/en/01-schnellstart.md) guides you through the first five minutes.
+
+### Beta (test version)
+
+The same repository also contains **GasLighter Beta** – the work-in-progress version with the latest changes before release. It runs **next to** the normal GasLighter (own data folder `/share/gaslighter_beta`, own entities, phone port 18444) and may contain bugs. Use the normal GasLighter for everyday use.
 
 ### Privacy and legal
 

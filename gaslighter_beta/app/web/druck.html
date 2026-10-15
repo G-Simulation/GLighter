@@ -1,0 +1,48 @@
+<!doctype html>
+<html lang="de">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Verlauf drucken</title>
+<style id="pgsize">@page{size:A4 landscape;margin:9mm 9mm 11mm}</style>
+<style>
+:root{--tx:#1b1f24;--mut:#6b7280;--bd:#d0d5db;--grid:#eceff2;--red:#e03131;--thr:#e8590c;--bgl:#868e96;--acc:#1c7ed6;--fill:#cfe3f7}
+*{box-sizing:border-box}
+html,body{margin:0;background:#e9ecef;color:var(--tx);font:12px/1.35 system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;-webkit-print-color-adjust:exact;print-color-adjust:exact}
+.bar{position:sticky;top:0;z-index:5;display:flex;gap:10px;align-items:center;flex-wrap:wrap;padding:10px 16px;background:#fff;border-bottom:1px solid var(--bd)}
+.bar b{font-size:14px}.bar .sp{flex:1}
+.bar button{font:inherit;font-size:13px;padding:7px 14px;border-radius:8px;border:1px solid var(--bd);background:#fff;cursor:pointer}
+.bar button.pri{background:var(--acc);border-color:var(--acc);color:#fff}
+.bar button:disabled{opacity:.5;cursor:default}
+.prog{color:var(--mut)}.prog i{display:inline-block;width:160px;height:6px;border-radius:3px;background:var(--grid);vertical-align:middle;margin-left:8px;overflow:hidden}.prog i>i{display:block;height:100%;width:0;background:var(--acc);margin:0}
+.paper{background:#fff;margin:16px auto;padding:9mm;box-shadow:0 2px 12px #0002}
+.land .paper{width:297mm}.port .paper{width:210mm}
+.hd{display:flex;justify-content:space-between;gap:12px;align-items:flex-end;border-bottom:1.5px solid var(--tx);padding-bottom:2mm;margin-bottom:3mm}
+.hd h1{font-size:15px;margin:0}.hd .meta{color:var(--mut);font-size:10.5px;text-align:right}
+.leg{display:flex;flex-wrap:wrap;gap:4px 14px;color:var(--mut);font-size:10px;margin:0 0 3mm}
+.leg span{display:inline-flex;align-items:center;gap:5px}.leg i{display:inline-block;width:16px;height:7px;border-radius:2px}
+.blk{break-inside:avoid;page-break-inside:avoid;margin:0 0 3.2mm;padding-top:1mm;border-top:1px solid var(--grid)}
+.blk .bt{display:flex;justify-content:space-between;font-weight:650;font-size:11px;margin-bottom:.6mm}.blk .bt small{font-weight:400;color:var(--mut)}
+.dv{margin:0 0 1mm}.dv .dn{font-size:9.5px;color:var(--mut);margin:0 0 .3mm}
+.dv svg{display:block;width:100%}
+.dv canvas{display:block;width:calc(100% - 34px);margin-left:34px;height:13mm;image-rendering:auto}
+.port .dv canvas{height:11mm}
+.inf{font-size:9.5px;line-height:1.35;margin:.5mm 0 0 34px;color:#333;columns:2;column-gap:8mm}
+.port .inf{columns:1}
+.inf div{break-inside:avoid}.inf.pt{color:#9c36b5;columns:1}.inf b{font-weight:650;color:var(--red)}.inf .nt{color:#5b3cc4}
+.blk.gap{padding-top:.6mm;margin-bottom:1.6mm}.blk.gap .bt{font-weight:500;color:var(--mut)}
+.empty{font-size:9.5px;color:var(--mut);margin-left:34px;padding:2mm 0}
+@media print{
+  html,body{background:#fff}
+  .bar{display:none}
+  .paper{margin:0;padding:0;box-shadow:none;width:auto!important}
+}
+</style>
+</head>
+<body class="land">
+<div class="bar"><b id="ttl"></b><span id="prog" class="prog"></span><span class="sp"></span><button id="bprint" class="pri" disabled></button><button id="bclose"></button></div>
+<div class="paper" id="paper"></div>
+<script src="i18n.js?v={{VERSION}}"></script>
+<script src="druck.js?v={{VERSION}}"></script>
+</body>
+</html>

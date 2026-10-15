@@ -49,6 +49,16 @@ jobs:
         run: |
           a=$(grep -oP '^version: "\K[^"]+' gaslighter/config.yaml); b=$(grep -oP '^VERSION = "\K[^"]+' gaslighter/app/laerm.py)
           echo "config.yaml $a, laerm.py $b"; test "$a" = "$b"
+      - name: "Beta: übersetzen, Texte, Tests, Version, eigene Kennung"
+        run: |
+          python -m py_compile gaslighter_beta/app/*.py gaslighter_beta/tools/*.py
+          for f in gaslighter_beta/app/web/*.js; do node --check "$f"; done
+          (cd gaslighter_beta/app/web && node ../../tools/check_i18n.js)
+          (cd gaslighter_beta && python -m unittest discover -s tests)
+          a=$(grep -oP '^version: "\K[^"]+' gaslighter_beta/config.yaml); b=$(grep -oP '^VERSION = "\K[^"]+' gaslighter_beta/app/laerm.py)
+          echo "Beta config.yaml $a, laerm.py $b"; test "$a" = "$b"
+          grep -q '^slug: gaslighter_beta' gaslighter_beta/config.yaml
+          (cd gaslighter_beta/app && LAERM_CHANNEL=beta python -c "import laerm; assert laerm.HAID == 'gaslighter_beta' and laerm.TOPIC == 'gaslighter_beta', laerm.HAID; print('Beta-Kennung ok')")
 
   oberflaeche:
     runs-on: ubuntu-latest
@@ -62,3 +72,5 @@ jobs:
           pip install numpy playwright
           playwright install --with-deps chromium
           cd gaslighter && python tests/smoke_ui.py
+      - name: "Beta: Oberflächen-Rauchtest"
+        run: cd gaslighter_beta && python tests/smoke_ui.py
