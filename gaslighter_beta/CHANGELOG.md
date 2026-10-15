@@ -1,5 +1,8 @@
 # Changelog
 
+## 1.64.0-beta.1
+- **Sperre für den Datenordner:** Laufen normaler GasLighter und Beta mit demselben Datenordner, nimmt nur der zuerst gestartete auf. Der andere nimmt **nichts** auf und schreibt **nichts**, zeigt groß „Datenordner wird schon benutzt“ und startet von selbst, sobald der andere gestoppt ist. So werden Tagesdateien und Prüfsummen-Kette nie beschädigt. (Wirkt in beide Richtungen, sobald auch der normale GasLighter diese Version hat.)
+
 ## 1.63.0
 - **Sprachassistent / Rufwort („Hey Jarvis“) zählt nicht als Störung:** Regel „keine Störung melden“ hat jetzt **Vorlauf (s)**. Auch eine Störung, die bis zu so viele Sekunden *vor* dem Einschalten der Regel begann, zählt nicht. Dafür wird eine Störung so lange zurückgehalten (Vorlauf + 2 s), bevor sie gemeldet und gespeichert wird; Pegel und Graph bleiben unverändert in der Tagesaufzeichnung, im Protokoll steht „nicht gezählt (Vorlauf der Regel …)“.
 - Regeln mit Vorlauf werden schnell abgefragt (alle 0,7 s, genauer Zeitpunkt aus Home Assistant), andere wie bisher alle 5 s.

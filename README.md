@@ -59,6 +59,8 @@ Updates erscheinen automatisch in Home Assistant. Änderungen: [CHANGELOG](gasli
 
 Im selben Repository steht zusätzlich **GasLighter Beta** – die Arbeitsversion mit den neuesten Änderungen, bevor sie freigegeben werden. Sie läuft **neben** dem normalen GasLighter (eigener Datenordner `/share/gaslighter_beta`, eigene Entitäten, Handy-Port 18444) und kann Fehler enthalten. Für den Alltag den normalen GasLighter verwenden.
 
+Soll die Beta mit **denselben Daten** arbeiten (Datenordner `/share/gaslighter`), immer nur **eine** der beiden Apps laufen lassen. Ab Version 1.64 schützt eine Sperre davor: Läuft die andere schon, nimmt die zweite nichts auf und zeigt einen Hinweis.
+
 ### Datenschutz und Recht
 
 Alle Daten bleiben auf deinem Home-Assistant-Rechner; GasLighter sendet nichts an G-Simulation oder Dritte. Details: [PRIVACY.md](PRIVACY.md). GasLighter ersetzt keine Rechtsberatung – ob ein Lärmprotokoll in deinem Fall ausreicht, klärst du am besten mit Mieterverein oder Anwalt. Siehe auch das Kapitel [Rechtliches](docs/de/12-rechtliches.md).
@@ -113,6 +115,8 @@ Requirements: Home Assistant OS or Supervised (with app store) and a USB microph
 ### Beta (test version)
 
 The same repository also contains **GasLighter Beta** – the work-in-progress version with the latest changes before release. It runs **next to** the normal GasLighter (own data folder `/share/gaslighter_beta`, own entities, phone port 18444) and may contain bugs. Use the normal GasLighter for everyday use.
+
+If the beta should use **the same data** (data folder `/share/gaslighter`), only ever run **one** of the two apps. From version 1.64 a lock protects against this: if the other one is already running, the second records nothing and shows a notice.
 
 ### Privacy and legal
 

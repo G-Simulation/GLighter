@@ -1115,3 +1115,4 @@ fieldset.prolocked .f{opacity:.55}
 .calst.run{font-size:17px;font-weight:600}
 .fnpsec{display:flex;gap:6px;flex-wrap:wrap;margin:0 0 6px}.fnpsec .fnpsb{font-size:12px;padding:3px 10px;min-height:26px}.fnpsec .fnpsb:not(.on){opacity:.75}
 .fnpanel.fh-txt #fnptext,.fnpanel.fh-tags #fnptags,.fnpanel.fh-wit #fnpwit,.fnpanel.fh-ext #fnpext,.fnpanel.fh-ext .fnprow>label{display:none!important}
+.lockov{position:fixed;inset:0;z-index:9999;background:rgba(0,0,0,.6);display:flex;align-items:center;justify-content:center;padding:16px}.lockbox{max-width:560px;background:var(--card);color:var(--tx);border:2px solid var(--red);border-radius:14px;padding:20px 24px}.lockbox h2{color:var(--red);margin:0 0 10px;font-size:20px}.lockbox .mut{color:var(--mut)}

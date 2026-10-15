@@ -227,6 +227,25 @@ class NotizAusHA(unittest.TestCase):
         self.assertEqual(len(self.notizen()), 0)
 
 
+class OrdnerSperre(unittest.TestCase):
+    """Normaler GasLighter und Beta nie gleichzeitig im selben Datenordner."""
+    def setUp(self):
+        self.p = os.path.join(tempfile.mkdtemp(), ".gaslighter_lock.json")
+
+    def test_fremde_frische_sperre_blockiert(self):
+        json.dump({"id": "anderer", "app": "GasLighter", "beat": time.time()}, open(self.p, "w"))
+        self.assertEqual(laerm.lock_other(self.p)["app"], "GasLighter")
+
+    def test_alte_sperre_ist_frei(self):
+        json.dump({"id": "anderer", "app": "GasLighter", "beat": time.time() - 120}, open(self.p, "w"))
+        self.assertIsNone(laerm.lock_other(self.p))
+
+    def test_eigene_sperre(self):
+        laerm.lock_write(self.p)
+        self.assertIsNone(laerm.lock_other(self.p))
+        self.assertEqual(laerm.lock_read(self.p)["id"], laerm.LOCK["id"])
+
+
 class VorlaufSprachassistent(unittest.TestCase):
     """„Hey Jarvis“: Störung beginnt kurz BEVOR der Assistent auf „hört zu“ wechselt – mit Vorlauf zählt sie nicht."""
     def setUp(self):
