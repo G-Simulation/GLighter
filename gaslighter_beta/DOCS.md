@@ -175,6 +175,10 @@ Die Art kommt aus der Störung, wenn die Spitze in einer liegt, sonst aus dem ge
 - Markieren, dann **In Liste übernehmen** oder löschen. Gelöschte Einträge landen zur Sicherheit im Papierkorb; die Tagesaufzeichnung bleibt.
 - **📝 Alle Notizen**, **🔎 Geräusch prüfen** (eigene Audiodatei auswerten, wird nicht gespeichert), **🧩 Profile & neu untersuchen**, **log.csv herunterladen**.
 
+### Notizen in der Tabelle
+
+Jede angelegte Notiz steht als eigene Zeile **„📝 Notiz“** in der Tabelle, mit Zeit (von–bis), Gerät, Markierungen, Zeuge und Text. Liegt im Zeitraum der Notiz eine Störung, ist sie verknüpft: In der Notiz-Zeile steht **„🔗 Störung …“** (Klick öffnet die Störung), in der Störungs-Zeile der Notiztext. Mit **✎** bearbeitest du die Notiz. Im Filter **„📝 Notizen“** blendest du alle Notiz-Zeilen aus oder ein. Notizen zählen nicht als Störung.
+
 ### Protokolllisten
 
 Eigene Listen wie „Bad“ oder „Garten“ sammeln Störungen zusätzlich zur Gesamtliste – von Hand („In Liste übernehmen“, im Ereignis unter „Listen“) oder automatisch je Gerät und Uhrzeit (⚙ Einstellungen → Geräte → Karte des Geräts → **Protokolllisten**). Jede Liste hat eine eigene Notiz und ein eigenes Lärmprotokoll.
@@ -947,6 +951,10 @@ The type comes from the disturbance if the peak lies in one, otherwise from the 
 - Click = jump there in the history, double click or ▶ = open the event, ⋮ = more actions (download noise track, re-evaluate, delete).
 - Select, then **Add to list** or delete. Deleted entries are kept in a recycle bin for safety; the day recording stays.
 - **📝 All notes**, **🔎 Check a sound** (analyse your own audio file, not stored), **🧩 Profiles & re-scan**, **Download log.csv**.
+
+### Notes in the table
+
+Every note you create appears as its own row **“📝 Note”** in the table, with time (from–to), device, tags, witness and text. If a disturbance lies in the note’s period, they are linked: the note row shows **“🔗 Disturbance …”** (click opens it) and the disturbance row shows the note text. **✎** edits the note. The filter **“📝 Notes”** hides or shows all note rows. Notes are not counted as disturbances.
 
 ### Log lists
 

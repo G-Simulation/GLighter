@@ -32,7 +32,7 @@ HERE = os.path.dirname(os.path.abspath(__file__))
 WEB = os.path.join(HERE, "web")
 OPTIONS_FILE = os.environ.get("LAERM_OPTIONS", "/data/options.json")
 SETTINGS_FILE = os.environ.get("LAERM_SETTINGS", "/data/settings.json")
-VERSION = "1.64.0"
+VERSION = "1.65.0"
 
 # =====================================================================
 # Einstellungen
@@ -9715,6 +9715,19 @@ def _sens_for(src, rng):
         return []
 
 
+def _fnotes_for(src, rng):
+    """Freie Notizen im Zeitraum (für die Ereignis-Tabellen: eigene Zeilen, mit der Störung im Zeitraum verknüpft)."""
+    try:
+        if rng:
+            a_, b_ = int(rng[0].timestamp() * 1000), int(rng[1].timestamp() * 1000)
+        else:
+            b_ = int(time.time() * 1000) + 60000; a_ = b_ - 30 * 86400000
+        return fnotes_in(a_, b_, src or "all")[-500:]
+    except Exception as e:
+        log("Notizen nicht geladen:", e)
+        return []
+
+
 def events_summary(src="all", n=200, plist="", rng=None, art=""):
     allrows = read_log()
     keyed = [dict(r, k=k) for r, k in zip(allrows, row_keys(allrows))]
@@ -9766,7 +9779,7 @@ def events_summary(src="all", n=200, plist="", rng=None, art=""):
     return {"total": sum(days.values()), "rows": len(rows), "bg_n": bg_n, "today": days.get(dt.date.today().isoformat(), 0), "hours": hours,
             "days": sorted(days.items(), reverse=True)[:(62 if rng else 14)], "n": n,
             "events": out_rows, "grps": {str(k): v for k, v in G.items() if k in used_g},
-            "sens": _sens_for(src, rng), "ha_names": ha_rule_names(),
+            "sens": _sens_for(src, rng), "ha_names": ha_rule_names(), "fnotes": _fnotes_for(src, rng), "fn_assign_min": CFG.get("fn_assign_min", 5),
             "fine": classify.fine_meta("en" if CFG.get("language") == "en" else "de") if classify is not None else {}}
 
 

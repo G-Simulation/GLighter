@@ -80,6 +80,12 @@ Die Art kommt aus der Störung, wenn die Spitze in einer liegt, sonst aus dem ge
 - Markieren, dann **In Liste übernehmen** oder löschen. Gelöschte Einträge landen zur Sicherheit im Papierkorb; die Tagesaufzeichnung bleibt.
 - **📝 Alle Notizen**, **🔎 Geräusch prüfen** (eigene Audiodatei auswerten, wird nicht gespeichert), **🧩 Profile & neu untersuchen**, **log.csv herunterladen**.
 
+<a id="notizzeilen"></a>
+
+### Notizen in der Tabelle
+
+Jede angelegte Notiz steht als eigene Zeile **„📝 Notiz“** in der Tabelle, mit Zeit (von–bis), Gerät, Markierungen, Zeuge und Text. Liegt im Zeitraum der Notiz eine Störung, ist sie verknüpft: In der Notiz-Zeile steht **„🔗 Störung …“** (Klick öffnet die Störung), in der Störungs-Zeile der Notiztext. Mit **✎** bearbeitest du die Notiz. Im Filter **„📝 Notizen“** blendest du alle Notiz-Zeilen aus oder ein. Notizen zählen nicht als Störung.
+
 <a id="listen"></a>
 
 ## Protokolllisten

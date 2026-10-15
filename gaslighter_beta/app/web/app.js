@@ -1507,8 +1507,9 @@ function renderEvents() {
   const grpMode = EVVIEW === 'grp';
   const sv = sensVis();
   const sig = JSON.stringify([useArt, lang, grpMode, evs.map(r => [r.k, r.ha_on, r.start, r.art, r.art_c, r.art_man, r.video, r.audio, r.datei, r.notes, r.labels, r.kinds, r.prof, r.prof_c, r.prof_ok, r.inc, r.grp, r.lead, r.devs, r.bg]), SOURCES.map(x => [x.id, x.name]), sv, [...SHIDE]]);
-  if (sig === EVSIG) return;
-  EVSIG = sig;
+  const sig2 = sig + JSON.stringify([(EV.fnotes || []).map(n => [n.id, n.a, n.b, n.text, n.tags, n.witness]), fnShow()]);
+  if (sig2 === EVSIG) return;
+  EVSIG = sig2;
   evGrid(evs, sv, useArt, grpMode);
 }
 /* ================= Ereignistabelle mit Tabulator (MIT, tabulator.info) =================
@@ -1519,6 +1520,23 @@ const SEL = new Set();                               // ausgewählte Störungen 
 const ek = r => r.k || `${r.start}|${r.quelle_id || 'main'}|${r.datei || ''}|0`;
 function evSrcName(r) { const s = SOURCES.find(x => x.id === (r.quelle_id || 'main')); return r.quelle || (s && s.name) || r.quelle_id || ''; }
 function evTags(r) { const a = []; if (r.prof) a.push('🧩 ' + r.prof); for (const n of r.labels || []) a.push('🏷 ' + n); if (r.art) a.push((ART_ICON[r.art] || '') + ' ' + artName(r.art)); return a; }
+/* Freie Notizen als eigene Zeilen: mit der Störung im Zeitraum verknüpft (Notiz ohne Ende: Störung bis „Notiz zuordnen“ Minuten davor) */
+function fnLink(notes, evs, asg) {
+  const span = r => { const a = new Date(r.start).getTime(); return [a, a + (+r.dauer_s || 0) * 1000 + 100]; };
+  const lst = (evs || []).map(r => [r, ...span(r)]), win = (asg == null ? 5 : +asg) * 60000;
+  return (notes || []).map(n => {
+    const a = n.a, b = Math.max(n.b || a, a), open = !(n.b > n.a);
+    let best = null, bd = 1e18;
+    for (const [r, s0, s1] of lst) {
+      if ((r.quelle_id || 'main') !== (n.src || 'all') && (n.src || 'all') !== 'all') continue;
+      const hit = s0 <= b && s1 >= a || (open && win > 0 && s0 <= a && a - s0 <= win);
+      if (hit) { const dd = Math.abs(s0 - a); if (dd < bd) { bd = dd; best = r; } }
+    }
+    return [n, best];
+  });
+}
+const fnShow = () => !SHIDE.has('_fn') && (!ARTSEL.size || ARTSEL.has('_notes') || ARTSEL.has('_fn'));
+const fnText = n => `${(n.tags || []).map(ntTag).join('')}${n.text ? `<span class="ntt">${esc(n.text)}</span>` : ''}${n.witness ? `<span class="ntw">👤 ${esc(n.witness)}</span>` : ''}`;
 function evRows(evs, sv, grpMode) {
   const G = EV.grps || {}, out = [], seen = new Map();
   const one = r => ({ _t: 'ev', id: ek(r), r, start: new Date(r.start).getTime(), src: evSrcName(r), tags: evTags(r), dur: +r.dauer_s || 0, pk: r.spitze_dbfs, thr: r.schwelle_dbfs, bg: r.hintergrund_dbfs });
@@ -1531,6 +1549,10 @@ function evRows(evs, sv, grpMode) {
       const c = one(r); p._children.push(c); for (const x of c.tags) if (!p.tags.includes(x)) p.tags.push(x); if (!p.src) p.src = c.src; else if (p.src !== c.src && !p.srcs) p.srcs = true;
       if (c.pk != null && (p.pk == null || c.pk > p.pk)) p.pk = c.pk;
     } else out.push(one(r));
+  }
+  if (fnShow()) for (const [n, ev] of fnLink(EV.fnotes, EV.events, EV.fn_assign_min)) {
+    out.push({ _t: 'note', id: 'n:' + n.id, n, ev, start: n.a, src: (n.src || 'all') === 'all' ? t('all_sources') : viewName(n.src), tags: ['📝 ' + t('fn_row')], dur: Math.max(0, ((n.b || n.a) - n.a) / 1000), pk: null });
+    if (ev) for (const d of out) if (d._t === 'ev' && d.r === ev) (d.fn = d.fn || []).push(n);   // auch an der Störung sichtbar
   }
   for (const x of sv) out.push({ _t: 'sens', id: 's:' + x.key, x, start: x.a, src: x.kind === 'ha' ? 'Home Assistant' : x.name || '', tags: [sensIcon(x.kind) + ' ' + sensLabel(x)], dur: Math.max(0, (x.b - x.a) / 1000), pk: x.peak != null ? x.peak : null });
   out.sort((a, b) => b.start - a.start);
@@ -1564,22 +1586,24 @@ function evGrid(evs, sv, useArt, grpMode) {
     { field: 'start', title: t('start'), sorter: 'number', minWidth: nar ? 120 : 230, widthGrow: 2, responsive: 0, cssClass: 'tm',
       formatter: fmtCell(d => d._t === 'grp' ? `<b>${esc(clockOf(d.g.a).slice(0, nar ? 5 : 8))}–${esc(clockOf(d.g.b).slice(0, nar ? 5 : 8))}</b> <span class="mut">· ${nar ? '×' + d.g.n : esc(t('grp_n', { n: d.g.n }))}</span>`
         : d._t === 'sens' ? `${esc(fmtWhen(new Date(d.x.a).toISOString()))}${d.x.note ? `<span class="ntc" title="${esc(d.x.note)}">📝</span>` : ''}`
+        : d._t === 'note' ? `${esc(fmtWhen(new Date(d.n.a).toISOString()))}${d.n.b > d.n.a ? '–' + esc(d.n.clock_to || '') : ''}${d.n.rz ? ' 🌙' : ''}`
         : `${esc(nar ? fmtWhen(d.r.start).replace(/^\S+\s/, '') : fmtWhen(d.r.start))}${d.r.notes ? `<span class="ntc" title="${esc(t('nt_title', { n: d.r.notes }))}">📝 ${d.r.notes}</span>` : ''}`) },
     { field: 'src', title: t('src_col'), minWidth: 160, widthGrow: 2, responsive: 2, cssClass: 'srcc',
       headerFilter: msFilter(() => [...new Set(EVDATA.flatMap(function f(d) { return [d.src].concat((d._children || []).flatMap(f)); }).filter(Boolean))].sort((a, b) => a.localeCompare(b))),
       headerFilterFunc: (hv, rv, rd) => !hv || !hv.length || hv.includes(rv) || (rd._children || []).some(c => hv.includes(c.src)), headerFilterLiveFilter: false,
-      formatter: fmtCell(d => d._t === 'ev' ? srcHTML(d.r) : d._t === 'sens' ? `<span class="si">${d.x.kind === 'ha' ? '🏠' : '📱'}</span><span class="sn"><b>${esc(d.src)}</b></span>` : d.srcs ? '<span class="mut">…</span>' : `<span class="sn"><b>${esc(d.src)}</b></span>`) },
+      formatter: fmtCell(d => d._t === 'ev' ? srcHTML(d.r) : d._t === 'note' ? `<span class="si">📝</span><span class="sn"><b>${esc(d.src)}</b></span>` : d._t === 'sens' ? `<span class="si">${d.x.kind === 'ha' ? '🏠' : '📱'}</span><span class="sn"><b>${esc(d.src)}</b></span>` : d.srcs ? '<span class="mut">…</span>' : `<span class="sn"><b>${esc(d.src)}</b></span>`) },
     { field: 'tags', title: t('art_col'), minWidth: nar ? 110 : 210, widthGrow: 2, visible: useArt, responsive: 1, cssClass: 'artc', headerSort: false,
       headerFilter: msFilter(() => [...new Set(EVDATA.flatMap(function f(d) { return d.tags.concat((d._children || []).flatMap(f)); }).concat(((EV && EV.ha_names) || []).filter(x => x[1] === 'event').map(x => sensIcon('ha') + ' ' + x[0])))].sort((a, b) => a.localeCompare(b))), headerFilterLiveFilter: false, headerFilterFunc: (hv, rv) => !hv || !hv.length || (rv || []).some(x => hv.includes(x)),
       formatter: fmtCell(d => {
         if (d._t === 'sens') return `<span class="art sensc">${sensIcon(d.x.kind)} ${esc(sensLabel(d.x))}</span>${d.x.note ? `<div class="hant">📝 ${esc(d.x.note)}</div>` : ''}`;
+        if (d._t === 'note') return `<span class="art fnc">📝 ${esc(t('fn_row'))}</span>${d.ev ? `<button type="button" class="chip fnlink" title="${esc(t('fn_link_tip'))}">🔗 ${esc(t('fn_link', { c: clockOf(d.ev.start) }))}</button>` : ''}<div class="fnrowt">${fnText(d.n)}</div>`;
         if (d._t === 'grp') return d.g.prof ? `<span class="art prof">🧩 ${esc(d.g.kind)}</span>` : d.g.kind && d.g.kind !== '?' ? artChip(d.g.kind, null, false) : esc(t('art_pending'));
-        const r = d.r; return `${(r.ha_on || []).filter(n => !SHIDE.has('ha:' + n)).map(n => `<span class="art haon" title="${esc(t('ha_on_tip'))}">📡 ${esc(n)} ${esc(t('ha_on'))}</span>`).join('')}${profChip(r)}${(r.labels || []).map(n => `<span class="art lbl" title="${esc(t('lb_own'))}">🏷 ${esc(n)}</span>`).join('')}${r.art ? artChip(r.art, r.art_c, r.art_man) : (r.datei && !(r.labels || []).length && !r.prof ? '<span class="noclip" title="' + esc(t('art_pending')) + '">…</span>' : (r.labels || []).length || r.prof ? '' : '<span class="noclip">–</span>')}`; }) },
+        const r = d.r; return `${(d.fn || []).map(n => `<div class="fnrowt fnon" title="${esc(t('fn_on_ev'))}">📝 ${fnText(n)}</div>`).join('')}${(r.ha_on || []).filter(n => !SHIDE.has('ha:' + n)).map(n => `<span class="art haon" title="${esc(t('ha_on_tip'))}">📡 ${esc(n)} ${esc(t('ha_on'))}</span>`).join('')}${profChip(r)}${(r.labels || []).map(n => `<span class="art lbl" title="${esc(t('lb_own'))}">🏷 ${esc(n)}</span>`).join('')}${r.art ? artChip(r.art, r.art_c, r.art_man) : (r.datei && !(r.labels || []).length && !r.prof ? '<span class="noclip" title="' + esc(t('art_pending')) + '">…</span>' : (r.labels || []).length || r.prof ? '' : '<span class="noclip">–</span>')}`; }) },
     { field: 'kinds', title: t('kinds_col'), minWidth: 150, widthGrow: 2, visible: useArt, responsive: 4, headerSort: false, cssClass: 'kinds', formatter: fmtCell(d => d._t === 'ev' ? kindsHTML(d.r.kinds, EV.fine) : '') },
     { field: 'devs', title: t('devs_col'), minWidth: 130, visible: hasDev, responsive: 5, headerSort: false, cssClass: 'devc',
       formatter: fmtCell(d => { if (d._t !== 'ev') return ''; const x = d.r.devs || []; if (x.length < 2) return '<span class="noclip">–</span>';
         return x.map((v, i) => `<span class="dvp${i === 0 ? ' top' : ''}${v[3] === d.r.k ? ' own' : ''}" title="${esc(v[1])}">${esc(shortName(v[1]))} ${v[2] != null ? v[2].toFixed(0) : '–'}</span>`).join(''); }) },
-    { field: 'dur', title: t('dur'), sorter: 'number', minWidth: 90, responsive: 2, cssClass: 'dur', formatter: fmtCell(d => esc(fmtDur(d.dur)) + (d._t === 'sens' && d.x.open ? ' · ' + esc(t('mot_open')) : '')) },
+    { field: 'dur', title: t('dur'), sorter: 'number', minWidth: 90, responsive: 2, cssClass: 'dur', formatter: fmtCell(d => d._t === 'note' && !d.dur ? '–' : esc(fmtDur(d.dur)) + (d._t === 'sens' && d.x.open ? ' · ' + esc(t('mot_open')) : '')) },
     { field: 'pk', title: t('peak'), sorter: 'number', minWidth: 105, responsive: 3, cssClass: 'pk',
       formatter: fmtCell(d => d.pk == null ? '' : d._t === 'sens' ? esc(f2(d.pk)) + ' <small>' + esc(d.x.unit || '') + '</small>' : esc(fdb(d.pk)) + ' <small>dBFS</small>') },
     { field: 'thr', title: t('thr_col'), sorter: 'number', minWidth: 120, responsive: 6, formatter: fmtCell(d => d._t === 'ev' ? esc(fdb(d.thr)) : '') },
@@ -1588,10 +1612,11 @@ function evGrid(evs, sv, useArt, grpMode) {
       formatter: fmtCell(d => { if (d._t !== 'ev') return ''; const r = d.r; return `${r.audio ? `<span class="sndmk" title="${esc(t('snd_mark'))}">🔊</span>` : ''}${r.video ? `<button class="vbtn" title="${esc(t('vid_open'))}" aria-label="${esc(t('vid_open'))}">🎥</button>` : ''}<span class="cs">${r.clip_s && !(r.datei || '').endsWith('.ltv') ? esc(r.clip_s) + ' s' : ''}</span>`; }),
       cellClick: (e, cell) => { const d = cell.getRow().getData(); if (d._t === 'ev' && e.target.closest('.vbtn')) { e.stopPropagation(); openEvent(d.id); } } },
     { field: 'act', title: '', headerSort: false, width: 50, minWidth: 50, hozAlign: 'right', responsive: 0, cssClass: 'act',
-      formatter: fmtCell(d => d._t === 'ev' ? `<button class="more" title="${esc(t('actions'))}" aria-label="${esc(t('actions'))}">⋮</button>` : d._t === 'sens' ? `<button class="sned" type="button" title="${esc(t('ha_note'))}" aria-label="${esc(t('ha_note'))}">✎</button>` : ''),
+      formatter: fmtCell(d => d._t === 'ev' ? `<button class="more" title="${esc(t('actions'))}" aria-label="${esc(t('actions'))}">⋮</button>` : d._t === 'note' ? `<button class="sned" type="button" title="${esc(t('nt_edit'))}" aria-label="${esc(t('nt_edit'))}">✎</button>` : d._t === 'sens' ? `<button class="sned" type="button" title="${esc(t('ha_note'))}" aria-label="${esc(t('ha_note'))}">✎</button>` : ''),
       cellClick: (e, cell) => { const row = cell.getRow(), d = row.getData(); e.stopPropagation();
         if (d._t === 'ev') { const b = cell.getElement().getBoundingClientRect(); openRowMenu(row.getElement(), b.right - 190, b.bottom + 4); }
-        else if (d._t === 'sens') haPop({ a: d.x.a, b: d.x.b, name: sensLabel(d.x), note: d.x.note || '', key: d.x.key }); } },
+        else if (d._t === 'sens') haPop({ a: d.x.a, b: d.x.b, name: sensLabel(d.x), note: d.x.note || '', key: d.x.key });
+        else if (d._t === 'note') fnOpenId(d.n); } },
   ];
   if (!TBL || TBL_KEY !== key) {
     if (TBL) { try { TBL.destroy(); } catch (e) { } TBL = null; }
@@ -1605,13 +1630,14 @@ function evGrid(evs, sv, useArt, grpMode) {
       persistence: { sort: true, columns: ['width'] }, persistenceID: 'gl_evtbl',
       rowFormatter: row => { const d = row.getData(), el = row.getElement();
         el.dataset.k = d._t === 'ev' ? d.id : ''; el.dataset.f = d._t === 'ev' ? d.r.datei || '' : ''; el.dataset.inc = d._t === 'ev' && d.r.inc != null ? d.r.inc : '';
-        el.classList.toggle('grph', d._t === 'grp'); el.classList.toggle('sensr', d._t === 'sens'); el.classList.toggle('sel', d._t === 'ev' && SEL.has(d.id));
+        el.classList.toggle('grph', d._t === 'grp'); el.classList.toggle('sensr', d._t === 'sens'); el.classList.toggle('fnr', d._t === 'note'); el.classList.toggle('sel', d._t === 'ev' && SEL.has(d.id));
         el.classList.toggle('bgrow', !!(d._t === 'ev' ? d.r.bg || d.r.inc_bg : d._t === 'grp' && d.g.bg)); el.classList.toggle('gm', row.getTreeParent && !!row.getTreeParent()); },
     });
     TBL.on('rowClick', (e, row) => { if (e.target.closest('input,button,a,.ck,.gtog')) return; const d = row.getData();
       if (d._t === 'ev') dtJump(d.id, row.getElement());
       else if (d._t === 'grp') row.treeToggle();
-      else if (d._t === 'sens') { const x = d.x; dtFocus(x.a, x.b); } });
+      else if (d._t === 'sens') { const x = d.x; dtFocus(x.a, x.b); }
+      else if (d._t === 'note') { if (e.target.closest('.fnlink') && d.ev) { openEvent(ek(d.ev)); return; } dtFocus(d.n.a, Math.max(d.n.b || d.n.a, d.n.a + 1000)); } });
     TBL.on('rowDblClick', (e, row) => { const d = row.getData(); if (d._t === 'ev' && !e.target.closest('input,button,a')) openEvent(d.id); });
     TBL.on('rowContext', (e, row) => { const d = row.getData(); if (d._t !== 'ev') return; e.preventDefault(); openRowMenu(row.getElement(), e.clientX, e.clientY); });
     TBL.on('dataTreeRowExpanded', row => { EVOPEN.add(row.getData().gid); });
@@ -1739,7 +1765,7 @@ function sfltBuild() {
   const ha = new Set(); for (const src of [EV, levData()]) for (const x of (src && src.sens) || []) if (x.kind === 'ha') ha.add(x.name); for (const a of (NV.data && NV.data.ha) || []) ha.add(a[2]);
   for (const r of (HAR && HAR.rules) || []) if (r.enabled !== false && r.mode !== 'pause') ha.add(r.label || r.name || r.entity);
   for (const src of [EV, levData()]) for (const x of (src && src.ha_names) || []) ha.add(x[0]);   // alle angelegten Regeln, auch ohne Meldung im Zeitraum
-  const items = [['_ev', '🔴 ' + t('sf_ev')], ...[...ha].filter(Boolean).sort((a, b) => a.localeCompare(b)).map(n => ['ha:' + n, '📡 ' + n]), ['vib', '🫨 ' + t('sens_vib')], ['tilt', '📐 ' + t('sens_tilt')], ['cam', '🏃 ' + t('sens_cam')]];
+  const items = [['_ev', '🔴 ' + t('sf_ev')], ...[...ha].filter(Boolean).sort((a, b) => a.localeCompare(b)).map(n => ['ha:' + n, '📡 ' + n]), ['vib', '🫨 ' + t('sens_vib')], ['tilt', '📐 ' + t('sens_tilt')], ['cam', '🏃 ' + t('sens_cam')], ['_fn', '📝 ' + t('sf_fn')]];
   for (const box of [$('sflt'), $('lsflt')]) {
     if (!box) continue;
     const sig = JSON.stringify([items, [...SHIDE], lang]); if (box.dataset.sig === sig) continue; box.dataset.sig = sig;
@@ -5302,7 +5328,10 @@ function levRender() {
   const txt = h => { const d = document.createElement('div'); d.innerHTML = h; return d.textContent.trim(); };
   const rows = evs.map(r => ({ id: 'e' + (r.k || r.start), k: r.k || '', start: new Date(r.start).getTime(), src: r.quelle || (SOURCES.find(x => x.id === (r.quelle_id || 'main')) || {}).name || r.quelle_id || '', r,
     tags: [].concat(r.prof ? ['🧩 ' + r.prof] : [], (r.labels || []).map(n => '🏷 ' + n)), dur: r.dauer_s, pk: r.spitze_dbfs, thr: r.schwelle_dbfs, bg: r.hintergrund_dbfs, nt: r.notes ? '📝 ' + r.notes : '' }))
+    .concat(fnShow() ? fnLink(j.fnotes, j.events, j.fn_assign_min).map(([n, ev]) => ({ id: 'n' + n.id, k: '', start: n.a, src: (n.src || 'all') === 'all' ? t('all_sources') : viewName(n.src), fn: n, fev: ev,
+      tags: ['📝 ' + t('fn_row')], dur: Math.max(0, ((n.b || n.a) - n.a) / 1000), pk: null, nt: '📝 ' + [n.text, ...(n.tags || []).map(x => t('nt_' + x)), n.witness ? '👤 ' + n.witness : ''].filter(Boolean).join(' · ') + (ev ? ' · 🔗 ' + t('fn_link', { c: clockOf(ev.start) }) : '') })) : [])
     .concat(sens.map(x => ({ id: 's' + x.key, k: '', start: x.a, src: x.kind === 'ha' ? 'Home Assistant' : x.name || '', x, tags: [sensIcon(x.kind) + ' ' + sensLabel(x)], dur: Math.max(0, (x.b - x.a) / 1000), pk: x.peak, nt: x.note ? '📝 ' + x.note : '' })));
+  for (const d of rows) if (d.fn && d.fev) { const e = rows.find(x => x.k && x.k === d.fev.k); if (e) e.nt = [e.nt, '📝 ' + (d.fn.text || (d.fn.tags || []).map(x => t('nt_' + x)).join(', '))].filter(Boolean).join(' · '); }   // Notiz auch an der Störung
   const vals = f => () => [...new Set(rows.flatMap(d => f === 'tags' ? d.tags : [d[f]]).filter(Boolean))].sort((p, q) => String(p).localeCompare(String(q)));
   const ms = f => ({ headerFilter: msFilter(vals(f)), headerFilterFunc: (hv, rv, rd) => !hv || !hv.length || (f === 'tags' ? rd.tags.some(x => hv.includes(x)) : hv.includes(rv)), headerFilterLiveFilter: false });
   const num = f => ({ headerFilter: 'number', headerFilterPlaceholder: '≥', headerFilterFunc: (hv, rv) => hv === '' || hv == null || (rv != null && rv >= +hv) });
@@ -5310,11 +5339,11 @@ function levRender() {
   const hm = ms_ => { const d = new Date(ms_), td = new Date(nowServer()); return (d.toDateString() === td.toDateString() ? '' : pad(d.getDate()) + '.' + pad(d.getMonth() + 1) + '. ') + pad(d.getHours()) + ':' + pad(d.getMinutes()) + ':' + pad(d.getSeconds()); };
   const def = {
     tm: { field: 'start', title: levHead('tm'), sorter: 'number', minWidth: 90, headerFilter: 'input', headerFilterPlaceholder: '…', headerFilterFunc: (hv, rv) => !hv || hm(rv).includes(hv), formatter: fm(d => esc(hm(d.start))) },
-    src: Object.assign({ field: 'src', title: levHead('src'), minWidth: 150, widthGrow: 2, formatter: fm(d => d.r ? srcCell(d.r).replace(/^<td[^>]*>/, '').replace(/<\/td>$/, '') : `<span class="si">${d.x.kind === 'ha' ? '🏠' : '📱'}</span><span class="sn"><b>${esc(d.src)}</b></span>`) }, ms('src')),
-    art: Object.assign({ field: 'tags', title: levHead('art'), minWidth: 160, widthGrow: 2, headerSort: false, formatter: fm(d => d.r ? `${d.r.prof ? `<span class="art prof${d.r.bg ? ' bgp' : ''}">🧩 ${esc(d.r.prof)}${d.r.prof_ok ? ' ✓' : d.r.prof_c != null ? ` <small>${d.r.prof_c} %</small>` : ''}</span>` : ''}${(d.r.labels || []).map(n => `<span class="art lbl">🏷 ${esc(n)}</span>`).join('')}` : `<span class="art sensc">${sensIcon(d.x.kind)} ${esc(sensLabel(d.x))}</span>`) }, ms('tags')),
+    src: Object.assign({ field: 'src', title: levHead('src'), minWidth: 150, widthGrow: 2, formatter: fm(d => d.fn ? `<span class="si">📝</span><span class="sn"><b>${esc(d.src)}</b></span>` : d.r ? srcCell(d.r).replace(/^<td[^>]*>/, '').replace(/<\/td>$/, '') : `<span class="si">${d.x.kind === 'ha' ? '🏠' : '📱'}</span><span class="sn"><b>${esc(d.src)}</b></span>`) }, ms('src')),
+    art: Object.assign({ field: 'tags', title: levHead('art'), minWidth: 160, widthGrow: 2, headerSort: false, formatter: fm(d => d.fn ? `<span class="art fnc">📝 ${esc(t('fn_row'))}</span>${d.fev ? `<span class="art fnlk">🔗 ${esc(t('fn_link', { c: clockOf(d.fev.start) }))}</span>` : ''}` : d.r ? `${d.r.prof ? `<span class="art prof${d.r.bg ? ' bgp' : ''}">🧩 ${esc(d.r.prof)}${d.r.prof_ok ? ' ✓' : d.r.prof_c != null ? ` <small>${d.r.prof_c} %</small>` : ''}</span>` : ''}${(d.r.labels || []).map(n => `<span class="art lbl">🏷 ${esc(n)}</span>`).join('')}` : `<span class="art sensc">${sensIcon(d.x.kind)} ${esc(sensLabel(d.x))}</span>`) }, ms('tags')),
     kinds: { field: 'kinds', title: levHead('kinds'), minWidth: 140, headerSort: false, formatter: fm(d => d.r ? kindsHTML(d.r.kinds, j.fine) : '') },
     devs: { field: 'devs', title: levHead('devs'), minWidth: 120, headerSort: false, formatter: fm(d => d.r && (d.r.devs || []).length > 1 ? d.r.devs.map((x, i) => `<span class="dvp${i === 0 ? ' top' : ''}">${esc(shortName(x[1]))} ${x[2] != null ? x[2].toFixed(0) : '–'}</span>`).join('') : '<span class="noclip">–</span>') },
-    dur: Object.assign({ field: 'dur', title: levHead('dur'), sorter: 'number', minWidth: 90, formatter: fm(d => esc(fmtDur(d.dur))) }, num('dur')),
+    dur: Object.assign({ field: 'dur', title: levHead('dur'), sorter: 'number', minWidth: 90, formatter: fm(d => d.fn && !d.dur ? '–' : esc(fmtDur(d.dur))) }, num('dur')),
     pk: Object.assign({ field: 'pk', title: levHead('pk'), sorter: 'number', minWidth: 100, formatter: fm(d => d.pk == null ? '' : esc(d.r ? fdb(d.pk) : f2(d.pk)) + ' <small>' + esc(d.r ? 'dBFS' : (d.x.unit || '')) + '</small>') }, num('pk')),
     thr: Object.assign({ field: 'thr', title: levHead('thr'), sorter: 'number', minWidth: 100, formatter: fm(d => d.r ? esc(fdb(d.thr)) : '') }, num('thr')),
     bg: Object.assign({ field: 'bg', title: levHead('bg'), sorter: 'number', minWidth: 100, formatter: fm(d => d.r ? esc(fdb(d.bg)) : '') }, num('bg')),
@@ -5327,7 +5356,7 @@ function levRender() {
     if (LTBL) { try { LTBL.destroy(); } catch (e) { } LTBL = null; }
     LTBL_KEY = key; box.innerHTML = '';
     LTBL = new Tabulator(box, { data: rows, columns: cols, index: 'id', layout: 'fitColumns', maxHeight: '60vh', placeholder: t('lev_none'), headerSortElement: '<span class="srt"></span>', initialSort: [{ column: 'start', dir: 'desc' }] });
-    LTBL.on('rowClick', (e, row) => { const d = row.getData(); if (d.k) openEvent(d.k); else if (d.x && d.x.kind === 'ha') haPop({ a: d.x.a, b: d.x.b, name: sensLabel(d.x), note: d.x.note || '', key: d.x.key }); });
+    LTBL.on('rowClick', (e, row) => { const d = row.getData(); if (d.fn) { if (d.fev && e.target.closest('.fnlk')) openEvent(d.fev.k || ''); else fnOpenId(d.fn); return; } if (d.k) openEvent(d.k); else if (d.x && d.x.kind === 'ha') haPop({ a: d.x.a, b: d.x.b, name: sensLabel(d.x), note: d.x.note || '', key: d.x.key }); });
   } else LTBL.replaceData(rows);
 }
 function levCols() {

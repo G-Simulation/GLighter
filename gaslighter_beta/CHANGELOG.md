@@ -1,5 +1,11 @@
 # Changelog
 
+## 1.65.0
+- **Notizen in den Ereignis-Tabellen** (Protokolle und Live): Jede angelegte Notiz steht als eigene Zeile „📝 Notiz“ mit Zeit (von–bis), Gerät, Markierungen, Zeuge und **Text direkt sichtbar**.
+- **Verknüpft mit der Störung im Zeitraum:** Die Notiz-Zeile zeigt „🔗 Störung 22:31:05“ (Klick öffnet sie), die Störungs-Zeile zeigt den Notiztext. Beide bleiben eigene Zeilen. Notiz ohne Ende gilt für eine Störung bis „Notiz gehört zur Störung, wenn bis zu (min) danach“.
+- **Filter:** im Filter (Störungen / Sensoren …) neu „📝 Notizen“ zum Ein-/Ausblenden; Spaltenfilter (Art „📝 Notiz“, Zeit, Gerät) wirken auch auf Notizen. Klick auf ✎ bearbeitet die Notiz.
+- Notizen zählen nicht als Störung (Anzahl, Statistik, Lärmprotokoll unverändert).
+
 ## 1.64.0
 - Sperre erkennt jetzt auch einen **normalen GasLighter ohne Sperre** (ältere Version, z. B. 1.63.0): Wurden im Datenordner in den letzten 90 s Tagesdateien geschrieben, nimmt die Beta nicht auf. Wer sauber beendet, gibt die Sperre frei, damit der Wechsel sofort klappt.
 - Hinweis „Datenordner wird schon benutzt“ in der Sprache des Browsers.

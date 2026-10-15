@@ -80,6 +80,12 @@ The type comes from the disturbance if the peak lies in one, otherwise from the 
 - Select, then **Add to list** or delete. Deleted entries are kept in a recycle bin for safety; the day recording stays.
 - **📝 All notes**, **🔎 Check a sound** (analyse your own audio file, not stored), **🧩 Profiles & re-scan**, **Download log.csv**.
 
+<a id="notizzeilen"></a>
+
+### Notes in the table
+
+Every note you create appears as its own row **“📝 Note”** in the table, with time (from–to), device, tags, witness and text. If a disturbance lies in the note’s period, they are linked: the note row shows **“🔗 Disturbance …”** (click opens it) and the disturbance row shows the note text. **✎** edits the note. The filter **“📝 Notes”** hides or shows all note rows. Notes are not counted as disturbances.
+
 <a id="listen"></a>
 
 ## Log lists

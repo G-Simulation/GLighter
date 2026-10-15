@@ -1116,3 +1116,6 @@ fieldset.prolocked .f{opacity:.55}
 .fnpsec{display:flex;gap:6px;flex-wrap:wrap;margin:0 0 6px}.fnpsec .fnpsb{font-size:12px;padding:3px 10px;min-height:26px}.fnpsec .fnpsb:not(.on){opacity:.75}
 .fnpanel.fh-txt #fnptext,.fnpanel.fh-tags #fnptags,.fnpanel.fh-wit #fnpwit,.fnpanel.fh-ext #fnpext,.fnpanel.fh-ext .fnprow>label{display:none!important}
 .lockov{position:fixed;inset:0;z-index:9999;background:rgba(0,0,0,.6);display:flex;align-items:center;justify-content:center;padding:16px}.lockbox{max-width:560px;background:var(--card);color:var(--tx);border:2px solid var(--red);border-radius:14px;padding:20px 24px}.lockbox h2{color:var(--red);margin:0 0 10px;font-size:20px}.lockbox .mut{color:var(--mut)}
+.fnrowt{margin-top:3px;display:flex;flex-wrap:wrap;gap:4px;align-items:center;font-size:12.5px}.fnrowt .ntt{white-space:normal}.fnrowt.fnon{opacity:.9}
+.art.fnc{background:color-mix(in srgb,#7048e8 14%,transparent);color:#7048e8}.fnlink{font-size:11.5px;padding:1px 8px;min-height:22px;margin-left:4px}.art.fnlk{cursor:pointer}
+.tabulator-row.fnr{background:color-mix(in srgb,#7048e8 5%,transparent)}
