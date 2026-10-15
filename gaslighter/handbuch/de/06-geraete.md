@@ -30,8 +30,17 @@ Ein als Gerät eingerichtetes Handy kann zusätzlich zum Mikrofon als **Bewegung
 
 - **🫨 Erschütterung** (Beschleunigungssensor): Das Handy liegt flach auf dem Boden, einem Tisch oder an der Wand und meldet Vibrationen – z. B. Trampeln, Bass, der durch die Decke kommt, Türenknallen oder Möbelrücken. Das belegt Körperschall, den man nicht nur hört, sondern spürt.
 - **🏃 Bewegung im Kamerabild**: Die Kamera des Handys erkennt Bewegung im Bild (z. B. im Treppenhaus). Plötzliche Helligkeitsänderungen (Licht an/aus) werden herausgerechnet.
+- **📐 Neigung**: Das Handy merkt sich nach dem Start seine Ruhelage und meldet, wenn es bewegt, gekippt oder angehoben wird (Empfindlichkeit hoch/mittel/niedrig ≈ 3°/6°/12°). Liegt es 1 Minute ruhig in einer neuen Lage, gilt diese als neue Ruhelage.
 
 **Einschalten:** ⚙ Einstellungen → Geräte → Karte des Handys → **Handy als Bewegungsmelder** → „Erschütterung“ und/oder „Bewegung im Kamerabild“ anhaken, **Empfindlichkeit** wählen (hoch, mittel, niedrig). Danach am Handy die Seite neu laden und **Start** tippen. Der Browser fragt nach der Kamera bzw. (iPhone) nach „Bewegung und Ausrichtung“.
+
+### Mit der App IP Webcam {#ipwebcam}
+
+Ist das Handy über **„+ Handy-App / Stream-URL“** mit der Android-App **IP Webcam** verbunden, liest GasLighter die Sensoren der App mit (`http://HANDY:8080/sensors.json`, ein Login aus der Adresse wird mitbenutzt). Auf der Karte des Geräts heißt der Kasten **„IP Webcam: Handy-Sensoren mitlesen“**, mit denselben Schaltern (Erschütterung, Neigung, Bewegung im Kamerabild) und derselben Empfindlichkeit.
+
+- **Erschütterung und Neigung** kommen aus dem Beschleunigungssensor des Handys – in IP Webcam müssen die Sensoren eingeschaltet sein.
+- **Bewegung im Kamerabild** nutzt die **Bewegungserkennung** von IP Webcam – in der App einschalten.
+- Fehlt etwas oder ist die App nicht erreichbar, steht auf der Karte ein Hinweis, was einzuschalten ist.
 
 > **Datenschutz:** Ausgewertet wird nur auf dem Handy. Gesendet werden nur Zahlen (Stärke der Erschütterung, Anteil der veränderten Bildpunkte) – **kein Bild und kein Video**. Das Vorschaubild sieht man nur auf dem Handy selbst.
 

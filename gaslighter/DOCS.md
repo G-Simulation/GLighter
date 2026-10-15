@@ -290,8 +290,17 @@ Ein als Gerät eingerichtetes Handy kann zusätzlich zum Mikrofon als **Bewegung
 
 - **🫨 Erschütterung** (Beschleunigungssensor): Das Handy liegt flach auf dem Boden, einem Tisch oder an der Wand und meldet Vibrationen – z. B. Trampeln, Bass, der durch die Decke kommt, Türenknallen oder Möbelrücken. Das belegt Körperschall, den man nicht nur hört, sondern spürt.
 - **🏃 Bewegung im Kamerabild**: Die Kamera des Handys erkennt Bewegung im Bild (z. B. im Treppenhaus). Plötzliche Helligkeitsänderungen (Licht an/aus) werden herausgerechnet.
+- **📐 Neigung**: Das Handy merkt sich nach dem Start seine Ruhelage und meldet, wenn es bewegt, gekippt oder angehoben wird (Empfindlichkeit hoch/mittel/niedrig ≈ 3°/6°/12°). Liegt es 1 Minute ruhig in einer neuen Lage, gilt diese als neue Ruhelage.
 
 **Einschalten:** ⚙ Einstellungen → Geräte → Karte des Handys → **Handy als Bewegungsmelder** → „Erschütterung“ und/oder „Bewegung im Kamerabild“ anhaken, **Empfindlichkeit** wählen (hoch, mittel, niedrig). Danach am Handy die Seite neu laden und **Start** tippen. Der Browser fragt nach der Kamera bzw. (iPhone) nach „Bewegung und Ausrichtung“.
+
+### Mit der App IP Webcam
+
+Ist das Handy über **„+ Handy-App / Stream-URL“** mit der Android-App **IP Webcam** verbunden, liest GasLighter die Sensoren der App mit (`http://HANDY:8080/sensors.json`, ein Login aus der Adresse wird mitbenutzt). Auf der Karte des Geräts heißt der Kasten **„IP Webcam: Handy-Sensoren mitlesen“**, mit denselben Schaltern (Erschütterung, Neigung, Bewegung im Kamerabild) und derselben Empfindlichkeit.
+
+- **Erschütterung und Neigung** kommen aus dem Beschleunigungssensor des Handys – in IP Webcam müssen die Sensoren eingeschaltet sein.
+- **Bewegung im Kamerabild** nutzt die **Bewegungserkennung** von IP Webcam – in der App einschalten.
+- Fehlt etwas oder ist die App nicht erreichbar, steht auf der Karte ein Hinweis, was einzuschalten ist.
 
 > **Datenschutz:** Ausgewertet wird nur auf dem Handy. Gesendet werden nur Zahlen (Stärke der Erschütterung, Anteil der veränderten Bildpunkte) – **kein Bild und kein Video**. Das Vorschaubild sieht man nur auf dem Handy selbst.
 
@@ -1053,8 +1062,17 @@ A phone set up as a device can additionally act as a **motion sensor** – like 
 
 - **🫨 Vibration** (accelerometer): the phone lies flat on the floor, a table or against the wall and reports vibrations – e.g. stomping, bass coming through the ceiling, slamming doors or moving furniture. This documents structure-borne noise you feel, not just hear.
 - **🏃 Motion in the camera picture**: the phone camera detects motion in the picture (e.g. in the stairwell). Sudden brightness changes (light on/off) are compensated.
+- **📐 Tilt**: after starting, the phone remembers its rest position and reports when it is moved, tipped or lifted (sensitivity high/medium/low ≈ 3°/6°/12°). If it lies still in a new position for 1 minute, that becomes the new rest position.
 
 **Switch on:** ⚙ Settings → Devices → card of the phone → **Phone as motion sensor** → tick "Vibration" and/or "Motion in camera picture", choose the **sensitivity** (high, medium, low). Then reload the page on the phone and tap **Start**. The browser asks for the camera or (iPhone) for "motion and orientation".
+
+### With the IP Webcam app
+
+If the phone is connected via **“+ Phone app / stream URL”** with the Android app **IP Webcam**, GasLighter reads the app’s sensors (`http://PHONE:8080/sensors.json`; a login in the address is used too). On the device card the box is called **“IP Webcam: read phone sensors”**, with the same switches (vibration, tilt, motion in camera picture) and the same sensitivity.
+
+- **Vibration and tilt** come from the phone’s accelerometer – the sensors must be switched on in IP Webcam.
+- **Motion in camera picture** uses IP Webcam’s **motion detection** – switch it on in the app.
+- If something is missing or the app is unreachable, the card says what to switch on.
 
 > **Privacy:** everything is evaluated on the phone. Only numbers are sent (vibration strength, share of changed pixels) – **no picture and no video**. The preview is only visible on the phone itself.
 

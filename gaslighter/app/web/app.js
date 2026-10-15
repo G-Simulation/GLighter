@@ -1715,7 +1715,7 @@ function artMsBuild() {
   {                                                  // dazu alle Sensoren aus den Regeln und die Handys als Bewegungsmelder
     const ha = new Set(); for (const x of (EV && EV.ha_names) || []) ha.add(x[0]); for (const x of (EV && EV.sens) || []) if (x.kind === 'ha') ha.add(x.name);
     for (const n of [...ha].sort((a, b) => a.localeCompare(b))) items.push(['ha:' + n, '📡 ' + n]);
-    items.push(['vib', '🫨 ' + t('sens_vib')], ['cam', '🏃 ' + t('sens_cam')]);
+    items.push(['vib', '🫨 ' + t('sens_vib')], ['tilt', '📐 ' + t('sens_tilt')], ['cam', '🏃 ' + t('sens_cam')]);
   }
   for (const k of [...ARTSEL]) if (!items.some(i => i[0] === k)) ARTSEL.delete(k);
   const sig = JSON.stringify([items, [...ARTSEL]]); if (box.dataset.sig === sig) return; box.dataset.sig = sig;
@@ -1730,8 +1730,8 @@ function artMsBuild() {
 document.addEventListener('click', e => { for (const id of ['artms', 'sflt']) { const b = $(id), d = b && b.querySelector('details[open]'); if (d && !b.contains(e.target)) d.open = false; } });
 function shideSave() { try { localStorage.setItem('gl_shide', JSON.stringify([...SHIDE])); } catch (e) { } }
 const sensKey = x => x.kind === 'ha' ? 'ha:' + x.name : x.kind;
-const sensIcon = k => k === 'vib' ? '🫨' : k === 'cam' ? '🏃' : '📡';
-const sensLabel = x => x.kind === 'ha' ? x.name : t(x.kind === 'vib' ? 'sens_vib' : 'sens_cam');
+const sensIcon = k => k === 'vib' ? '🫨' : k === 'tilt' ? '📐' : k === 'cam' ? '🏃' : '📡';
+const sensLabel = x => x.kind === 'ha' ? x.name : t(x.kind === 'vib' ? 'sens_vib' : x.kind === 'tilt' ? 'sens_tilt' : 'sens_cam');
 function sensVis() { return ((EV && EV.sens) || []).filter(x => !SHIDE.has(sensKey(x)) && (!ARTSEL.size || ARTSEL.has(sensKey(x)))); }   // Art: gewählte Sensoren
 /* Auswahlliste „Sensoren“ (Mehrfachauswahl): Störungen, jede HA-Regel, Handy-Erschütterung, Handy-Bewegung */
 function levData() { try { return LEV.data; } catch (e) { return null; } }
@@ -1739,7 +1739,7 @@ function sfltBuild() {
   const ha = new Set(); for (const src of [EV, levData()]) for (const x of (src && src.sens) || []) if (x.kind === 'ha') ha.add(x.name); for (const a of (NV.data && NV.data.ha) || []) ha.add(a[2]);
   for (const r of (HAR && HAR.rules) || []) if (r.enabled !== false && r.mode !== 'pause') ha.add(r.label || r.name || r.entity);
   for (const src of [EV, levData()]) for (const x of (src && src.ha_names) || []) ha.add(x[0]);   // alle angelegten Regeln, auch ohne Meldung im Zeitraum
-  const items = [['_ev', '🔴 ' + t('sf_ev')], ...[...ha].filter(Boolean).sort((a, b) => a.localeCompare(b)).map(n => ['ha:' + n, '📡 ' + n]), ['vib', '🫨 ' + t('sens_vib')], ['cam', '🏃 ' + t('sens_cam')]];
+  const items = [['_ev', '🔴 ' + t('sf_ev')], ...[...ha].filter(Boolean).sort((a, b) => a.localeCompare(b)).map(n => ['ha:' + n, '📡 ' + n]), ['vib', '🫨 ' + t('sens_vib')], ['tilt', '📐 ' + t('sens_tilt')], ['cam', '🏃 ' + t('sens_cam')]];
   for (const box of [$('sflt'), $('lsflt')]) {
     if (!box) continue;
     const sig = JSON.stringify([items, [...SHIDE], lang]); if (box.dataset.sig === sig) continue; box.dataset.sig = sig;
@@ -2571,7 +2571,7 @@ function renderSrcBar() {
   const bar = $('srcbar');
   const html = SOURCES.map(s => {
     const [cls, tip] = srcState(s);
-    const M = s.motion || {}, mo = (M.vib && M.vib.active ? '<b class="motact" title="' + esc(t('mot_vib')) + '">🫨</b>' : '') + (M.cam && M.cam.active ? '<b class="motact" title="' + esc(t('mot_cam')) + '">🏃</b>' : '');
+    const M = s.motion || {}, mo = (M.vib && M.vib.active ? '<b class="motact" title="' + esc(t('mot_vib')) + '">🫨</b>' : '') + (M.tilt && M.tilt.active ? '<b class="motact" title="' + esc(t('mot_tilt')) + '">📐</b>' : '') + (M.cam && M.cam.active ? '<b class="motact" title="' + esc(t('mot_cam')) + '">🏃</b>' : '');
     return `<button class="chip${s.id === selSrc ? ' sel' : ''}" data-id="${esc(s.id)}" title="${esc(tip)}"><i class="dot ${cls}"></i><span class="cn">${esc(s.name)}</span>${mo}<em>${s.count_today || 0}</em></button>`;
   }).join('');
   if (bar.dataset.h !== html) {
@@ -2967,15 +2967,16 @@ function sourceRow(s) {
     if (!PHONE.ffmpeg) sub.appendChild(el('small', { textContent: t('no_ffmpeg') }));
   }
   if (s.type === 'phone') { const q = el('button', { textContent: t('connect_phone') }); q.onclick = () => showQR(s.id); sub.appendChild(q); }
-  if (s.type === 'phone') {                       // Handy als Bewegungsmelder (Erschütterung, Bewegung im Kamerabild)
+  if (s.type === 'phone' || s.type === 'url') {   // Handy als Bewegungsmelder (Erschütterung, Neigung, Bewegung im Kamerabild) – Browser-Seite oder IP Webcam
     const mb = el('div', { className: 'srcmot' }), M = s.motion || {};
-    mb.appendChild(el('b', { textContent: t('mot_title') }));
+    mb.appendChild(el('b', { textContent: t(s.type === 'url' ? 'mot_title_ipc' : 'mot_title') }));
     const mk = (key, kind) => { const l = el('label'), c = el('input', { type: 'checkbox', checked: !!(M[kind] && M[kind].on) }); l.append(c, ' ' + t(key)); c.onchange = () => upd({ ['motion_' + kind]: c.checked }); return l; };
-    mb.append(mk('mot_vib', 'vib'), mk('mot_cam', 'cam'));
+    mb.append(mk('mot_vib', 'vib'), mk('mot_tilt', 'tilt'), mk('mot_cam', 'cam'));
     const sens = el('select', { className: 'motsens' }); option(sens, 'high', t('mot_s_high')); option(sens, 'mid', t('mot_s_mid')); option(sens, 'low', t('mot_s_low'));
     sens.value = s.motion_sens || 'mid'; sens.onchange = () => upd({ motion_sens: sens.value });
     const sl = el('label', { textContent: t('mot_sens') + ' ' }); sl.appendChild(sens); mb.appendChild(sl);
-    mb.appendChild(el('small', { textContent: t('h_mot') }));
+    mb.appendChild(el('small', { textContent: t(s.type === 'url' ? 'h_mot_ipc' : 'h_mot') }));
+    if (s.type === 'url' && s.motion_err) mb.appendChild(el('small', { className: 'moterr', textContent: '⚠ ' + s.motion_err.split(',').map(x => t('mot_err_' + x)).join(' ') }));
     sub.appendChild(mb);
   }
   const ds = el('button', { textContent: '⚙ ' + t('dev_settings') }); ds.onclick = () => { if (DEV !== s.id) setDev(s.id, true); setSTab('det'); }; sub.appendChild(ds);
@@ -3984,7 +3985,7 @@ function renderNight() {
       ...nn.map(([ev, n], i) => `<tr data-k="n" data-i="${i}"><td>${mk(0, '📝', noteCol(n))}${esc(t('tp_evnote'))}</td><td>${esc(fmtDay(n.date || d.date))}</td><td>${esc(n.clock)}</td><td>${esc(ev.name)}</td><td>${tx(n)}</td><td class="ntact">▶</td></tr>`),
       ...fl.map((n, i) => `<tr data-k="f" data-i="${i}"><td>${mk(0, '📝', '#7048e8')}${esc(t('tp_note'))}</td><td>${esc(fmtDay(n.date))}</td><td>${esc(n.clock)}${n.to ? '–' + esc(n.clock_to) : ''}${n.rz ? ' 🌙' : ''}</td><td>${esc(nmv(n.src || 'all'))}</td><td>${tx(n)}</td><td class="ntact fned" title="${esc(t('nt_edit'))}">✎</td></tr>`),
       ...mo.map((m, i) => { const a1 = new Date(m.a), b1 = new Date(m.b);
-        return `<tr data-k="m" data-i="${i}"><td>${mk(0, m.kind === 'vib' ? '🫨' : '🏃', m.kind === 'vib' ? '#e8590c' : '#1c7ed6')}${esc(t(m.kind === 'vib' ? 'mot_vib' : 'mot_cam'))}</td><td>${esc(a1.toLocaleDateString(L, { day: '2-digit', month: '2-digit' }))}</td><td>${esc(a1.toLocaleTimeString(L))}–${esc(b1.toLocaleTimeString(L))}</td><td>${esc(viewName(m.src))}</td><td><span class="ntt">${esc(fmtDur(Math.max(0, (m.b - m.a) / 1000)))} · ${esc(t('mot_peak'))} ${esc(m.kind === 'vib' ? f2(m.peak) + ' m/s²' : f1(m.peak) + ' %')}${m.open ? ' · ' + esc(t('mot_open')) : ''}</span></td><td></td></tr>`; })];
+        return `<tr data-k="m" data-i="${i}"><td>${mk(0, sensIcon(m.kind), m.kind === 'vib' ? '#e8590c' : m.kind === 'tilt' ? '#9c36b5' : '#1c7ed6')}${esc(t(m.kind === 'vib' ? 'mot_vib' : m.kind === 'tilt' ? 'mot_tilt' : 'mot_cam'))}</td><td>${esc(a1.toLocaleDateString(L, { day: '2-digit', month: '2-digit' }))}</td><td>${esc(a1.toLocaleTimeString(L))}–${esc(b1.toLocaleTimeString(L))}</td><td>${esc(viewName(m.src))}</td><td><span class="ntt">${esc(fmtDur(Math.max(0, (m.b - m.a) / 1000)))} · ${esc(t('mot_peak'))} ${esc(m.kind === 'vib' ? f2(m.peak) + ' m/s²' : f1(m.peak) + ' %')}${m.open ? ' · ' + esc(t('mot_open')) : ''}</span></td><td></td></tr>`; })];
     const goto = (a, b) => dtFocus(a, b);
     tabGrid($('nnotes'), rows.length ? `<table><tr><th>${esc(t('col_type'))}</th><th>${esc(t('date'))}</th><th>${esc(t('col_time'))}</th><th>${esc(t('src_col'))}</th><th>${esc(t('col_text'))}</th><th></th></tr>${rows.join('')}</table>` : '<div></div>',
       { onRow: (ds, e) => { const i = +ds.i;

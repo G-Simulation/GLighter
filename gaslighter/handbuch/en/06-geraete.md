@@ -30,8 +30,17 @@ A phone set up as a device can additionally act as a **motion sensor** – like 
 
 - **🫨 Vibration** (accelerometer): the phone lies flat on the floor, a table or against the wall and reports vibrations – e.g. stomping, bass coming through the ceiling, slamming doors or moving furniture. This documents structure-borne noise you feel, not just hear.
 - **🏃 Motion in the camera picture**: the phone camera detects motion in the picture (e.g. in the stairwell). Sudden brightness changes (light on/off) are compensated.
+- **📐 Tilt**: after starting, the phone remembers its rest position and reports when it is moved, tipped or lifted (sensitivity high/medium/low ≈ 3°/6°/12°). If it lies still in a new position for 1 minute, that becomes the new rest position.
 
 **Switch on:** ⚙ Settings → Devices → card of the phone → **Phone as motion sensor** → tick "Vibration" and/or "Motion in camera picture", choose the **sensitivity** (high, medium, low). Then reload the page on the phone and tap **Start**. The browser asks for the camera or (iPhone) for "motion and orientation".
+
+### With the IP Webcam app {#ipwebcam}
+
+If the phone is connected via **“+ Phone app / stream URL”** with the Android app **IP Webcam**, GasLighter reads the app’s sensors (`http://PHONE:8080/sensors.json`; a login in the address is used too). On the device card the box is called **“IP Webcam: read phone sensors”**, with the same switches (vibration, tilt, motion in camera picture) and the same sensitivity.
+
+- **Vibration and tilt** come from the phone’s accelerometer – the sensors must be switched on in IP Webcam.
+- **Motion in camera picture** uses IP Webcam’s **motion detection** – switch it on in the app.
+- If something is missing or the app is unreachable, the card says what to switch on.
 
 > **Privacy:** everything is evaluated on the phone. Only numbers are sent (vibration strength, share of changed pixels) – **no picture and no video**. The preview is only visible on the phone itself.
 

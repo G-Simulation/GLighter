@@ -32,7 +32,7 @@ HERE = os.path.dirname(os.path.abspath(__file__))
 WEB = os.path.join(HERE, "web")
 OPTIONS_FILE = os.environ.get("LAERM_OPTIONS", "/data/options.json")
 SETTINGS_FILE = os.environ.get("LAERM_SETTINGS", "/data/settings.json")
-VERSION = "1.61.1"
+VERSION = "1.62.0"
 
 # =====================================================================
 # Einstellungen
@@ -1931,8 +1931,8 @@ def clean_source(d, existing=None):
                 s["gain_db"] = int(g) if g.is_integer() else g
         except (TypeError, ValueError, OverflowError):
             pass
-    if s.get("type") == "phone":                       # Handy als Bewegungsmelder
-        for k in ("motion_vib", "motion_cam"):
+    if s.get("type") in ("phone", "url"):              # Handy als Bewegungsmelder (Browser-Seite oder IP Webcam)
+        for k in ("motion_vib", "motion_cam", "motion_tilt"):
             if k in d:
                 s[k] = d[k] in (True, "true", "on", 1, "1")
         if d.get("motion_sens") in ("low", "mid", "high"):
@@ -2157,18 +2157,21 @@ def pub(topic, payload, retain=False):
 # hier wird daraus ein Ereignis mit Beginn, Ende und Spitze (out/bewegung.csv) und ein
 # Bewegungsmelder in Home Assistant (MQTT binary_sensor). Gehört zu den externen Geräten (Pro).
 # =====================================================================
-MOTION_KINDS = ("vib", "cam")
+MOTION_KINDS = ("vib", "cam", "tilt")
 MOTION_HOLD_S = 20                     # so lange nach dem letzten Auslösen gilt die Bewegung noch als an
 MOTION_THR = {"vib": {"high": 0.05, "mid": 0.12, "low": 0.30},     # m/s² (Beschleunigung ohne Schwerkraft, Spitze je 200 ms)
-              "cam": {"high": 0.5, "mid": 1.5, "low": 4.0}}       # % der Bildpunkte, die sich deutlich ändern
-MOTION_NAME = {"vib": ("Erschütterung", "Vibration"), "cam": ("Bewegung", "Motion")}
-MOTION_KEY = {"vib": "erschuetterung", "cam": "bewegung"}
+              "cam": {"high": 0.5, "mid": 1.5, "low": 4.0},       # % der Bildpunkte, die sich deutlich ändern
+              "tilt": {"high": 3.0, "mid": 6.0, "low": 12.0}}     # Grad gegenüber der Ruhelage (Handy bewegt, gekippt, angehoben)
+MOTION_NAME = {"vib": ("Erschütterung", "Vibration"), "cam": ("Bewegung", "Motion"), "tilt": ("Neigung", "Tilt")}
+MOTION_KEY = {"vib": "erschuetterung", "cam": "bewegung", "tilt": "neigung"}
+MOTION_UNIT = {"vib": "m/s²", "cam": "%", "tilt": "°"}
+MOTION_FROM_KEY = {v: k for k, v in MOTION_KEY.items()}
 MOTION_LOCK = threading.Lock()
 
 
 def motion_cfg(src):
     sens = src.get("motion_sens") if src.get("motion_sens") in ("low", "mid", "high") else "mid"
-    return {"vib": bool(src.get("motion_vib")), "cam": bool(src.get("motion_cam")), "sens": sens}
+    return {"vib": bool(src.get("motion_vib")), "cam": bool(src.get("motion_cam")), "tilt": bool(src.get("motion_tilt")), "sens": sens}
 
 
 def motion_path():
@@ -2184,7 +2187,7 @@ def motion_write(r, kind, st):
            "ende": dt.datetime.fromtimestamp(b).astimezone().isoformat(timespec="seconds"),
            "dauer_s": f"{max(0.0, b - a):.1f}", "quelle_id": r.id, "quelle": r.name,
            "art": MOTION_KEY[kind], "spitze": f"{st['peak']:.3f}" if kind == "vib" else f"{st['peak']:.1f}",
-           "einheit": "m/s²" if kind == "vib" else "%"}
+           "einheit": MOTION_UNIT[kind]}
     pth = motion_path()
     with MOTION_LOCK:
         new = not os.path.exists(pth)
@@ -2209,7 +2212,7 @@ def motion_rows(a_ms=None, b_ms=None, src=None):
             continue
         if (a_ms is not None and tb < a_ms) or (b_ms is not None and ta > b_ms) or (src and src != "all" and x.get("quelle_id") != src):
             continue
-        out.append({"a": int(ta), "b": int(tb), "src": x.get("quelle_id"), "name": x.get("quelle"), "kind": "vib" if x.get("art") == "erschuetterung" else "cam",
+        out.append({"a": int(ta), "b": int(tb), "src": x.get("quelle_id"), "name": x.get("quelle"), "kind": MOTION_FROM_KEY.get(x.get("art"), "cam"),
                     "peak": float(x.get("spitze") or 0), "unit": x.get("einheit") or ""})
     # laufende Bewegungen dazu
     with SRC_LOCK:
@@ -2218,7 +2221,7 @@ def motion_rows(a_ms=None, b_ms=None, src=None):
         for kind, st in (getattr(r, "motion", None) or {}).items():
             if st.get("on") and (not src or src == "all" or src == r.id):
                 out.append({"a": int(st["since"] * 1000), "b": int(st["last"] * 1000), "src": r.id, "name": r.name, "kind": kind,
-                            "peak": st["peak"], "unit": "m/s²" if kind == "vib" else "%", "open": True})
+                            "peak": st["peak"], "unit": MOTION_UNIT[kind], "open": True})
     out.sort(key=lambda x: x["a"])
     return out
 
@@ -2269,6 +2272,105 @@ def motion_watch():
             log("Bewegung prüfen fehlgeschlagen:", e)
 
 
+# ---------------------------------------------------------------------
+# IP Webcam (Android-App): Sensoren des Handys mitlesen – Erschütterung (Beschleunigung ohne Schwerkraft),
+# Neigung (Lage gegenüber der Ruhelage) und Bewegung im Bild (Bewegungserkennung der App).
+# Abgefragt wird http://HANDY:PORT/sensors.json; es wird nichts am Handy verändert.
+# ---------------------------------------------------------------------
+def ipcam_base(src):
+    p = urllib.parse.urlsplit(src.get("url") or "")
+    if not p.hostname:
+        return ""
+    if p.scheme in ("http", "https"):
+        return f"{p.scheme}://{p.hostname}:{p.port or (443 if p.scheme == 'https' else 80)}"
+    return f"http://{p.hostname}:8080"                     # RTSP o. ä.: IP Webcam liefert die Sensoren auf dem Web-Port
+
+
+def ipcam_poll(r):
+    st = r.__dict__.setdefault("_ipc", {"last": 0, "g": None, "gs": None, "gb": None, "n": 0, "err": "", "fail": 0, "next": 0.0, "still": 0.0})
+    now = time.time()
+    if now < st["next"]:
+        return
+    base = ipcam_base(r.src)
+    if not base:
+        st["err"] = "no url"; return
+    req = urllib.request.Request(base + "/sensors.json?sense=accel,motion_active,motion&from=" + str(int(st["last"])))
+    if r.src.get("user"):
+        req.add_header("Authorization", "Basic " + base64.b64encode(f'{r.src.get("user")}:{r.src.get("password") or ""}'.encode()).decode())
+    try:
+        with urllib.request.urlopen(req, timeout=4) as f:
+            j = json.loads(f.read(2_000_000).decode("utf-8", "replace") or "{}")
+    except Exception as e:
+        st["fail"] += 1; st["next"] = now + min(30, 2 * st["fail"])
+        st["err"] = "unreachable" if st["fail"] >= 3 else st["err"]
+        return
+    st["fail"] = 0; st["next"] = now + 1.0
+    mc = motion_cfg(r.src)
+    acc = ((j.get("accel") or {}).get("data") or []) if isinstance(j, dict) else []
+    mot = ((j.get("motion_active") or {}).get("data") or []) if isinstance(j, dict) else []
+    missing = []
+    if (mc["vib"] or mc["tilt"]) and not acc and not st["n"]:
+        missing.append("accel")
+    if mc["cam"] and not mot:
+        missing.append("motion")
+    st["err"] = ",".join(missing)
+    vib = tilt = None
+    for row in acc:
+        try:
+            ts, v = float(row[0]), [float(x) for x in row[1][:3]]
+        except (TypeError, ValueError, IndexError):
+            continue
+        if ts <= st["last"] or len(v) < 3:
+            continue
+        st["last"] = ts; st["n"] += 1
+        g = st["g"] or v; g = [0.9 * a + 0.1 * b for a, b in zip(g, v)]; st["g"] = g          # schnell: Schwerkraft für Erschütterung
+        gs = st["gs"] or v; gs = [0.97 * a + 0.03 * b for a, b in zip(gs, v)]; st["gs"] = gs  # langsam: Lage des Handys
+        d = math.sqrt(sum((a - b) ** 2 for a, b in zip(v, g)))
+        vib = d if vib is None else max(vib, d)
+        if st["gb"] is None and st["n"] >= 60:
+            st["gb"] = list(gs)                                                                # Ruhelage nach den ersten Werten
+        if st["gb"] is not None:
+            na = math.sqrt(sum(x * x for x in gs)); nb = math.sqrt(sum(x * x for x in st["gb"]))
+            if na > 1 and nb > 1:
+                c = max(-1.0, min(1.0, sum(x * y for x, y in zip(gs, st["gb"])) / (na * nb)))
+                a = math.degrees(math.acos(c)); tilt = a if tilt is None else max(tilt, a)
+    if tilt is not None:                               # liegt das Handy 60 s ruhig in einer neuen Lage, gilt diese als Ruhelage
+        if vib is not None and vib < 0.05 and tilt >= MOTION_THR["tilt"]["high"]:
+            if not st["still"]:
+                st["still"] = now
+            elif now - st["still"] > 60:
+                st["gb"] = list(st["gs"]); st["still"] = 0.0
+        else:
+            st["still"] = 0.0
+    cam = None
+    if mot:
+        try:
+            cam = 100.0 if float(mot[-1][-1][0]) >= 0.5 else 0.0
+        except (TypeError, ValueError, IndexError):
+            cam = None
+    if not st["last"] and acc:
+        try:
+            st["last"] = float(acc[-1][0])
+        except (TypeError, ValueError, IndexError):
+            pass
+    motion_feed(r, {"vib": vib, "cam": cam, "tilt": tilt}, now)
+
+
+def ipcam_watch():
+    while True:
+        time.sleep(0.5)
+        try:
+            with SRC_LOCK:
+                rs = [r for r in RUNNERS.values() if r.src.get("type") == "url" and src_runs(r.src)]
+            for r in rs:
+                mc = motion_cfg(r.src)
+                if mc["vib"] or mc["cam"] or mc["tilt"]:
+                    ipcam_poll(r)
+        except Exception as e:
+            log("IP-Webcam-Sensoren:", e)
+            time.sleep(5)
+
+
 def announce_source(r):
     """MQTT-Entitaeten einer Quelle. Das Server-Mikrofon behaelt die Topics und IDs von frueher."""
     de = CFG["language"] != "en"
@@ -2288,9 +2390,9 @@ def announce_source(r):
                                       "json_attributes_topic": f"{t}/pruefsumme_attr", "entity_category": "diagnostic"}
     if CFG.get("classify"):
         ents[("sensor", "sound_type")] = {"name": "Letzte Geräuschart" if de else "Last sound type", "icon": "mdi:ear-hearing", "json_attributes_topic": f"{t}/sound_type_attr"}
-    if r.src.get("type") == "phone":
+    if r.src.get("type") in ("phone", "url"):
         mc = motion_cfg(r.src)
-        for kind, dc in (("vib", "vibration"), ("cam", "motion")):
+        for kind, dc in (("vib", "vibration"), ("cam", "motion"), ("tilt", "moving")):
             if mc[kind]:
                 ents[("binary_sensor", MOTION_KEY[kind])] = {"name": MOTION_NAME[kind][0 if de else 1], "payload_on": "ON", "payload_off": "OFF", "device_class": dc}
             else:
@@ -2317,7 +2419,7 @@ def announce_source(r):
 def unannounce_source(sid):
     uid = f"gaslighter_{sid}"
     for comp, key in (("sensor", "level"), ("sensor", "baseline"), ("sensor", "threshold"), ("binary_sensor", "active"), ("binary_sensor", "online"), ("sensor", "sound_type"), ("sensor", "pruefsumme"),
-                      ("binary_sensor", "erschuetterung"), ("binary_sensor", "bewegung")):
+                      ("binary_sensor", "erschuetterung"), ("binary_sensor", "bewegung"), ("binary_sensor", "neigung")):
         pub(f"homeassistant/{comp}/{uid}/{key}/config", "", True)
     for key in ("active", "online"):
         pub(f"{TOPIC}/{sid}/{key}", "", True)
@@ -6257,9 +6359,9 @@ def protocol_html(q):
                  '<th>Gerät</th><th style="width:28%">Art</th><th style="width:16%">Spitze</th></tr>')
         for m_ in mrows:
             ta, tb = dt.datetime.fromtimestamp(m_["a"] / 1000), dt.datetime.fromtimestamp(m_["b"] / 1000)
-            pk = (f'{m_["peak"]:.2f} m/s²' if m_["kind"] == "vib" else f'{m_["peak"]:.1f} %').replace(".", ",")
+            pk = (f'{m_["peak"]:.2f} m/s²' if m_["kind"] == "vib" else f'{m_["peak"]:.0f}°' if m_["kind"] == "tilt" else f'{m_["peak"]:.1f} %').replace(".", ",")
             o.append(f'<tr><td>{h(dmy(ta.date().isoformat()))}</td><td>{ta:%H:%M:%S}–{tb:%H:%M:%S}</td><td>{h(m_["name"] or m_["src"])}</td>'
-                     f'<td>{"Erschütterung (Beschleunigungssensor)" if m_["kind"] == "vib" else "Bewegung im Kamerabild"}</td><td>{h(pk)}</td></tr>')
+                     f'<td>{"Erschütterung (Beschleunigungssensor)" if m_["kind"] == "vib" else "Neigung (Handy bewegt/gekippt)" if m_["kind"] == "tilt" else "Bewegung im Kamerabild"}</td><td>{h(pk)}</td></tr>')
         o.append('</table><div class="small mut">Ausgewertet auf dem Handy; gespeichert sind nur Beginn, Ende und Spitzenwert, kein Bild und kein Ton.</div>')
     if witnesses:
         o.append('<h2>Zeugen</h2><ul>' + "".join(f'<li>{h(w)}</li>' for w in witnesses) + '</ul>')
@@ -7096,7 +7198,10 @@ class Runner:
                  count_today=self.count_today, count_total=self.count_total, pro_lock=bool(self.src.get("type") != "local" and not pro_ok()))
         if self.src["type"] == "phone":
             s["has_token"] = True
+        if self.src["type"] in ("phone", "url"):
             mc = motion_cfg(self.src); ms = getattr(self, "motion", None) or {}
+            if self.src["type"] == "url":
+                s["motion_err"] = (getattr(self, "_ipc", None) or {}).get("err", "")
             s["motion"] = {k: {"on": mc[k], "active": bool(ms.get(k, {}).get("on")), "level": round(ms.get(k, {}).get("level", 0.0), 3),
                                "thr": MOTION_THR[k][mc["sens"]]} for k in MOTION_KINDS}
             s["motion_sens"] = mc["sens"]
@@ -7206,6 +7311,7 @@ def main():
     log("Quellen:", ", ".join(f"{r.name} ({r.src['type']})" for r in RUNNERS.values()))
     mqtt_start(); cleanup()
     threading.Thread(target=motion_watch, daemon=True).start()
+    threading.Thread(target=ipcam_watch, daemon=True).start()
     threading.Thread(target=sidx_warm, daemon=True).start()
     for r in list(RUNNERS.values()):
         r.start()
@@ -10354,9 +10460,9 @@ class PhoneHandler(BaseHandler):
                 except (TypeError, ValueError):
                     return None
             if enabled and res in ("ok", "dup"):
-                mv, mcam = qf("mv"), qf("mc")
-                if mv is not None or mcam is not None:
-                    motion_feed(r, {"vib": mv, "cam": mcam}, time.time() - max(0, min(age or 0, 300000)) / 1000.0)
+                mv, mcam, mt = qf("mv"), qf("mc"), qf("mt")
+                if mv is not None or mcam is not None or mt is not None:
+                    motion_feed(r, {"vib": mv, "cam": mcam, "tilt": mt}, time.time() - max(0, min(age or 0, 300000)) / 1000.0)
             if res == "ok":
                 info = device_from_ua(self.headers.get("User-Agent", ""))
                 dev = re.sub(r"[^\w .,()+-]", "", (q.get("dev") or [""])[0])[:40].strip()      # Modell vom Handy selbst

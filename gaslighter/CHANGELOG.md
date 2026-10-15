@@ -1,5 +1,11 @@
 # Changelog
 
+## 1.62.0
+- **IP Webcam als Bewegungsmelder:** Bei Handys mit der App IP Webcam (Stream-URL) liest GasLighter die Sensoren der App mit (`/sensors.json`): **Erschütterung** und **Neigung** aus dem Beschleunigungssensor, **Bewegung im Bild** aus der Bewegungserkennung der App. Schalter und Empfindlichkeit auf der Karte des Geräts; fehlt etwas, steht dort, was in der App einzuschalten ist.
+- **Neu: 📐 Neigung** (Handy bewegt, gekippt, angehoben) – für IP Webcam und für das Handy im Browser. Lernt nach dem Start die Ruhelage; liegt das Handy 1 min ruhig in einer neuen Lage, gilt diese als neue Ruhelage.
+- Neigung erscheint wie Erschütterung und Bewegung in den Ereignissen, im Verlauf, im Lärmprotokoll und als eigener Melder in Home Assistant.
+- Handbuch: Geräte → Handy als Bewegungsmelder (IP Webcam, Neigung).
+
 ## 1.61.1
 - Notiz / manuelle Erfassung: Markierungen, Zeuge, von/bis und Gerät lassen sich mit „▸ Mehr“ / „▾ Weniger“ einklappen – auch im abgedockten Fenster. Wird pro Browser gemerkt; eingeklappt zeigt der Knopf, wie viele Markierungen gesetzt sind.
 - Englisch: Hinweis zum Design-Knopf wechselt jetzt mit der Sprache. Oberfläche, Einstellungen, Protokolle, Handbuch und Druck auf Englisch geprüft.

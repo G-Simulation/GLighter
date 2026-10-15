@@ -45,6 +45,7 @@ h1{font-size:20px;margin:0}.sub{color:var(--mut);font-size:14px}
   </div>
   <div class="card mot" id="mot"><h2 id="mott"></h2>
     <div class="mrow" id="mvr"><span id="mvl"></span><b id="mvv">–</b></div>
+    <div class="mrow" id="mtr"><span id="mtl"></span><b id="mtv">–</b></div>
     <div class="mrow" id="mcr"><span id="mcl"></span><b id="mcv">–</b></div>
     <video id="camv" muted playsinline></video>
     <div class="mhint" id="mhint"></div></div>
@@ -60,7 +61,7 @@ const T = {
     insecure: 'Diese Seite muss über https:// geöffnet werden, sonst gibt der Browser das Mikrofon nicht frei.',
     hidden: 'Seite war im Hintergrund – Aufnahme läuft weiter, sobald sie wieder sichtbar ist. Bildschirm anlassen!',
     nolink: 'Ungültiger oder erneuerter Link. Öffne den QR-Code im GasLighter neu.', busy: 'Dieser Link wird gerade auf einem anderen Gerät benutzt. Dort stoppen oder im GasLighter eine eigene Quelle für dieses Handy anlegen.', thr: 'Schwelle', sent: 'gesendet', wlon: 'Bildschirm bleibt an', wloff: 'Bildschirm-Sperre nicht verhinderbar – bitte Display-Timeout verlängern',
-    mot: 'Bewegungsmelder', mvib: '🫨 Erschütterung', mcam: '🏃 Bewegung im Bild', mon: 'ausgelöst', mhint: 'Ausgewertet wird nur hier auf dem Handy – es werden nur Zahlen gesendet, kein Bild und kein Video. Für Erschütterung das Handy flach auf Boden, Tisch oder an die Wand legen.',
+    mot: 'Bewegungsmelder', mvib: '🫨 Erschütterung', mtilt: '📐 Neigung', mcam: '🏃 Bewegung im Bild', mon: 'ausgelöst', mhint: 'Ausgewertet wird nur hier auf dem Handy – es werden nur Zahlen gesendet, kein Bild und kein Video. Für Erschütterung das Handy flach auf Boden, Tisch oder an die Wand legen.',
     mden: 'Bewegungssensor nicht freigegeben – in den Browser-Einstellungen für diese Seite „Bewegung und Ausrichtung“ erlauben.', mcden: 'Kamera nicht freigegeben – Bewegung im Bild ist aus.', mnone: 'Dieses Handy hat keinen Bewegungssensor.',
     tips: ['Handy ans Ladegerät und an die Stelle legen, von der der Lärm kommt (z. B. an die Wand).', 'Diese Seite geöffnet lassen. Der Bildschirm bleibt automatisch an und wird nur gedimmt, wenn du die Helligkeit herunterregelst.',
       'Nicht sperren und nicht in eine andere App wechseln – Android schaltet das Mikrofon sonst ab.', 'Tipp: Chrome-Menü ⋮ → „Zum Startbildschirm hinzufügen“, dann startet die Seite wie eine App.',
@@ -70,7 +71,7 @@ const T = {
     insecure: 'This page must be opened via https://, otherwise the browser will not release the microphone.',
     hidden: 'Page was in the background – recording continues once it is visible again. Keep the screen on!',
     nolink: 'Invalid or renewed link. Open the QR code in GasLighter again.', busy: 'This link is currently used on another device. Stop it there or create a separate source for this phone in GasLighter.', thr: 'Threshold', sent: 'sent', wlon: 'Screen stays on', wloff: 'Cannot keep the screen on – please increase the display timeout',
-    mot: 'Motion sensor', mvib: '🫨 Vibration', mcam: '🏃 Motion in picture', mon: 'triggered', mhint: 'Evaluated only here on the phone – only numbers are sent, no picture and no video. For vibration lay the phone flat on the floor, a table or against the wall.',
+    mot: 'Motion sensor', mvib: '🫨 Vibration', mtilt: '📐 Tilt', mcam: '🏃 Motion in picture', mon: 'triggered', mhint: 'Evaluated only here on the phone – only numbers are sent, no picture and no video. For vibration lay the phone flat on the floor, a table or against the wall.',
     mden: 'Motion sensor not allowed – allow “motion and orientation” for this site in the browser settings.', mcden: 'Camera not allowed – motion in picture is off.', mnone: 'This phone has no motion sensor.',
     tips: ['Put the phone on the charger at the spot where the noise comes from (e.g. against the wall).', 'Keep this page open. The screen stays on automatically.',
       'Do not lock the phone or switch apps – Android would turn the microphone off.', 'Tip: Chrome menu ⋮ → "Add to Home screen" to start the page like an app.',
@@ -86,13 +87,13 @@ let acc = new Float32Array(0), queue = [], seq = 0, sending = false, sentBytes =
 const sid = Math.random().toString(16).slice(2) + Date.now().toString(16);
 let devModel = '', devPv = '';
 try { if (navigator.userAgentData && navigator.userAgentData.getHighEntropyValues) navigator.userAgentData.getHighEntropyValues(['model', 'platformVersion']).then(v => { devModel = (v.model || '').slice(0, 40); devPv = (v.platformVersion || '').split('.').slice(0, 2).join('.'); }).catch(() => { }); } catch (e) { }
-let MOT = { vib: false, cam: false }, curV = 0, curC = 0, lastV = 0, lastC = 0, srvMot = {}, camStream = null, camTimer = 0, motOn = false, gx = 0, gy = 0, gz = 0;
+let MOT = { vib: false, cam: false, tilt: false }, lastT = 0, curT = 0, tG = null, tB = null, tN = 0, curV = 0, curC = 0, lastV = 0, lastC = 0, srvMot = {}, camStream = null, camTimer = 0, motOn = false, gx = 0, gy = 0, gz = 0;
 let srvThr = null, srvActive = false, srvLearning = false, srvEnabled = true, srvPaused = false, srvHold = null, localDb = -120;
 
 function tr() {
   $('go').textContent = running ? L.stop : L.start;
-  $('mot').style.display = MOT.vib || MOT.cam ? 'block' : 'none'; $('mvr').style.display = MOT.vib ? 'flex' : 'none'; $('mcr').style.display = MOT.cam ? 'flex' : 'none';
-  $('mott').textContent = L.mot; $('mvl').textContent = L.mvib; $('mcl').textContent = L.mcam; if (!$('mhint').dataset.err) $('mhint').textContent = L.mhint;
+  $('mot').style.display = MOT.vib || MOT.cam || MOT.tilt ? 'block' : 'none'; $('mvr').style.display = MOT.vib ? 'flex' : 'none'; $('mtr').style.display = MOT.tilt ? 'flex' : 'none'; $('mcr').style.display = MOT.cam ? 'flex' : 'none';
+  $('mott').textContent = L.mot; $('mvl').textContent = L.mvib; $('mtl').textContent = L.mtilt; $('mcl').textContent = L.mcam; if (!$('mhint').dataset.err) $('mhint').textContent = L.mhint;
   $('tips').innerHTML = L.tips.map(s => '<li>' + s.replace(/</g, '&lt;') + '</li>').join('');
 }
 function warn(msg) { const w = $('warn'); w.style.display = msg ? 'block' : 'none'; w.textContent = msg || ''; }
@@ -104,7 +105,7 @@ async function info() {
     const j = await (await fetch(BASE + '/info', { cache: 'no-store' })).json();
     if (j.lang === 'en') L = T.en; else if (j.lang === 'de') L = T.de;
     $('srcname').textContent = j.name; document.title = j.name + ' – GasLighter';
-    if (j.motion) MOT = { vib: !!j.motion.vib, cam: !!j.motion.cam };
+    if (j.motion) MOT = { vib: !!j.motion.vib, cam: !!j.motion.cam, tilt: !!j.motion.tilt };
     tr();
   } catch (e) { warn(L.nolink); }
 }
@@ -132,7 +133,7 @@ function onAudio(f32) {
     const c = acc.subarray(0, need), pcm = new Int16Array(need); let sq = 0;
     for (let i = 0; i < need; i++) { const v = Math.max(-1, Math.min(1, c[i])); pcm[i] = v < 0 ? v * 32768 : v * 32767; sq += v * v; }
     localDb = 10 * Math.log10(sq / need + 1e-12);
-    queue.push({ seq: seq++, buf: pcm.buffer, t: Date.now(), mv: MOT.vib && motOn ? curV : null, mc: MOT.cam && camStream ? curC : null }); lastV = curV; lastC = curC; curV = 0; curC = 0;
+    queue.push({ seq: seq++, buf: pcm.buffer, t: Date.now(), mv: MOT.vib && motOn ? curV : null, mc: MOT.cam && camStream ? curC : null, mt: MOT.tilt && tB ? curT : null }); lastT = curT; curT = 0; lastV = curV; lastC = curC; curV = 0; curC = 0;
     if (queue.length > 900) queue.splice(0, queue.length - 900);       // hoechstens 3 min puffern (Update, WLAN weg); nur im Arbeitsspeicher
     acc = acc.slice(need);
   }
@@ -184,17 +185,23 @@ async function send() {
 /* Bewegungsmelder: Erschütterung (Beschleunigung ohne Schwerkraft) und Bewegung im Kamerabild – nur hier ausgewertet */
 function motParams(parts) {
   let v = null, c = null;
-  for (const p of parts) { if (p.mv != null) v = Math.max(v || 0, p.mv); if (p.mc != null) c = Math.max(c || 0, p.mc); }
-  return (v != null ? '&mv=' + v.toFixed(4) : '') + (c != null ? '&mc=' + c.toFixed(2) : '');
+  let tt = null; for (const p of parts) { if (p.mv != null) v = Math.max(v || 0, p.mv); if (p.mc != null) c = Math.max(c || 0, p.mc); if (p.mt != null) tt = Math.max(tt || 0, p.mt); }
+  return (v != null ? '&mv=' + v.toFixed(4) : '') + (c != null ? '&mc=' + c.toFixed(2) : '') + (tt != null ? '&mt=' + tt.toFixed(1) : '');
 }
 function onMotion(e) {
   let x, y, z; const a = e.acceleration;
   if (a && a.x != null) { x = a.x; y = a.y; z = a.z; }
   else { const g = e.accelerationIncludingGravity; if (!g || g.x == null) return; gx = 0.92 * gx + 0.08 * g.x; gy = 0.92 * gy + 0.08 * g.y; gz = 0.92 * gz + 0.08 * g.z; x = g.x - gx; y = g.y - gy; z = g.z - gz; }
   const m = Math.sqrt(x * x + y * y + z * z); if (isFinite(m)) curV = Math.max(curV, m); motOn = true;
+  const G = e.accelerationIncludingGravity;                      // Neigung: Lage gegenüber der Ruhelage (erste Sekunden)
+  if (MOT.tilt && G && G.x != null) {
+    tG = tG ? [0.97 * tG[0] + 0.03 * G.x, 0.97 * tG[1] + 0.03 * G.y, 0.97 * tG[2] + 0.03 * G.z] : [G.x, G.y, G.z]; tN++;
+    if (!tB && tN > 120) tB = tG.slice();
+    if (tB) { const na = Math.hypot(...tG), nb = Math.hypot(...tB); if (na > 1 && nb > 1) { const c = Math.max(-1, Math.min(1, (tG[0] * tB[0] + tG[1] * tB[1] + tG[2] * tB[2]) / (na * nb))); curT = Math.max(curT, Math.acos(c) * 180 / Math.PI); } }
+  }
 }
 async function motStart() {
-  if (MOT.vib) {
+  if (MOT.vib || MOT.tilt) {
     try {
       if (typeof DeviceMotionEvent === 'undefined') throw new Error('none');
       if (typeof DeviceMotionEvent.requestPermission === 'function' && await DeviceMotionEvent.requestPermission() !== 'granted') throw new Error('denied');
@@ -288,6 +295,7 @@ setInterval(() => {
   if (srvThr != null) { $('thr').style.display = 'block'; $('thr').style.left = X(srvThr) + '%'; $('thrv').textContent = L.thr + ' ' + srvThr.toFixed(1); }
   $('sent').textContent = (sentBytes / 1048576).toFixed(1) + ' MB ' + L.sent;
   if (MOT.vib) { $('mvv').textContent = (motOn ? lastV.toFixed(2) + ' m/s²' : '–') + (srvMot.vib ? ' · ' + L.mon : ''); $('mvv').className = srvMot.vib ? 'on' : ''; }
+  if (MOT.tilt) { $('mtv').textContent = (tB ? lastT.toFixed(0) + '°' : '–') + (srvMot.tilt ? ' · ' + L.mon : ''); $('mtv').className = srvMot.tilt ? 'on' : ''; }
   if (MOT.cam) { $('mcv').textContent = (camStream ? lastC.toFixed(1) + ' %' : '–') + (srvMot.cam ? ' · ' + L.mon : ''); $('mcv').className = srvMot.cam ? 'on' : ''; }
   if (Date.now() - lastOk < 3000) {
     if (!srvEnabled) setState(L.disabled, 'err');

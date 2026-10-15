@@ -227,6 +227,49 @@ class NotizAusHA(unittest.TestCase):
         self.assertEqual(len(self.notizen()), 0)
 
 
+class IpWebcamSensoren(unittest.TestCase):
+    """IP Webcam: sensors.json wird gelesen; Erschütterung, Neigung und Bewegung im Bild lösen den Melder aus."""
+    def setUp(self):
+        import io, threading
+        class R:
+            id = "ipc"; name = "Handy IP"; topic = "gaslighter/ipc"
+            src = {"type": "url", "url": "http://192.168.1.50:8080/audio.wav", "motion_vib": True, "motion_tilt": True, "motion_cam": True}
+        self.r = R(); self.t = 1000; self.feed = []; self.keep = (laerm.urllib.request.urlopen, laerm.pub, laerm.log)
+        laerm.pub = lambda *a, **k: None; laerm.log = lambda *a, **k: None
+        def fake(req, timeout=None):
+            self.urls.append(req.full_url)
+            return io.BytesIO(json.dumps(self.payload).encode())
+        self.urls = []; laerm.urllib.request.urlopen = fake
+
+    def tearDown(self):
+        laerm.urllib.request.urlopen, laerm.pub, laerm.log = self.keep
+
+    def send(self, vecs, mot=0):
+        rows = []
+        for v in vecs:
+            self.t += 50; rows.append([self.t, list(v)])
+        self.payload = {"accel": {"unit": "m/s²", "data": rows}, "motion_active": {"data": [[self.t, [float(mot)]]]}}
+        if hasattr(self.r, "_ipc"): self.r._ipc["next"] = 0
+        laerm.ipcam_poll(self.r)
+
+    def test_adresse_und_ruhe(self):
+        self.send([(0, 0, 9.81)] * 80)
+        self.assertTrue(self.urls[0].startswith("http://192.168.1.50:8080/sensors.json?"))
+        self.assertFalse(any(st["on"] for st in self.r.motion.values()))
+
+    def test_erschuetterung_neigung_bewegung(self):
+        self.send([(0, 0, 9.81)] * 80)
+        self.send([(0, 0, 9.81), (2.0, 1.0, 12.0), (0, 0, 9.81)])          # Stoß
+        self.assertTrue(self.r.motion["vib"]["on"])
+        self.send([(0, 6.9, 6.9)] * 120)                                   # um 45° gekippt
+        self.assertTrue(self.r.motion["tilt"]["on"]); self.assertGreater(self.r.motion["tilt"]["peak"], 20)
+        self.send([(0, 6.9, 6.9)], mot=1)
+        self.assertTrue(self.r.motion["cam"]["on"])
+
+    def test_rtsp_nimmt_port_8080(self):
+        self.assertEqual(laerm.ipcam_base({"url": "rtsp://10.0.0.7:8554/h264"}), "http://10.0.0.7:8080")
+
+
 class SchwelleAutomatisch(unittest.TestCase):
     """Vorschlag für die Schwelle aus gespeicherten Pegeln: Störungen zählen nicht mit, gestörte Messung wird erkannt."""
     def setUp(self):
