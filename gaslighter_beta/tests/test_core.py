@@ -438,6 +438,45 @@ class SicherungsZiel(unittest.TestCase):
         self.assertIn("demselben Speicher", laerm.mirror_check_target(self.dst))
 
 
+class EigeneSchnellwahl(unittest.TestCase):
+    """Eigene Schnellwahl-Tasten: anlegen, gelten für Notizen, lernen nur aus getipptem Text, nie von selbst angelegt."""
+    def setUp(self):
+        self.tmp = tempfile.mkdtemp(); self.keep = (dict(laerm.CFG),)
+        laerm.CFG.update(output_dir=self.tmp, clip_dir=""); laerm.QT["data"] = None
+
+    def tearDown(self):
+        laerm.CFG.clear(); laerm.CFG.update(self.keep[0]); laerm.QT["data"] = None
+
+    def test_anlegen_und_gueltig(self):
+        j = laerm.qt_change({"action": "add", "l": "  Waschmaschine <b> "})
+        k = j["k"]
+        self.assertTrue(k.startswith("c_")); self.assertEqual(laerm.tag_label(k), "Waschmaschine b")
+        self.assertEqual(laerm.clean_tags([k, "klopfen", "erfunden"]), [k, "klopfen"])
+        laerm.qt_change({"action": "del", "k": k})
+        self.assertEqual(laerm.clean_tags([k]), [])               # neue Notizen nicht mehr
+        self.assertTrue(laerm.tag_known(k))                       # alte bleiben lesbar
+        self.assertEqual(laerm.tag_label(k), "Waschmaschine b")
+        self.assertEqual(laerm.qt_change({"action": "add", "l": "waschmaschine b"})["k"], k)   # gleicher Name: wieder da
+        self.assertTrue(os.path.exists(os.path.join(self.tmp, "clips", "schnellwahl.json")))
+
+    def test_lernen_und_vorschlag(self):
+        for _ in range(3):
+            laerm.qt_learn(["klopfen"], "Die Waschmaschine schleudert wieder und das nervt")
+        st = laerm.qt_state()
+        self.assertEqual(st["use"]["klopfen"], 3)
+        self.assertIn("Waschmaschine", [x["w"] for x in st["suggest"]])
+        self.assertNotIn("wieder", [x["k"] for x in st["suggest"]])          # Füllwörter nicht
+        self.assertEqual(st["own"], [])                                      # nie von selbst angelegt
+        laerm.qt_change({"action": "nope", "w": "waschmaschine"})
+        self.assertNotIn("waschmaschine", [x["k"] for x in laerm.qt_state()["suggest"]])
+
+    def test_ausblenden(self):
+        laerm.qt_change({"action": "hide", "k": "hund", "on": True})
+        self.assertEqual(laerm.qt_state()["hide"], ["hund"])
+        self.assertTrue(laerm.tag_ok("hund"))                                # ausgeblendet heißt nicht verboten
+        self.assertFalse(laerm.qt_change({"action": "hide", "k": "gibtsnicht", "on": True})["ok"])
+
+
 class ArtStumm(unittest.TestCase):
     def test_liste(self):
         laerm.CFG["art_silent"] = laerm.clean_value("art_silent", "animal,knock") if hasattr(laerm, "clean_value") else "animal,knock"

@@ -1,5 +1,5 @@
 name: "GasLighter Beta"
-version: "1.65.0"
+version: "1.66.0"
 slug: gaslighter_beta
 description: "🧪 TESTVERSION / BETA – kann Fehler enthalten. Eigene Daten (/share/gaslighter_beta) und eigene Entitäten, läuft neben GasLighter. Lärmprotokoll: misst Lärm rund um die Uhr und protokolliert Störungen manipulationssicher – ohne Tonaufnahme / Noise log: measures noise 24/7 and logs disturbances tamper-evident – no audio recording"
 url: "https://www.gsimulations.de/gaslighter/"

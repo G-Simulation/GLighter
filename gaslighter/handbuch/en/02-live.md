@@ -56,6 +56,14 @@ For what you hear right now – just start typing or tap tags (upstairs, downsta
 - **From / to and witness** are always shown right in the area; leave them empty for “automatic” (time at saving).
 - **Only tags, no text?** GasLighter builds a sentence from them when saving, e.g. “Clear footsteps in the stairwell”. You can edit it later.
 
+### Custom quick select {#schnellwahl}
+
+- **＋ Custom** at the end of the buttons: enter a name (e.g. “washing machine”, “neighbour 2nd floor”) → **Create**. The button (★) then appears in all note fields, also when detached, and in the notes filter.
+- **Right-click or long-press** a button to open “Manage quick select”: **rename** or **delete** your own, **hide and show** built-in ones. Old notes keep their label.
+- **Learning:** if you type a word yourself more often (3× or more), GasLighter suggests it as a button (💡). It is only created when you press **＋**; **✕** means “stop suggesting”.
+- **Order:** what you press most often comes first – on a phone these are the first 6.
+- Your buttons are stored in `clips/schnellwahl.json` and are included in the backup (ZIP).
+
 **Detach (Pro):** **⧉** next to the title detaches the note area into its own small window. In Chrome and Edge it stays on top of other programs (e.g. over a game or film), otherwise it is a normal extra window. **Bring back** or closing the window puts it back.
 - [[Ctrl]] + [[Enter]] saves. On a phone the bar starts collapsed.
 

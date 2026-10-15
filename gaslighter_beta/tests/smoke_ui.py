@@ -82,6 +82,12 @@ def main():
                 fails.append("Kasten tägliche Sicherung fehlt")
             pg.keyboard.press("Escape"); pg.wait_for_timeout(300)
             pg.click("#tab_live"); pg.wait_for_timeout(600)
+            if pg.locator("#fnptags .ntadd").count() != 1:                # eigene Schnellwahl im Notiz-Feld
+                fails.append("Knopf ＋ Eigene fehlt in der Schnellwahl")
+            else:
+                pg.click("#fnptags .ntadd"); pg.fill("#fnptags_qt .qtnew", "Waschmaschine"); pg.click("#fnptags_qt .qtaddok"); pg.wait_for_timeout(800)
+                if not pg.locator('#fnptags .ntchip:has-text("Waschmaschine")').count():
+                    fails.append("eigene Schnellwahl-Taste erscheint nicht")
             b.close()
     finally:
         srv.terminate()

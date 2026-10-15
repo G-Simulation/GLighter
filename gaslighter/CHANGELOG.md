@@ -1,5 +1,12 @@
 # Changelog
 
+## 1.66.0
+- **Eigene Schnellwahl im Notiz-Feld:** Knopf **＋ Eigene** am Ende der Tasten – Namen eingeben (z. B. „Waschmaschine“), fertig ist die Taste (★). Gilt in allen Notiz-Feldern (Notiz jetzt, auch abgedockt, Notiz-Dialog, Notiz im Clip) und im Filter der Notizen.
+- **Verwalten:** Rechtsklick oder lange drücken auf eine Taste → eigene umbenennen oder löschen, eingebaute aus- und wieder einblenden. Alte Notizen behalten ihre Bezeichnung (auch im Druck und in der CSV).
+- **Lernt mit:** Wörter, die du oft selbst tippst (ab 3×), werden als Taste vorgeschlagen (💡 ＋ / ✕). Angelegt wird nur auf deinen Klick, nie von selbst.
+- **Häufigste zuerst:** Die Tasten sind nach Gebrauch sortiert – am Handy stehen so die wichtigsten unter den ersten 6.
+- Gespeichert in `clips/schnellwahl.json`, kommt mit in die Sicherung und wird beim Einspielen zusammengeführt.
+
 ## 1.65.0
 - **Notizen in den Ereignis-Tabellen** (Protokolle und Live): Jede angelegte Notiz steht als eigene Zeile „📝 Notiz“ mit Zeit (von–bis), Gerät, Markierungen, Zeuge und **Text direkt sichtbar**.
 - **Verknüpft mit der Störung im Zeitraum:** Die Notiz-Zeile zeigt „🔗 Störung 22:31:05“ (Klick öffnet sie), die Störungs-Zeile zeigt den Notiztext. Beide bleiben eigene Zeilen. Notiz ohne Ende gilt für eine Störung bis „Notiz gehört zur Störung, wenn bis zu (min) danach“.

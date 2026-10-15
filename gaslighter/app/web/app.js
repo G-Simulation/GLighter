@@ -2381,8 +2381,8 @@ function ntaLinks() {
 function openAllNotes() {
   const sel = $('ntasrc'), opts = [['all', t('all_sources')]].concat(SOURCES.map(x => [x.id, x.name]));
   sel.innerHTML = opts.map(([v, l]) => `<option value="${esc(v)}">${esc(l)}</option>`).join('');
-  $('ntatags').innerHTML = Object.keys(NOTE_TAGS).map(g => NOTE_TAGS[g].map(tg => `<button type="button" class="chip ntchip g-${g}${NTA.tags.has(tg) ? ' on' : ''}" data-t="${tg}">${esc(t('nt_' + tg))}</button>`).join('')).join('');
-  $('ntatags').querySelectorAll('.ntchip').forEach(b => b.onclick = () => { const tg = b.dataset.t; NTA.tags.has(tg) ? NTA.tags.delete(tg) : NTA.tags.add(tg); b.classList.toggle('on'); ntaLoad(); });
+  NT_AREAS.ntatags = () => { $('ntatags').innerHTML = ntList(NTA.tags, true).map(tg => ntChip(tg, NTA.tags.has(tg))).join(''); ntChipBind($('ntatags'), NTA.tags, () => ntaLoad()); };
+  NT_AREAS.ntatags();
   try { const pr = JSON.parse(localStorage.getItem('laerm_proto') || '{}'); $('ntaname').value = pr.name || ''; $('ntaaddr').value = pr.addr || ''; $('ntaflat').value = pr.flat || ''; $('ntaall').checked = pr.all === '1'; } catch (e) { }
   $('ntadlg').showModal(); ntaLoad();
 }
@@ -2396,12 +2396,86 @@ function ntaBind() {
 let NOTE_TAGS = { src: ['oben', 'unten', 'nebenan', 'treppenhaus', 'draussen', 'unklar'], kind: ['klopfen', 'schritte', 'musik', 'stimmen', 'tuer', 'moebel', 'bohren', 'hund'],
   lvl: ['leicht', 'deutlich', 'stark'], eff: ['aufgewacht', 'kind_geweckt', 'kein_schlaf', 'gestoert'], act: ['geklingelt', 'angesprochen', 'verwaltung', 'polizei'], misc: ['zeuge', 'serie'] };
 const NT_GCOL = { src: '#0ca678', kind: '#e0314b', lvl: '#f08c00', eff: '#7048e8', act: '#1c7ed6', misc: '#868e96' };
-function ntGroup(tag) { for (const g in NOTE_TAGS) if (NOTE_TAGS[g].includes(tag)) return g; return 'misc'; }
+function ntGroup(tag) { for (const g in NOTE_TAGS) if (NOTE_TAGS[g].includes(tag)) return g; return NTS.own[tag] != null ? 'own' : 'misc'; }
+/* ===== Schnellwahl: eigene Tasten, ausgeblendete eingebaute, Reihenfolge nach Gebrauch, gelernte Vorschläge ===== */
+const NTS = { own: {}, del: new Set(), hide: new Set(), use: {}, sug: [] };
+function ntLabel(tg) { return NTS.own[tg] != null ? NTS.own[tg] : t('nt_' + tg); }
+function ntsApply(j) {
+  if (!j || !j.ok) return;
+  if (j.tags) NOTE_TAGS = j.tags;
+  NTS.own = {}; NTS.del = new Set(); for (const o of j.own || []) { NTS.own[o.k] = o.l; if (o.del) NTS.del.add(o.k); }
+  NTS.hide = new Set(j.hide || []); NTS.use = j.use || {}; NTS.sug = j.suggest || [];
+}
+async function ntsLoad() { try { ntsApply(await (await fetch('notetags', { cache: 'no-store' })).json()); } catch (e) { } ntsRedraw(); }
+async function ntsPost(body) {
+  const j = await (await fetch('notetags', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) })).json();
+  if (!j.ok) throw new Error(j.error === 'limit' ? t('qt_limit') : j.error === 'empty' ? t('qt_empty') : (j.error || 'error'));
+  ntsApply(j); ntsRedraw(); return j;
+}
+const NT_AREAS = {};                                   // Element-ID -> Neu-Zeichnen (alle Schnellwahl-Felder bleiben gleich)
+function ntsRedraw() { for (const id in NT_AREAS) { const e = $(id); if (e && e.isConnected) try { NT_AREAS[id](); } catch (x) { } } }
+function ntList(sel, all) {                            // flache Liste: häufigste zuerst, ausgeblendete/gelöschte nur wenn gewählt (Filter: alle)
+  const out = [], seen = new Set(), add = tg => { if (!seen.has(tg)) { seen.add(tg); out.push(tg); } };
+  for (const g in NOTE_TAGS) for (const tg of NOTE_TAGS[g]) if (all || !NTS.hide.has(tg) || (sel && sel.has(tg))) add(tg);
+  for (const k in NTS.own) if (all || !NTS.del.has(k) || (sel && sel.has(k))) add(k);
+  const pos = new Map(out.map((x, i) => [x, i]));
+  return out.sort((a, b) => ((NTS.use[b] || 0) - (NTS.use[a] || 0)) || (pos.get(a) - pos.get(b)));
+}
+function ntGrouped(sel) {                              // nach Gruppen (Clip-Notiz), innerhalb der Gruppe häufigste zuerst
+  const L = ntList(sel), G = {}; for (const tg of L) (G[ntGroup(tg)] = G[ntGroup(tg)] || []).push(tg);
+  return [...Object.keys(NOTE_TAGS), 'own'].filter(g => G[g] && G[g].length).map(g => [g, G[g]]);
+}
+const ntChip = (tg, on, cls) => `<button type="button" class="${cls || 'chip ntchip'} g-${ntGroup(tg)}${on ? ' on' : ''}" data-t="${esc(tg)}" aria-pressed="${!!on}" title="${esc(t('qt_tip'))}">${NTS.own[tg] != null ? '★ ' : ''}${esc(ntLabel(tg))}</button>`;
+const ntAddBtn = () => `<button type="button" class="chip ntadd" title="${esc(t('qt_add_tip'))}">＋ ${esc(t('qt_add'))}</button>`;
+function ntSugHtml() {
+  const w = NTS.sug[0]; if (!w) return '';
+  return `<span class="ntsug" data-w="${esc(w.w)}" data-k="${esc(w.k)}">💡 ${esc(t('qt_sug', { w: w.w, n: w.n }))} <button type="button" class="chip ntsugy">＋</button><button type="button" class="chip ntsugn" title="${esc(t('qt_sug_no'))}">✕</button></span>`;
+}
+function ntChipBind(box, sel, onTog) {                     // Klick = wählen, Rechtsklick/lange drücken = verwalten, ＋ = eigene anlegen
+  box.querySelectorAll('.ntchip').forEach(b => {
+    b.onclick = () => { const tg = b.dataset.t; sel.has(tg) ? sel.delete(tg) : sel.add(tg); b.classList.toggle('on', sel.has(tg)); b.setAttribute('aria-pressed', sel.has(tg)); if (onTog) onTog(tg); };
+    b.oncontextmenu = e => { e.preventDefault(); ntManage(box, b.dataset.t); };
+  });
+  const a = box.querySelector('.ntadd'); if (a) a.onclick = () => ntManage(box);
+  const sg = box.querySelector('.ntsug');
+  if (sg) {
+    sg.querySelector('.ntsugy').onclick = async () => { try { const j = await ntsPost({ action: 'add', l: sg.dataset.w }); if (j.k) { sel.add(j.k); if (onTog) onTog(j.k); ntsRedraw(); } } catch (e) { alert(e.message); } };
+    sg.querySelector('.ntsugn').onclick = () => ntsPost({ action: 'nope', w: sg.dataset.k }).catch(e => alert(e.message));
+  }
+}
+function ntManage(box, focus) {                        // Verwalten direkt unter den Tasten (geht auch im abgedockten Fenster)
+  const doc = box.ownerDocument; let m = doc.getElementById(box.id + '_qt');
+  if (m && !focus) { m.remove(); return; }
+  if (!m) { m = doc.createElement('div'); m.id = box.id + '_qt'; m.className = 'qtman'; m.style.cssText = 'border:1px solid #8884;border-radius:8px;padding:8px;margin:6px 0;display:flex;flex-direction:column;gap:6px'; box.after(m); }
+  const draw = () => {
+    const own = Object.keys(NTS.own).filter(k => !NTS.del.has(k)), built = []; for (const g in NOTE_TAGS) built.push(...NOTE_TAGS[g]);
+    m.innerHTML = `<div style="display:flex;gap:6px;align-items:center;flex-wrap:wrap"><b style="flex:1">${esc(t('qt_title'))}</b><button type="button" class="chip qtx">✕</button></div>
+      <div style="display:flex;gap:6px"><input type="text" class="qtnew" maxlength="30" placeholder="${esc(t('qt_new_ph'))}" style="flex:1;min-width:0"><button type="button" class="pri qtaddok">${esc(t('qt_create'))}</button></div>
+      ${NTS.sug.length ? `<small>${esc(t('qt_sug_h'))}</small><div style="display:flex;gap:5px;flex-wrap:wrap">${NTS.sug.map(w => `<span class="chip qtsg" data-w="${esc(w.w)}" data-k="${esc(w.k)}">💡 ${esc(w.w)} (${w.n}×) <a href="#" class="qtsy">＋</a> <a href="#" class="qtsn">✕</a></span>`).join('')}</div>` : `<small>${esc(t('qt_learn_h'))}</small>`}
+      ${own.length ? `<small>${esc(t('qt_own_h'))}</small>` + own.map(k => `<div class="qtrow" data-k="${esc(k)}" style="display:flex;gap:6px"><input type="text" maxlength="30" value="${esc(NTS.own[k])}" style="flex:1;min-width:0"><button type="button" class="chip qtren">${esc(t('qt_ren'))}</button><button type="button" class="chip qtdel">🗑</button></div>`).join('') : ''}
+      <small>${esc(t('qt_built_h'))}</small><div style="display:flex;gap:5px;flex-wrap:wrap">${built.map(k => `<button type="button" class="chip qtb${NTS.hide.has(k) ? '' : ' on'}" data-k="${esc(k)}" style="${NTS.hide.has(k) ? 'opacity:.5;text-decoration:line-through' : ''}">${esc(ntLabel(k))}</button>`).join('')}</div>`;
+    const go = p => ntsPost(p).then(draw).catch(e => alert(e.message));
+    m.querySelector('.qtx').onclick = () => m.remove();
+    const nw = m.querySelector('.qtnew'), addIt = () => { const v = nw.value.trim(); if (v) go({ action: 'add', l: v }); };
+    m.querySelector('.qtaddok').onclick = addIt; nw.onkeydown = e => { if (e.key === 'Enter') { e.preventDefault(); addIt(); } };
+    m.querySelectorAll('.qtsg').forEach(x => { x.querySelector('.qtsy').onclick = e => { e.preventDefault(); go({ action: 'add', l: x.dataset.w }); }; x.querySelector('.qtsn').onclick = e => { e.preventDefault(); go({ action: 'nope', w: x.dataset.k }); }; });
+    m.querySelectorAll('.qtrow').forEach(r => {
+      const k = r.dataset.k, inp = r.querySelector('input');
+      r.querySelector('.qtren').onclick = () => go({ action: 'ren', k, l: inp.value });
+      inp.onkeydown = e => { if (e.key === 'Enter') { e.preventDefault(); go({ action: 'ren', k, l: inp.value }); } };
+      r.querySelector('.qtdel').onclick = () => { if (confirm(t('qt_del_q', { n: NTS.own[k] }))) go({ action: 'del', k }); };
+    });
+    m.querySelectorAll('.qtb').forEach(b => b.onclick = () => go({ action: 'hide', k: b.dataset.k, on: !NTS.hide.has(b.dataset.k) }));
+    if (focus) { const r = m.querySelector(`.qtrow[data-k="${CSS.escape(focus)}"] input`), b = m.querySelector(`.qtb[data-k="${CSS.escape(focus)}"]`); (r || b || nw).focus(); if (r) r.select(); focus = null; }
+    else nw.focus();
+  };
+  draw();
+}
 function noteCol(n) {                                  // Farbe nach wichtigstem Tag: Auswirkung > Art > Massnahme > Rest
   const tg = n.tags || []; for (const g of ['eff', 'kind', 'act', 'lvl', 'src', 'misc']) if (tg.some(x => ntGroup(x) === g)) return NT_GCOL[g];
   return C.acc;
 }
-const ntTag = tg => `<span class="ntag g-${ntGroup(tg)}">${esc(t('nt_' + tg))}</span>`;
+const ntTag = tg => `<span class="ntag g-${ntGroup(tg)}">${esc(ntLabel(tg))}</span>`;
 const fmtOff = o => { const m = Math.floor(o / 60), s2 = o - m * 60; return m + ':' + (s2 < 10 ? '0' : '') + s2.toFixed(1); };
 function ntNow() {                                     // Position fuer eine neue Notiz: Ablauf-Linie, sonst Spitze
   if (EVV.a && EVV.a.currentTime > 0) return Math.round(EVV.a.currentTime * 10) / 10;
@@ -2416,9 +2490,9 @@ function ntEditorOpen(off, note) {
   const box = $('nted'); box.hidden = false;
   $('ntoff').value = NTE.off.toFixed(1); $('nttext').value = note ? note.text || '' : ''; $('ntwit').value = note ? note.witness || '' : '';
   $('ntsave').textContent = t(note ? 'nt_update' : 'nt_save'); $('ntedtitle').textContent = t(note ? 'nt_edit_t' : 'nt_new');
-  $('nttags').innerHTML = Object.keys(NOTE_TAGS).map(g => `<div class="ntgrp g-${g}"><div class="ntgl">${esc(t('ntg_' + g))}</div><div class="ntgc">${NOTE_TAGS[g].map(tg => `<button type="button" class="ntchip g-${g}${NTE.tags.has(tg) ? ' on' : ''}" data-t="${tg}" aria-pressed="${NTE.tags.has(tg)}">${esc(t('nt_' + tg))}</button>`).join('')}</div></div>`).join('');
+  NT_AREAS.nttags = () => { if (!NTE) return; $('nttags').innerHTML = ntGrouped(NTE.tags).map(([g, L]) => `<div class="ntgrp g-${g}"><div class="ntgl">${esc(t('ntg_' + g))}</div><div class="ntgc">${L.map(tg => ntChip(tg, NTE.tags.has(tg), 'ntchip')).join('')}</div></div>`).join('') + `<div class="ntgrp"><div class="ntgc">${ntSugHtml()}${ntAddBtn()}</div></div>`; ntChipBind($('nttags'), NTE.tags, () => ntWit()); };
+  NT_AREAS.nttags();
   ntClock();
-  $('nttags').querySelectorAll('.ntchip').forEach(b => b.onclick = () => { const tg = b.dataset.t; NTE.tags.has(tg) ? NTE.tags.delete(tg) : NTE.tags.add(tg); b.classList.toggle('on'); b.setAttribute('aria-pressed', NTE.tags.has(tg)); ntWit(); });
   ntWit(); EVV.ntHi = NTE.id; evDraw();
   box.scrollIntoView({ block: 'nearest' }); setTimeout(() => $('nttext').focus({ preventScroll: true }), 30);
 }
@@ -2451,7 +2525,7 @@ function tagSentence(tags) {
   const tg = [...(tags || [])]; if (!tg.length) return '';
   const D = lang === 'en' ? TS_EN : TS_DE, de = lang !== 'en';
   const kinds = tg.filter(x => D.kind[x]), lvl = tg.find(x => D.lvl[x]), src = tg.find(x => D.src[x]);
-  const rest = tg.filter(x => D.rest[x] && !(x === 'serie' && false)).map(x => D.rest[x]);
+  const rest = tg.filter(x => D.rest[x] && !(x === 'serie' && false)).map(x => D.rest[x]).concat(tg.filter(x => NTS.own[x] != null).map(x => NTS.own[x]));
   let main = '';
   if (kinds.length === 1) { const [nm, g] = D.kind[kinds[0]]; main = lvl ? (de ? D.lvl[lvl][g === 'n' ? 0 : 1] + ' ' + nm : D.lvl[lvl][0] + ' ' + nm) : nm; }
   else if (kinds.length > 1) main = kinds.map(x => D.kind[x][0]).join(', ').replace(/, ([^,]*)$/, D.and + '$1') + (lvl ? ' (' + D.lvl[lvl][2] + ')' : '');
@@ -2465,8 +2539,8 @@ const autoText = (text, tags) => (text || '').trim() ? text : tagSentence(tags);
 async function ntSave() {
   if (!NTE) return;
   const off = clamp(parseFloat($('ntoff').value) || 0, 0, 3600);
-  const body = { off, text: autoText($('nttext').value, NTE.tags), tags: [...NTE.tags], witness: $('ntwit').value };
-  try { await ntPost(NTE.id ? 'edit' : 'add', NTE.id ? Object.assign(body, { id: NTE.id }) : body); ntEditorClose(); evDraw(); }
+  const body = { off, text: autoText($('nttext').value, NTE.tags), typed: !!$('nttext').value.trim(), tags: [...NTE.tags], witness: $('ntwit').value };
+  try { await ntPost(NTE.id ? 'edit' : 'add', NTE.id ? Object.assign(body, { id: NTE.id }) : body); ntEditorClose(); evDraw(); ntsLoad(); }
   catch (e) { alert(e.message); }
 }
 let NT_UNDO = null;
@@ -5329,9 +5403,9 @@ function levRender() {
   const rows = evs.map(r => ({ id: 'e' + (r.k || r.start), k: r.k || '', start: new Date(r.start).getTime(), src: r.quelle || (SOURCES.find(x => x.id === (r.quelle_id || 'main')) || {}).name || r.quelle_id || '', r,
     tags: [].concat(r.prof ? ['🧩 ' + r.prof] : [], (r.labels || []).map(n => '🏷 ' + n)), dur: r.dauer_s, pk: r.spitze_dbfs, thr: r.schwelle_dbfs, bg: r.hintergrund_dbfs, nt: r.notes ? '📝 ' + r.notes : '' }))
     .concat(fnShow() ? fnLink(j.fnotes, j.events, j.fn_assign_min).map(([n, ev]) => ({ id: 'n' + n.id, k: '', start: n.a, src: (n.src || 'all') === 'all' ? t('all_sources') : viewName(n.src), fn: n, fev: ev,
-      tags: ['📝 ' + t('fn_row')], dur: Math.max(0, ((n.b || n.a) - n.a) / 1000), pk: null, nt: '📝 ' + [n.text, ...(n.tags || []).map(x => t('nt_' + x)), n.witness ? '👤 ' + n.witness : ''].filter(Boolean).join(' · ') + (ev ? ' · 🔗 ' + t('fn_link', { c: clockOf(ev.start) }) : '') })) : [])
+      tags: ['📝 ' + t('fn_row')], dur: Math.max(0, ((n.b || n.a) - n.a) / 1000), pk: null, nt: '📝 ' + [n.text, ...(n.tags || []).map(x => ntLabel(x)), n.witness ? '👤 ' + n.witness : ''].filter(Boolean).join(' · ') + (ev ? ' · 🔗 ' + t('fn_link', { c: clockOf(ev.start) }) : '') })) : [])
     .concat(sens.map(x => ({ id: 's' + x.key, k: '', start: x.a, src: x.kind === 'ha' ? 'Home Assistant' : x.name || '', x, tags: [sensIcon(x.kind) + ' ' + sensLabel(x)], dur: Math.max(0, (x.b - x.a) / 1000), pk: x.peak, nt: x.note ? '📝 ' + x.note : '' })));
-  for (const d of rows) if (d.fn && d.fev) { const e = rows.find(x => x.k && x.k === d.fev.k); if (e) e.nt = [e.nt, '📝 ' + (d.fn.text || (d.fn.tags || []).map(x => t('nt_' + x)).join(', '))].filter(Boolean).join(' · '); }   // Notiz auch an der Störung
+  for (const d of rows) if (d.fn && d.fev) { const e = rows.find(x => x.k && x.k === d.fev.k); if (e) e.nt = [e.nt, '📝 ' + (d.fn.text || (d.fn.tags || []).map(x => ntLabel(x)).join(', '))].filter(Boolean).join(' · '); }   // Notiz auch an der Störung
   const vals = f => () => [...new Set(rows.flatMap(d => f === 'tags' ? d.tags : [d[f]]).filter(Boolean))].sort((p, q) => String(p).localeCompare(String(q)));
   const ms = f => ({ headerFilter: msFilter(vals(f)), headerFilterFunc: (hv, rv, rd) => !hv || !hv.length || (f === 'tags' ? rd.tags.some(x => hv.includes(x)) : hv.includes(rv)), headerFilterLiveFilter: false });
   const num = f => ({ headerFilter: 'number', headerFilterPlaceholder: '≥', headerFilterFunc: (hv, rv) => hv === '' || hv == null || (rv != null && rv >= +hv) });
@@ -5439,17 +5513,17 @@ function fnOpen(n) {
   let last = 'all'; try { last = localStorage.getItem('laerm_fnsrc') || 'all'; } catch (e) { }
   sel.value = n && n.src ? n.src : (SOURCES.some(x => x.id === last) ? last : 'all');
   $('fntext').value = (n && n.text) || ''; $('fnwit').value = (n && n.witness) || '';
-  $('fntags').innerHTML = Object.keys(NOTE_TAGS).map(g => NOTE_TAGS[g].map(tg => `<button type="button" class="chip ntchip g-${g}${FN.tags.has(tg) ? ' on' : ''}" data-t="${tg}">${esc(t('nt_' + tg))}</button>`).join('')).join('');
-  $('fntags').querySelectorAll('.ntchip').forEach(b => b.onclick = () => { const tg = b.dataset.t; FN.tags.has(tg) ? FN.tags.delete(tg) : FN.tags.add(tg); b.classList.toggle('on'); $('fnwit').hidden = !FN.tags.has('zeuge'); });
+  NT_AREAS.fntags = () => { $('fntags').innerHTML = ntList(FN.tags).map(tg => ntChip(tg, FN.tags.has(tg))).join('') + ntSugHtml() + ntAddBtn(); ntChipBind($('fntags'), FN.tags, () => { $('fnwit').hidden = !FN.tags.has('zeuge'); }); };
+  NT_AREAS.fntags();
   $('fnwit').hidden = !FN.tags.has('zeuge'); $('fndel').hidden = !FN.edit; $('fnmsg').textContent = '';
   $('fndlg').showModal(); setTimeout(() => $('fntext').focus(), 50);
 }
 async function fnSave(del) {
-  const body = del ? { action: 'del', id: FN.edit.id } : { action: FN.edit ? 'edit' : 'add', id: FN.edit ? FN.edit.id : '', from: $('fnfrom').value, to: $('fnto').value, src: $('fnsrc').value, text: autoText($('fntext').value, FN.tags), tags: [...FN.tags], witness: $('fnwit').value };
+  const body = del ? { action: 'del', id: FN.edit.id } : { action: FN.edit ? 'edit' : 'add', id: FN.edit ? FN.edit.id : '', from: $('fnfrom').value, to: $('fnto').value, src: $('fnsrc').value, text: autoText($('fntext').value, FN.tags), typed: !!$('fntext').value.trim(), tags: [...FN.tags], witness: $('fnwit').value };
   if (del && !confirm(t('fn_del_q'))) return;
   try {
     const r = await (await fetch('fnote', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) })).json();
-    if (!r.ok) { $('fnmsg').textContent = t(r.error === 'empty' ? 'fn_empty' : r.error === 'to' ? 'fn_bad_to' : 'saveerr'); return; }
+    if (!r.ok) { $('fnmsg').textContent = t(r.error === 'empty' ? 'fn_empty' : r.error === 'to' ? 'fn_bad_to' : 'saveerr'); return; } if (!del) ntsLoad();
     try { localStorage.setItem('laerm_fnsrc', $('fnsrc').value); } catch (e) { }
     $('fndlg').close(); fnRefresh(); if (FN.fromPanel && !del) fnpReset(); FN.fromPanel = false;
     if (NV.open) loadNight(); if (histOn()) dtLoad(LDT, true);
@@ -5491,13 +5565,14 @@ function renderEvFn(list) {
 /* Notiz-Leiste oben im Live-Bild: einklappbar, sofort tippbar; „von“ = Moment der ersten Eingabe */
 const FNP = { from: null, tags: new Set(), tick: null };
 function fnpTags() {
-  const few = innerWidth < 700 && !FNP.more;               // Handy: nur die ersten Merkmale (und gewählte), Rest über „Mehr …“
+  const few = innerWidth < 700 && !FNP.more;               // Handy: nur die ersten (häufigsten) Merkmale und gewählte, Rest über „Mehr …“
   let k = 0;
-  $('fnptags').innerHTML = Object.keys(NOTE_TAGS).map(g => NOTE_TAGS[g].map(tg => (few && k++ >= 6 && !FNP.tags.has(tg)) ? '' : `<button type="button" class="chip ntchip g-${g}${FNP.tags.has(tg) ? ' on' : ''}" data-t="${tg}">${esc(t('nt_' + tg))}</button>`).join('')).join('')
-    + (innerWidth < 700 ? `<button type="button" class="chip fnpmoretags">${esc(t(few ? 'fnp_tags_more' : 'fnp_tags_less'))}</button>` : '');
+  $('fnptags').innerHTML = ntSugHtml() + ntList(FNP.tags).map(tg => (few && k++ >= 6 && !FNP.tags.has(tg)) ? '' : ntChip(tg, FNP.tags.has(tg))).join('')
+    + (few ? '' : ntAddBtn()) + (innerWidth < 700 ? `<button type="button" class="chip fnpmoretags">${esc(t(few ? 'fnp_tags_more' : 'fnp_tags_less'))}</button>` : '');
   const mb = $('fnptags').querySelector('.fnpmoretags'); if (mb) mb.onclick = () => { FNP.more = !FNP.more; fnpTags(); };
-  $('fnptags').querySelectorAll('.ntchip').forEach(b => b.onclick = () => { fnpStart(); const tg = b.dataset.t; FNP.tags.has(tg) ? FNP.tags.delete(tg) : FNP.tags.add(tg); b.classList.toggle('on'); $('fnpwit').hidden = !FNP.tags.has('zeuge'); });
+  ntChipBind($('fnptags'), FNP.tags, () => { fnpStart(); $('fnpwit').hidden = !FNP.tags.has('zeuge'); });
 }
+NT_AREAS.fnptags = () => fnpTags();
 function fnpSrc() {
   const sel = $('fnpsrc'), cur = sel.value; sel.innerHTML = ''; option(sel, 'all', t('all_sources')); SOURCES.forEach(x => option(sel, x.id, x.name));
   let last = cur || 'all'; if (!cur) try { last = localStorage.getItem('laerm_fnsrc') || 'all'; } catch (e) { }
@@ -5525,13 +5600,13 @@ function fnpFold(open) {
 async function fnpSave() {
   const run = $('fnprun').checked;
   const fixed = FNP.fixed && $('fnpfromi').value, tv = $('fnptoi').value;      // eigene Zeiten (Mehr …); sonst gilt die Uhrzeit beim Speichern
-  const body = { action: 'add', id: '', from: fixed ? $('fnpfromi').value : dtl(new Date(nowServer())), to: tv || (run ? dtl(new Date(nowServer())) : ''), src: $('fnpsrc').value, text: autoText($('fnptext').value, FNP.tags), tags: [...FNP.tags], witness: $('fnpwit').value, auto: !run && !fixed && !tv };
+  const body = { action: 'add', id: '', from: fixed ? $('fnpfromi').value : dtl(new Date(nowServer())), to: tv || (run ? dtl(new Date(nowServer())) : ''), src: $('fnpsrc').value, text: autoText($('fnptext').value, FNP.tags), typed: !!$('fnptext').value.trim(), tags: [...FNP.tags], witness: $('fnpwit').value, auto: !run && !fixed && !tv };
   const msg = $('fnpmsg'); msg.className = 'fnpmsg';
   try {
     const r = await (await fetch('fnote', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) })).json();
     if (!r.ok) { msg.textContent = t(r.error === 'empty' ? 'fn_empty' : r.error === 'to' ? 'fn_bad_to' : 'saveerr'); msg.classList.add('err'); return; }
     try { localStorage.setItem('laerm_fnsrc', $('fnpsrc').value); } catch (e) { }
-    fnpReset(); msg.textContent = '✓ ' + (r.target ? t('fnp_saved_ev', { t: r.target.clock }) : t('fnp_saved')); setTimeout(() => { if (msg.textContent.startsWith('✓')) msg.textContent = ''; }, 4000);
+    fnpReset(); ntsLoad(); msg.textContent = '✓ ' + (r.target ? t('fnp_saved_ev', { t: r.target.clock }) : t('fnp_saved')); setTimeout(() => { if (msg.textContent.startsWith('✓')) msg.textContent = ''; }, 4000);
     fnRefresh(); if (histOn()) dtLoad(LDT, true);
   } catch (e) { msg.textContent = t('saveerr'); msg.classList.add('err'); }
 }
@@ -5554,7 +5629,7 @@ function initFnp() {
     let bar = $('fnpsec'); if (!bar) { bar = el('div', { id: 'fnpsec', className: 'fnpsec' }); $('fnpbody').prepend(bar); }
     const sync = () => {
       for (const [k] of PARTS) pn.classList.toggle('fh-' + k, hid.has(k));
-      const els = { txt: [$('fnptext')], tags: [$('fnptags')], wit: [$('fnpwit')], ext: [$('fnpext'), ...pn.querySelectorAll('.fnprow > label')] };   // direkt setzen: wirkt auch, falls im abgedockten Fenster die Stile fehlen
+      const els = { txt: [$('fnptext')], tags: [$('fnptags'), $('fnptags_qt')], wit: [$('fnpwit')], ext: [$('fnpext'), ...pn.querySelectorAll('.fnprow > label')] };   // direkt setzen: wirkt auch, falls im abgedockten Fenster die Stile fehlen
       for (const [k] of PARTS) for (const e of els[k]) if (e) e.style.display = hid.has(k) ? 'none' : '';
       bar.innerHTML = '';
       for (const [k, l] of PARTS) {
@@ -5698,7 +5773,7 @@ function initEvView() {
   sync();
 }
 function initFn() {
-  initFnp(); initEvView(); initProf();
+  initFnp(); initEvView(); initProf(); ntsLoad();
   $('fnx').onclick = $('fncancel').onclick = () => $('fndlg').close();
   enterSave($('fntext'), () => fnSave());
   $('fnsave').onclick = () => fnSave(false); $('fndel').onclick = () => fnSave(true);

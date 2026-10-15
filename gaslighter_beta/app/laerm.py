@@ -32,7 +32,7 @@ HERE = os.path.dirname(os.path.abspath(__file__))
 WEB = os.path.join(HERE, "web")
 OPTIONS_FILE = os.environ.get("LAERM_OPTIONS", "/data/options.json")
 SETTINGS_FILE = os.environ.get("LAERM_SETTINGS", "/data/settings.json")
-VERSION = "1.65.0"
+VERSION = "1.66.0"
 
 # =====================================================================
 # Einstellungen
@@ -5315,6 +5315,165 @@ NOTE_TAGS = {   # Schnell-Tags: Gruppe -> Schluessel (Beschriftung im Browser)
 NOTE_TAG_SET = {t for v in NOTE_TAGS.values() for t in v}
 NOTES_MAX_PER, NOTES_MAX_ALL, NOTE_TEXT_MAX = 50, 20000, 500
 
+# Eigene Schnellwahl-Tasten (schnellwahl.json neben den Clips, kommt so in die Sicherung):
+#   own   = {"c_xxxxxx": {"l": Beschriftung, "ts": ..., "del": bool}}   geloeschte bleiben fuer alte Notizen lesbar
+#   hide  = {eingebauter Schluessel: true}      ausgeblendete eingebaute Tasten
+#   use   = {Schluessel: Anzahl}                wie oft gedrueckt (Reihenfolge: haeufigste nach vorne)
+#   words = {wort: {"n": Anzahl, "w": Schreibweise}}   oft frei getippte Woerter -> Vorschlag (nie von selbst angelegt)
+#   nope  = {wort: true}                        Vorschlag abgelehnt
+QT_LOCK = threading.RLock()
+QT = {"data": None}
+QT_OWN_MAX, QT_WORDS_MAX, QT_SUGGEST_N = 40, 400, 3
+QT_STOP = set("""aber alle allem allen aller alles also auch auf aus bei beim bin bis bist dann darf das dass dem den denn der des dich die dies diese diesem diesen dieser dir doch dort durch eine einem einen einer eines etwa euch eure fast fuer für gegen geht gibt habe haben hast hat hatte hatten heute hier ihm ihn ihr ihre immer ist jede jedem jeden jeder jetzt kann kein keine konnte machen macht mal man mehr mein meine mich mir mit muss nach nicht nichts noch nur oben oder ohne schon sehr sein seine seit sich sie sind soll sondern über um und uns unser unten vom von vor war waren warum was weil weiter wenn wer werden wie wieder wir wird wo wurde zum zur zwei drei viel wohl ganz gerade gleich lang lange laut leise minuten stunde stunden uhr ca etwa morgens abends nachts mittags nacht abend morgen tag tage
+about after again also and any are because been before being both but can could did does doing down during each few for from further had has have having her here hers him his how into its just more most not now off once only other our out over own same she should some such than that the their them then there these they this those through too under until very was were what when where which while who whom why will with would you your loud noise again""".split())
+
+
+def qt_path():
+    return os.path.join(paths()[1], "schnellwahl.json")
+
+
+def qt_all():
+    with QT_LOCK:
+        if QT["data"] is None:
+            d = read_json(qt_path()) if os.path.exists(qt_path()) else {}
+            QT["data"] = d if isinstance(d, dict) else {}
+        for k in ("own", "hide", "use", "words", "nope"):
+            if not isinstance(QT["data"].get(k), dict):
+                QT["data"][k] = {}
+        return QT["data"]
+
+
+def qt_save():
+    with QT_LOCK:
+        if QT["data"] is None:
+            return
+        os.makedirs(os.path.dirname(qt_path()), exist_ok=True)
+        tmp = qt_path() + ".tmp"
+        with open(tmp, "w", encoding="utf-8") as f:
+            json.dump(qt_all(), f, ensure_ascii=False, separators=(",", ":"))
+        os.replace(tmp, qt_path())
+
+
+def qt_clean_label(v):
+    return re.sub(r"\s+", " ", re.sub(r"[\x00-\x1f<>]", "", str(v or ""))).strip()[:30]
+
+
+def tag_ok(t):
+    """Darf eine neue Notiz diesen Schluessel tragen? Eingebaut oder eigene (nicht geloeschte) Taste."""
+    if not isinstance(t, str):
+        return False
+    if t in NOTE_TAG_SET:
+        return True
+    o = qt_all()["own"].get(t)
+    return isinstance(o, dict) and not o.get("del")
+
+
+def tag_known(t):
+    """Fuer Filter/Anzeige: auch geloeschte eigene Tasten (alte Notizen behalten sie)."""
+    return isinstance(t, str) and (t in NOTE_TAG_SET or isinstance(qt_all()["own"].get(t), dict))
+
+
+def tag_label(t):
+    o = qt_all()["own"].get(t)
+    if isinstance(o, dict):
+        return o.get("l") or t
+    return NOTE_TAG_DE.get(t, t)
+
+
+def clean_tags(v):
+    return list(dict.fromkeys(t for t in v if tag_ok(t)))[:12] if isinstance(v, list) else []
+
+
+def qt_learn(tags, text):
+    """Nach dem Speichern einer neuen Notiz: Tasten zaehlen, frei getippte Woerter merken."""
+    with QT_LOCK:
+        d = qt_all()
+        for t in tags or []:
+            d["use"][t] = int(d["use"].get(t) or 0) + 1
+        labels = {(o.get("l") or "").lower() for o in d["own"].values() if isinstance(o, dict) and not o.get("del")}
+        labels |= {x.lower() for x in NOTE_TAG_DE.values()}
+        seen = set()
+        for w in re.findall(r"[A-Za-zÄÖÜäöüß][A-Za-zÄÖÜäöüß\-]{3,23}", str(text or "")):
+            lw = w.lower().strip("-")
+            if len(lw) < 4 or lw in seen or lw in QT_STOP or lw in labels or lw in NOTE_TAG_SET or d["nope"].get(lw):
+                continue
+            seen.add(lw)
+            e = d["words"].get(lw) if isinstance(d["words"].get(lw), dict) else {"n": 0, "w": w}
+            e["n"] = int(e.get("n") or 0) + 1
+            if w[:1].isupper():
+                e["w"] = w                              # Schreibweise mit grossem Anfang bevorzugen (Hauptwort)
+            d["words"][lw] = e
+        if len(d["words"]) > QT_WORDS_MAX:              # seltenste vergessen
+            for k in sorted(d["words"], key=lambda k: int(d["words"][k].get("n") or 0))[:len(d["words"]) - QT_WORDS_MAX]:
+                d["words"].pop(k, None)
+        qt_save()
+
+
+def qt_state():
+    with QT_LOCK:
+        d = qt_all()
+        labels = {(o.get("l") or "").lower() for o in d["own"].values() if isinstance(o, dict) and not o.get("del")}
+        sug = sorted(((k, e) for k, e in d["words"].items() if isinstance(e, dict) and int(e.get("n") or 0) >= QT_SUGGEST_N
+                      and not d["nope"].get(k) and k not in labels), key=lambda x: -int(x[1].get("n") or 0))
+        return {"ok": True, "tags": NOTE_TAGS,
+                "own": [{"k": k, "l": o.get("l") or k, "del": bool(o.get("del"))} for k, o in d["own"].items() if isinstance(o, dict)],
+                "hide": sorted(k for k, v in d["hide"].items() if v and k in NOTE_TAG_SET),
+                "use": {k: int(v or 0) for k, v in d["use"].items() if isinstance(v, (int, float))},
+                "suggest": [{"w": e.get("w") or k, "k": k, "n": int(e.get("n") or 0)} for k, e in sug[:5]]}
+
+
+def qt_change(data):
+    """Schnellwahl verwalten: add (l), ren (k, l), del (k), undel (k), hide (k, on), nope (w)."""
+    a = str(data.get("action") or "")
+    with QT_LOCK:
+        d = qt_all()
+        k = str(data.get("k") or "")
+        if a == "add":
+            l = qt_clean_label(data.get("l"))
+            if not l:
+                return {"ok": False, "error": "empty"}
+            for k_, o in d["own"].items():               # gleicher Name: vorhandene (wieder) nehmen
+                if isinstance(o, dict) and (o.get("l") or "").lower() == l.lower():
+                    o["del"] = False; o["l"] = l; break
+            else:
+                if sum(1 for o in d["own"].values() if isinstance(o, dict) and not o.get("del")) >= QT_OWN_MAX:
+                    return {"ok": False, "error": "limit"}
+                k_ = "c_" + secrets.token_hex(3)
+                d["own"][k_] = {"l": l, "ts": dt.datetime.now().astimezone().isoformat(timespec="seconds")}
+            d["words"].pop(l.lower(), None)
+            qt_save()
+            return dict(qt_state(), k=k_)
+        if a in ("ren", "del", "undel"):
+            o = d["own"].get(k)
+            if not isinstance(o, dict):
+                return {"ok": False, "error": "not found"}
+            if a == "ren":
+                l = qt_clean_label(data.get("l"))
+                if not l:
+                    return {"ok": False, "error": "empty"}
+                o["l"] = l
+            else:
+                o["del"] = a == "del"
+            qt_save()
+            return qt_state()
+        if a == "hide":
+            if k not in NOTE_TAG_SET:
+                return {"ok": False, "error": "not found"}
+            if data.get("on"):
+                d["hide"][k] = True
+            else:
+                d["hide"].pop(k, None)
+            qt_save()
+            return qt_state()
+        if a == "nope":
+            w = str(data.get("w") or "").lower()[:24]
+            if w:
+                d["nope"][w] = True; d["words"].pop(w, None)
+                qt_save()
+            return qt_state()
+    return {"ok": False, "error": "bad action"}
+
+
 
 def notes_path():
     return os.path.join(paths()[1], "notes.json")
@@ -5425,7 +5584,7 @@ def find_row(key):
 
 def clean_note_input(data, clip_s):
     text = re.sub(r"[\x00-\x08\x0b\x0c\x0e-\x1f]", "", str(data.get("text") or "")).strip()[:NOTE_TEXT_MAX]
-    tags = [t for t in (data.get("tags") or []) if isinstance(t, str) and t in NOTE_TAG_SET][:12] if isinstance(data.get("tags"), list) else []
+    tags = clean_tags(data.get("tags"))
     witness = re.sub(r"[\x00-\x1f]", "", str(data.get("witness") or "")).strip()[:80]
     try:
         off = float(data.get("off"))
@@ -5460,7 +5619,7 @@ def note_change(action, data):
             nt = {"id": "n_" + secrets.token_hex(4), "off": off, "t": (t0 + int(off * 1000)) if t0 else None, "approx": approx,
                   "text": text, "tags": tags, "witness": witness if "zeuge" in tags else "",
                   "ts": dt.datetime.now().astimezone().isoformat(timespec="seconds")}
-            lst.append(nt)
+            lst.append(nt); qt_learn(tags, text if data.get("typed") else "")
         else:
             nid = str(data.get("id") or "")
             idx = next((i for i, x in enumerate(lst) if x.get("id") == nid), None)
@@ -5855,7 +6014,7 @@ def fnote_change(action, data):
         if to and (tb is None or tb < fa):
             return {"ok": False, "error": "to"}
         text = clean_text(data.get("text"))
-        tags = [t for t in (data.get("tags") or []) if isinstance(t, str) and t in NOTE_TAG_SET][:12] if isinstance(data.get("tags"), list) else []
+        tags = clean_tags(data.get("tags"))
         if not text and not tags:
             return {"ok": False, "error": "empty"}
         src = re.sub(r"[^a-z0-9_]", "", str(data.get("src") or "all"))[:16] or "all"
@@ -5867,7 +6026,7 @@ def fnote_change(action, data):
         if action == "add":
             if len(lst) >= FNOTES_MAX:
                 return {"ok": False, "error": "limit"}
-            x = dict(rec, id="f_" + secrets.token_hex(5), ts=now); lst.append(x)
+            x = dict(rec, id="f_" + secrets.token_hex(5), ts=now); lst.append(x); qt_learn(rec["tags"], text if data.get("typed") else "")
             if data.get("_at"):
                 x["at"] = data["_at"]                   # wann die Notiz wirklich geschrieben wurde
                 if tgt:
@@ -5950,7 +6109,7 @@ def notes_query(q):
     except ValueError:
         d0 = d1 = None
     src = re.sub(r"[^a-z0-9_]", "", g("src", "all"))[:16] or "all"
-    tags = {t for t in g("tags").split(",") if t in NOTE_TAG_SET}
+    tags = {t for t in g("tags").split(",") if tag_known(t)}
     text = g("q").strip().lower()[:80]
     rows = read_log(); keys = row_keys(rows)
     with NOTES_LOCK:
@@ -6316,7 +6475,7 @@ def protocol_html(q):
     def fn_rows(limit):
         while fns and fns[0]["a"] <= limit:
             x = fns.pop(0); ta = dt.datetime.fromtimestamp(x["a"] / 1000.0).astimezone()
-            tg = ", ".join(NOTE_TAG_DE.get(tt, tt) for tt in x.get("tags") or [])
+            tg = ", ".join(tag_label(tt) for tt in x.get("tags") or [])
             rng = x["clock"] + (f'–{x["clock_to"]}' if x.get("to") else "")
             o.append(f'<tr class="en"><td>{wdn[ta.weekday()]} {ta:%d.%m.%Y}</td><td>{h(rng)}</td><td>📝 Notiz: {h(x.get("text") or "")}'
                      f'{(" · Zeuge: " + h(x["witness"])) if x.get("witness") else ""}</td><td>{h(tg)}{" · <span class=rz>Ruhezeit</span>" if x.get("rz") else ""}</td></tr>')
@@ -6380,7 +6539,7 @@ def protocol_html(q):
             o.append(f'<tr class="en"><td></td><td></td><td colspan="2">Notiz zum Ereignis: {h(en_)}</td></tr>')
         items = []                                   # Notizen an Zeitstellen und Einzelereignisse, chronologisch, eingerueckt
         for x in by_key.get(k, []):
-            tg = ", ".join(NOTE_TAG_DE.get(tt, tt) for tt in x.get("tags") or [])
+            tg = ", ".join(tag_label(tt) for tt in x.get("tags") or [])
             wt = (" · Zeuge: " + h(x["witness"])) if x.get("witness") else ""
             items.append(((x.get("t") or 0), f'<tr><td></td><td>{h(x["clock"])}{"*" if x.get("approx") else ""}</td><td>{h(x.get("text") or "")}</td><td>{h(tg)}{wt}</td></tr>'))
         t0_ = (g_ or {}).get("t0")
@@ -6429,7 +6588,7 @@ def protocol_html(q):
         o.append('<h2>Zeugen</h2><ul>' + "".join(f'<li>{h(w)}</li>' for w in witnesses) + '</ul>')
     if actions:
         o.append('<h2>Gegenmaßnahmen</h2><ul>' + "".join(
-            f'<li>{h(dmy(x["date"]))} {h(x["clock"])}: {h(", ".join(NOTE_TAG_DE.get(tt, tt) for tt in x["tags"] if tt in NOTE_TAGS["act"]))}'
+            f'<li>{h(dmy(x["date"]))} {h(x["clock"])}: {h(", ".join(tag_label(tt) for tt in x["tags"] if tt in NOTE_TAGS["act"]))}'
             + (f' – {h(x["text"])}' if x.get("text") else '') + '</li>' for x in actions) + '</ul>')
     o.append('<h2>Messdaten (Prüfsummen)</h2><div class="small mut">Zu jedem Ereignis gibt es eine Lärmspur-Datei mit Pegel- und Frequenzwerten, ohne Ton. '
              'Die SHA-256-Prüfsumme belegt, dass eine Datei seit dem Erstellen dieses Protokolls nicht verändert wurde. '
@@ -6755,7 +6914,7 @@ def night_svg(date, src="all", start=None, end=None, plist="", art=""):
         yN = y0 + 22 + per_col * 17 + 26
         p.append(f'<text x="{L}" y="{yN}" font-size="14" font-weight="600" fill="#fff">{"Notizen" if de else "Notes"} ({len(nl)})</text>')
         for i, (e, x) in enumerate(nl[:8]):
-            tg = ", ".join(NOTE_TAG_DE.get(t, t) for t in x.get("tags", []))[:40]
+            tg = ", ".join(tag_label(t) for t in x.get("tags", []))[:40]
             ln = f'{x["clock"]}  {(x.get("text") or "")[:60]}' + (f'  [{tg}]' if tg else '')
             p.append(f'<text x="{L}" y="{yN + 20 + i * 17}" font-size="11" fill="#c7d3da" font-family="Consolas,Menlo,monospace" xml:space="preserve">{esc_xml(ln)}</text>')
         if len(nl) > 8:
@@ -9454,7 +9613,7 @@ def restore_run(path, with_settings, pick=None, off=None):
             except OSError:
                 pass
             stores = {"notes.json": (NOTES_LOCK, notes_all, notes_save), "bereiche.json": (LABELS_LOCK, labels_all, labels_save),
-                      "art.json": (ART_LOCK, art_all, art_save)}
+                      "art.json": (ART_LOCK, art_all, art_save), "schnellwahl.json": (QT_LOCK, qt_all, qt_save)}
             for i in names:
                 BK_STATE["done"] += 1
                 a = i.filename
@@ -10166,6 +10325,8 @@ class Handler(BaseHandler):
                 except (KeyError, ValueError, IndexError):
                     now_ = int(time.time() * 1000); a_, b_ = now_ - 900000, now_ + 60000
                 return self.js({"ok": True, "notes": fnotes_in(a_, b_, re.sub(r"[^a-z0-9_]", "", (q.get("src") or ["all"])[0])[:16] or "all")})
+            if name == "notetags":                    # Schnellwahl: eingebaute + eigene Tasten, Reihenfolge, Vorschlaege
+                return self.js(qt_state())
             if name == "notes":
                 return self.js({"notes": notes_query(q), "tags": NOTE_TAGS})
             if name == "notes.csv":
@@ -10476,6 +10637,11 @@ class Handler(BaseHandler):
                 except (TypeError, ValueError):
                     return self.js({"ok": False, "error": "range"}, 400)
                 return self.js(scan_start(f_, t_, clean_label_name(data.get("name")) if data.get("name") else "", data.get("events", True) is not False, data.get("areas", True) is not False))
+            if name == "notetags":                      # Schnellwahl verwalten (eigene anlegen, umbenennen, loeschen, ausblenden)
+                data = json.loads(body or b"{}")
+                if not isinstance(data, dict):
+                    return self.js({"ok": False, "error": "bad request"}, 400)
+                return self.js(qt_change(data))
             if name == "fnote":                         # freie Notiz (📝 Notiz jetzt)
                 data = json.loads(body or b"{}")
                 if not isinstance(data, dict) or data.get("action") not in ("add", "edit", "del"):
