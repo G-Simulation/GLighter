@@ -1,5 +1,10 @@
 # Changelog
 
+## 1.61.1
+- Notiz / manuelle Erfassung: Markierungen, Zeuge, von/bis und Gerät lassen sich mit „▸ Mehr“ / „▾ Weniger“ einklappen – auch im abgedockten Fenster. Wird pro Browser gemerkt; eingeklappt zeigt der Knopf, wie viele Markierungen gesetzt sind.
+- Englisch: Hinweis zum Design-Knopf wechselt jetzt mit der Sprache. Oberfläche, Einstellungen, Protokolle, Handbuch und Druck auf Englisch geprüft.
+- README (GitHub und App-Store): Sprache Deutsch/Englisch erwähnt, Pro-Tabelle um Schwelle automatisch und tägliche Sicherung ergänzt.
+
 ## 1.61.0
 - „Kalibrieren“ heißt jetzt **🎯 Schwelle automatisch einstellen** (Pro) und schlägt nur noch vor:
   - **Aus der letzten Nacht:** Ruhezeit der letzten Nacht, Störungen darin zählen nicht mit – kein Warten.

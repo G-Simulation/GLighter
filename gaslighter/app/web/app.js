@@ -31,6 +31,7 @@ function tr() {
   document.querySelectorAll('[data-i]').forEach(e => { e.textContent = t(e.dataset.i); });
   document.querySelectorAll('[data-ia]').forEach(e => { e.title = t(e.dataset.ia); e.setAttribute('aria-label', t(e.dataset.ia)); });
   document.querySelectorAll('[data-iph]').forEach(e => { e.placeholder = t(e.dataset.iph); });
+  { const b = $('themebtn'); if (b) { b.textContent = (THEME === 'auto' ? '🌓 ' : THEME === 'dark' ? '🌙 ' : '☀ ') + t('th_' + THEME); b.title = t('th_tip'); } }   // nach Sprachwechsel
   if (matchMedia('(pointer: coarse)').matches && $('livenote')) $('livenote').textContent = t('livenote_touch');   // Handy: passende Bedienhinweise
   if (matchMedia('(pointer: coarse)').matches && $('dthint')) $('dthint').textContent = t('dt_hint_touch');
   let seen = true; try { seen = !!localStorage.getItem('laerm_help'); localStorage.setItem('laerm_help', '1'); } catch (e) { }
@@ -5513,6 +5514,16 @@ function initFnp() {
   $('fnpsave').onclick = fnpSave;
   enterSave($('fnptext'), fnpSave);
   $('fnpext').hidden = false; $('fnpwit').hidden = false;                     // von/bis und Zeuge sind immer sichtbar (auch abgedockt)
+  {                                                   // Markierungen, Zeuge, Zeitraum und Gerät einklappbar (auch abgedockt), gemerkt pro Browser
+    const pn = $('fnpanel'), mb = $('fnpmore');
+    let min = false; try { min = localStorage.getItem('laerm_fnpmin') === '1'; } catch (e) { }
+    const sync = () => { pn.classList.toggle('fnmin', min); mb.setAttribute('aria-expanded', String(!min));
+      const n = FNP.tags.size + ($('fnpwit').value.trim() ? 1 : 0);
+      mb.textContent = min ? '▸ ' + t('fnp_min_more') + (n ? ' (' + n + ')' : '') : '▾ ' + t('fnp_min_less'); };
+    mb.onclick = () => { min = !min; try { localStorage.setItem('laerm_fnpmin', min ? '1' : '0'); } catch (e) { } sync(); };
+    $('fnptags').addEventListener('click', () => setTimeout(sync, 0)); $('fnpwit').addEventListener('input', sync);
+    sync();
+  }
   $('fnpfnow').onclick = () => { FNP.fixed = false; $('fnpfromi').value = dtl(new Date(nowServer())); };
   $('fnpfromi').addEventListener('input', () => { FNP.fixed = true; const v = new Date($('fnpfromi').value).getTime(); if (!isNaN(v)) FNP.from = v; fnpShow(); });
   $('fnptnow').onclick = () => { $('fnptoi').value = dtl(new Date(nowServer())); };

@@ -3,7 +3,7 @@
 <p align="center"><b>Lärmprotokoll für Home Assistant</b> – misst Lärm rund um die Uhr und protokolliert Störungen manipulationssicher. Ohne Tonaufnahme, ohne Cloud.<br>
 <i>Noise log for Home Assistant – measures noise 24/7 and logs disturbances tamper-evident. No audio recording, no cloud.</i></p>
 
-<p align="center"><a href="#deutsch">Deutsch</a> · <a href="#english">English</a> · <a href="docs/de/README.md">Handbuch</a> · <a href="docs/en/README.md">Manual</a> · <a href="https://www.gsimulations.de/gaslighter/">gsimulations.de/gaslighter</a></p>
+<p align="center"><a href="#english">🇬🇧 English</a> · <a href="#deutsch">🇩🇪 Deutsch</a> · <a href="docs/de/README.md">Handbuch</a> · <a href="docs/en/README.md">Manual</a> · <a href="https://www.gsimulations.de/gaslighter/">gsimulations.de/gaslighter</a></p>
 
 <p align="center">
 <img src="docs/images/01_live.png" width="24%" alt="Live">
@@ -27,6 +27,7 @@
 - **Lärmprotokoll zum Drucken oder als PDF** – für Vermieter, Hausverwaltung oder Anwalt.
 - **Prüfkette**: Jede Minute der Aufzeichnung bekommt eine SHA-256-Prüfsumme, die auf der vorherigen aufbaut. Nachträgliche Änderungen fallen auf; die letzte Summe wird zusätzlich in Home Assistant gespeichert.
 - **Lokale Geräusch-Erkennung (KI)**, eigene Tonprofile, Regeln mit Home Assistant (z. B. eigener Fernseher an), Unterbrechungen werden dokumentiert.
+- **Sprache:** Oberfläche, Handbuch und Lärmprotokoll auf Deutsch oder Englisch (automatisch nach Browser oder fest einstellbar).
 - **Handbuch** in der App (Deutsch/Englisch, mit Suche) – auch [hier auf GitHub](docs/de/README.md).
 
 ### Kostenlos und Pro
@@ -36,7 +37,8 @@
 | Aufzeichnung, Live, Protokolle, Notizen | ✔ | ✔ |
 | Lärmprotokoll, Druck, Export (`log.csv`), Sicherung erstellen | ✔ | ✔ |
 | Import einer Sicherung | einmal (Umzug) | ✔ |
-| Erweiterte Einstellungen der Erkennung | ansehen | ✔ |
+| Erweiterte Einstellungen der Erkennung, 🎯 Schwelle automatisch einstellen | ansehen | ✔ |
+| Tägliche Sicherung auf Netzlaufwerk/NAS/USB, Platz sparen | ZIP von Hand | ✔ |
 | Externe Geräte (Handy, Stream, IP-Kamera) | – | ✔ |
 
 **GasLighter Pro** ist eine Jahreslizenz für 1 Home-Assistant-Installation, **kein Abo**. Der Schlüssel wird in der App ohne Internet geprüft. [Mehr und kaufen](https://www.gsimulations.de/gaslighter/#buypro) · [Handbuch: GasLighter Pro](docs/de/14-pro.md)
@@ -78,6 +80,7 @@ Alle Daten bleiben auf deinem Home-Assistant-Rechner; GasLighter sendet nichts a
 - **Printable noise report / PDF** – for landlord, property management or lawyer.
 - **Checksum chain**: every minute of recording gets a SHA-256 checksum built on the previous one. Later changes become visible; the latest checksum is also stored in Home Assistant.
 - **Local sound recognition (AI)**, your own sound profiles, Home Assistant rules (e.g. your own TV on), interruptions are documented.
+- **Language:** interface, manual and noise report in English or German (automatic from the browser or set in Settings → General → Language).
 - **Manual** in the app (German/English, searchable) – also [here on GitHub](docs/en/README.md).
 
 ### Free and Pro
@@ -87,7 +90,8 @@ Alle Daten bleiben auf deinem Home-Assistant-Rechner; GasLighter sendet nichts a
 | Recording, live view, reports, notes | ✔ | ✔ |
 | Noise report, printing, export (`log.csv`), creating backups | ✔ | ✔ |
 | Import a backup | once (moving) | ✔ |
-| Advanced detection settings | view | ✔ |
+| Advanced detection settings, 🎯 set threshold automatically | view | ✔ |
+| Daily backup to network drive/NAS/USB, save space | ZIP by hand | ✔ |
 | External devices (phone, stream, IP camera) | – | ✔ |
 
 **GasLighter Pro** is a yearly licence for 1 Home Assistant installation, **no subscription**. The key is checked in the app without internet. [Learn more and buy](https://www.gsimulations.de/gaslighter/#buypro) · [Manual: GasLighter Pro](docs/en/14-pro.md)
