@@ -5683,6 +5683,7 @@ async function lockPoll() {
   let j = null; try { j = await (await fetch('lockstate', { cache: 'no-store' })).json(); } catch (e) { }
   let ov = document.getElementById('lockov');
   if (j && j.blocked) {
+    if (!ov) pickLang((typeof CUR !== 'undefined' && CUR && CUR.language) || 'auto');   // gesperrt: Einstellungen sind nicht abrufbar – Sprache vom Browser
     if (!ov) { ov = el('div', { id: 'lockov', className: 'lockov' }); document.body.appendChild(ov); }
     ov.innerHTML = `<div class="lockbox"><h2>⛔ ${esc(t('lock_title'))}</h2><p>${esc(t('lock_text', { a: j.blocked, d: j.dir || '' }))}</p><p class="mut">${esc(t('lock_how'))}</p></div>`;
     setTimeout(lockPoll, 5000);

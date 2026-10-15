@@ -240,6 +240,16 @@ class OrdnerSperre(unittest.TestCase):
         json.dump({"id": "anderer", "app": "GasLighter", "beat": time.time() - 120}, open(self.p, "w"))
         self.assertIsNone(laerm.lock_other(self.p))
 
+    def test_aeltere_version_ohne_sperre(self):
+        d = tempfile.mkdtemp(); keep = laerm.day_dir; laerm.day_dir = lambda: d
+        try:
+            open(os.path.join(d, "2026-10-15_main" + laerm.DAY_EXT), "wb").write(b"x")    # gerade geschrieben, aber keine Sperre
+            self.assertIn("ältere Version", laerm.lock_other(self.p)["app"])
+            json.dump({"id": "anderer", "app": "GasLighter", "released": time.time() + 10}, open(self.p, "w"))
+            self.assertIsNone(laerm.lock_other(self.p))                                 # sauber beendet: frei
+        finally:
+            laerm.day_dir = keep
+
     def test_eigene_sperre(self):
         laerm.lock_write(self.p)
         self.assertIsNone(laerm.lock_other(self.p))

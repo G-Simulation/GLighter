@@ -32,7 +32,7 @@ HERE = os.path.dirname(os.path.abspath(__file__))
 WEB = os.path.join(HERE, "web")
 OPTIONS_FILE = os.environ.get("LAERM_OPTIONS", "/data/options.json")
 SETTINGS_FILE = os.environ.get("LAERM_SETTINGS", "/data/settings.json")
-VERSION = "1.64.0-beta.1"
+VERSION = "1.64.0-beta.2"
 
 # =====================================================================
 # Einstellungen
@@ -7405,8 +7405,16 @@ def lock_read(p):
 
 def lock_other(p):
     d = lock_read(p)
-    if d and d.get("id") != LOCK["id"] and time.time() - float(d.get("beat") or 0) < LOCK_STALE_S:
+    if d and not d.get("released") and d.get("id") != LOCK["id"] and time.time() - float(d.get("beat") or 0) < LOCK_STALE_S:
         return d
+    if not LOCK["path"] and not (d and d.get("id") == LOCK["id"]):   # noch nicht belegt: schreibt gerade eine ältere Version ohne Sperre hierher?
+        try:
+            newest = max((os.path.getmtime(f) for f in glob.glob(os.path.join(day_dir(), "*" + DAY_EXT))), default=0)
+        except Exception:
+            newest = 0
+        rel = float((d or {}).get("released") or 0)        # sauber beendet: die frischen Dateien stammen von dem, der freigegeben hat
+        if time.time() - newest < 90 and newest > rel + 5:  # Tagesdateien werden mindestens jede Minute geschrieben
+            return {"app": "GasLighter (ältere Version ohne Sperre)", "seit": dt.datetime.fromtimestamp(newest).astimezone().isoformat(timespec="seconds")}
     return None
 
 
@@ -7464,8 +7472,10 @@ def lock_release():
     if p:
         d = lock_read(p)
         if d and d.get("id") == LOCK["id"]:
-            try:
-                os.remove(p)
+            try:                                        # freigeben (nicht löschen): der Nächste weiß so, dass die frischen Dateien von hier stammen
+                with open(p + ".tmp", "w", encoding="utf-8") as f:
+                    json.dump({"id": LOCK["id"], "app": BRAND, "version": VERSION, "released": time.time()}, f)
+                os.replace(p + ".tmp", p)
             except OSError:
                 pass
 
