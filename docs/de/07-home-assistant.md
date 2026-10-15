@@ -84,6 +84,7 @@ Beide legst du auf ein beliebiges Dashboard (z. B. als Karte „Entitäten“). 
 Manchmal soll eine Störung nicht gemeldet werden, der Graph aber trotzdem weiterlaufen, zum Beispiel wenn du selbst die Tür öffnest.
 
 - **In einer Regel:** Wähle bei der Aktion **„keine Störung melden“**. Solange die Bedingung gilt und für den **Nachlauf** (z. B. 10 Minuten), entsteht keine Störung. Der Graph wird weiter aufgezeichnet, es gibt keine Lücke.
+- **Vorlauf (s), z. B. für einen Sprachassistenten:** Das Rufwort („Hey Jarvis“) kommt, *bevor* der Assistent auf „hört zu“ wechselt. Mit **Vorlauf** zählt auch eine Störung nicht, die bis zu so viele Sekunden vor dem Einschalten der Regel begann. Dafür hält GasLighter jede Störung so lange (Vorlauf + 2 s) zurück, bevor sie gemeldet wird. Pegel und Graph bleiben unverändert; im Protokoll steht „nicht gezählt“. **Einrichten:** Regel hinzufügen, Entität `assist_satellite.…` wählen – Zustände `!idle`, „keine Störung melden“, Vorlauf 3 s und Nachlauf 0,5 min werden vorbelegt. So zählen Rufwort, Befehl und die Antwort aus dem Lautsprecher nicht.
 - **Als Knopf im Dashboard:** Am Gerät „GasLighter“ gibt es **„Keine Störung melden (Dauer starten)“**, **„Störungen wieder melden“**, die einstellbare **Dauer** (1–240 Minuten, Standard 10) und **„Keine Störungsmeldung bis“**. Lege sie auf dein Dashboard. Ein Tipp auf den Knopf startet die eingestellte Dauer.
 
 ---

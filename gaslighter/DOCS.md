@@ -414,6 +414,7 @@ Beide legst du auf ein beliebiges Dashboard (z. B. als Karte „Entitäten“). 
 Manchmal soll eine Störung nicht gemeldet werden, der Graph aber trotzdem weiterlaufen, zum Beispiel wenn du selbst die Tür öffnest.
 
 - **In einer Regel:** Wähle bei der Aktion **„keine Störung melden“**. Solange die Bedingung gilt und für den **Nachlauf** (z. B. 10 Minuten), entsteht keine Störung. Der Graph wird weiter aufgezeichnet, es gibt keine Lücke.
+- **Vorlauf (s), z. B. für einen Sprachassistenten:** Das Rufwort („Hey Jarvis“) kommt, *bevor* der Assistent auf „hört zu“ wechselt. Mit **Vorlauf** zählt auch eine Störung nicht, die bis zu so viele Sekunden vor dem Einschalten der Regel begann. Dafür hält GasLighter jede Störung so lange (Vorlauf + 2 s) zurück, bevor sie gemeldet wird. Pegel und Graph bleiben unverändert; im Protokoll steht „nicht gezählt“. **Einrichten:** Regel hinzufügen, Entität `assist_satellite.…` wählen – Zustände `!idle`, „keine Störung melden“, Vorlauf 3 s und Nachlauf 0,5 min werden vorbelegt. So zählen Rufwort, Befehl und die Antwort aus dem Lautsprecher nicht.
 - **Als Knopf im Dashboard:** Am Gerät „GasLighter“ gibt es **„Keine Störung melden (Dauer starten)“**, **„Störungen wieder melden“**, die einstellbare **Dauer** (1–240 Minuten, Standard 10) und **„Keine Störungsmeldung bis“**. Lege sie auf dein Dashboard. Ein Tipp auf den Knopf startet die eingestellte Dauer.
 
 ## 8. Drucken und Lärmprotokoll
@@ -1186,6 +1187,7 @@ Put both on any dashboard (for example in an "Entities" card). If a disturbance 
 Sometimes a disturbance should not be reported while the graph keeps recording, for example when you open the door yourself.
 
 - **In a rule:** choose the action **"no disturbance reports"**. While the condition holds and for the **delay** afterwards (for example 10 minutes), no disturbance is created. The graph keeps recording, with no gap.
+- **Lead time (s), e.g. for a voice assistant:** the wake word (“Hey Jarvis”) comes *before* the assistant switches to “listening”. With **lead time**, a disturbance that started up to this many seconds before the rule switched on does not count either. For this, GasLighter holds each disturbance back that long (lead time + 2 s) before reporting it. Levels and graph stay unchanged; the log says “not counted”. **Set up:** add a rule, choose the entity `assist_satellite.…` – states `!idle`, “no disturbance reports”, lead time 3 s and delay 0.5 min are pre-filled. Wake word, command and the spoken answer then don’t count.
 - **As a dashboard button:** the "GasLighter" device has **"Start: no disturbance reports"**, **"Report disturbances again"**, an adjustable **duration** (1–240 minutes, default 10) and **"No disturbance reports until"**. Put them on your dashboard. One tap starts the set duration.
 
 ## 8. Printing and noise log

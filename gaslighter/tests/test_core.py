@@ -227,6 +227,31 @@ class NotizAusHA(unittest.TestCase):
         self.assertEqual(len(self.notizen()), 0)
 
 
+class VorlaufSprachassistent(unittest.TestCase):
+    """„Hey Jarvis“: Störung beginnt kurz BEVOR der Assistent auf „hört zu“ wechselt – mit Vorlauf zählt sie nicht."""
+    def setUp(self):
+        laerm.HA_RULES[:] = laerm.clean_rules([{"id": "j1", "entity": "assist_satellite.wohnzimmer", "states": "!idle", "mode": "quiet", "pre_s": 3, "after_min": 0.5}])
+        laerm.HA_STATE.clear()
+
+    def test_vorlauf_nur_bei_keine_stoerung(self):
+        self.assertEqual(laerm.HA_RULES[0]["pre_s"], 3.0)
+        r = laerm.clean_rules([{"id": "p", "entity": "binary_sensor.x", "mode": "pause", "pre_s": 5}])
+        self.assertEqual(r[0]["pre_s"], 0.0)
+        self.assertEqual(laerm.quiet_pre("main"), 3.0)
+
+    def test_kurz_davor_zaehlt_nicht(self):
+        on = 1000.0
+        laerm.HA_STATE["j1"] = {"hold": False, "active": False, "ons": [on], "name": "Jarvis"}
+        self.assertIsNotNone(laerm.quiet_covers("main", on - 1.2))      # „Hey Jarvis“ 1,2 s vorher
+        self.assertIsNone(laerm.quiet_covers("main", on - 10))           # lange davor: echte Störung
+        self.assertIsNone(laerm.quiet_covers("main", on + 30))           # lange danach (Regel aus): echte Störung
+
+    def test_ohne_vorlauf_nichts(self):
+        laerm.HA_RULES[0]["pre_s"] = 0.0
+        laerm.HA_STATE["j1"] = {"hold": True, "active": True, "ons": [1000.0], "since": 1000.0}
+        self.assertIsNone(laerm.quiet_covers("main", 999.0))
+
+
 class IpWebcamSensoren(unittest.TestCase):
     """IP Webcam: sensors.json wird gelesen; Erschütterung, Neigung und Bewegung im Bild lösen den Melder aus."""
     def setUp(self):

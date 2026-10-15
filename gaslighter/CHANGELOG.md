@@ -1,5 +1,11 @@
 # Changelog
 
+## 1.63.0
+- **Sprachassistent / Rufwort („Hey Jarvis“) zählt nicht als Störung:** Regel „keine Störung melden“ hat jetzt **Vorlauf (s)**. Auch eine Störung, die bis zu so viele Sekunden *vor* dem Einschalten der Regel begann, zählt nicht. Dafür wird eine Störung so lange zurückgehalten (Vorlauf + 2 s), bevor sie gemeldet und gespeichert wird; Pegel und Graph bleiben unverändert in der Tagesaufzeichnung, im Protokoll steht „nicht gezählt (Vorlauf der Regel …)“.
+- Regeln mit Vorlauf werden schnell abgefragt (alle 0,7 s, genauer Zeitpunkt aus Home Assistant), andere wie bisher alle 5 s.
+- Neue Regel mit einer Entität `assist_satellite.…` wird automatisch vorbelegt: Zustände `!idle`, „keine Störung melden“, Vorlauf 3 s, Nachlauf 0,5 min.
+- **Beta-Kanal:** „GasLighter Beta“ steht als zweite App im selben Store. Eigene Entitäten (`gaslighter_beta_…`), eigener Datenordner (`/share/gaslighter_beta`), eigener Handy-Port (18444) – läuft neben dem normalen GasLighter, ohne ihn zu stören.
+
 ## 1.62.2
 - Notiz: oben eine Reihe mit vier Schaltern – **Textfeld**, **Schnellwahl**, **Zeuge**, **Zeitraum & Gerät**. Jeder klappt nur seinen Teil ein (▸) oder aus (▾); „Speichern“ bleibt immer sichtbar. Gilt auch im abgedockten Fenster, gemerkt pro Browser. Der Sammel-Knopf von 1.61.1/1.62.1 entfällt.
 
