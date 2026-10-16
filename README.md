@@ -1,4 +1,4 @@
-<p align="center"><img src="docs/images/logo.png" alt="GasLighter" width="420"></p>
+<p align="center"><img src="docs/images/logo.png" alt="GLighter" width="220"></p>
 
 <p align="center"><b>Lärmprotokoll für Home Assistant</b> – misst Lärm rund um die Uhr und protokolliert Störungen manipulationssicher. Ohne Tonaufnahme, ohne Cloud.<br>
 <i>Noise log for Home Assistant – measures noise 24/7 and logs disturbances tamper-evident. No audio recording, no cloud.</i></p>

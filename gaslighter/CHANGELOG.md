@@ -1,5 +1,8 @@
 # Changelog
 
+## 1.71.0
+- Neues Logo und App-Symbol (G-Simulation-Stil „GLighter“) im App-Store, als Browser-Symbol und in der README.
+
 ## 1.70.1
 - Fehler behoben: Mit einer Statistik in Protokolle konnte beim Neuladen der Seite ein Skriptfehler auftreten (Tag noch nicht gewählt). Die Statistik nimmt dann bis zur Auswahl „heute“.
 
