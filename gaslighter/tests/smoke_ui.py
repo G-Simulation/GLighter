@@ -113,6 +113,14 @@ def main():
                 pg.click("#fnptags .ntadd"); pg.fill("#fnptags_qt .qtnew", "Waschmaschine"); pg.click("#fnptags_qt .qtaddok"); pg.wait_for_timeout(800)
                 if not pg.locator('#fnptags .ntchip:has-text("Waschmaschine")').count():
                     fails.append("eigene Schnellwahl-Taste erscheint nicht")
+            mp = b.new_context(locale="de-DE", viewport={"width": 375, "height": 760}, is_mobile=True, has_touch=True).new_page()   # Handy: nichts breiter als der Bildschirm
+            mp.on("pageerror", lambda e: errors.append("pageerror (Handy): " + str(e)))
+            mp.goto(url); mp.wait_for_selector("#tab_prot"); mp.wait_for_timeout(1200)
+            for tab in ("#tab_live", "#tab_prot"):
+                mp.click(tab); mp.wait_for_timeout(900)
+                sw = mp.evaluate("() => document.documentElement.scrollWidth - document.documentElement.clientWidth")
+                if sw > 1:
+                    fails.append(f"Handy: Seite {tab} {sw}px breiter als der Bildschirm")
             b.close()
     finally:
         srv.terminate()

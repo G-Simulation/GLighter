@@ -1,5 +1,9 @@
 # Changelog
 
+## 1.70.0
+- **Abgedocktes Notizfenster passt sich der Fenstergröße an:** kompakt (ohne ⧉ und Tonprofil-Knopf), **Speichern immer sichtbar** unten, Schnellwahl nach der Breite des eigenen Fensters (schmal: die häufigsten 6 + „Mehr“), keine waagerechte Rollleiste mehr bei schmalen Fenstern.
+- **Handy-Ansicht:** Ereignis-Tabelle im Live-Reiter zeigt schmal nur Zeit, Art und Dauer – der Rest klappt mit ⊕ unter der Zeile auf; Quelle/Gerät sauber zweizeilig. Übersicht in Protokolle zweispaltig unter dem Ring. Sensor-Filter öffnet als Leiste unten statt über den Rand hinaus. Statistik-Dialog scrollt, Knöpfe bleiben unten sichtbar (vorher auf dem Handy nicht erreichbar).
+
 ## 1.69.0
 - **Mikrofon „⏺ Nur aufzeichnen (keine Erkennung)“** (Einstellungen → Geräte, je Gerät): Pegel weiter in der Tagesaufzeichnung mit Prüfsumme (live, Verlauf, Lärmprotokoll-Graph), aber keine Störungen, keine KI, keine Lärmspur, keine Meldung an Home Assistant. Kachel zeigt „⏺ nur Aufzeichnung“.
 

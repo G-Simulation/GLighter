@@ -5463,24 +5463,25 @@ function levRender() {
   const fm = fn => cell => fn(cell.getRow().getData());
   const hm = ms_ => { const d = new Date(ms_), td = new Date(nowServer()); return (d.toDateString() === td.toDateString() ? '' : pad(d.getDate()) + '.' + pad(d.getMonth() + 1) + '. ') + pad(d.getHours()) + ':' + pad(d.getMinutes()) + ':' + pad(d.getSeconds()); };
   const def = {
-    tm: { field: 'start', title: levHead('tm'), sorter: 'number', minWidth: 90, headerFilter: 'input', headerFilterPlaceholder: '…', headerFilterFunc: (hv, rv) => !hv || hm(rv).includes(hv), formatter: fm(d => esc(hm(d.start))) },
-    src: Object.assign({ field: 'src', title: levHead('src'), minWidth: 150, widthGrow: 2, formatter: fm(d => d.fn ? `<span class="si">📝</span><span class="sn"><b>${esc(d.src)}</b></span>` : d.r ? srcCell(d.r).replace(/^<td[^>]*>/, '').replace(/<\/td>$/, '') : `<span class="si">${d.x.kind === 'ha' ? '🏠' : '📱'}</span><span class="sn"><b>${esc(d.src)}</b></span>`) }, ms('src')),
-    art: Object.assign({ field: 'tags', title: levHead('art'), minWidth: 160, widthGrow: 2, headerSort: false, formatter: fm(d => d.fn ? `<span class="art fnc">📝 ${esc(t('fn_row'))}</span>${d.fev ? `<span class="art fnlk">🔗 ${esc(t('fn_link', { c: clockOf(d.fev.start) }))}</span>` : ''}` : d.r ? `${d.r.prof ? `<span class="art prof${d.r.bg ? ' bgp' : ''}">🧩 ${esc(d.r.prof)}${d.r.prof_ok ? ' ✓' : d.r.prof_c != null ? ` <small>${d.r.prof_c} %</small>` : ''}</span>` : ''}${(d.r.labels || []).map(n => `<span class="art lbl">🏷 ${esc(n)}</span>`).join('')}` : `<span class="art sensc">${sensIcon(d.x.kind)} ${esc(sensLabel(d.x))}</span>`) }, ms('tags')),
-    kinds: { field: 'kinds', title: levHead('kinds'), minWidth: 140, headerSort: false, formatter: fm(d => d.r ? kindsHTML(d.r.kinds, j.fine) : '') },
-    devs: { field: 'devs', title: levHead('devs'), minWidth: 120, headerSort: false, formatter: fm(d => d.r && (d.r.devs || []).length > 1 ? d.r.devs.map((x, i) => `<span class="dvp${i === 0 ? ' top' : ''}">${esc(shortName(x[1]))} ${x[2] != null ? x[2].toFixed(0) : '–'}</span>`).join('') : '<span class="noclip">–</span>') },
-    dur: Object.assign({ field: 'dur', title: levHead('dur'), sorter: 'number', minWidth: 90, formatter: fm(d => d.fn && !d.dur ? '–' : esc(fmtDur(d.dur))) }, num('dur')),
-    pk: Object.assign({ field: 'pk', title: levHead('pk'), sorter: 'number', minWidth: 100, formatter: fm(d => d.pk == null ? '' : esc(d.r ? fdb(d.pk) : f2(d.pk)) + ' <small>' + esc(d.r ? 'dBFS' : (d.x.unit || '')) + '</small>') }, num('pk')),
-    thr: Object.assign({ field: 'thr', title: levHead('thr'), sorter: 'number', minWidth: 100, formatter: fm(d => d.r ? esc(fdb(d.thr)) : '') }, num('thr')),
-    bg: Object.assign({ field: 'bg', title: levHead('bg'), sorter: 'number', minWidth: 100, formatter: fm(d => d.r ? esc(fdb(d.bg)) : '') }, num('bg')),
-    nt: { field: 'nt', title: '📝', minWidth: 80, headerFilter: 'input', headerFilterPlaceholder: '…', formatter: fm(d => esc(d.nt || '')) },
+    tm: { field: 'start', title: levHead('tm'), sorter: 'number', minWidth: 76, responsive: 0, headerFilter: 'input', headerFilterPlaceholder: '…', headerFilterFunc: (hv, rv) => !hv || hm(rv).includes(hv), formatter: fm(d => esc(hm(d.start))) },
+    src: Object.assign({ field: 'src', title: levHead('src'), minWidth: 150, widthGrow: 2, responsive: 3, cssClass: 'srcc', formatter: fm(d => d.fn ? `<span class="si">📝</span><span class="sn"><b>${esc(d.src)}</b></span>` : d.r ? srcCell(d.r).replace(/^<td[^>]*>/, '').replace(/<\/td>$/, '') : `<span class="si">${d.x.kind === 'ha' ? '🏠' : '📱'}</span><span class="sn"><b>${esc(d.src)}</b></span>`) }, ms('src')),
+    art: Object.assign({ field: 'tags', title: levHead('art'), minWidth: 120, widthGrow: 2, headerSort: false, responsive: 1, formatter: fm(d => d.fn ? `<span class="art fnc">📝 ${esc(t('fn_row'))}</span>${d.fev ? `<span class="art fnlk">🔗 ${esc(t('fn_link', { c: clockOf(d.fev.start) }))}</span>` : ''}` : d.r ? `${d.r.prof ? `<span class="art prof${d.r.bg ? ' bgp' : ''}">🧩 ${esc(d.r.prof)}${d.r.prof_ok ? ' ✓' : d.r.prof_c != null ? ` <small>${d.r.prof_c} %</small>` : ''}</span>` : ''}${(d.r.labels || []).map(n => `<span class="art lbl">🏷 ${esc(n)}</span>`).join('')}` : `<span class="art sensc">${sensIcon(d.x.kind)} ${esc(sensLabel(d.x))}</span>`) }, ms('tags')),
+    kinds: { field: 'kinds', title: levHead('kinds'), minWidth: 140, headerSort: false, responsive: 4, formatter: fm(d => d.r ? kindsHTML(d.r.kinds, j.fine) : '') },
+    devs: { field: 'devs', title: levHead('devs'), minWidth: 120, headerSort: false, responsive: 6, formatter: fm(d => d.r && (d.r.devs || []).length > 1 ? d.r.devs.map((x, i) => `<span class="dvp${i === 0 ? ' top' : ''}">${esc(shortName(x[1]))} ${x[2] != null ? x[2].toFixed(0) : '–'}</span>`).join('') : '<span class="noclip">–</span>') },
+    dur: Object.assign({ field: 'dur', title: levHead('dur'), sorter: 'number', minWidth: 80, responsive: 2, formatter: fm(d => d.fn && !d.dur ? '–' : esc(fmtDur(d.dur))) }, num('dur')),
+    pk: Object.assign({ field: 'pk', title: levHead('pk'), sorter: 'number', minWidth: 100, responsive: 5, formatter: fm(d => d.pk == null ? '' : esc(d.r ? fdb(d.pk) : f2(d.pk)) + ' <small>' + esc(d.r ? 'dBFS' : (d.x.unit || '')) + '</small>') }, num('pk')),
+    thr: Object.assign({ field: 'thr', title: levHead('thr'), sorter: 'number', minWidth: 100, responsive: 7, formatter: fm(d => d.r ? esc(fdb(d.thr)) : '') }, num('thr')),
+    bg: Object.assign({ field: 'bg', title: levHead('bg'), sorter: 'number', minWidth: 100, responsive: 7, formatter: fm(d => d.r ? esc(fdb(d.bg)) : '') }, num('bg')),
+    nt: { field: 'nt', title: '📝', minWidth: 80, responsive: 4, headerFilter: 'input', headerFilterPlaceholder: '…', formatter: fm(d => esc(d.nt || '')) },
   };
-  const cols = LEV.cols.filter(c => (useArt || (c !== 'art' && c !== 'kinds')) && (c !== 'devs' || multi)).map(c => def[c]);
+  const cols = [{ formatter: 'responsiveCollapse', width: 30, minWidth: 30, hozAlign: 'center', headerSort: false, responsive: 0, cssClass: 'rcol' }]   // schmal (Handy): weniger wichtige Spalten aufklappbar unter der Zeile
+    .concat(LEV.cols.filter(c => (useArt || (c !== 'art' && c !== 'kinds')) && (c !== 'devs' || multi)).map(c => def[c]));
   if (typeof Tabulator === 'undefined') return;
   const key = JSON.stringify([lang, LEV.cols, useArt, multi]);
   if (!LTBL || LTBL_KEY !== key) {
     if (LTBL) { try { LTBL.destroy(); } catch (e) { } LTBL = null; }
     LTBL_KEY = key; box.innerHTML = '';
-    LTBL = new Tabulator(box, { data: rows, columns: cols, index: 'id', layout: 'fitColumns', maxHeight: '60vh', placeholder: t('lev_none'), headerSortElement: '<span class="srt"></span>', initialSort: [{ column: 'start', dir: 'desc' }] });
+    LTBL = new Tabulator(box, { data: rows, columns: cols, index: 'id', layout: 'fitColumns', responsiveLayout: 'collapse', responsiveLayoutCollapseStartOpen: false, maxHeight: '60vh', placeholder: t('lev_none'), headerSortElement: '<span class="srt"></span>', initialSort: [{ column: 'start', dir: 'desc' }] });
     LTBL.on('rowClick', (e, row) => { const d = row.getData(); if (d.fn) { if (d.fev && e.target.closest('.fnlk')) openEvent(d.fev.k || ''); else fnOpenId(d.fn); return; } if (d.k) openEvent(d.k); else if (d.x && d.x.kind === 'ha') haPop({ a: d.x.a, b: d.x.b, name: sensLabel(d.x), note: d.x.note || '', key: d.x.key }); });
   } else LTBL.replaceData(rows);
 }
@@ -5715,6 +5716,7 @@ async function fnPop() {
   const back = () => { if (FNPOP !== w) return; FNPOP = null; ph.remove(); try { parent.insertBefore(panel, next && next.parentNode === parent ? next : null); } catch (e) { parent.appendChild(panel); } panel.classList.remove('inpop'); };
   pb.onclick = () => { try { w.close(); } catch (e) { } back(); };
   w.addEventListener('pagehide', back);
+  let rz = 0; w.addEventListener('resize', () => { clearTimeout(rz); rz = setTimeout(() => { if (FNPOP === w) fnpTags(); }, 150); });   // Fenstergröße geändert: Tasten neu einteilen
   addEventListener('pagehide', () => { try { w.close(); } catch (e) { } });
   const tx = doc.getElementById('fnptext'); if (tx) setTimeout(() => tx.focus(), 100);
 }
@@ -5786,10 +5788,10 @@ function renderEvFn(list) {
 /* Notiz-Leiste oben im Live-Bild: einklappbar, sofort tippbar; „von“ = Moment der ersten Eingabe */
 const FNP = { from: null, tags: new Set(), tick: null };
 function fnpTags() {
-  const few = innerWidth < 700 && !FNP.more;               // Handy: nur die ersten (häufigsten) Merkmale und gewählte, Rest über „Mehr …“
+  const W = (($('fnptags').ownerDocument || document).defaultView || window).innerWidth, few = W < 700 && !FNP.more;   // Breite des eigenen Fensters (auch abgedockt)               // Handy: nur die ersten (häufigsten) Merkmale und gewählte, Rest über „Mehr …“
   let k = 0;
   $('fnptags').innerHTML = ntSugHtml() + ntList(FNP.tags).map(tg => (few && k++ >= 6 && !FNP.tags.has(tg)) ? '' : ntChip(tg, FNP.tags.has(tg))).join('')
-    + (few ? '' : ntAddBtn()) + (innerWidth < 700 ? `<button type="button" class="chip fnpmoretags">${esc(t(few ? 'fnp_tags_more' : 'fnp_tags_less'))}</button>` : '');
+    + (few ? '' : ntAddBtn()) + (W < 700 ? `<button type="button" class="chip fnpmoretags">${esc(t(few ? 'fnp_tags_more' : 'fnp_tags_less'))}</button>` : '');
   const mb = $('fnptags').querySelector('.fnpmoretags'); if (mb) mb.onclick = () => { FNP.more = !FNP.more; fnpTags(); };
   ntChipBind($('fnptags'), FNP.tags, () => { fnpStart(); $('fnpwit').hidden = !FNP.tags.has('zeuge'); });
 }
