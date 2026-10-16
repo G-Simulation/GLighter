@@ -652,7 +652,7 @@ header .seg{height:36px}header .seg button{height:34px;min-height:34px}
 /* Dashboard: Ereignisse heute */
 .ldevcard .row{flex-wrap:wrap}.ldevn{color:var(--mut)}.ldevsrc{margin-left:auto}
 .ldevcols{display:flex;flex-wrap:wrap;gap:6px;margin:4px 0 8px}.ldevcols[hidden]{display:none}.ldevcols .chip{cursor:pointer;gap:4px}
-.card .ldevscroll{max-height:420px;overflow:auto;max-width:100%}
+.card .ldevscroll{max-height:none;overflow:visible;max-width:100%}   /* nur die Tabelle selbst scrollt (sonst doppelter Rollbalken) */
 table.ldev{width:100%;border-collapse:collapse;font-size:13px}table.ldev th{position:sticky;top:0;background:var(--card);text-align:left;color:var(--mut);font-weight:600;padding:5px 8px;border-bottom:1px solid var(--bd);white-space:nowrap}
 table.ldev td{padding:5px 8px;border-bottom:1px solid var(--bd);white-space:nowrap}table.ldev tbody tr[data-k]{cursor:pointer}table.ldev tbody tr[data-k]:hover{background:var(--nl1)}
 .ldev .srcc .sn small{display:none}.ldev .srcc .si{margin-right:4px}

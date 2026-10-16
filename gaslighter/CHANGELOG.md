@@ -1,5 +1,8 @@
 # Changelog
 
+## 1.67.1
+- Ereignis-Tabelle im Live-Reiter / Dashboard: kein doppelter Rollbalken mehr – nur die Tabelle selbst scrollt, Kopfzeile mit Filtern bleibt stehen.
+
 ## 1.67.0
 - **Ereignis-Tabelle im Live-Reiter: Knopf „Nur sichtbarer Bereich“** (Standard an, gemerkt pro Browser). Die Tabelle zeigt nur Störungen, Sensoren und Notizen, die im Graphen darüber gerade zu sehen sind – läuft live mit, folgt Zoomen und Verschieben (normales Live-Bild und Verlauf). Anzahl oben zählt nur diese. Aus: wie bisher alle ab Anfang des Graphen.
 

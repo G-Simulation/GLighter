@@ -82,6 +82,9 @@ def main():
                 fails.append("Kasten tägliche Sicherung fehlt")
             pg.keyboard.press("Escape"); pg.wait_for_timeout(300)
             pg.click("#tab_live"); pg.wait_for_timeout(600)
+            dbl = pg.evaluate("() => { const o = document.querySelector('.ldevscroll'); return o ? getComputedStyle(o).overflowY : '' }")
+            if dbl in ("auto", "scroll"):
+                fails.append("Ereignis-Tabelle Live: doppelter Rollbalken (äußerer Kasten scrollt)")
             vb = pg.locator("#ldevvis")                                    # Tabelle: nur sichtbarer Bereich (an/aus)
             if vb.count() != 1 or "on" not in (vb.get_attribute("class") or ""):
                 fails.append("Knopf Nur sichtbarer Bereich fehlt oder ist nicht an")
