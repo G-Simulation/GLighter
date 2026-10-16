@@ -13757,6 +13757,81 @@ class BaseHandler(BaseHTTPRequestHandler):
 STATIC = {"app.js", "hadash-ui.js", "felder.js", "app.css", "i18n.js", "qrcode.js", "druck.js", "uplot.min.js", "uplot.min.css", "ag-grid-community.min.js", "gridstack-all.js", "gridstack.min.css", "handbuch.js", "hb_inhalt.js"}   # uPlot (MIT, github.com/leeoniya/uPlot): Kurven und Balken
 
 
+# =====================================================================
+# GRemote: Notiz-App (eigene App im Store) koppelt sich mit einem Code an GLighter.
+# Nur aus dem internen Netz (andere Apps), nur mit Code; ändert nur Notizen und Schnellwahl,
+# markiert, pausiert bzw. „keine Störung melden“ – genau wie die Knöpfe in Home Assistant.
+# =====================================================================
+GREMOTE_FILE = os.path.join(os.path.dirname(SETTINGS_FILE) or ".", "gremote.json")
+
+
+def gremote_code(new=False):
+    d = read_json(GREMOTE_FILE) if os.path.exists(GREMOTE_FILE) else {}
+    d = d if isinstance(d, dict) else {}
+    if new or not re.fullmatch(r"[A-Z0-9]{4}-[A-Z0-9]{4}", str(d.get("code") or "")):
+        abc = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789"
+        c = "".join(secrets.choice(abc) for _ in range(8))
+        d = {"code": c[:4] + "-" + c[4:], "ts": dt.datetime.now().astimezone().isoformat(timespec="seconds")}
+        try:
+            tmp = GREMOTE_FILE + ".tmp"
+            with open(tmp, "w", encoding="utf-8") as f:
+                json.dump(d, f)
+            os.replace(tmp, GREMOTE_FILE)
+        except OSError as e:
+            log("GRemote-Code nicht gespeichert:", e)
+    return d["code"]
+
+
+def gremote_ok(handler):
+    """Anfrage von GRemote? Internes Netz + richtiger Code."""
+    import ipaddress
+    try:
+        ip = ipaddress.ip_address(handler.client_address[0])
+        if not (ip.is_private or ip.is_loopback):
+            return False
+    except ValueError:
+        return False
+    code = str(handler.headers.get("X-GRemote-Code") or "").strip().upper()
+    return bool(code) and hmac.compare_digest(code, gremote_code())
+
+
+def gremote_status():
+    with SRC_LOCK:
+        r = RUNNERS.get("main") or next(iter(RUNNERS.values()), None)
+    st = r.status if r else {}
+    return {"ok": True, "app": BRAND, "version": VERSION, "level": st.get("level"), "thr": st.get("thr"), "active": bool(st.get("active")),
+            "paused": bool(RUN["paused"]), "pause_until": RUN["until"] if RUN["paused"] else None,
+            "quiet_until": dt.datetime.fromtimestamp(QUIET["until"]).astimezone().isoformat(timespec="seconds") if QUIET["until"] > time.time() else None,
+            "sources": [{"id": x.id, "name": x.name} for x in RUNNERS.values()], "lang": "en" if CFG.get("language") == "en" else "de"}
+
+
+def gremote_api(handler, name, data):
+    """GRemote-Befehle. data = JSON (POST) bzw. {} (GET)."""
+    if name == "ping" or name == "status":
+        return gremote_status()
+    if name == "notetags":
+        return qt_change(data) if data else qt_state()
+    if name == "fnote":
+        if not isinstance(data, dict) or data.get("action") not in ("add", "edit", "del"):
+            return {"ok": False, "error": "bad request"}
+        return fnote_change(data["action"], data)
+    if name == "mark":                                  # „Störung jetzt markieren“
+        de = CFG.get("language") != "en"
+        now = dt.datetime.now()
+        return fnote_change("add", {"action": "add", "from": now.strftime("%Y-%m-%dT%H:%M:%S"), "text": str(data.get("text") or ("Störung (GRemote)" if de else "Disturbance (GRemote)"))[:200],
+                                    "tags": [], "src": "all", "auto": True})
+    if name == "quiet":
+        if data.get("on"):
+            quiet_start(data.get("minutes"), "GRemote")
+        else:
+            quiet_stop("GRemote")
+        return gremote_status()
+    if name == "pause":
+        pause_for(data.get("minutes", 0), "GRemote", data.get("reason", ""))
+        return gremote_status()
+    return {"ok": False, "error": "unknown"}
+
+
 class Handler(BaseHandler):
     timeout = 30                                         # je Lese-/Schreibvorgang; reicht für Uploads in Teilen (8 MB) und lange Downloads
 
@@ -13768,6 +13843,12 @@ class Handler(BaseHandler):
         return False
 
     def do_GET(self):
+        if self.path.startswith("/gremote/"):            # GRemote (andere App im internen Netz, mit Code)
+            if not gremote_ok(self):
+                return self.js({"ok": False, "error": "code"}, 403)
+            if LOCK["blocked"]:
+                return self.js({"ok": False, "error": "locked"}, 423)
+            return self.js(gremote_api(self, self.route()[1], {}))
         if not self.allowed():
             return
         p, name, q = self.route()
@@ -13977,6 +14058,8 @@ class Handler(BaseHandler):
                 except (KeyError, ValueError, IndexError):
                     now_ = int(time.time() * 1000); a_, b_ = now_ - 900000, now_ + 60000
                 return self.js({"ok": True, "notes": fnotes_in(a_, b_, re.sub(r"[^a-z0-9_]", "", (q.get("src") or ["all"])[0])[:16] or "all")})
+            if name == "gremote_info":                # Kopplungscode für GRemote (nur in der eigenen Oberfläche sichtbar)
+                return self.js({"ok": True, "code": gremote_code()})
             if name == "stats":                       # eigene Statistiken: Liste, Vorlagen, Pro, Auswahl
                 return self.js(dict({"ok": True, "list": stat_list(), "pro": pro_ok(), "tpls": STAT_TPLS}, **stat_meta()))
             if name == "layout":                      # Anordnung der Ansichten und Spaltenbreiten (für alle Browser gleich)
@@ -14197,6 +14280,16 @@ class Handler(BaseHandler):
             return self.restore_part()
         big = self.path.split("?")[0].rstrip("/").endswith("/classify")
         body = self.read_body(UPLOAD_MAX if big else MAX_BODY)
+        if self.path.startswith("/gremote/"):            # GRemote (andere App im internen Netz, mit Code)
+            if body is None:
+                return self.send(413, "text/plain", b"bad length")
+            if not gremote_ok(self):
+                return self.js({"ok": False, "error": "code"}, 403)
+            try:
+                data = json.loads(body or b"{}")
+            except ValueError:
+                data = {}
+            return self.js(gremote_api(self, self.route()[1], data if isinstance(data, dict) else {}))
         if not self.allowed():
             return
         if body is None:
@@ -14338,6 +14431,8 @@ class Handler(BaseHandler):
                 except (TypeError, ValueError):
                     return self.js({"ok": False, "error": "range"}, 400)
                 return self.js(scan_start(f_, t_, clean_label_name(data.get("name")) if data.get("name") else "", data.get("events", True) is not False, data.get("areas", True) is not False))
+            if name == "gremote_code":                  # neuen GRemote-Code erzeugen (alte Kopplung gilt dann nicht mehr)
+                return self.js({"ok": True, "code": gremote_code(new=True)})
             if name == "stats":                         # Statistik anlegen / aendern / loeschen
                 data = json.loads(body or b"{}")
                 if not isinstance(data, dict):
