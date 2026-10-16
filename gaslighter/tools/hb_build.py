@@ -47,7 +47,7 @@ def github(md, lang, slugs, hbrel):
 
 def docs(data, out):
     names = {"de": ("Handbuch", "Inhalt", "English"), "en": ("Manual", "Contents", "Deutsch")}
-    idx = ["# GasLighter – Handbuch / Manual\n"]
+    idx = ["# GLighter – Handbuch / Manual\n"]
     for l in LANGS:
         d = os.path.join(out, l); os.makedirs(d, exist_ok=True)
         for f in glob.glob(os.path.join(d, "*.md")):
@@ -62,7 +62,7 @@ def docs(data, out):
             open(os.path.join(d, fn), "w", encoding="utf-8").write(github(c["md"], l, slugs, hbrel).rstrip() + "\n\n---\n" + nav + "\n")
             toc.append("%d. [%s](%s)" % (i + 1, c["title"], fn))
         other = "en" if l == "de" else "de"
-        open(os.path.join(d, "README.md"), "w", encoding="utf-8").write("# GasLighter – %s\n\n%s\n\n## %s\n\n%s\n" % (names[l][0], "[%s](../%s/README.md)" % (names[l][2], other), names[l][1], "\n".join(toc)))
+        open(os.path.join(d, "README.md"), "w", encoding="utf-8").write("# GLighter – %s\n\n%s\n\n## %s\n\n%s\n" % (names[l][0], "[%s](../%s/README.md)" % (names[l][2], other), names[l][1], "\n".join(toc)))
         idx.append("- **%s:** [%s](%s/README.md)" % ("Deutsch" if l == "de" else "English", names[l][0], l))
     open(os.path.join(out, "README.md"), "w", encoding="utf-8").write("\n".join(idx) + "\n")
 
@@ -72,7 +72,7 @@ def main():
     assert [c["slug"] for c in data["de"]] == [c["slug"] for c in data["en"]], "Kapitel de/en passen nicht zusammen"
     js = "/* erzeugt von tools/hb_build.py aus handbuch/ – nicht von Hand ändern */\nwindow.HB = " + json.dumps(data, ensure_ascii=False, separators=(",", ":")) + ";\n"
     open(os.path.join(ROOT, "app", "web", "hb_inhalt.js"), "w", encoding="utf-8").write(js)
-    parts = ["# GasLighter (Lärmprotokoll / Noise Log)\n",
+    parts = ["# GLighter (Lärmprotokoll / Noise Log)\n",
              "Das vollständige Handbuch mit Bildern, Suche und Querverweisen steht in der App unter **📖 Handbuch**. "
              "The full manual with pictures, search and links is in the app under **📖 Manual**.\n",
              "**Inhalt / Contents:** " + " · ".join(f"{i + 1}. {c['title']}" for i, c in enumerate(data["de"])) + "\n"]

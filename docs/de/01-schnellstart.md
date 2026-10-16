@@ -1,6 +1,6 @@
 # Schnellstart in 5 Minuten
 
-GasLighter hört dauerhaft mit und schreibt ein **Lärmprotokoll**: Wann war es wie laut, wie lange, welche Art von Geräusch – mit Prüfsummen, damit niemand die Daten unbemerkt ändern kann. **Ton wird dabei nicht gespeichert**, nur Messwerte.
+GLighter hört dauerhaft mit und schreibt ein **Lärmprotokoll**: Wann war es wie laut, wie lange, welche Art von Geräusch – mit Prüfsummen, damit niemand die Daten unbemerkt ändern kann. **Ton wird dabei nicht gespeichert**, nur Messwerte.
 
 ![Die Live-Ansicht direkt nach dem Start](../../gaslighter/app/web/hb/live_de.png)
 
@@ -45,7 +45,7 @@ Wenn du mehrere Geräte vergleichen willst: ⚙ Einstellungen → Geräte → **
 - Regelmäßig unter ⚙ Einstellungen → Speichern & Sicherung → **Sicherung herunterladen** eine Sicherung ziehen. Siehe [Sicherung](09-sicherung.md).
 - Updates ohne Aufnahmelücke: neuen Ordner nach `\\homeassistant\share\gaslighter_update\` kopieren. Siehe [Updates](10-unterbrechungen.md#updates).
 
-> **Wichtig:** GasLighter ist eine Gedächtnisstütze und Dokumentation, keine geeichte Lärmmessung in dB(A). Für Vermieter, Hausverwaltung oder Behörden zählt vor allem: regelmäßig, nachvollziehbar, mit eigenen Notizen. Siehe [Lärmprotokoll](08-drucken.md#laermprotokoll).
+> **Wichtig:** GLighter ist eine Gedächtnisstütze und Dokumentation, keine geeichte Lärmmessung in dB(A). Für Vermieter, Hausverwaltung oder Behörden zählt vor allem: regelmäßig, nachvollziehbar, mit eigenen Notizen. Siehe [Lärmprotokoll](08-drucken.md#laermprotokoll).
 
 ---
 [Inhalt](README.md) · [Live-Ansicht →](02-live.md)

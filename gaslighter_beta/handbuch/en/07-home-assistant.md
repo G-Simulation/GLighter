@@ -1,6 +1,6 @@
 # Home Assistant
 
-GasLighter works together with Home Assistant: rules read states (TV on, washing machine running, sensor triggered), and via MQTT the app reports disturbances, checksums and switches back.
+GLighter works together with Home Assistant: rules read states (TV on, washing machine running, sensor triggered), and via MQTT the app reports disturbances, checksums and switches back.
 
 ## Rules: pause or record state {#regeln}
 
@@ -41,7 +41,7 @@ From then on every disturbance shows whether a vibration was reported at the sam
 
 ## MQTT: control and reports {#mqtt}
 
-With MQTT set up, Home Assistant shows the device **GasLighter** with:
+With MQTT set up, Home Assistant shows the device **GLighter** with:
 
 - Switch **Recording**, **Record manually (outside hours)**, number **Pause (minutes)**, buttons **Pause 15 min**, **Pause 1 h**, **Resume**, sensor **Paused until**.
 - Per device: event **Disturbance (trigger)** (start, end, detected – with peak, duration, type, profile), device triggers for automations, sensor “Last sound type” and hourly the current **checksum** (stored independently in Home Assistant).
@@ -50,7 +50,7 @@ Example – pause for 10 minutes while the litter box cleans:
 
 ```yaml
 automation:
-  - alias: "Pause GasLighter while the litter box cleans"
+  - alias: "Pause GLighter while the litter box cleans"
     trigger:
       - platform: state
         entity_id: sensor.litter_box_status
@@ -66,7 +66,7 @@ Recording stopped by hand is not restarted automatically by a pause from Home As
 
 ## Log a disturbance right from the dashboard
 
-With MQTT the add-on adds two elements to the "GasLighter" device:
+With MQTT the add-on adds two elements to the "GLighter" device:
 
 - **Log disturbance / note**: text field. Type text, press Enter, and the note is saved with the current time. The field clears afterwards.
 - **Mark disturbance now**: button. One tap creates a note "Disturbance (Home Assistant)" immediately, without text.
@@ -78,5 +78,5 @@ Put both on any dashboard (for example in an "Entities" card). If a disturbance 
 Sometimes a disturbance should not be reported while the graph keeps recording, for example when you open the door yourself.
 
 - **In a rule:** choose the action **"no disturbance reports"**. While the condition holds and for the **delay** afterwards (for example 10 minutes), no disturbance is created. The graph keeps recording, with no gap.
-- **Lead time (s), e.g. for a voice assistant:** the wake word (“Hey Jarvis”) comes *before* the assistant switches to “listening”. With **lead time**, a disturbance that started up to this many seconds before the rule switched on does not count either. For this, GasLighter holds each disturbance back that long (lead time + 2 s) before reporting it. Levels and graph stay unchanged; the log says “not counted”. **Set up:** add a rule, choose the entity `assist_satellite.…` – states `!idle`, “no disturbance reports”, lead time 3 s and delay 0.5 min are pre-filled. Wake word, command and the spoken answer then don’t count.
-- **As a dashboard button:** the "GasLighter" device has **"Start: no disturbance reports"**, **"Report disturbances again"**, an adjustable **duration** (1–240 minutes, default 10) and **"No disturbance reports until"**. Put them on your dashboard. One tap starts the set duration.
+- **Lead time (s), e.g. for a voice assistant:** the wake word (“Hey Jarvis”) comes *before* the assistant switches to “listening”. With **lead time**, a disturbance that started up to this many seconds before the rule switched on does not count either. For this, GLighter holds each disturbance back that long (lead time + 2 s) before reporting it. Levels and graph stay unchanged; the log says “not counted”. **Set up:** add a rule, choose the entity `assist_satellite.…` – states `!idle`, “no disturbance reports”, lead time 3 s and delay 0.5 min are pre-filled. Wake word, command and the spoken answer then don’t count.
+- **As a dashboard button:** the "GLighter" device has **"Start: no disturbance reports"**, **"Report disturbances again"**, an adjustable **duration** (1–240 minutes, default 10) and **"No disturbance reports until"**. Put them on your dashboard. One tap starts the set duration.

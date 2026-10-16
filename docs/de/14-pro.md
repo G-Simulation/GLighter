@@ -1,8 +1,8 @@
-# GasLighter Pro
+# GLighter Pro
 
-GasLighter ist kostenlos. **Aufzeichnung, Live-Ansicht, Protokolle, Lärmprotokoll zum Drucken, Export (`log.csv`, Notizen) und das Erstellen einer Sicherung** sind immer frei – ohne Zeitlimit und ohne Werbung.
+GLighter ist kostenlos. **Aufzeichnung, Live-Ansicht, Protokolle, Lärmprotokoll zum Drucken, Export (`log.csv`, Notizen) und das Erstellen einer Sicherung** sind immer frei – ohne Zeitlimit und ohne Werbung.
 
-Die Jahreslizenz **GasLighter Pro** schaltet zusätzlich frei:
+Die Jahreslizenz **GLighter Pro** schaltet zusätzlich frei:
 
 | Funktion | Ohne Pro | Mit Pro |
 |---|---|---|
@@ -19,17 +19,17 @@ Das Server-Mikrofon (am Home-Assistant-Rechner) funktioniert immer ohne Pro.
 
 ## Kaufen
 
-⚙ Einstellungen → Allgemein → **GasLighter Pro** → **🛒 Pro kaufen** öffnet die Seite von GasLighter auf gsimulations.de. Die Lizenz gilt **1 Jahr ab Kauf** für **1 Home-Assistant-Installation**. Sie verlängert sich **nicht** automatisch – es gibt kein Abo. Nach dem Kauf kommt der Lizenzschlüssel per E-Mail.
+⚙ Einstellungen → Allgemein → **GLighter Pro** → **🛒 Pro kaufen** öffnet die Seite von GLighter auf gsimulations.de. Die Lizenz gilt **1 Jahr ab Kauf** für **1 Home-Assistant-Installation**. Sie verlängert sich **nicht** automatisch – es gibt kein Abo. Nach dem Kauf kommt der Lizenzschlüssel per E-Mail.
 
 <a id="schluessel"></a>
 
 ## Schlüssel eintragen
 
-1. ⚙ Einstellungen → Allgemein → **GasLighter Pro**.
+1. ⚙ Einstellungen → Allgemein → **GLighter Pro**.
 2. Den Schlüssel aus der E-Mail vollständig einfügen. Er beginnt mit `GL1-`; Leerzeichen und Zeilenumbrüche stören nicht.
 3. **🔑 Aktivieren**. Danach steht dort „Pro aktiv – gültig bis …“.
 
-Der Schlüssel wird **ohne Internet** geprüft – GasLighter sendet nichts an G-Simulation. Er wird in der Sicherung **nicht** mitgespeichert; nach einer Neuinstallation einfach wieder eintragen.
+Der Schlüssel wird **ohne Internet** geprüft – GLighter sendet nichts an G-Simulation. Er wird in der Sicherung **nicht** mitgespeichert; nach einer Neuinstallation einfach wieder eintragen.
 
 An gesperrten Stellen steht **🔒 Pro**. Ein Klick darauf erklärt die Funktion und bietet „Pro kaufen“ und „Schlüssel eintragen“ an.
 
@@ -49,7 +49,7 @@ Zum Verlängern eine neue Lizenz kaufen und den neuen Schlüssel eintragen.
 
 ## Umzug auf einen neuen Rechner
 
-Sicherung auf dem alten Rechner herunterladen, GasLighter auf dem neuen installieren und die Sicherung einspielen – der **erste Import ist kostenlos**. Danach den Pro-Schlüssel wieder eintragen.
+Sicherung auf dem alten Rechner herunterladen, GLighter auf dem neuen installieren und die Sicherung einspielen – der **erste Import ist kostenlos**. Danach den Pro-Schlüssel wieder eintragen.
 
 ---
 [← Fehlerbehebung und häufige Fragen](13-fehlerbehebung.md) · [Inhalt](README.md) · [Glossar →](15-glossar.md)

@@ -10,9 +10,9 @@ Das Mikrofon am Home-Assistant-Rechner. Unter **Mikrofon** wählst du Eingang, B
 
 ## Handy als Mikrofon {#handy}
 
-> **🔒 Pro:** Handys, Stream-URLs und IP-Kameras sind externe Geräte und gehören zu [GasLighter Pro](#pro). Das Server-Mikrofon ist immer frei.
+> **🔒 Pro:** Handys, Stream-URLs und IP-Kameras sind externe Geräte und gehören zu [GLighter Pro](#pro). Das Server-Mikrofon ist immer frei.
 
-![GasLighter am Handy](handy_{lang}.png)
+![GLighter am Handy](handy_{lang}.png)
 
 - **Handy (Browser)**: „+ Handy (Browser)“, QR-Code scannen, Seite in Chrome öffnen, Zertifikatswarnung bestätigen, **Start**. Der Bildschirm muss an bleiben (Ladegerät). Der Link ist geheim und gehört nur zu diesem Handy.
 - **Stream (z. B. App „IP Webcam“)**: „+ Handy-App / Stream-URL“, Adresse `http://HANDY-IP:8080/audio.wav`. Läuft auch mit ausgeschaltetem Bildschirm. Mit Login: Benutzername und Passwort in die eigenen Felder.
@@ -36,7 +36,7 @@ Ein als Gerät eingerichtetes Handy kann zusätzlich zum Mikrofon als **Bewegung
 
 ### Mit der App IP Webcam {#ipwebcam}
 
-Ist das Handy über **„+ Handy-App / Stream-URL“** mit der Android-App **IP Webcam** verbunden, liest GasLighter die Sensoren der App mit (`http://HANDY:8080/sensors.json`, ein Login aus der Adresse wird mitbenutzt). Auf der Karte des Geräts heißt der Kasten **„IP Webcam: Handy-Sensoren mitlesen“**, mit denselben Schaltern (Erschütterung, Neigung, Bewegung im Kamerabild) und derselben Empfindlichkeit.
+Ist das Handy über **„+ Handy-App / Stream-URL“** mit der Android-App **IP Webcam** verbunden, liest GLighter die Sensoren der App mit (`http://HANDY:8080/sensors.json`, ein Login aus der Adresse wird mitbenutzt). Auf der Karte des Geräts heißt der Kasten **„IP Webcam: Handy-Sensoren mitlesen“**, mit denselben Schaltern (Erschütterung, Neigung, Bewegung im Kamerabild) und derselben Empfindlichkeit.
 
 - **Erschütterung und Neigung** kommen aus dem Beschleunigungssensor des Handys – in IP Webcam müssen die Sensoren eingeschaltet sein.
 - **Bewegung im Kamerabild** nutzt die **Bewegungserkennung** von IP Webcam – in der App einschalten.
@@ -50,7 +50,7 @@ Ist das Handy über **„+ Handy-App / Stream-URL“** mit der Android-App **IP 
 - Im Reiter **Protokolle** steht die Liste „Erschütterung und Bewegung im Zeitraum“; ein Klick zeigt die Stelle im Verlauf. Das [Lärmprotokoll](#drucken) enthält eine eigene Tabelle.
 - In **Home Assistant** erscheint je Handy ein Sensor „Erschütterung“ (Vibration) bzw. „Bewegung“ (Bewegung) – nutzbar in Automationen und in den [Regeln](#home-assistant/regeln), z. B. „nur festhalten“, damit es bei jeder Störung und im Tagesverlauf steht.
 
-Gehört zu den externen Geräten und damit zu [GasLighter Pro](#pro).
+Gehört zu den externen Geräten und damit zu [GLighter Pro](#pro).
 
 ## Geräte-Karte {#karte}
 

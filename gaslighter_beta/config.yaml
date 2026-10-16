@@ -1,7 +1,7 @@
-name: "GasLighter Beta"
-version: "1.71.0"
+name: "GLighter Beta"
+version: "1.72.0"
 slug: gaslighter_beta
-description: "🧪 TESTVERSION / BETA – kann Fehler enthalten. Eigene Daten (/share/gaslighter_beta) und eigene Entitäten, läuft neben GasLighter. Lärmprotokoll: misst Lärm rund um die Uhr und protokolliert Störungen manipulationssicher – ohne Tonaufnahme / Noise log: measures noise 24/7 and logs disturbances tamper-evident – no audio recording"
+description: "🧪 TESTVERSION / BETA – kann Fehler enthalten. Eigene Daten (/share/gaslighter_beta) und eigene Entitäten, läuft neben GLighter. Lärmprotokoll: misst Lärm rund um die Uhr und protokolliert Störungen manipulationssicher – ohne Tonaufnahme / Noise log: measures noise 24/7 and logs disturbances tamper-evident – no audio recording"
 url: "https://www.gsimulations.de/gaslighter/"
 arch: [amd64, aarch64]
 # Fertige Images (GitHub Actions, .github/workflows/build.yaml). Erst einschalten, wenn der erste Build
@@ -30,7 +30,7 @@ ports:
 ports_description:
   8443/tcp: "Handys als Mikrofon (HTTPS) / Phones as microphones (HTTPS)"
 panel_icon: mdi:flask
-panel_title: "GasLighter Beta"
+panel_title: "GLighter Beta"
 services:
   - mqtt:want
 map:

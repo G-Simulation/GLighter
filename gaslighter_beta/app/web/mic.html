@@ -5,7 +5,7 @@
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
 <meta name="theme-color" content="#10141a">
 <meta name="mobile-web-app-capable" content="yes">
-<title>GasLighter – Mikrofon</title>
+<title>GLighter – Mikrofon</title>
 <style>
 :root{--bg:#10141a;--card:#1a2029;--tx:#e6e8eb;--mut:#98a2ad;--bd:#2a313b;--acc:#4dabf7;--thr:#ff922b;--red:#ff6b6b;--ok:#51cf66}
 *{box-sizing:border-box}
@@ -35,7 +35,7 @@ h1{font-size:20px;margin:0}.sub{color:var(--mut);font-size:14px}
 </head>
 <body>
 <div class="wrap">
-  <div><h1 id="title">GasLighter</h1><div class="sub" id="srcname">…</div></div>
+  <div><h1 id="title">GLighter</h1><div class="sub" id="srcname">…</div></div>
   <div class="warn" id="warn"></div>
   <div class="card">
     <button id="go">Start</button>
@@ -57,25 +57,25 @@ h1{font-size:20px;margin:0}.sub{color:var(--mut);font-size:14px}
 'use strict';
 const T = {
   de: { start: 'Start', stop: 'Stopp', ready: 'Bereit', connecting: 'Verbinde …', live: 'Sendet', event: 'Störung erkannt', offline: 'Keine Verbindung – versuche erneut …',
-    disabled: 'Quelle ist im GasLighter ausgeschaltet', paused: 'Aufzeichnung angehalten – Ton wird nicht ausgewertet', hold: 'Angehalten durch Home Assistant', learning: 'Lernt Hintergrund …', denied: 'Mikrofon-Zugriff verweigert. Erlaube das Mikrofon in den Browser-Einstellungen für diese Seite.',
+    disabled: 'Quelle ist im GLighter ausgeschaltet', paused: 'Aufzeichnung angehalten – Ton wird nicht ausgewertet', hold: 'Angehalten durch Home Assistant', learning: 'Lernt Hintergrund …', denied: 'Mikrofon-Zugriff verweigert. Erlaube das Mikrofon in den Browser-Einstellungen für diese Seite.',
     insecure: 'Diese Seite muss über https:// geöffnet werden, sonst gibt der Browser das Mikrofon nicht frei.',
     hidden: 'Seite war im Hintergrund – Aufnahme läuft weiter, sobald sie wieder sichtbar ist. Bildschirm anlassen!',
-    nolink: 'Ungültiger oder erneuerter Link. Öffne den QR-Code im GasLighter neu.', busy: 'Dieser Link wird gerade auf einem anderen Gerät benutzt. Dort stoppen oder im GasLighter eine eigene Quelle für dieses Handy anlegen.', thr: 'Schwelle', sent: 'gesendet', wlon: 'Bildschirm bleibt an', wloff: 'Bildschirm-Sperre nicht verhinderbar – bitte Display-Timeout verlängern',
+    nolink: 'Ungültiger oder erneuerter Link. Öffne den QR-Code im GLighter neu.', busy: 'Dieser Link wird gerade auf einem anderen Gerät benutzt. Dort stoppen oder im GLighter eine eigene Quelle für dieses Handy anlegen.', thr: 'Schwelle', sent: 'gesendet', wlon: 'Bildschirm bleibt an', wloff: 'Bildschirm-Sperre nicht verhinderbar – bitte Display-Timeout verlängern',
     mot: 'Bewegungsmelder', mvib: '🫨 Erschütterung', mtilt: '📐 Neigung', mcam: '🏃 Bewegung im Bild', mon: 'ausgelöst', mhint: 'Ausgewertet wird nur hier auf dem Handy – es werden nur Zahlen gesendet, kein Bild und kein Video. Für Erschütterung das Handy flach auf Boden, Tisch oder an die Wand legen.',
     mden: 'Bewegungssensor nicht freigegeben – in den Browser-Einstellungen für diese Seite „Bewegung und Ausrichtung“ erlauben.', mcden: 'Kamera nicht freigegeben – Bewegung im Bild ist aus.', mnone: 'Dieses Handy hat keinen Bewegungssensor.',
     tips: ['Handy ans Ladegerät und an die Stelle legen, von der der Lärm kommt (z. B. an die Wand).', 'Diese Seite geöffnet lassen. Der Bildschirm bleibt automatisch an und wird nur gedimmt, wenn du die Helligkeit herunterregelst.',
       'Nicht sperren und nicht in eine andere App wechseln – Android schaltet das Mikrofon sonst ab.', 'Tipp: Chrome-Menü ⋮ → „Zum Startbildschirm hinzufügen“, dann startet die Seite wie eine App.',
-      'Für Betrieb mit ausgeschaltetem Bildschirm: App „IP Webcam“ als Stream-Quelle verwenden (siehe GasLighter → Einstellungen → Quellen).'] },
+      'Für Betrieb mit ausgeschaltetem Bildschirm: App „IP Webcam“ als Stream-Quelle verwenden (siehe GLighter → Einstellungen → Quellen).'] },
   en: { start: 'Start', stop: 'Stop', ready: 'Ready', connecting: 'Connecting …', live: 'Sending', event: 'Disturbance detected', offline: 'No connection – retrying …',
-    disabled: 'This source is switched off in GasLighter', paused: 'Recording paused – sound is not evaluated', hold: 'Paused by Home Assistant', learning: 'Learning background …', denied: 'Microphone access denied. Allow the microphone for this site in the browser settings.',
+    disabled: 'This source is switched off in GLighter', paused: 'Recording paused – sound is not evaluated', hold: 'Paused by Home Assistant', learning: 'Learning background …', denied: 'Microphone access denied. Allow the microphone for this site in the browser settings.',
     insecure: 'This page must be opened via https://, otherwise the browser will not release the microphone.',
     hidden: 'Page was in the background – recording continues once it is visible again. Keep the screen on!',
-    nolink: 'Invalid or renewed link. Open the QR code in GasLighter again.', busy: 'This link is currently used on another device. Stop it there or create a separate source for this phone in GasLighter.', thr: 'Threshold', sent: 'sent', wlon: 'Screen stays on', wloff: 'Cannot keep the screen on – please increase the display timeout',
+    nolink: 'Invalid or renewed link. Open the QR code in GLighter again.', busy: 'This link is currently used on another device. Stop it there or create a separate source for this phone in GLighter.', thr: 'Threshold', sent: 'sent', wlon: 'Screen stays on', wloff: 'Cannot keep the screen on – please increase the display timeout',
     mot: 'Motion sensor', mvib: '🫨 Vibration', mtilt: '📐 Tilt', mcam: '🏃 Motion in picture', mon: 'triggered', mhint: 'Evaluated only here on the phone – only numbers are sent, no picture and no video. For vibration lay the phone flat on the floor, a table or against the wall.',
     mden: 'Motion sensor not allowed – allow “motion and orientation” for this site in the browser settings.', mcden: 'Camera not allowed – motion in picture is off.', mnone: 'This phone has no motion sensor.',
     tips: ['Put the phone on the charger at the spot where the noise comes from (e.g. against the wall).', 'Keep this page open. The screen stays on automatically.',
       'Do not lock the phone or switch apps – Android would turn the microphone off.', 'Tip: Chrome menu ⋮ → "Add to Home screen" to start the page like an app.',
-      'For screen-off operation use the app "IP Webcam" as a stream source (see GasLighter → Settings → Sources).'] }
+      'For screen-off operation use the app "IP Webcam" as a stream source (see GLighter → Settings → Sources).'] }
 };
 let L = (navigator.language || 'de').toLowerCase().startsWith('de') ? T.de : T.en;
 const $ = id => document.getElementById(id);
@@ -104,7 +104,7 @@ async function info() {
   try {
     const j = await (await fetch(BASE + '/info', { cache: 'no-store' })).json();
     if (j.lang === 'en') L = T.en; else if (j.lang === 'de') L = T.de;
-    $('srcname').textContent = j.name; document.title = j.name + ' – GasLighter';
+    $('srcname').textContent = j.name; document.title = j.name + ' – GLighter';
     if (j.motion) MOT = { vib: !!j.motion.vib, cam: !!j.motion.cam, tilt: !!j.motion.tilt };
     tr();
   } catch (e) { warn(L.nolink); }

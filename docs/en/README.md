@@ -1,4 +1,4 @@
-# GasLighter – Manual
+# GLighter – Manual
 
 [Deutsch](../de/README.md)
 
@@ -17,5 +17,5 @@
 11. [Settings from A to Z](11-einstellungen.md)
 12. [Legal and privacy](12-rechtliches.md)
 13. [Troubleshooting and FAQ](13-fehlerbehebung.md)
-14. [GasLighter Pro](14-pro.md)
+14. [GLighter Pro](14-pro.md)
 15. [Glossary](15-glossar.md)

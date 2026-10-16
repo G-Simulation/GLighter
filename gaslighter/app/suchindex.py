@@ -1,4 +1,4 @@
-"""GasLighter – Suchverzeichnis (SQLite, in Python enthalten, Public Domain).
+"""GLighter – Suchverzeichnis (SQLite, in Python enthalten, Public Domain).
 
 Nur abgeleitete Daten, jederzeit aus den Originalen neu aufbaubar. Die Originale (Tagesaufzeichnung .ltg,
 Pruefsummen-Kette .chk, Spektrum .lts/.ltp, log.csv) werden hier nie geschrieben oder geaendert.

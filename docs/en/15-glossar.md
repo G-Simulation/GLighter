@@ -24,4 +24,4 @@
 | **Record state** | Home Assistant rule that writes down states without pausing |
 
 ---
-[← GasLighter Pro](14-pro.md) · [Contents](README.md)
+[← GLighter Pro](14-pro.md) · [Contents](README.md)

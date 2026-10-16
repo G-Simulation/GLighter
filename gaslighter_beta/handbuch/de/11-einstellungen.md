@@ -16,7 +16,7 @@ Ganz oben wählst du **Alle Geräte** oder ein einzelnes Gerät. Beim Gerät las
 
 ### Wann gilt etwas als Störung? {#s_thr}
 
-> **🔒 Pro:** Ohne Pro sind diese Werte nur zum Ansehen; GasLighter arbeitet mit den Standardwerten. Ändern lassen sie sich mit [GasLighter Pro](#pro).
+> **🔒 Pro:** Ohne Pro sind diese Werte nur zum Ansehen; GLighter arbeitet mit den Standardwerten. Ändern lassen sie sich mit [GLighter Pro](#pro).
 
 | Einstellung | Bedeutung |
 |---|---|
@@ -77,6 +77,6 @@ Video-Breite, Bilder pro Sekunde, Videoqualität (für IP-Kameras und Handys).
 
 - **Sprache** {#s_misc} – Deutsch, Englisch oder wie der Browser.
 - **Protokoll & Notizen** {#s_list} – **Störungen zusammenfassen bei bis zu (s) Abstand** (Gruppen in der Liste), **Notiz gehört zur Störung, wenn bis zu (min) danach**.
-- **GasLighter Pro** – siehe [Pro](#pro).
+- **GLighter Pro** – siehe [Pro](#pro).
 - **Zurücksetzen** – siehe [Zurücksetzen](#sicherung/zuruecksetzen).
 - **Diagnose** – Angaben zu Mikrofon und Soundkarte für die Fehlersuche.

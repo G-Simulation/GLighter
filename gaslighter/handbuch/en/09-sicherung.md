@@ -10,7 +10,7 @@ For further processing there are also `log.csv` (Logs tab), the notes as CSV (�
 
 ## Restore a backup {#import}
 
-> **🔒 Pro:** the first import is free (e.g. when moving), further imports are part of [GasLighter Pro](#pro/umzug). Downloading a backup is always free.
+> **🔒 Pro:** the first import is free (e.g. when moving), further imports are part of [GLighter Pro](#pro/umzug). Downloading a backup is always free.
 
 ![Preview when restoring](sicherung_{lang}.png)
 
@@ -26,9 +26,9 @@ Afterwards a report shows new files, merged days, skipped days and the devices t
 
 ### Daily backup to network drive, NAS or USB {#ziel}
 
-> **🔒 Pro:** The daily backup and “save space” are part of [GasLighter Pro](#pro). **“⬇ Download backup” and `log.csv` always stay free.** If Pro expires, the daily backup pauses; days already moved stay readable.
+> **🔒 Pro:** The daily backup and “save space” are part of [GLighter Pro](#pro). **“⬇ Download backup” and `log.csv` always stay free.** If Pro expires, the daily backup pauses; days already moved stay readable.
 
-⚙ Settings → Storage & backup → **Daily backup**. With a target set, GasLighter copies everything new there every day (default 03:30) – the same files as the ZIP backup, but **incremental**: only new and changed files, each verified with SHA-256 afterwards.
+⚙ Settings → Storage & backup → **Daily backup**. With a target set, GLighter copies everything new there every day (default 03:30) – the same files as the ZIP backup, but **incremental**: only new and changed files, each verified with SHA-256 afterwards.
 
 - **Nothing is ever deleted in the target.** If an already backed-up file changes later, the old version stays next to it as `….alt-YYYYMMDD-hhmmss`.
 - **Target unreachable** (NAS off, Wi-Fi gone): recording continues normally on this device. It is retried hourly, and the next run catches up everything missing.
@@ -42,13 +42,13 @@ Afterwards a report shows new files, merged days, skipped days and the devices t
 | NAS as media folder | as above, usage **Media** | `/media/nas_gaslighter` |
 | USB drive on the Home Assistant device | plug it in (appears under `/media`) | e.g. `/media/usb/gaslighter` |
 
-> The target must already exist and must **not be on the same storage** as the data. Otherwise a network drive that is not mounted would silently fill your own storage – GasLighter reports this as an error and copies nothing.
+> The target must already exist and must **not be on the same storage** as the data. Otherwise a network drive that is not mounted would silently fill your own storage – GLighter reports this as an error and copies nothing.
 
 ### Save space {#auslagern}
 
 With **“Save space: keep old data only in the target”**, files older than “Delete after (days)” that are verified in the target are replaced here by a link to the copy. **Reports, history, printing and the checksum chain keep working** – they read these days from the target. If the network drive is asleep, the first load takes a little longer (“network drive may be waking up”). If it is unreachable, these old days are missing until it is back. Settings, `log.csv` and recent days always stay here.
 
-If **“Delete old recordings automatically”** is also on, GasLighter only deletes what is verified in the target once a target is set.
+If **“Delete old recordings automatically”** is also on, GLighter only deletes what is verified in the target once a target is set.
 
 ## What happens when restoring {#zusammenfuehren}
 
@@ -63,9 +63,9 @@ If **“Delete old recordings automatically”** is also on, GasLighter only del
 
 ## Search index {#suchverzeichnis}
 
-GasLighter keeps a **search index** (SQLite file `suchindex.sqlite` in the app data folder). It speeds up noise reports over weeks and months:
+GLighter keeps a **search index** (SQLite file `suchindex.sqlite` in the app data folder). It speeds up noise reports over weeks and months:
 
 - **Chain check per day:** the result is stored with a SHA-256 checksum over the *content* of all files of that day. If a single byte changes, the day is checked again – the check is exactly as strict as without the index.
 - **Condensed day tracks** (every 10 seconds) for the charts in the noise report.
 
-The index only contains derived data, never changes the recording, checksum chain or disturbances, is not part of the backup and fills slowly in the background after start. **Settings → General → Backup → Rebuild** clears it; it then rebuilds itself. If it is missing or damaged, GasLighter works without it – just slower.
+The index only contains derived data, never changes the recording, checksum chain or disturbances, is not part of the backup and fills slowly in the background after start. **Settings → General → Backup → Rebuild** clears it; it then rebuilds itself. If it is missing or damaged, GLighter works without it – just slower.

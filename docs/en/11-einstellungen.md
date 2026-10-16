@@ -22,7 +22,7 @@ At the very top choose **All devices** or a single device. For a device, “Own 
 
 ### When does something count as a disturbance?
 
-> **🔒 Pro:** without Pro these values are view only and GasLighter uses the defaults. They can be changed with [GasLighter Pro](14-pro.md).
+> **🔒 Pro:** without Pro these values are view only and GLighter uses the defaults. They can be changed with [GLighter Pro](14-pro.md).
 
 | Setting | Meaning |
 |---|---|
@@ -103,7 +103,7 @@ Video width, frames per second, video quality (for IP cameras and phones).
 
 - **Language**<a id="s_misc"></a> – German, English or like the browser.
 - **Log & notes**<a id="s_list"></a> – **Group disturbances up to (s) apart** (groups in the list), **Note belongs to the disturbance if up to (min) after it**.
-- **GasLighter Pro** – see [Pro](14-pro.md).
+- **GLighter Pro** – see [Pro](14-pro.md).
 - **Reset** – see [Reset](09-sicherung.md#zuruecksetzen).
 - **Diagnostics** – details about microphone and sound card for troubleshooting.
 

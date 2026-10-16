@@ -1,8 +1,8 @@
-# GasLighter (Lärmprotokoll / Noise Log)
+# GLighter (Lärmprotokoll / Noise Log)
 
 Das vollständige Handbuch mit Bildern, Suche und Querverweisen steht in der App unter **📖 Handbuch**. The full manual with pictures, search and links is in the app under **📖 Manual**.
 
-**Inhalt / Contents:** 1. Schnellstart in 5 Minuten · 2. Live-Ansicht · 3. Protokolle · 4. Ereignis-Fenster · 5. KI: Geräuscharten und Tonprofile · 6. Geräte · 7. Home Assistant · 8. Drucken und Lärmprotokoll · 9. Sicherung, Import und Export · 10. Unterbrechungen, Datenkette und Updates · 11. Einstellungen von A bis Z · 12. Rechtliches und Datenschutz · 13. Fehlerbehebung und häufige Fragen · 14. GasLighter Pro · 15. Glossar
+**Inhalt / Contents:** 1. Schnellstart in 5 Minuten · 2. Live-Ansicht · 3. Protokolle · 4. Ereignis-Fenster · 5. KI: Geräuscharten und Tonprofile · 6. Geräte · 7. Home Assistant · 8. Drucken und Lärmprotokoll · 9. Sicherung, Import und Export · 10. Unterbrechungen, Datenkette und Updates · 11. Einstellungen von A bis Z · 12. Rechtliches und Datenschutz · 13. Fehlerbehebung und häufige Fragen · 14. GLighter Pro · 15. Glossar
 
 
 ---
@@ -11,7 +11,7 @@ Das vollständige Handbuch mit Bildern, Suche und Querverweisen steht in der App
 
 ## 1. Schnellstart in 5 Minuten
 
-GasLighter hört dauerhaft mit und schreibt ein **Lärmprotokoll**: Wann war es wie laut, wie lange, welche Art von Geräusch – mit Prüfsummen, damit niemand die Daten unbemerkt ändern kann. **Ton wird dabei nicht gespeichert**, nur Messwerte.
+GLighter hört dauerhaft mit und schreibt ein **Lärmprotokoll**: Wann war es wie laut, wie lange, welche Art von Geräusch – mit Prüfsummen, damit niemand die Daten unbemerkt ändern kann. **Ton wird dabei nicht gespeichert**, nur Messwerte.
 
 ### 1. Mikrofon anschließen
 
@@ -44,7 +44,7 @@ Wenn du mehrere Geräte vergleichen willst: ⚙ Einstellungen → Geräte → **
 - Regelmäßig unter ⚙ Einstellungen → Speichern & Sicherung → **Sicherung herunterladen** eine Sicherung ziehen. Siehe Sicherung.
 - Updates ohne Aufnahmelücke: neuen Ordner nach `\\homeassistant\share\gaslighter_update\` kopieren. Siehe Updates.
 
-> **Wichtig:** GasLighter ist eine Gedächtnisstütze und Dokumentation, keine geeichte Lärmmessung in dB(A). Für Vermieter, Hausverwaltung oder Behörden zählt vor allem: regelmäßig, nachvollziehbar, mit eigenen Notizen. Siehe Lärmprotokoll.
+> **Wichtig:** GLighter ist eine Gedächtnisstütze und Dokumentation, keine geeichte Lärmmessung in dB(A). Für Vermieter, Hausverwaltung oder Behörden zählt vor allem: regelmäßig, nachvollziehbar, mit eigenen Notizen. Siehe Lärmprotokoll.
 
 ## 2. Live-Ansicht
 
@@ -98,13 +98,13 @@ Für das, was du gerade hörst – einfach lostippen oder Merkmale antippen (obe
 - **Ohne eigene Uhrzeit**: Liegt kurz vorher eine Störung (Einstellung „Notiz zuordnen“, Standard 5 min), gilt die Notiz für sie. Die Leiste zeigt vorher, wohin sie kommt.
 - **läuft noch**: Die Notiz bekommt einen Zeitraum von der ersten Eingabe bis zum Speichern.
 - **Von / bis und Zeuge** stehen immer direkt im Bereich; leer lassen heißt „automatisch“ (Uhrzeit beim Speichern).
-- **Nur Markierungen, kein Text?** Dann bildet GasLighter beim Speichern einen Satz daraus, z. B. „Deutliche Schritte im Treppenhaus“. Du kannst ihn später ändern.
+- **Nur Markierungen, kein Text?** Dann bildet GLighter beim Speichern einen Satz daraus, z. B. „Deutliche Schritte im Treppenhaus“. Du kannst ihn später ändern.
 
 ### Eigene Schnellwahl
 
 - **＋ Eigene** am Ende der Tasten: Namen eingeben (z. B. „Waschmaschine“, „Nachbar 2. OG“) → **Anlegen**. Die Taste (★) gibt es dann in allen Notiz-Feldern, auch abgedockt, und im Filter der Notizen.
 - **Rechtsklick oder lange drücken** auf eine Taste öffnet „Schnellwahl verwalten“: eigene **umbenennen** oder **löschen**, eingebaute **aus- und wieder einblenden**. Alte Notizen behalten ihre Bezeichnung.
-- **Lernen:** Tippst du ein Wort öfter selbst (ab 3×), schlägt GasLighter es als Taste vor (💡). Angelegt wird sie nur, wenn du **＋** drückst; **✕** heißt „nicht mehr vorschlagen“.
+- **Lernen:** Tippst du ein Wort öfter selbst (ab 3×), schlägt GLighter es als Taste vor (💡). Angelegt wird sie nur, wenn du **＋** drückst; **✕** heißt „nicht mehr vorschlagen“.
 - **Reihenfolge:** Was du am häufigsten drückst, steht vorne – am Handy sind das die ersten 6.
 - Die eigenen Tasten liegen in `clips/schnellwahl.json` und sind in der Sicherung (ZIP) enthalten.
 
@@ -234,7 +234,7 @@ Dauer, Spitze, Schwelle, Hintergrund, Spur (gezeigter Zeitraum) und:
 
 ## 5. KI: Geräuscharten und Tonprofile
 
-GasLighter erkennt die **Art** eines Geräuschs mit einer kleinen KI, die komplett auf deinem Home-Assistant-Rechner läuft (YAMNet, keine Cloud). Zusätzlich lernt die App deine eigenen **Tonprofile**.
+GLighter erkennt die **Art** eines Geräuschs mit einer kleinen KI, die komplett auf deinem Home-Assistant-Rechner läuft (YAMNet, keine Cloud). Zusätzlich lernt die App deine eigenen **Tonprofile**.
 
 ### Eingebaute Erkennung
 
@@ -295,7 +295,7 @@ Das Mikrofon am Home-Assistant-Rechner. Unter **Mikrofon** wählst du Eingang, B
 
 ### Handy als Mikrofon
 
-> **🔒 Pro:** Handys, Stream-URLs und IP-Kameras sind externe Geräte und gehören zu GasLighter Pro. Das Server-Mikrofon ist immer frei.
+> **🔒 Pro:** Handys, Stream-URLs und IP-Kameras sind externe Geräte und gehören zu GLighter Pro. Das Server-Mikrofon ist immer frei.
 
 - **Handy (Browser)**: „+ Handy (Browser)“, QR-Code scannen, Seite in Chrome öffnen, Zertifikatswarnung bestätigen, **Start**. Der Bildschirm muss an bleiben (Ladegerät). Der Link ist geheim und gehört nur zu diesem Handy.
 - **Stream (z. B. App „IP Webcam“)**: „+ Handy-App / Stream-URL“, Adresse `http://HANDY-IP:8080/audio.wav`. Läuft auch mit ausgeschaltetem Bildschirm. Mit Login: Benutzername und Passwort in die eigenen Felder.
@@ -319,7 +319,7 @@ Ein als Gerät eingerichtetes Handy kann zusätzlich zum Mikrofon als **Bewegung
 
 ### Mit der App IP Webcam
 
-Ist das Handy über **„+ Handy-App / Stream-URL“** mit der Android-App **IP Webcam** verbunden, liest GasLighter die Sensoren der App mit (`http://HANDY:8080/sensors.json`, ein Login aus der Adresse wird mitbenutzt). Auf der Karte des Geräts heißt der Kasten **„IP Webcam: Handy-Sensoren mitlesen“**, mit denselben Schaltern (Erschütterung, Neigung, Bewegung im Kamerabild) und derselben Empfindlichkeit.
+Ist das Handy über **„+ Handy-App / Stream-URL“** mit der Android-App **IP Webcam** verbunden, liest GLighter die Sensoren der App mit (`http://HANDY:8080/sensors.json`, ein Login aus der Adresse wird mitbenutzt). Auf der Karte des Geräts heißt der Kasten **„IP Webcam: Handy-Sensoren mitlesen“**, mit denselben Schaltern (Erschütterung, Neigung, Bewegung im Kamerabild) und derselben Empfindlichkeit.
 
 - **Erschütterung und Neigung** kommen aus dem Beschleunigungssensor des Handys – in IP Webcam müssen die Sensoren eingeschaltet sein.
 - **Bewegung im Kamerabild** nutzt die **Bewegungserkennung** von IP Webcam – in der App einschalten.
@@ -333,7 +333,7 @@ Ist das Handy über **„+ Handy-App / Stream-URL“** mit der Android-App **IP 
 - Im Reiter **Protokolle** steht die Liste „Erschütterung und Bewegung im Zeitraum“; ein Klick zeigt die Stelle im Verlauf. Das Lärmprotokoll enthält eine eigene Tabelle.
 - In **Home Assistant** erscheint je Handy ein Sensor „Erschütterung“ (Vibration) bzw. „Bewegung“ (Bewegung) – nutzbar in Automationen und in den Regeln, z. B. „nur festhalten“, damit es bei jeder Störung und im Tagesverlauf steht.
 
-Gehört zu den externen Geräten und damit zu GasLighter Pro.
+Gehört zu den externen Geräten und damit zu GLighter Pro.
 
 ### Geräte-Karte
 
@@ -362,7 +362,7 @@ Löst ein Gerät aus, speichern alle anderen für denselben Zeitraum mit („Bei
 
 ## 7. Home Assistant
 
-GasLighter arbeitet mit Home Assistant zusammen: Regeln fragen Zustände ab (Fernseher an, Waschmaschine läuft, Sensor ausgelöst), und über MQTT meldet die App Störungen, Prüfsummen und Schalter zurück.
+GLighter arbeitet mit Home Assistant zusammen: Regeln fragen Zustände ab (Fernseher an, Waschmaschine läuft, Sensor ausgelöst), und über MQTT meldet die App Störungen, Prüfsummen und Schalter zurück.
 
 ### Regeln: pausieren oder festhalten
 
@@ -401,7 +401,7 @@ Ab dann steht bei jeder Störung, ob gleichzeitig eine Erschütterung gemeldet w
 
 ### MQTT: Steuern und Melden
 
-Ist MQTT eingerichtet, erscheint in Home Assistant das Gerät **GasLighter** mit:
+Ist MQTT eingerichtet, erscheint in Home Assistant das Gerät **GLighter** mit:
 
 - Schalter **Aufzeichnung**, **Manuell erfassen (außerhalb der Zeit)**, Zahl **Pause (Minuten)**, Tasten **Pause 15 min**, **Pause 1 h**, **Fortsetzen**, Sensor **Pause bis**.
 - Je Gerät: Ereignis **Störung (Auslöser)** (beginn, ende, erkannt – mit Spitze, Dauer, Art, Profil), Geräte-Auslöser für Automationen, Sensor „Letzte Geräuschart“ und stündlich die aktuelle **Prüfsumme** (in Home Assistant unabhängig gespeichert).
@@ -410,7 +410,7 @@ Beispiel – 10 Minuten Pause, wenn die Katzentoilette reinigt:
 
 ```yaml
 automation:
-  - alias: "GasLighter pausieren, wenn das Katzenklo reinigt"
+  - alias: "GLighter pausieren, wenn das Katzenklo reinigt"
     trigger:
       - platform: state
         entity_id: sensor.katzenklo_status
@@ -426,7 +426,7 @@ Eine von Hand gestoppte Aufzeichnung wird durch eine Pause aus Home Assistant ni
 
 ### Störung direkt im Dashboard erfassen
 
-Mit MQTT meldet das Add-on zwei Elemente am Gerät „GasLighter“:
+Mit MQTT meldet das Add-on zwei Elemente am Gerät „GLighter“:
 
 - **Störung / Notiz erfassen**: Textfeld. Text eingeben, Enter drücken, schon ist die Notiz mit der aktuellen Uhrzeit gespeichert. Das Feld leert sich danach.
 - **Störung jetzt markieren**: Knopf. Ein Tipp legt sofort eine Notiz „Störung (Home Assistant)“ an, ohne Text.
@@ -438,8 +438,8 @@ Beide legst du auf ein beliebiges Dashboard (z. B. als Karte „Entitäten“). 
 Manchmal soll eine Störung nicht gemeldet werden, der Graph aber trotzdem weiterlaufen, zum Beispiel wenn du selbst die Tür öffnest.
 
 - **In einer Regel:** Wähle bei der Aktion **„keine Störung melden“**. Solange die Bedingung gilt und für den **Nachlauf** (z. B. 10 Minuten), entsteht keine Störung. Der Graph wird weiter aufgezeichnet, es gibt keine Lücke.
-- **Vorlauf (s), z. B. für einen Sprachassistenten:** Das Rufwort („Hey Jarvis“) kommt, *bevor* der Assistent auf „hört zu“ wechselt. Mit **Vorlauf** zählt auch eine Störung nicht, die bis zu so viele Sekunden vor dem Einschalten der Regel begann. Dafür hält GasLighter jede Störung so lange (Vorlauf + 2 s) zurück, bevor sie gemeldet wird. Pegel und Graph bleiben unverändert; im Protokoll steht „nicht gezählt“. **Einrichten:** Regel hinzufügen, Entität `assist_satellite.…` wählen – Zustände `!idle`, „keine Störung melden“, Vorlauf 3 s und Nachlauf 0,5 min werden vorbelegt. So zählen Rufwort, Befehl und die Antwort aus dem Lautsprecher nicht.
-- **Als Knopf im Dashboard:** Am Gerät „GasLighter“ gibt es **„Keine Störung melden (Dauer starten)“**, **„Störungen wieder melden“**, die einstellbare **Dauer** (1–240 Minuten, Standard 10) und **„Keine Störungsmeldung bis“**. Lege sie auf dein Dashboard. Ein Tipp auf den Knopf startet die eingestellte Dauer.
+- **Vorlauf (s), z. B. für einen Sprachassistenten:** Das Rufwort („Hey Jarvis“) kommt, *bevor* der Assistent auf „hört zu“ wechselt. Mit **Vorlauf** zählt auch eine Störung nicht, die bis zu so viele Sekunden vor dem Einschalten der Regel begann. Dafür hält GLighter jede Störung so lange (Vorlauf + 2 s) zurück, bevor sie gemeldet wird. Pegel und Graph bleiben unverändert; im Protokoll steht „nicht gezählt“. **Einrichten:** Regel hinzufügen, Entität `assist_satellite.…` wählen – Zustände `!idle`, „keine Störung melden“, Vorlauf 3 s und Nachlauf 0,5 min werden vorbelegt. So zählen Rufwort, Befehl und die Antwort aus dem Lautsprecher nicht.
+- **Als Knopf im Dashboard:** Am Gerät „GLighter“ gibt es **„Keine Störung melden (Dauer starten)“**, **„Störungen wieder melden“**, die einstellbare **Dauer** (1–240 Minuten, Standard 10) und **„Keine Störungsmeldung bis“**. Lege sie auf dein Dashboard. Ein Tipp auf den Knopf startet die eingestellte Dauer.
 
 ## 8. Drucken und Lärmprotokoll
 
@@ -485,7 +485,7 @@ Zum Weiterverarbeiten gibt es außerdem `log.csv` (Reiter Protokolle), die Notiz
 
 ### Sicherung einspielen
 
-> **🔒 Pro:** Der erste Import ist kostenlos (z. B. für den Umzug), weitere Importe gehören zu GasLighter Pro. Das Herunterladen einer Sicherung ist immer frei.
+> **🔒 Pro:** Der erste Import ist kostenlos (z. B. für den Umzug), weitere Importe gehören zu GLighter Pro. Das Herunterladen einer Sicherung ist immer frei.
 
 1. **📂 Sicherung wählen** und **Sicherung prüfen …** – die Datei wird hochgeladen und angesehen, noch nichts verändert.
 2. Die Vorschau zeigt Version und Datum der Sicherung und – mit „Einstellungen und Geräte übernehmen“ – jedes Gerät aus der Sicherung:
@@ -499,9 +499,9 @@ Danach steht ein Bericht da: neue Dateien, zusammengeführte Tage, übersprungen
 
 ### Tägliche Sicherung auf Netzlaufwerk, NAS oder USB
 
-> **🔒 Pro:** Die tägliche Sicherung und „Platz sparen“ gehören zu GasLighter Pro. **„⬇ Sicherung herunterladen“ und `log.csv` bleiben immer frei.** Läuft Pro ab, hält die tägliche Sicherung an; schon ausgelagerte Tage bleiben lesbar.
+> **🔒 Pro:** Die tägliche Sicherung und „Platz sparen“ gehören zu GLighter Pro. **„⬇ Sicherung herunterladen“ und `log.csv` bleiben immer frei.** Läuft Pro ab, hält die tägliche Sicherung an; schon ausgelagerte Tage bleiben lesbar.
 
-⚙ Einstellungen → Speichern & Sicherung → **Tägliche Sicherung**. Ist ein Ziel eingestellt, kopiert GasLighter jeden Tag (Standard 03:30) alles Neue dorthin – dieselben Dateien wie in der ZIP-Sicherung, aber **inkrementell**: nur neue und geänderte Dateien, jede danach mit SHA-256 geprüft.
+⚙ Einstellungen → Speichern & Sicherung → **Tägliche Sicherung**. Ist ein Ziel eingestellt, kopiert GLighter jeden Tag (Standard 03:30) alles Neue dorthin – dieselben Dateien wie in der ZIP-Sicherung, aber **inkrementell**: nur neue und geänderte Dateien, jede danach mit SHA-256 geprüft.
 
 - **Im Ziel wird nie etwas gelöscht.** Ändert sich eine schon gesicherte Datei nachträglich, bleibt die alte Fassung als `….alt-JJJJMMTT-hhmmss` daneben liegen.
 - **Ziel nicht erreichbar** (NAS aus, WLAN weg): Die Aufzeichnung läuft normal weiter auf diesem Gerät. Stündlich wird es erneut versucht, und der nächste Lauf holt alles Fehlende nach.
@@ -515,13 +515,13 @@ Danach steht ein Bericht da: neue Dateien, zusammengeführte Tage, übersprungen
 | NAS als Medienordner | wie oben, Verwendung **Medien** | `/media/nas_gaslighter` |
 | USB-Platte am Home-Assistant-Gerät | Platte anschließen (erscheint unter `/media`) | z. B. `/media/usb/gaslighter` |
 
-> Das Ziel muss schon vorhanden sein und darf **nicht auf demselben Speicher** liegen wie die Daten. Sonst würde ein nicht eingebundenes Netzlaufwerk unbemerkt den eigenen Speicher füllen – GasLighter meldet das dann als Fehler und kopiert nichts.
+> Das Ziel muss schon vorhanden sein und darf **nicht auf demselben Speicher** liegen wie die Daten. Sonst würde ein nicht eingebundenes Netzlaufwerk unbemerkt den eigenen Speicher füllen – GLighter meldet das dann als Fehler und kopiert nichts.
 
 ### Platz sparen
 
 Mit **„Platz sparen: alte Daten nur im Ziel behalten“** werden Dateien, die älter sind als „Löschen nach (Tagen)“ und geprüft im Ziel liegen, hier durch einen Verweis auf die Kopie ersetzt. **Protokolle, Verlauf, Druck und Prüfsummen-Kette funktionieren weiter** – sie lesen diese Tage aus dem Ziel. Schläft das Netzlaufwerk, dauert das erste Laden etwas länger („Netzlaufwerk wacht evtl. gerade auf“). Ist es gar nicht erreichbar, fehlen diese alten Tage, bis es wieder da ist. Einstellungen, `log.csv` und die Daten der letzten Tage bleiben immer hier.
 
-Ist zusätzlich **„Alte Aufnahmen automatisch löschen“** eingeschaltet, löscht GasLighter bei eingestelltem Ziel nur noch, was geprüft im Ziel liegt.
+Ist zusätzlich **„Alte Aufnahmen automatisch löschen“** eingeschaltet, löscht GLighter bei eingestelltem Ziel nur noch, was geprüft im Ziel liegt.
 
 ### Was beim Einspielen passiert
 
@@ -536,18 +536,18 @@ Ist zusätzlich **„Alte Aufnahmen automatisch löschen“** eingeschaltet, lö
 
 ### Suchverzeichnis
 
-GasLighter führt ein **Suchverzeichnis** (SQLite-Datei `suchindex.sqlite` im App-Datenordner). Es beschleunigt Lärmprotokolle über Wochen und Monate:
+GLighter führt ein **Suchverzeichnis** (SQLite-Datei `suchindex.sqlite` im App-Datenordner). Es beschleunigt Lärmprotokolle über Wochen und Monate:
 
 - **Kettenprüfung je Tag:** Das Ergebnis wird mit einer SHA-256-Prüfsumme über den *Inhalt* aller Dateien des Tages gespeichert. Ändert sich auch nur ein Byte, wird der Tag neu geprüft – die Prüfung ist genauso streng wie ohne Verzeichnis.
 - **Verdichtete Tagesspuren** (je 10 Sekunden) für die Grafiken im Lärmprotokoll.
 
-Das Verzeichnis enthält nur abgeleitete Daten, ändert nie Aufzeichnung, Datenkette oder Störungen, ist nicht in der Sicherung und füllt sich nach dem Start langsam im Hintergrund. **Einstellungen → Allgemein → Sicherung → Neu aufbauen** leert es; es baut sich danach von selbst wieder auf. Fehlt es oder ist es beschädigt, arbeitet GasLighter ohne – nur langsamer.
+Das Verzeichnis enthält nur abgeleitete Daten, ändert nie Aufzeichnung, Datenkette oder Störungen, ist nicht in der Sicherung und füllt sich nach dem Start langsam im Hintergrund. **Einstellungen → Allgemein → Sicherung → Neu aufbauen** leert es; es baut sich danach von selbst wieder auf. Fehlt es oder ist es beschädigt, arbeitet GLighter ohne – nur langsamer.
 
 ## 10. Unterbrechungen, Datenkette und Updates
 
 ### Unterbrechungen
 
-Läuft das Add-on nicht (Stromausfall, Home Assistant neu gestartet, Update über den Add-on-Store), fehlt die Aufnahme. GasLighter merkt sich das beim nächsten Start und zeigt es in Protokolle unter der Zusammenfassung:
+Läuft das Add-on nicht (Stromausfall, Home Assistant neu gestartet, Update über den Add-on-Store), fehlt die Aufnahme. GLighter merkt sich das beim nächsten Start und zeigt es in Protokolle unter der Zusammenfassung:
 
 - **ohne Herunterfahren beendet, z. B. Stromausfall** – das Add-on konnte sich nicht abmelden (Strom weg, Absturz).
 - **von Home Assistant angehalten / neu gestartet** – sauber beendet (Neustart, Add-on gestoppt).
@@ -600,7 +600,7 @@ Ganz oben wählst du **Alle Geräte** oder ein einzelnes Gerät. Beim Gerät las
 
 ### Wann gilt etwas als Störung?
 
-> **🔒 Pro:** Ohne Pro sind diese Werte nur zum Ansehen; GasLighter arbeitet mit den Standardwerten. Ändern lassen sie sich mit GasLighter Pro.
+> **🔒 Pro:** Ohne Pro sind diese Werte nur zum Ansehen; GLighter arbeitet mit den Standardwerten. Ändern lassen sie sich mit GLighter Pro.
 
 | Einstellung | Bedeutung |
 |---|---|
@@ -661,7 +661,7 @@ Video-Breite, Bilder pro Sekunde, Videoqualität (für IP-Kameras und Handys).
 
 - **Sprache** – Deutsch, Englisch oder wie der Browser.
 - **Protokoll & Notizen** – **Störungen zusammenfassen bei bis zu (s) Abstand** (Gruppen in der Liste), **Notiz gehört zur Störung, wenn bis zu (min) danach**.
-- **GasLighter Pro** – siehe Pro.
+- **GLighter Pro** – siehe Pro.
 - **Zurücksetzen** – siehe Zurücksetzen.
 - **Diagnose** – Angaben zu Mikrofon und Soundkarte für die Fehlersuche.
 
@@ -732,11 +732,11 @@ Der Ordner muss als `\\homeassistant\share\gaslighter_update\gaslighter\…` lie
 
 `/share/gaslighter` (über Samba `\\homeassistant\share\gaslighter`): `log.csv`, `clips/` (Tagesaufzeichnung in `clips/tag/`, KI in `clips/ki/`, Notizen, Listen, Profile), Einstellungen und Geräte in `/data`.
 
-## 14. GasLighter Pro
+## 14. GLighter Pro
 
-GasLighter ist kostenlos. **Aufzeichnung, Live-Ansicht, Protokolle, Lärmprotokoll zum Drucken, Export (`log.csv`, Notizen) und das Erstellen einer Sicherung** sind immer frei – ohne Zeitlimit und ohne Werbung.
+GLighter ist kostenlos. **Aufzeichnung, Live-Ansicht, Protokolle, Lärmprotokoll zum Drucken, Export (`log.csv`, Notizen) und das Erstellen einer Sicherung** sind immer frei – ohne Zeitlimit und ohne Werbung.
 
-Die Jahreslizenz **GasLighter Pro** schaltet zusätzlich frei:
+Die Jahreslizenz **GLighter Pro** schaltet zusätzlich frei:
 
 | Funktion | Ohne Pro | Mit Pro |
 |---|---|---|
@@ -751,15 +751,15 @@ Das Server-Mikrofon (am Home-Assistant-Rechner) funktioniert immer ohne Pro.
 
 ### Kaufen
 
-⚙ Einstellungen → Allgemein → **GasLighter Pro** → **🛒 Pro kaufen** öffnet die Seite von GasLighter auf gsimulations.de. Die Lizenz gilt **1 Jahr ab Kauf** für **1 Home-Assistant-Installation**. Sie verlängert sich **nicht** automatisch – es gibt kein Abo. Nach dem Kauf kommt der Lizenzschlüssel per E-Mail.
+⚙ Einstellungen → Allgemein → **GLighter Pro** → **🛒 Pro kaufen** öffnet die Seite von GLighter auf gsimulations.de. Die Lizenz gilt **1 Jahr ab Kauf** für **1 Home-Assistant-Installation**. Sie verlängert sich **nicht** automatisch – es gibt kein Abo. Nach dem Kauf kommt der Lizenzschlüssel per E-Mail.
 
 ### Schlüssel eintragen
 
-1. ⚙ Einstellungen → Allgemein → **GasLighter Pro**.
+1. ⚙ Einstellungen → Allgemein → **GLighter Pro**.
 2. Den Schlüssel aus der E-Mail vollständig einfügen. Er beginnt mit `GL1-`; Leerzeichen und Zeilenumbrüche stören nicht.
 3. **🔑 Aktivieren**. Danach steht dort „Pro aktiv – gültig bis …“.
 
-Der Schlüssel wird **ohne Internet** geprüft – GasLighter sendet nichts an G-Simulation. Er wird in der Sicherung **nicht** mitgespeichert; nach einer Neuinstallation einfach wieder eintragen.
+Der Schlüssel wird **ohne Internet** geprüft – GLighter sendet nichts an G-Simulation. Er wird in der Sicherung **nicht** mitgespeichert; nach einer Neuinstallation einfach wieder eintragen.
 
 An gesperrten Stellen steht **🔒 Pro**. Ein Klick darauf erklärt die Funktion und bietet „Pro kaufen“ und „Schlüssel eintragen“ an.
 
@@ -775,7 +775,7 @@ Zum Verlängern eine neue Lizenz kaufen und den neuen Schlüssel eintragen.
 
 ### Umzug auf einen neuen Rechner
 
-Sicherung auf dem alten Rechner herunterladen, GasLighter auf dem neuen installieren und die Sicherung einspielen – der **erste Import ist kostenlos**. Danach den Pro-Schlüssel wieder eintragen.
+Sicherung auf dem alten Rechner herunterladen, GLighter auf dem neuen installieren und die Sicherung einspielen – der **erste Import ist kostenlos**. Danach den Pro-Schlüssel wieder eintragen.
 
 ## 15. Glossar
 
@@ -809,7 +809,7 @@ Sicherung auf dem alten Rechner herunterladen, GasLighter auf dem neuen installi
 
 ## 1. Quick start in 5 minutes
 
-GasLighter listens continuously and writes a **noise log**: when it was how loud, for how long and what kind of sound – with checksums so nobody can change the data unnoticed. **No sound is stored**, only measurements.
+GLighter listens continuously and writes a **noise log**: when it was how loud, for how long and what kind of sound – with checksums so nobody can change the data unnoticed. **No sound is stored**, only measurements.
 
 ### 1. Connect a microphone
 
@@ -842,7 +842,7 @@ To compare devices: ⚙ Settings → Devices → **Level-match devices**. Put al
 - Regularly download a backup under ⚙ Settings → Storage & backup → **Download backup**. See Backup.
 - Updates without a recording gap: copy the new folder to `\\homeassistant\share\gaslighter_update\`. See Updates.
 
-> **Important:** GasLighter is a memory aid and documentation, not a calibrated dB(A) measurement. For landlords, property managers or authorities what counts most is: regular, traceable, with your own notes. See Noise log.
+> **Important:** GLighter is a memory aid and documentation, not a calibrated dB(A) measurement. For landlords, property managers or authorities what counts most is: regular, traceable, with your own notes. See Noise log.
 
 ## 2. Live view
 
@@ -896,13 +896,13 @@ For what you hear right now – just start typing or tap tags (upstairs, downsta
 - **Without a time of its own**: if there was a disturbance shortly before (setting “Assign note”, default 5 min), the note belongs to it. The bar shows beforehand where it goes.
 - **still going**: the note gets a period from the first input until saving.
 - **From / to and witness** are always shown right in the area; leave them empty for “automatic” (time at saving).
-- **Only tags, no text?** GasLighter builds a sentence from them when saving, e.g. “Clear footsteps in the stairwell”. You can edit it later.
+- **Only tags, no text?** GLighter builds a sentence from them when saving, e.g. “Clear footsteps in the stairwell”. You can edit it later.
 
 ### Custom quick select
 
 - **＋ Custom** at the end of the buttons: enter a name (e.g. “washing machine”, “neighbour 2nd floor”) → **Create**. The button (★) then appears in all note fields, also when detached, and in the notes filter.
 - **Right-click or long-press** a button to open “Manage quick select”: **rename** or **delete** your own, **hide and show** built-in ones. Old notes keep their label.
-- **Learning:** if you type a word yourself more often (3× or more), GasLighter suggests it as a button (💡). It is only created when you press **＋**; **✕** means “stop suggesting”.
+- **Learning:** if you type a word yourself more often (3× or more), GLighter suggests it as a button (💡). It is only created when you press **＋**; **✕** means “stop suggesting”.
 - **Order:** what you press most often comes first – on a phone these are the first 6.
 - Your buttons are stored in `clips/schnellwahl.json` and are included in the backup (ZIP).
 
@@ -1032,7 +1032,7 @@ Duration, peak, threshold, background, track (period shown) and:
 
 ## 5. AI: sound types and sound profiles
 
-GasLighter recognises the **type** of a sound with a small AI that runs entirely on your Home Assistant computer (YAMNet, no cloud). In addition the app learns your own **sound profiles**.
+GLighter recognises the **type** of a sound with a small AI that runs entirely on your Home Assistant computer (YAMNet, no cloud). In addition the app learns your own **sound profiles**.
 
 ### Built-in detection
 
@@ -1093,7 +1093,7 @@ The microphone on the Home Assistant computer. Under **Microphone** you choose i
 
 ### Phone as a microphone
 
-> **🔒 Pro:** phones, stream URLs and IP cameras are external devices and part of GasLighter Pro. The server microphone is always free.
+> **🔒 Pro:** phones, stream URLs and IP cameras are external devices and part of GLighter Pro. The server microphone is always free.
 
 - **Phone (browser)**: “+ Phone (browser)”, scan the QR code, open the page in Chrome, accept the certificate warning, **Start**. The screen must stay on (charger). The link is secret and belongs to this phone only.
 - **Stream (e.g. the app “IP Webcam”)**: “+ Phone app / stream URL”, address `http://PHONE-IP:8080/audio.wav`. Also works with the screen off. With a login: user name and password in their own fields.
@@ -1117,7 +1117,7 @@ A phone set up as a device can additionally act as a **motion sensor** – like 
 
 ### With the IP Webcam app
 
-If the phone is connected via **“+ Phone app / stream URL”** with the Android app **IP Webcam**, GasLighter reads the app’s sensors (`http://PHONE:8080/sensors.json`; a login in the address is used too). On the device card the box is called **“IP Webcam: read phone sensors”**, with the same switches (vibration, tilt, motion in camera picture) and the same sensitivity.
+If the phone is connected via **“+ Phone app / stream URL”** with the Android app **IP Webcam**, GLighter reads the app’s sensors (`http://PHONE:8080/sensors.json`; a login in the address is used too). On the device card the box is called **“IP Webcam: read phone sensors”**, with the same switches (vibration, tilt, motion in camera picture) and the same sensitivity.
 
 - **Vibration and tilt** come from the phone’s accelerometer – the sensors must be switched on in IP Webcam.
 - **Motion in camera picture** uses IP Webcam’s **motion detection** – switch it on in the app.
@@ -1131,7 +1131,7 @@ If the phone is connected via **“+ Phone app / stream URL”** with the Androi
 - The **Reports** tab lists "Vibration and motion in the period"; a click shows the spot in the history. The noise report contains its own table.
 - In **Home Assistant** each phone gets a "Vibration" or "Motion" sensor – usable in automations and in the rules, e.g. "only record state", so it appears with every disturbance and in the daily chart.
 
-Part of the external devices and therefore of GasLighter Pro.
+Part of the external devices and therefore of GLighter Pro.
 
 ### Device card
 
@@ -1160,7 +1160,7 @@ When one device triggers, all others store the same period too (“On a disturba
 
 ## 7. Home Assistant
 
-GasLighter works together with Home Assistant: rules read states (TV on, washing machine running, sensor triggered), and via MQTT the app reports disturbances, checksums and switches back.
+GLighter works together with Home Assistant: rules read states (TV on, washing machine running, sensor triggered), and via MQTT the app reports disturbances, checksums and switches back.
 
 ### Rules: pause or record state
 
@@ -1199,7 +1199,7 @@ From then on every disturbance shows whether a vibration was reported at the sam
 
 ### MQTT: control and reports
 
-With MQTT set up, Home Assistant shows the device **GasLighter** with:
+With MQTT set up, Home Assistant shows the device **GLighter** with:
 
 - Switch **Recording**, **Record manually (outside hours)**, number **Pause (minutes)**, buttons **Pause 15 min**, **Pause 1 h**, **Resume**, sensor **Paused until**.
 - Per device: event **Disturbance (trigger)** (start, end, detected – with peak, duration, type, profile), device triggers for automations, sensor “Last sound type” and hourly the current **checksum** (stored independently in Home Assistant).
@@ -1208,7 +1208,7 @@ Example – pause for 10 minutes while the litter box cleans:
 
 ```yaml
 automation:
-  - alias: "Pause GasLighter while the litter box cleans"
+  - alias: "Pause GLighter while the litter box cleans"
     trigger:
       - platform: state
         entity_id: sensor.litter_box_status
@@ -1224,7 +1224,7 @@ Recording stopped by hand is not restarted automatically by a pause from Home As
 
 ### Log a disturbance right from the dashboard
 
-With MQTT the add-on adds two elements to the "GasLighter" device:
+With MQTT the add-on adds two elements to the "GLighter" device:
 
 - **Log disturbance / note**: text field. Type text, press Enter, and the note is saved with the current time. The field clears afterwards.
 - **Mark disturbance now**: button. One tap creates a note "Disturbance (Home Assistant)" immediately, without text.
@@ -1236,8 +1236,8 @@ Put both on any dashboard (for example in an "Entities" card). If a disturbance 
 Sometimes a disturbance should not be reported while the graph keeps recording, for example when you open the door yourself.
 
 - **In a rule:** choose the action **"no disturbance reports"**. While the condition holds and for the **delay** afterwards (for example 10 minutes), no disturbance is created. The graph keeps recording, with no gap.
-- **Lead time (s), e.g. for a voice assistant:** the wake word (“Hey Jarvis”) comes *before* the assistant switches to “listening”. With **lead time**, a disturbance that started up to this many seconds before the rule switched on does not count either. For this, GasLighter holds each disturbance back that long (lead time + 2 s) before reporting it. Levels and graph stay unchanged; the log says “not counted”. **Set up:** add a rule, choose the entity `assist_satellite.…` – states `!idle`, “no disturbance reports”, lead time 3 s and delay 0.5 min are pre-filled. Wake word, command and the spoken answer then don’t count.
-- **As a dashboard button:** the "GasLighter" device has **"Start: no disturbance reports"**, **"Report disturbances again"**, an adjustable **duration** (1–240 minutes, default 10) and **"No disturbance reports until"**. Put them on your dashboard. One tap starts the set duration.
+- **Lead time (s), e.g. for a voice assistant:** the wake word (“Hey Jarvis”) comes *before* the assistant switches to “listening”. With **lead time**, a disturbance that started up to this many seconds before the rule switched on does not count either. For this, GLighter holds each disturbance back that long (lead time + 2 s) before reporting it. Levels and graph stay unchanged; the log says “not counted”. **Set up:** add a rule, choose the entity `assist_satellite.…` – states `!idle`, “no disturbance reports”, lead time 3 s and delay 0.5 min are pre-filled. Wake word, command and the spoken answer then don’t count.
+- **As a dashboard button:** the "GLighter" device has **"Start: no disturbance reports"**, **"Report disturbances again"**, an adjustable **duration** (1–240 minutes, default 10) and **"No disturbance reports until"**. Put them on your dashboard. One tap starts the set duration.
 
 ## 8. Printing and noise log
 
@@ -1283,7 +1283,7 @@ For further processing there are also `log.csv` (Logs tab), the notes as CSV (�
 
 ### Restore a backup
 
-> **🔒 Pro:** the first import is free (e.g. when moving), further imports are part of GasLighter Pro. Downloading a backup is always free.
+> **🔒 Pro:** the first import is free (e.g. when moving), further imports are part of GLighter Pro. Downloading a backup is always free.
 
 1. **📂 Choose backup** and **Check backup …** – the file is uploaded and examined, nothing is changed yet.
 2. The preview shows version and date of the backup and – with “Take over settings and devices” – every device from the backup:
@@ -1297,9 +1297,9 @@ Afterwards a report shows new files, merged days, skipped days and the devices t
 
 ### Daily backup to network drive, NAS or USB
 
-> **🔒 Pro:** The daily backup and “save space” are part of GasLighter Pro. **“⬇ Download backup” and `log.csv` always stay free.** If Pro expires, the daily backup pauses; days already moved stay readable.
+> **🔒 Pro:** The daily backup and “save space” are part of GLighter Pro. **“⬇ Download backup” and `log.csv` always stay free.** If Pro expires, the daily backup pauses; days already moved stay readable.
 
-⚙ Settings → Storage & backup → **Daily backup**. With a target set, GasLighter copies everything new there every day (default 03:30) – the same files as the ZIP backup, but **incremental**: only new and changed files, each verified with SHA-256 afterwards.
+⚙ Settings → Storage & backup → **Daily backup**. With a target set, GLighter copies everything new there every day (default 03:30) – the same files as the ZIP backup, but **incremental**: only new and changed files, each verified with SHA-256 afterwards.
 
 - **Nothing is ever deleted in the target.** If an already backed-up file changes later, the old version stays next to it as `….alt-YYYYMMDD-hhmmss`.
 - **Target unreachable** (NAS off, Wi-Fi gone): recording continues normally on this device. It is retried hourly, and the next run catches up everything missing.
@@ -1313,13 +1313,13 @@ Afterwards a report shows new files, merged days, skipped days and the devices t
 | NAS as media folder | as above, usage **Media** | `/media/nas_gaslighter` |
 | USB drive on the Home Assistant device | plug it in (appears under `/media`) | e.g. `/media/usb/gaslighter` |
 
-> The target must already exist and must **not be on the same storage** as the data. Otherwise a network drive that is not mounted would silently fill your own storage – GasLighter reports this as an error and copies nothing.
+> The target must already exist and must **not be on the same storage** as the data. Otherwise a network drive that is not mounted would silently fill your own storage – GLighter reports this as an error and copies nothing.
 
 ### Save space
 
 With **“Save space: keep old data only in the target”**, files older than “Delete after (days)” that are verified in the target are replaced here by a link to the copy. **Reports, history, printing and the checksum chain keep working** – they read these days from the target. If the network drive is asleep, the first load takes a little longer (“network drive may be waking up”). If it is unreachable, these old days are missing until it is back. Settings, `log.csv` and recent days always stay here.
 
-If **“Delete old recordings automatically”** is also on, GasLighter only deletes what is verified in the target once a target is set.
+If **“Delete old recordings automatically”** is also on, GLighter only deletes what is verified in the target once a target is set.
 
 ### What happens when restoring
 
@@ -1334,18 +1334,18 @@ If **“Delete old recordings automatically”** is also on, GasLighter only del
 
 ### Search index
 
-GasLighter keeps a **search index** (SQLite file `suchindex.sqlite` in the app data folder). It speeds up noise reports over weeks and months:
+GLighter keeps a **search index** (SQLite file `suchindex.sqlite` in the app data folder). It speeds up noise reports over weeks and months:
 
 - **Chain check per day:** the result is stored with a SHA-256 checksum over the *content* of all files of that day. If a single byte changes, the day is checked again – the check is exactly as strict as without the index.
 - **Condensed day tracks** (every 10 seconds) for the charts in the noise report.
 
-The index only contains derived data, never changes the recording, checksum chain or disturbances, is not part of the backup and fills slowly in the background after start. **Settings → General → Backup → Rebuild** clears it; it then rebuilds itself. If it is missing or damaged, GasLighter works without it – just slower.
+The index only contains derived data, never changes the recording, checksum chain or disturbances, is not part of the backup and fills slowly in the background after start. **Settings → General → Backup → Rebuild** clears it; it then rebuilds itself. If it is missing or damaged, GLighter works without it – just slower.
 
 ## 10. Interruptions, data chain and updates
 
 ### Interruptions
 
-If the add-on is not running (power cut, Home Assistant restarted, update via the add-on store), the recording is missing. GasLighter notices this at the next start and shows it in Logs below the summary:
+If the add-on is not running (power cut, Home Assistant restarted, update via the add-on store), the recording is missing. GLighter notices this at the next start and shows it in Logs below the summary:
 
 - **ended without shutdown, e.g. power cut** – the add-on could not sign off (power gone, crash).
 - **stopped / restarted by Home Assistant** – ended cleanly (restart, add-on stopped).
@@ -1398,7 +1398,7 @@ At the very top choose **All devices** or a single device. For a device, “Own 
 
 ### When does something count as a disturbance?
 
-> **🔒 Pro:** without Pro these values are view only and GasLighter uses the defaults. They can be changed with GasLighter Pro.
+> **🔒 Pro:** without Pro these values are view only and GLighter uses the defaults. They can be changed with GLighter Pro.
 
 | Setting | Meaning |
 |---|---|
@@ -1459,7 +1459,7 @@ Video width, frames per second, video quality (for IP cameras and phones).
 
 - **Language** – German, English or like the browser.
 - **Log & notes** – **Group disturbances up to (s) apart** (groups in the list), **Note belongs to the disturbance if up to (min) after it**.
-- **GasLighter Pro** – see Pro.
+- **GLighter Pro** – see Pro.
 - **Reset** – see Reset.
 - **Diagnostics** – details about microphone and sound card for troubleshooting.
 
@@ -1530,11 +1530,11 @@ The folder must be at `\\homeassistant\share\gaslighter_update\gaslighter\…`. 
 
 `/share/gaslighter` (via Samba `\\homeassistant\share\gaslighter`): `log.csv`, `clips/` (day recording in `clips/tag/`, AI in `clips/ki/`, notes, lists, profiles), settings and devices in `/data`.
 
-## 14. GasLighter Pro
+## 14. GLighter Pro
 
-GasLighter is free. **Recording, the live view, reports, the printable noise report, export (`log.csv`, notes) and creating a backup** are always free – no time limit, no ads.
+GLighter is free. **Recording, the live view, reports, the printable noise report, export (`log.csv`, notes) and creating a backup** are always free – no time limit, no ads.
 
-The yearly licence **GasLighter Pro** additionally unlocks:
+The yearly licence **GLighter Pro** additionally unlocks:
 
 | Feature | Without Pro | With Pro |
 |---|---|---|
@@ -1549,15 +1549,15 @@ The server microphone (on the Home Assistant computer) always works without Pro.
 
 ### Buy
 
-⚙ Settings → General → **GasLighter Pro** → **🛒 Buy Pro** opens the GasLighter page on gsimulations.de. The licence is valid for **1 year from purchase** for **1 Home Assistant installation**. It does **not** renew automatically – there is no subscription. After purchase the licence key is sent by e-mail.
+⚙ Settings → General → **GLighter Pro** → **🛒 Buy Pro** opens the GLighter page on gsimulations.de. The licence is valid for **1 year from purchase** for **1 Home Assistant installation**. It does **not** renew automatically – there is no subscription. After purchase the licence key is sent by e-mail.
 
 ### Enter the key
 
-1. ⚙ Settings → General → **GasLighter Pro**.
+1. ⚙ Settings → General → **GLighter Pro**.
 2. Paste the complete key from the e-mail. It starts with `GL1-`; spaces and line breaks do not matter.
 3. **🔑 Activate**. It then shows “Pro active – valid until …”.
 
-The key is checked **without internet** – GasLighter sends nothing to G-Simulation. It is **not** included in backups; after a reinstall simply enter it again.
+The key is checked **without internet** – GLighter sends nothing to G-Simulation. It is **not** included in backups; after a reinstall simply enter it again.
 
 Locked places show **🔒 Pro**. Clicking it explains the feature and offers “Buy Pro” and “Enter key”.
 
@@ -1573,7 +1573,7 @@ To renew, buy a new licence and enter the new key.
 
 ### Moving to a new computer
 
-Download a backup on the old computer, install GasLighter on the new one and import the backup – the **first import is free**. Then enter your Pro key again.
+Download a backup on the old computer, install GLighter on the new one and import the backup – the **first import is free**. Then enter your Pro key again.
 
 ## 15. Glossary
 

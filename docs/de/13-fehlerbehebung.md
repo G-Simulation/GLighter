@@ -55,4 +55,4 @@ Der Ordner muss als `\\homeassistant\share\gaslighter_update\gaslighter\…` lie
 `/share/gaslighter` (über Samba `\\homeassistant\share\gaslighter`): `log.csv`, `clips/` (Tagesaufzeichnung in `clips/tag/`, KI in `clips/ki/`, Notizen, Listen, Profile), Einstellungen und Geräte in `/data`.
 
 ---
-[← Rechtliches und Datenschutz](12-rechtliches.md) · [Inhalt](README.md) · [GasLighter Pro →](14-pro.md)
+[← Rechtliches und Datenschutz](12-rechtliches.md) · [Inhalt](README.md) · [GLighter Pro →](14-pro.md)

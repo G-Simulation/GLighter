@@ -1,4 +1,4 @@
-/* GasLighter – Handbuch: Kapitel aus hb_inhalt.js (Markdown, erzeugt aus handbuch/<Sprache>/*.md),
+/* GLighter – Handbuch: Kapitel aus hb_inhalt.js (Markdown, erzeugt aus handbuch/<Sprache>/*.md),
    Inhaltsverzeichnis, Suche, Verweise #kapitel/anker. Läuft ohne Internet. */
 (function () {
 'use strict';

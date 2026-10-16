@@ -24,4 +24,4 @@
 | **Festhalten** | Home-Assistant-Regel, die Zustände mitschreibt, ohne zu pausieren |
 
 ---
-[← GasLighter Pro](14-pro.md) · [Inhalt](README.md)
+[← GLighter Pro](14-pro.md) · [Inhalt](README.md)

@@ -54,13 +54,13 @@ Für das, was du gerade hörst – einfach lostippen oder Merkmale antippen (obe
 - **Ohne eigene Uhrzeit**: Liegt kurz vorher eine Störung (Einstellung „Notiz zuordnen“, Standard 5 min), gilt die Notiz für sie. Die Leiste zeigt vorher, wohin sie kommt.
 - **läuft noch**: Die Notiz bekommt einen Zeitraum von der ersten Eingabe bis zum Speichern.
 - **Von / bis und Zeuge** stehen immer direkt im Bereich; leer lassen heißt „automatisch“ (Uhrzeit beim Speichern).
-- **Nur Markierungen, kein Text?** Dann bildet GasLighter beim Speichern einen Satz daraus, z. B. „Deutliche Schritte im Treppenhaus“. Du kannst ihn später ändern.
+- **Nur Markierungen, kein Text?** Dann bildet GLighter beim Speichern einen Satz daraus, z. B. „Deutliche Schritte im Treppenhaus“. Du kannst ihn später ändern.
 
 ### Eigene Schnellwahl {#schnellwahl}
 
 - **＋ Eigene** am Ende der Tasten: Namen eingeben (z. B. „Waschmaschine“, „Nachbar 2. OG“) → **Anlegen**. Die Taste (★) gibt es dann in allen Notiz-Feldern, auch abgedockt, und im Filter der Notizen.
 - **Rechtsklick oder lange drücken** auf eine Taste öffnet „Schnellwahl verwalten“: eigene **umbenennen** oder **löschen**, eingebaute **aus- und wieder einblenden**. Alte Notizen behalten ihre Bezeichnung.
-- **Lernen:** Tippst du ein Wort öfter selbst (ab 3×), schlägt GasLighter es als Taste vor (💡). Angelegt wird sie nur, wenn du **＋** drückst; **✕** heißt „nicht mehr vorschlagen“.
+- **Lernen:** Tippst du ein Wort öfter selbst (ab 3×), schlägt GLighter es als Taste vor (💡). Angelegt wird sie nur, wenn du **＋** drückst; **✕** heißt „nicht mehr vorschlagen“.
 - **Reihenfolge:** Was du am häufigsten drückst, steht vorne – am Handy sind das die ersten 6.
 - Die eigenen Tasten liegen in `clips/schnellwahl.json` und sind in der Sicherung (ZIP) enthalten.
 

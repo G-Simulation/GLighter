@@ -10,9 +10,9 @@ The microphone on the Home Assistant computer. Under **Microphone** you choose i
 
 ## Phone as a microphone {#handy}
 
-> **🔒 Pro:** phones, stream URLs and IP cameras are external devices and part of [GasLighter Pro](#pro). The server microphone is always free.
+> **🔒 Pro:** phones, stream URLs and IP cameras are external devices and part of [GLighter Pro](#pro). The server microphone is always free.
 
-![GasLighter on a phone](handy_{lang}.png)
+![GLighter on a phone](handy_{lang}.png)
 
 - **Phone (browser)**: “+ Phone (browser)”, scan the QR code, open the page in Chrome, accept the certificate warning, **Start**. The screen must stay on (charger). The link is secret and belongs to this phone only.
 - **Stream (e.g. the app “IP Webcam”)**: “+ Phone app / stream URL”, address `http://PHONE-IP:8080/audio.wav`. Also works with the screen off. With a login: user name and password in their own fields.
@@ -36,7 +36,7 @@ A phone set up as a device can additionally act as a **motion sensor** – like 
 
 ### With the IP Webcam app {#ipwebcam}
 
-If the phone is connected via **“+ Phone app / stream URL”** with the Android app **IP Webcam**, GasLighter reads the app’s sensors (`http://PHONE:8080/sensors.json`; a login in the address is used too). On the device card the box is called **“IP Webcam: read phone sensors”**, with the same switches (vibration, tilt, motion in camera picture) and the same sensitivity.
+If the phone is connected via **“+ Phone app / stream URL”** with the Android app **IP Webcam**, GLighter reads the app’s sensors (`http://PHONE:8080/sensors.json`; a login in the address is used too). On the device card the box is called **“IP Webcam: read phone sensors”**, with the same switches (vibration, tilt, motion in camera picture) and the same sensitivity.
 
 - **Vibration and tilt** come from the phone’s accelerometer – the sensors must be switched on in IP Webcam.
 - **Motion in camera picture** uses IP Webcam’s **motion detection** – switch it on in the app.
@@ -50,7 +50,7 @@ If the phone is connected via **“+ Phone app / stream URL”** with the Androi
 - The **Reports** tab lists "Vibration and motion in the period"; a click shows the spot in the history. The [noise report](#drucken) contains its own table.
 - In **Home Assistant** each phone gets a "Vibration" or "Motion" sensor – usable in automations and in the [rules](#home-assistant/regeln), e.g. "only record state", so it appears with every disturbance and in the daily chart.
 
-Part of the external devices and therefore of [GasLighter Pro](#pro).
+Part of the external devices and therefore of [GLighter Pro](#pro).
 
 ## Device card {#karte}
 

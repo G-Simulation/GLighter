@@ -1,4 +1,4 @@
-"""Oberflächen-Rauchtest: startet GasLighter mit Wegwerf-Daten, klickt durch die Hauptseiten und prüft, dass keine
+"""Oberflächen-Rauchtest: startet GLighter mit Wegwerf-Daten, klickt durch die Hauptseiten und prüft, dass keine
 JavaScript-Fehler auftreten und die Meldungen (Unterbrechungen) bestätigt werden können.
 Aufruf:  python3 tests/smoke_ui.py      (braucht: pip install playwright, Chromium; unter Linux PLAYWRIGHT_BROWSERS_PATH setzen)"""
 import datetime as dt, json, os, shutil, socket, subprocess, sys, tempfile, time, urllib.request

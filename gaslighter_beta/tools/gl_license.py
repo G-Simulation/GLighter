@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""GasLighter – Lizenzschlüssel erzeugen (nur für G-Simulation, nicht Teil der App).
+"""GLighter – Lizenzschlüssel erzeugen (nur für G-Simulation, nicht Teil der App).
 
   python3 gl_license.py keygen  gaslighter_private.key      neues Schlüsselpaar; zeigt den öffentlichen Schlüssel
   python3 gl_license.py sign    gaslighter_private.key  --order 1234 [--until 2027-10-13 | --days 365] [--customer x]

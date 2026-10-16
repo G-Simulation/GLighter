@@ -18,7 +18,7 @@
 
 ## Deutsch
 
-### Was GasLighter macht
+### Was GLighter macht
 
 - **Misst rund um die Uhr** mit einem Mikrofon am Home-Assistant-Rechner und erkennt Störungen automatisch – mit Uhrzeit, Dauer und Spitzenpegel. Die Schwelle passt sich dem normalen Hintergrund der Wohnung an.
 - **Speichert keinen Ton**, sondern nur Messwerte (Pegel, Frequenzbild, Zeitpunkte). Sprache wird nie in Text umgewandelt.
@@ -32,7 +32,7 @@
 
 ### Kostenlos und Pro
 
-| | Kostenlos | GasLighter Pro |
+| | Kostenlos | GLighter Pro |
 |---|:---:|:---:|
 | Aufzeichnung, Live, Protokolle, Notizen | ✔ | ✔ |
 | Lärmprotokoll, Druck, Export (`log.csv`), Sicherung erstellen | ✔ | ✔ |
@@ -42,34 +42,34 @@
 | Tägliche Sicherung auf Netzlaufwerk/NAS/USB, Platz sparen | ZIP von Hand | ✔ |
 | Externe Geräte (Handy, Stream, IP-Kamera) | – | ✔ |
 
-**GasLighter Pro** ist eine Jahreslizenz für 1 Home-Assistant-Installation, **kein Abo**. Der Schlüssel wird in der App ohne Internet geprüft. [Mehr und kaufen](https://www.gsimulations.de/gaslighter/#buypro) · [Handbuch: GasLighter Pro](docs/de/14-pro.md)
+**GLighter Pro** ist eine Jahreslizenz für 1 Home-Assistant-Installation, **kein Abo**. Der Schlüssel wird in der App ohne Internet geprüft. [Mehr und kaufen](https://www.gsimulations.de/gaslighter/#buypro) · [Handbuch: GLighter Pro](docs/de/14-pro.md)
 
 ### Installation
 
 Voraussetzung: Home Assistant OS oder Supervised (mit App-Store) und ein USB-Mikrofon am Home-Assistant-Rechner.
 
 1. Repository hinzufügen – per Klick:<br>
-   [![Repository zu Home Assistant hinzufügen](https://my.home-assistant.io/badges/supervisor_add_addon_repository.svg)](https://my.home-assistant.io/redirect/supervisor_add_addon_repository/?repository_url=https%3A%2F%2Fgithub.com%2FG-Simulation%2FGasLighter)<br>
-   oder von Hand: **Einstellungen → Apps → App-Store → ⋮ → Repositories** → `https://github.com/G-Simulation/GasLighter`
-2. **GasLighter** im App-Store öffnen → **Installieren** → **Starten**. Optional „Beim Start starten“ und „Watchdog“ einschalten.
-3. **GasLighter** in der Seitenleiste öffnen. Der [Schnellstart](docs/de/01-schnellstart.md) führt durch die ersten fünf Minuten.
+   [![Repository zu Home Assistant hinzufügen](https://my.home-assistant.io/badges/supervisor_add_addon_repository.svg)](https://my.home-assistant.io/redirect/supervisor_add_addon_repository/?repository_url=https%3A%2F%2Fgithub.com%2FG-Simulation%2FGLighter)<br>
+   oder von Hand: **Einstellungen → Apps → App-Store → ⋮ → Repositories** → `https://github.com/G-Simulation/GLighter`
+2. **GLighter** im App-Store öffnen → **Installieren** → **Starten**. Optional „Beim Start starten“ und „Watchdog“ einschalten.
+3. **GLighter** in der Seitenleiste öffnen. Der [Schnellstart](docs/de/01-schnellstart.md) führt durch die ersten fünf Minuten.
 
 Updates erscheinen automatisch in Home Assistant. Änderungen: [CHANGELOG](gaslighter/CHANGELOG.md).
 
 ### Beta (Testversion)
 
-Im selben Repository steht zusätzlich **GasLighter Beta** – die Arbeitsversion mit den neuesten Änderungen, bevor sie freigegeben werden. Sie läuft **neben** dem normalen GasLighter (eigener Datenordner `/share/gaslighter_beta`, eigene Entitäten, Handy-Port 18444) und kann Fehler enthalten. Für den Alltag den normalen GasLighter verwenden.
+Im selben Repository steht zusätzlich **GLighter Beta** – die Arbeitsversion mit den neuesten Änderungen, bevor sie freigegeben werden. Sie läuft **neben** dem normalen GLighter (eigener Datenordner `/share/gaslighter_beta`, eigene Entitäten, Handy-Port 18444) und kann Fehler enthalten. Für den Alltag den normalen GLighter verwenden.
 
 Soll die Beta mit **denselben Daten** arbeiten (Datenordner `/share/gaslighter`), immer nur **eine** der beiden Apps laufen lassen. Ab Version 1.64 schützt eine Sperre davor: Läuft die andere schon, nimmt die zweite nichts auf und zeigt einen Hinweis.
 
 ### Datenschutz und Recht
 
-Alle Daten bleiben auf deinem Home-Assistant-Rechner; GasLighter sendet nichts an G-Simulation oder Dritte. Details: [PRIVACY.md](PRIVACY.md). GasLighter ersetzt keine Rechtsberatung – ob ein Lärmprotokoll in deinem Fall ausreicht, klärst du am besten mit Mieterverein oder Anwalt. Siehe auch das Kapitel [Rechtliches](docs/de/12-rechtliches.md).
+Alle Daten bleiben auf deinem Home-Assistant-Rechner; GLighter sendet nichts an G-Simulation oder Dritte. Details: [PRIVACY.md](PRIVACY.md). GLighter ersetzt keine Rechtsberatung – ob ein Lärmprotokoll in deinem Fall ausreicht, klärst du am besten mit Mieterverein oder Anwalt. Siehe auch das Kapitel [Rechtliches](docs/de/12-rechtliches.md).
 
 ### Hilfe
 
 - [Handbuch](docs/de/README.md) und [Fehlerbehebung](docs/de/13-fehlerbehebung.md)
-- Fehler melden oder Idee vorschlagen: [Issues](https://github.com/G-Simulation/GasLighter/issues/new/choose)
+- Fehler melden oder Idee vorschlagen: [Issues](https://github.com/G-Simulation/GLighter/issues/new/choose)
 - Kontakt: [gsimulations.de/gaslighter](https://www.gsimulations.de/gaslighter/#getInTouch-gl)
 
 ---
@@ -78,7 +78,7 @@ Alle Daten bleiben auf deinem Home-Assistant-Rechner; GasLighter sendet nichts a
 
 ## English
 
-### What GasLighter does
+### What GLighter does
 
 - **Measures 24/7** with a microphone on the Home Assistant computer and detects disturbances automatically – with time, duration and peak level. The threshold adapts to the normal background of your home.
 - **Stores no audio**, only measurements (level, frequency picture, timestamps). Speech is never converted to text.
@@ -92,7 +92,7 @@ Alle Daten bleiben auf deinem Home-Assistant-Rechner; GasLighter sendet nichts a
 
 ### Free and Pro
 
-| | Free | GasLighter Pro |
+| | Free | GLighter Pro |
 |---|:---:|:---:|
 | Recording, live view, reports, notes | ✔ | ✔ |
 | Noise report, printing, export (`log.csv`), creating backups | ✔ | ✔ |
@@ -102,31 +102,31 @@ Alle Daten bleiben auf deinem Home-Assistant-Rechner; GasLighter sendet nichts a
 | Daily backup to network drive/NAS/USB, save space | ZIP by hand | ✔ |
 | External devices (phone, stream, IP camera) | – | ✔ |
 
-**GasLighter Pro** is a yearly licence for 1 Home Assistant installation, **no subscription**. The key is checked in the app without internet. [Learn more and buy](https://www.gsimulations.de/gaslighter/#buypro) · [Manual: GasLighter Pro](docs/en/14-pro.md)
+**GLighter Pro** is a yearly licence for 1 Home Assistant installation, **no subscription**. The key is checked in the app without internet. [Learn more and buy](https://www.gsimulations.de/gaslighter/#buypro) · [Manual: GLighter Pro](docs/en/14-pro.md)
 
 ### Installation
 
 Requirements: Home Assistant OS or Supervised (with app store) and a USB microphone on the Home Assistant computer.
 
 1. Add the repository – one click:<br>
-   [![Add repository to Home Assistant](https://my.home-assistant.io/badges/supervisor_add_addon_repository.svg)](https://my.home-assistant.io/redirect/supervisor_add_addon_repository/?repository_url=https%3A%2F%2Fgithub.com%2FG-Simulation%2FGasLighter)<br>
-   or manually: **Settings → Apps → App store → ⋮ → Repositories** → `https://github.com/G-Simulation/GasLighter`
-2. Open **GasLighter** in the app store → **Install** → **Start**. Optionally enable "Start on boot" and "Watchdog".
-3. Open **GasLighter** in the sidebar. The [quick start](docs/en/01-schnellstart.md) guides you through the first five minutes.
+   [![Add repository to Home Assistant](https://my.home-assistant.io/badges/supervisor_add_addon_repository.svg)](https://my.home-assistant.io/redirect/supervisor_add_addon_repository/?repository_url=https%3A%2F%2Fgithub.com%2FG-Simulation%2FGLighter)<br>
+   or manually: **Settings → Apps → App store → ⋮ → Repositories** → `https://github.com/G-Simulation/GLighter`
+2. Open **GLighter** in the app store → **Install** → **Start**. Optionally enable "Start on boot" and "Watchdog".
+3. Open **GLighter** in the sidebar. The [quick start](docs/en/01-schnellstart.md) guides you through the first five minutes.
 
 ### Beta (test version)
 
-The same repository also contains **GasLighter Beta** – the work-in-progress version with the latest changes before release. It runs **next to** the normal GasLighter (own data folder `/share/gaslighter_beta`, own entities, phone port 18444) and may contain bugs. Use the normal GasLighter for everyday use.
+The same repository also contains **GLighter Beta** – the work-in-progress version with the latest changes before release. It runs **next to** the normal GLighter (own data folder `/share/gaslighter_beta`, own entities, phone port 18444) and may contain bugs. Use the normal GLighter for everyday use.
 
 If the beta should use **the same data** (data folder `/share/gaslighter`), only ever run **one** of the two apps. From version 1.64 a lock protects against this: if the other one is already running, the second records nothing and shows a notice.
 
 ### Privacy and legal
 
-All data stays on your Home Assistant computer; GasLighter sends nothing to G-Simulation or third parties. Details: [PRIVACY.md](PRIVACY.md). GasLighter is not legal advice.
+All data stays on your Home Assistant computer; GLighter sends nothing to G-Simulation or third parties. Details: [PRIVACY.md](PRIVACY.md). GLighter is not legal advice.
 
 ### Help
 
-[Manual](docs/en/README.md) · [Troubleshooting](docs/en/13-fehlerbehebung.md) · [Issues](https://github.com/G-Simulation/GasLighter/issues/new/choose) · [Contact](https://www.gsimulations.de/gaslighter/#getInTouch-gl)
+[Manual](docs/en/README.md) · [Troubleshooting](docs/en/13-fehlerbehebung.md) · [Issues](https://github.com/G-Simulation/GLighter/issues/new/choose) · [Contact](https://www.gsimulations.de/gaslighter/#getInTouch-gl)
 
 ---
 

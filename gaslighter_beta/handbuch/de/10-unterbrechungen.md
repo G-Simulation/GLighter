@@ -2,7 +2,7 @@
 
 ## Unterbrechungen {#liste}
 
-Läuft das Add-on nicht (Stromausfall, Home Assistant neu gestartet, Update über den Add-on-Store), fehlt die Aufnahme. GasLighter merkt sich das beim nächsten Start und zeigt es in Protokolle unter der Zusammenfassung:
+Läuft das Add-on nicht (Stromausfall, Home Assistant neu gestartet, Update über den Add-on-Store), fehlt die Aufnahme. GLighter merkt sich das beim nächsten Start und zeigt es in Protokolle unter der Zusammenfassung:
 
 - **ohne Herunterfahren beendet, z. B. Stromausfall** – das Add-on konnte sich nicht abmelden (Strom weg, Absturz).
 - **von Home Assistant angehalten / neu gestartet** – sauber beendet (Neustart, Add-on gestoppt).

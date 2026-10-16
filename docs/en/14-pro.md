@@ -1,8 +1,8 @@
-# GasLighter Pro
+# GLighter Pro
 
-GasLighter is free. **Recording, the live view, reports, the printable noise report, export (`log.csv`, notes) and creating a backup** are always free – no time limit, no ads.
+GLighter is free. **Recording, the live view, reports, the printable noise report, export (`log.csv`, notes) and creating a backup** are always free – no time limit, no ads.
 
-The yearly licence **GasLighter Pro** additionally unlocks:
+The yearly licence **GLighter Pro** additionally unlocks:
 
 | Feature | Without Pro | With Pro |
 |---|---|---|
@@ -19,17 +19,17 @@ The server microphone (on the Home Assistant computer) always works without Pro.
 
 ## Buy
 
-⚙ Settings → General → **GasLighter Pro** → **🛒 Buy Pro** opens the GasLighter page on gsimulations.de. The licence is valid for **1 year from purchase** for **1 Home Assistant installation**. It does **not** renew automatically – there is no subscription. After purchase the licence key is sent by e-mail.
+⚙ Settings → General → **GLighter Pro** → **🛒 Buy Pro** opens the GLighter page on gsimulations.de. The licence is valid for **1 year from purchase** for **1 Home Assistant installation**. It does **not** renew automatically – there is no subscription. After purchase the licence key is sent by e-mail.
 
 <a id="schluessel"></a>
 
 ## Enter the key
 
-1. ⚙ Settings → General → **GasLighter Pro**.
+1. ⚙ Settings → General → **GLighter Pro**.
 2. Paste the complete key from the e-mail. It starts with `GL1-`; spaces and line breaks do not matter.
 3. **🔑 Activate**. It then shows “Pro active – valid until …”.
 
-The key is checked **without internet** – GasLighter sends nothing to G-Simulation. It is **not** included in backups; after a reinstall simply enter it again.
+The key is checked **without internet** – GLighter sends nothing to G-Simulation. It is **not** included in backups; after a reinstall simply enter it again.
 
 Locked places show **🔒 Pro**. Clicking it explains the feature and offers “Buy Pro” and “Enter key”.
 
@@ -49,7 +49,7 @@ To renew, buy a new licence and enter the new key.
 
 ## Moving to a new computer
 
-Download a backup on the old computer, install GasLighter on the new one and import the backup – the **first import is free**. Then enter your Pro key again.
+Download a backup on the old computer, install GLighter on the new one and import the backup – the **first import is free**. Then enter your Pro key again.
 
 ---
 [← Troubleshooting and FAQ](13-fehlerbehebung.md) · [Contents](README.md) · [Glossary →](15-glossar.md)

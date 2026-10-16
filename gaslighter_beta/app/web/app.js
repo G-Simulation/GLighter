@@ -3268,7 +3268,7 @@ async function loadDiag() {
   try { const j = await (await fetch('diag', { cache: 'no-store' })).json(); $('diag').textContent = 'v' + j.version + '  ·  ' + t('device') + ': ' + j.settings.device + '  ·  ' + j.settings.sample_rate + ' Hz\n\n' + j.text; } catch (e) { }
 }
 
-/* ================= GasLighter Pro: Lizenz, Sperren, „Pro kaufen“ ================= */
+/* ================= GLighter Pro: Lizenz, Sperren, „Pro kaufen“ ================= */
 let PRO = { ok: false, state: 'none', free_import: true, buy: 'https://www.gsimulations.de/gaslighter/#buypro' };
 async function proLoad() { try { const j = await (await fetch('pro', { cache: 'no-store' })).json(); if (j && j.state) PRO = j; } catch (e) { } proBanner(); return PRO; }
 function proDate(d) { try { return new Date(d + 'T12:00:00').toLocaleDateString(locale()); } catch (e) { return d; } }
@@ -5703,7 +5703,7 @@ async function fnPop() {
   if (!w) { try { w = window.open('', 'gl_note', 'popup=yes,width=480,height=380'); } catch (e) { w = null; } }
   if (!w) { alert(t('pop_fail')); return; }
   const doc = w.document;
-  doc.title = 'GasLighter – ' + t('fn_btn');
+  doc.title = 'GLighter – ' + t('fn_btn');
   const vp = doc.createElement('meta'); vp.name = 'viewport'; vp.content = 'width=device-width,initial-scale=1'; doc.head.appendChild(vp);
   for (const l of document.querySelectorAll('link[rel=stylesheet]')) { const n = doc.createElement('link'); n.rel = 'stylesheet'; n.href = l.href; doc.head.appendChild(n); }
   doc.documentElement.className = document.documentElement.className;
@@ -6005,7 +6005,7 @@ function initFn() {
   $('fntclr').onclick = () => { $('fnto').value = ''; };
   fnRefresh(); setInterval(() => { if (!document.hidden && !NV.open) fnRefresh(); }, 15000);
 }
-/* Sperre des Datenordners: läuft schon ein anderer GasLighter (normal oder Beta) mit demselben Ordner, nimmt diese App nicht auf */
+/* Sperre des Datenordners: läuft schon ein anderer GLighter (normal oder Beta) mit demselben Ordner, nimmt diese App nicht auf */
 async function lockPoll() {
   let j = null; try { j = await (await fetch('lockstate', { cache: 'no-store' })).json(); } catch (e) { }
   let ov = document.getElementById('lockov');

@@ -1,4 +1,4 @@
-"""GasLighter – Lizenzschlüssel prüfen (offline).
+"""GLighter – Lizenzschlüssel prüfen (offline).
 
 Ein Schlüssel sieht so aus:  GL1-XXXXX-XXXXX-…   (Base32, Bindestriche und Leerzeichen egal)
 Inhalt: 1 Byte Version, 2 Byte Länge, JSON {"p":"gaslighter","e":"JJJJ-MM-TT","n":"Bestellnr.","k":"Kundenkennung","i":"Ausgabedatum"}

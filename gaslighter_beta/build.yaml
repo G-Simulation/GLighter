@@ -3,7 +3,7 @@ build_from:
   amd64: ghcr.io/home-assistant/amd64-base:3.21
   aarch64: ghcr.io/home-assistant/aarch64-base:3.21
 labels:
-  org.opencontainers.image.title: "GasLighter"
+  org.opencontainers.image.title: "GLighter"
   org.opencontainers.image.description: "Lärmprotokoll für Home Assistant / Noise log for Home Assistant"
-  org.opencontainers.image.source: "https://github.com/G-Simulation/GasLighter"
-  org.opencontainers.image.licenses: "LicenseRef-GasLighter-All-Rights-Reserved"
+  org.opencontainers.image.source: "https://github.com/G-Simulation/GLighter"
+  org.opencontainers.image.licenses: "LicenseRef-GLighter-All-Rights-Reserved"

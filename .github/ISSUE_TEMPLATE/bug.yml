@@ -10,7 +10,7 @@ body:
   - type: input
     id: version
     attributes:
-      label: GasLighter-Version
+      label: GLighter-Version
       description: Steht oben neben dem Namen, z. B. v1.46.0 / shown next to the name
       placeholder: v1.46.0
     validations:
@@ -41,11 +41,11 @@ body:
     id: log
     attributes:
       label: Protokoll der App / App log
-      description: Einstellungen → Apps → GasLighter → Protokoll (die letzten 50 Zeilen) / Settings → Apps → GasLighter → Log (last 50 lines)
+      description: Einstellungen → Apps → GLighter → Protokoll (die letzten 50 Zeilen) / Settings → Apps → GLighter → Log (last 50 lines)
       render: text
   - type: textarea
     id: diag
     attributes:
       label: Diagnose (optional)
-      description: GasLighter → ⚙ Einstellungen → Allgemein → Diagnose / Settings → General → Diagnostics
+      description: GLighter → ⚙ Einstellungen → Allgemein → Diagnose / Settings → General → Diagnostics
       render: text

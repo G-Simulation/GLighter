@@ -32,7 +32,7 @@ HERE = os.path.dirname(os.path.abspath(__file__))
 WEB = os.path.join(HERE, "web")
 OPTIONS_FILE = os.environ.get("LAERM_OPTIONS", "/data/options.json")
 SETTINGS_FILE = os.environ.get("LAERM_SETTINGS", "/data/settings.json")
-VERSION = "1.71.0"
+VERSION = "1.72.0"
 
 # =====================================================================
 # Einstellungen
@@ -1017,7 +1017,7 @@ HIST_SECONDS = 60          # so lange liegt Ton im Arbeitsspeicher (danach ueber
 
 
 # =====================================================================
-# GasLighter Pro: Lizenzschlüssel (offline geprüft, siehe lizenz.py)
+# GLighter Pro: Lizenzschlüssel (offline geprüft, siehe lizenz.py)
 # Pro schaltet frei: Import einer Sicherung (der erste Import ist kostenlos, z. B. für den Umzug),
 # Erweiterte Einstellungen (Erkennung: Schwelle, Hintergrund, Anpassung) und externe Geräte (Handy, Stream).
 # Aufzeichnung, Protokoll, Druck, Export und Sicherung erstellen bleiben immer frei.
@@ -1104,7 +1104,7 @@ def pro_import_mark():
     if not d.get("import_used"):
         d["import_used"] = dt.datetime.now().astimezone().isoformat(timespec="seconds")
         pro_write(d)
-        log("Kostenloser Import genutzt (weitere Importe mit GasLighter Pro)")
+        log("Kostenloser Import genutzt (weitere Importe mit GLighter Pro)")
 
 
 def pro_strip(cfg):
@@ -2201,7 +2201,7 @@ class PushBuffer:
 # =====================================================================
 CHANNEL = "beta" if os.environ.get("LAERM_CHANNEL") == "beta" or "gaslighter-beta" in os.environ.get("HOSTNAME", "") else ""     # Beta-App: eigene Entitäten und eigener Datenordner, stört die normale App nicht
 HAID = "gaslighter_beta" if CHANNEL else "gaslighter"
-BRAND = "GasLighter Beta" if CHANNEL else "GasLighter"
+BRAND = "GLighter Beta" if CHANNEL else "GLighter"
 TOPIC = HAID
 mq = None
 STATE = {"today": dt.date.today().isoformat(), "count": 0, "total": 0, "last": None, "attr": None}
@@ -6570,7 +6570,7 @@ def protocol_html(q):
             ta, tb = dt.datetime.fromtimestamp(a_ / 1000), dt.datetime.fromtimestamp(b_ / 1000); du = max(0, (b_ - a_) / 1000)
             o.append(f'<tr><td>{h(dmy(ta.date().isoformat()))}</td><td>{ta:%H:%M:%S}–{tb:%H:%M:%S}</td><td>{h(n_)} (an{", Ereignis" if _md and _md[0] == "event" else ""})</td>'
                      f'<td>{(f"{du:.0f} s" if du < 120 else f"{du / 60:.0f} min")}</td><td>{h(nt_)}</td></tr>')
-        o.append('</table><div class="small mut">Zustände, die GasLighter selbst in Home Assistant abgefragt und festgehalten hat (Regeln „nur festhalten“).</div>')
+        o.append('</table><div class="small mut">Zustände, die GLighter selbst in Home Assistant abgefragt und festgehalten hat (Regeln „nur festhalten“).</div>')
     try:                                                # Handys als Bewegungsmelder (Erschütterung, Bewegung im Bild)
         _a = int(dt.datetime.combine(d0, dt.time()).astimezone().timestamp() * 1000) if d0 else None
         _b = int(dt.datetime.combine(d1 + dt.timedelta(days=1), dt.time()).astimezone().timestamp() * 1000) if d1 else None
@@ -7543,7 +7543,7 @@ def day_watch():
 
 
 # =====================================================================
-# Sperre für den Datenordner: Normaler GasLighter und Beta dürfen nie gleichzeitig in denselben Ordner schreiben
+# Sperre für den Datenordner: Normaler GLighter und Beta dürfen nie gleichzeitig in denselben Ordner schreiben
 # (sonst würden Tagesdateien und Prüfsummen-Kette beschädigt). Wer zuerst läuft, setzt .gaslighter_lock.json
 # und erneuert es alle 10 s. Der andere nimmt nicht auf, bis die Sperre frei ist (oder 45 s alt).
 # =====================================================================
@@ -7575,7 +7575,7 @@ def lock_other(p):
             newest = 0
         rel = float((d or {}).get("released") or 0)        # sauber beendet: die frischen Dateien stammen von dem, der freigegeben hat
         if time.time() - newest < 90 and newest > rel + 5:  # Tagesdateien werden mindestens jede Minute geschrieben
-            return {"app": "GasLighter (ältere Version ohne Sperre)", "seit": dt.datetime.fromtimestamp(newest).astimezone().isoformat(timespec="seconds")}
+            return {"app": "GLighter (ältere Version ohne Sperre)", "seit": dt.datetime.fromtimestamp(newest).astimezone().isoformat(timespec="seconds")}
     return None
 
 
@@ -7588,7 +7588,7 @@ def lock_write(p):
 
 
 def lock_wait(on_ready=None):
-    """Vor jedem Schreiben in den Datenordner: warten, bis kein anderer GasLighter ihn benutzt.
+    """Vor jedem Schreiben in den Datenordner: warten, bis kein anderer GLighter ihn benutzt.
     on_ready startet die Oberfläche: sofort, wenn gesperrt (damit der Hinweis sichtbar ist), sonst nach dem Belegen."""
     p = lock_file(); os.makedirs(os.path.dirname(p), exist_ok=True)
     told = False
@@ -7600,7 +7600,7 @@ def lock_wait(on_ready=None):
             if d and d.get("id") == LOCK["id"]:
                 break
             continue                                   # gleichzeitig gestartet: der andere war schneller
-        LOCK.update(blocked=str(o.get("app") or "GasLighter"), since=LOCK["since"] or time.time())
+        LOCK.update(blocked=str(o.get("app") or "GLighter"), since=LOCK["since"] or time.time())
         if on_ready:
             on_ready(); on_ready = None
         if not told:
@@ -9194,7 +9194,7 @@ def mirror_run(reason="täglich"):
         os.replace(mirror_index_path() + ".tmp", mirror_index_path())
         with open(os.path.join(d, "gaslighter_sicherung.json"), "w", encoding="utf-8") as fo:
             json.dump({"app": VERSION, "zuletzt": dt.datetime.now().astimezone().isoformat(timespec="seconds"), "dateien": len(idx),
-                       "hinweis": "Inkrementelle Sicherung von GasLighter. Nichts wird hier gelöscht. Einspielen: ZIP aus diesem Ordner packen oder Dateien zurückkopieren."},
+                       "hinweis": "Inkrementelle Sicherung von GLighter. Nichts wird hier gelöscht. Einspielen: ZIP aus diesem Ordner packen oder Dateien zurückkopieren."},
                       fo, ensure_ascii=False, indent=1)
         off = mirror_offload(d, idx) if CFG.get("mirror_offload") else 0
         MIRROR.update(ok=True, last=int(time.time()), copied=copied, files=len(idx), bytes=nbytes, offloaded=off)
@@ -11180,5 +11180,5 @@ if __name__ == "__main__":
     CFG.update(load_settings())
     load_run()
     load_sched(); load_ha_rules(); quiet_load()
-    lock_wait(lambda: threading.Thread(target=lambda: Server(("0.0.0.0", int(os.environ.get("LAERM_PORT", "8099"))), Handler).serve_forever(), daemon=True).start())   # erst wenn kein anderer GasLighter diesen Datenordner benutzt
+    lock_wait(lambda: threading.Thread(target=lambda: Server(("0.0.0.0", int(os.environ.get("LAERM_PORT", "8099"))), Handler).serve_forever(), daemon=True).start())   # erst wenn kein anderer GLighter diesen Datenordner benutzt
     main()

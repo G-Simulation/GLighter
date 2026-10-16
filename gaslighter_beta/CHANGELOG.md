@@ -1,5 +1,9 @@
 # Changelog
 
+## 1.72.0
+- **GasLighter heißt jetzt GLighter.** Neuer Name überall sichtbar (App-Store, Seitenleiste, App, Handbuch, Lärmprotokoll, Gerät in Home Assistant). Repository jetzt `https://github.com/G-Simulation/GLighter` (die alte Adresse leitet weiter).
+- Unverändert, damit nichts verloren geht: App-Kennung `gaslighter`, Datenordner `/share/gaslighter`, Entity-IDs (`…gaslighter_…`), Pro-Schlüssel und Sicherungen.
+
 ## 1.71.0
 - Neues Logo und App-Symbol (G-Simulation-Stil „GLighter“) im App-Store, als Browser-Symbol und in der README.
 

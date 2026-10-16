@@ -4,7 +4,7 @@
 
 ## Interruptions
 
-If the add-on is not running (power cut, Home Assistant restarted, update via the add-on store), the recording is missing. GasLighter notices this at the next start and shows it in Logs below the summary:
+If the add-on is not running (power cut, Home Assistant restarted, update via the add-on store), the recording is missing. GLighter notices this at the next start and shows it in Logs below the summary:
 
 - **ended without shutdown, e.g. power cut** – the add-on could not sign off (power gone, crash).
 - **stopped / restarted by Home Assistant** – ended cleanly (restart, add-on stopped).
