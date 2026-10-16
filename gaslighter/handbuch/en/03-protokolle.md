@@ -22,6 +22,15 @@ Live and Logs consist of **sections** (overview, interruptions, history, events 
 
 “Sensors in the period” is hidden at first: sensor events (“as event”) are already in the table, “only record state” (e.g. TV) appears as a 📡 hint on every disturbance that falls into that time.
 
+### 📊 Custom statistics {#statistik}
+
+**📊 ＋ Statistic** (above the areas, in Live and Logs) adds a statistic as its own area – move, widen, collapse and hide it like the others.
+
+- **Templates (free for everyone):** e.g. “Disturbances per hour (night)”, “Types compared”, “Trend per week”, “Per weekday”, “Total duration per day”, “Disturbances today”, “Sensors per day”, “Notes by button”.
+- **Configure your own (Pro):** *what to count* (disturbances – also just one type or sound profile –, sensors, notes with a quick-select button), *measure* (count, total duration, avg or highest peak), *split by* (hour, weekday, day, week, month, type, device, note button, sensor), *display* (bars, line, big number, table), *period* (selected period or today, last 24 h / 7 / 30 / 90 / 365 days), *device* and *night only / quiet hours only / weekend only*. The preview shows the result right away.
+- **Clicking a bar** (or a table row) filters the event table to it; click again or **✕** to remove the filter.
+- **⚙** configures or deletes. Statistics only read – they never change data. Stored in `clips/statistik.json`, included in the backup.
+
 ## Summary and week strip {#wochenleiste}
 
 The ring shows how much of the time was **undisturbed**. Next to it: number of disturbances, disturbed time, longest quiet, recorded time and the loudest event.

@@ -145,6 +145,15 @@ Live und Protokolle bestehen aus **Bereichen** (Übersicht, Unterbrechungen, Ver
 
 „Sensoren im Zeitraum“ ist anfangs ausgeblendet: Sensor-Ereignisse („als Ereignis“) stehen schon in der Tabelle, „nur festhalten“ (z. B. Fernseher) steht als 📡-Hinweis bei jeder Störung, die in die Zeit fällt.
 
+### 📊 Eigene Statistiken
+
+**📊 ＋ Statistik** (oben über den Bereichen, in Live und Protokolle) legt eine Statistik als eigenen Bereich an – verschieben, breiter ziehen, einklappen und ausblenden wie die anderen.
+
+- **Vorlagen (für alle frei):** z. B. „Störungen pro Stunde (nachts)“, „Arten im Vergleich“, „Trend pro Woche“, „Pro Wochentag“, „Gesamtdauer pro Tag“, „Störungen heute“, „Sensoren pro Tag“, „Notizen nach Taste“.
+- **Selbst einstellen (Pro):** *Was zählen* (Störungen – auch nur eine Art oder ein Tonprofil –, Sensoren, Notizen mit einer Schnellwahl-Taste), *Kennzahl* (Anzahl, Gesamtdauer, Ø oder höchste Spitze), *aufgeteilt nach* (Stunde, Wochentag, Tag, Woche, Monat, Art, Gerät, Notiz-Taste, Sensor), *Darstellung* (Balken, Linie, große Zahl, Tabelle), *Zeitraum* (gewählter Zeitraum bzw. heute, letzte 24 h / 7 / 30 / 90 / 365 Tage), *Gerät* und *nur nachts / nur Ruhezeit / nur Wochenende*. Die Vorschau zeigt sofort das Ergebnis.
+- **Klick auf einen Balken** (oder eine Tabellenzeile) filtert die Ereignis-Tabelle darauf, nochmal klicken oder **✕** hebt den Filter auf.
+- **⚙** stellt ein oder löscht. Statistiken lesen nur – sie ändern nie Daten. Gespeichert in `clips/statistik.json`, mit in der Sicherung.
+
 ### Zusammenfassung und Wochenleiste
 
 Der Ring zeigt, wie viel der Zeit **störungsfrei** war. Daneben: Anzahl der Störungen, gestörte Zeit, längste Ruhe, aufgezeichnete Zeit und lautestes Ereignis.
@@ -734,6 +743,7 @@ Die Jahreslizenz **GasLighter Pro** schaltet zusätzlich frei:
 | Erweiterte Einstellungen der Erkennung (Reiter „Erkennung“ → „Wann gilt etwas als Störung?“) und 🎯 Schwelle automatisch einstellen | nur ansehen, Standardwerte | frei einstellbar, auch je Gerät und in Zeitprofilen |
 | Externe Geräte: Handy im Browser, Handy-App / Stream-URL, IP-Kamera | gesperrt | bis zu 8 zusätzliche Geräte |
 | Handy als Bewegungsmelder (Erschütterung, Bewegung im Bild) | gesperrt | ✔ |
+| 📊 Eigene Statistiken selbst einstellen (Statistiken) | Vorlagen | frei einstellbar |
 | Tägliche Sicherung auf Netzlaufwerk/NAS/USB und „Platz sparen“ (Sicherung) | „⬇ Sicherung herunterladen“ von Hand | jeden Tag automatisch, geprüft |
 
 Das Server-Mikrofon (am Home-Assistant-Rechner) funktioniert immer ohne Pro.
@@ -931,6 +941,15 @@ Live and Logs consist of **sections** (overview, interruptions, history, events 
 **▦ Customise layout:** move sections by the ⠿ handle, drag the side to make them narrower or wider (e.g. two side by side), switch sections on and off. **Done** saves, **↺ Reset** restores the default arrangement. The height follows the content. On phones all sections are stacked. The arrangement applies to this browser.
 
 “Sensors in the period” is hidden at first: sensor events (“as event”) are already in the table, “only record state” (e.g. TV) appears as a 📡 hint on every disturbance that falls into that time.
+
+### 📊 Custom statistics
+
+**📊 ＋ Statistic** (above the areas, in Live and Logs) adds a statistic as its own area – move, widen, collapse and hide it like the others.
+
+- **Templates (free for everyone):** e.g. “Disturbances per hour (night)”, “Types compared”, “Trend per week”, “Per weekday”, “Total duration per day”, “Disturbances today”, “Sensors per day”, “Notes by button”.
+- **Configure your own (Pro):** *what to count* (disturbances – also just one type or sound profile –, sensors, notes with a quick-select button), *measure* (count, total duration, avg or highest peak), *split by* (hour, weekday, day, week, month, type, device, note button, sensor), *display* (bars, line, big number, table), *period* (selected period or today, last 24 h / 7 / 30 / 90 / 365 days), *device* and *night only / quiet hours only / weekend only*. The preview shows the result right away.
+- **Clicking a bar** (or a table row) filters the event table to it; click again or **✕** to remove the filter.
+- **⚙** configures or deletes. Statistics only read – they never change data. Stored in `clips/statistik.json`, included in the backup.
 
 ### Summary and week strip
 
@@ -1521,6 +1540,7 @@ The yearly licence **GasLighter Pro** additionally unlocks:
 | Advanced detection settings (tab “Detection” → “When is something a disturbance?”) and 🎯 set threshold automatically | view only, defaults | fully adjustable, also per device and in time profiles |
 | External devices: phone in the browser, phone app / stream URL, IP camera | locked | up to 8 additional devices |
 | Phone as motion sensor (vibration, motion in picture) | locked | ✔ |
+| 📊 Configure your own statistics (Statistics) | templates | fully configurable |
 | Daily backup to network drive/NAS/USB and “save space” (Backup) | “⬇ Download backup” by hand | automatic every day, verified |
 
 The server microphone (on the Home Assistant computer) always works without Pro.

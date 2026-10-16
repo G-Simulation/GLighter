@@ -477,6 +477,48 @@ class EigeneSchnellwahl(unittest.TestCase):
         self.assertFalse(laerm.qt_change({"action": "hide", "k": "gibtsnicht", "on": True})["ok"])
 
 
+class EigeneStatistik(unittest.TestCase):
+    """Statistiken: Vorlagen frei, eigene nur mit Pro; Werte richtig aufgeteilt; nur lesen."""
+    def setUp(self):
+        self.tmp = tempfile.mkdtemp(); self.keep = (dict(laerm.CFG), laerm.pro_ok, laerm.read_log, laerm.sensor_events, laerm.art_fields)
+        laerm.CFG.update(output_dir=self.tmp, clip_dir=""); laerm.STAT["data"] = None
+        base = dt.datetime(2026, 10, 12, 23, 30)          # Montag
+        rows = []
+        for i, (h, pk) in enumerate([(0, -20.0), (0.5, -10.0), (12, -30.0), (49, -25.0)]):
+            t = base + dt.timedelta(hours=h)
+            rows.append({"start": t.isoformat(timespec="seconds"), "dauer_s": "2.0", "spitze_dbfs": str(pk), "hintergrund_dbfs": "-60", "datei": f"c{i}",
+                         "schwelle_dbfs": "-40", "clip_s": "", "quelle": "Mic", "quelle_id": "main"})
+        laerm.read_log = lambda: rows
+        laerm.sensor_events = lambda *a: []
+        laerm.art_fields = lambda f: {"art": "knock" if f in ("c0", "c1") else "steps", "prof": "", "bg": False}
+        self.a = int(dt.datetime(2026, 10, 12).timestamp() * 1000); self.b = int(dt.datetime(2026, 10, 16).timestamp() * 1000)
+
+    def tearDown(self):
+        laerm.CFG.clear(); laerm.CFG.update(self.keep[0]); laerm.pro_ok, laerm.read_log, laerm.sensor_events, laerm.art_fields = self.keep[1:]; laerm.STAT["data"] = None
+
+    def test_aufteilung(self):
+        j = laerm.stat_compute({"src": "ev", "metric": "n", "by": "art"}, self.a, self.b)
+        self.assertEqual(dict(zip(j["keys"], j["vals"])), {"knock": 2, "steps": 2})
+        j = laerm.stat_compute({"src": "ev", "metric": "n", "by": "day"}, self.a, self.b)
+        self.assertEqual(j["keys"], ["2026-10-12", "2026-10-13", "2026-10-14", "2026-10-15"]); self.assertEqual(j["vals"], [1, 2, 0, 1])
+        j = laerm.stat_compute({"src": "ev", "metric": "n", "by": "hour", "night": True}, self.a, self.b)
+        self.assertEqual(j["n"], 3); self.assertEqual((j["vals"][23], j["vals"][0], j["vals"][11]), (1, 2, 0))
+        j = laerm.stat_compute({"src": "ev", "metric": "pk_max", "by": "none", "art": "knock"}, self.a, self.b)
+        self.assertEqual(j["total"], -10.0)
+        self.assertAlmostEqual(laerm.stat_compute({"src": "ev", "metric": "dur", "by": "wd"}, self.a, self.b)["vals"][0], 2.0, delta=0.5)
+
+    def test_pro_und_vorlagen(self):
+        laerm.pro_ok = lambda: False
+        self.assertFalse(laerm.stat_change({"action": "add", "def": {"src": "ev"}})["ok"])
+        j = laerm.stat_change({"action": "add", "tpl": "arts"}); self.assertTrue(j["ok"])
+        k = j["id"]; self.assertEqual(laerm.stat_change({"action": "edit", "id": k, "def": {}})["error"], "pro")
+        laerm.pro_ok = lambda: True
+        self.assertTrue(laerm.stat_change({"action": "edit", "id": k, "def": {"name": "X", "by": "quatsch"}})["ok"])
+        self.assertEqual(laerm.stat_list()[0]["by"], "none")
+        self.assertTrue(laerm.stat_change({"action": "del", "id": k})["ok"]); self.assertEqual(laerm.stat_list(), [])
+        self.assertTrue(os.path.exists(os.path.join(self.tmp, "clips", "statistik.json")))
+
+
 class ArtStumm(unittest.TestCase):
     def test_liste(self):
         laerm.CFG["art_silent"] = laerm.clean_value("art_silent", "animal,knock") if hasattr(laerm, "clean_value") else "animal,knock"

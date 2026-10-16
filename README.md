@@ -38,6 +38,7 @@
 | Lärmprotokoll, Druck, Export (`log.csv`), Sicherung erstellen | ✔ | ✔ |
 | Import einer Sicherung | einmal (Umzug) | ✔ |
 | Erweiterte Einstellungen der Erkennung, 🎯 Schwelle automatisch einstellen | ansehen | ✔ |
+| 📊 Eigene Statistiken selbst einstellen | Vorlagen | ✔ |
 | Tägliche Sicherung auf Netzlaufwerk/NAS/USB, Platz sparen | ZIP von Hand | ✔ |
 | Externe Geräte (Handy, Stream, IP-Kamera) | – | ✔ |
 
@@ -97,6 +98,7 @@ Alle Daten bleiben auf deinem Home-Assistant-Rechner; GasLighter sendet nichts a
 | Noise report, printing, export (`log.csv`), creating backups | ✔ | ✔ |
 | Import a backup | once (moving) | ✔ |
 | Advanced detection settings, 🎯 set threshold automatically | view | ✔ |
+| 📊 Configure your own statistics | templates | ✔ |
 | Daily backup to network drive/NAS/USB, save space | ZIP by hand | ✔ |
 | External devices (phone, stream, IP camera) | – | ✔ |
 

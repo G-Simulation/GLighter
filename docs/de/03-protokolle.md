@@ -26,6 +26,17 @@ Live und Protokolle bestehen aus **Bereichen** (Übersicht, Unterbrechungen, Ver
 
 „Sensoren im Zeitraum“ ist anfangs ausgeblendet: Sensor-Ereignisse („als Ereignis“) stehen schon in der Tabelle, „nur festhalten“ (z. B. Fernseher) steht als 📡-Hinweis bei jeder Störung, die in die Zeit fällt.
 
+<a id="statistik"></a>
+
+### 📊 Eigene Statistiken
+
+**📊 ＋ Statistik** (oben über den Bereichen, in Live und Protokolle) legt eine Statistik als eigenen Bereich an – verschieben, breiter ziehen, einklappen und ausblenden wie die anderen.
+
+- **Vorlagen (für alle frei):** z. B. „Störungen pro Stunde (nachts)“, „Arten im Vergleich“, „Trend pro Woche“, „Pro Wochentag“, „Gesamtdauer pro Tag“, „Störungen heute“, „Sensoren pro Tag“, „Notizen nach Taste“.
+- **Selbst einstellen (Pro):** *Was zählen* (Störungen – auch nur eine Art oder ein Tonprofil –, Sensoren, Notizen mit einer Schnellwahl-Taste), *Kennzahl* (Anzahl, Gesamtdauer, Ø oder höchste Spitze), *aufgeteilt nach* (Stunde, Wochentag, Tag, Woche, Monat, Art, Gerät, Notiz-Taste, Sensor), *Darstellung* (Balken, Linie, große Zahl, Tabelle), *Zeitraum* (gewählter Zeitraum bzw. heute, letzte 24 h / 7 / 30 / 90 / 365 Tage), *Gerät* und *nur nachts / nur Ruhezeit / nur Wochenende*. Die Vorschau zeigt sofort das Ergebnis.
+- **Klick auf einen Balken** (oder eine Tabellenzeile) filtert die Ereignis-Tabelle darauf, nochmal klicken oder **✕** hebt den Filter auf.
+- **⚙** stellt ein oder löscht. Statistiken lesen nur – sie ändern nie Daten. Gespeichert in `clips/statistik.json`, mit in der Sicherung.
+
 <a id="wochenleiste"></a>
 
 ## Zusammenfassung und Wochenleiste

@@ -1122,3 +1122,20 @@ fieldset.prolocked .f{opacity:.55}
 .ntchip.g-own{--gc:#c2255c}.ntag.g-own{color:#c2255c;border-color:color-mix(in srgb,#c2255c 45%,transparent)}
 .ntadd{border-style:dashed}.ntsug{display:inline-flex;align-items:center;gap:4px;flex-basis:100%;font-size:12.5px;color:var(--mut)}.ntsug .chip{padding:0 8px}
 .qtman small{color:var(--mut)}.qtman .qtsg a{text-decoration:none;font-weight:600}.qtman .qtb.on{border-color:var(--acc)}
+/* Eigene Statistiken */
+.statcard{min-height:60px}.sthd{display:flex;align-items:center;gap:6px;flex-wrap:wrap;margin-bottom:6px}.sthsp{flex:1}.stnone{margin:8px 0}
+.stbars{display:flex;align-items:flex-end;gap:2px;height:150px;padding-top:14px}
+.stb{flex:1;min-width:0;height:100%;display:flex;flex-direction:column;justify-content:flex-end;align-items:center;cursor:pointer;position:relative}
+.stb i{display:block;width:100%;max-width:38px;background:var(--acc);border-radius:3px 3px 0 0;opacity:.85}.stb:hover i,.stb.on i{opacity:1;background:var(--thr)}
+.stb em{font-style:normal;font-size:10px;color:var(--mut);white-space:nowrap;line-height:1.2}.stb small{font-size:10px;color:var(--mut);height:14px;white-space:nowrap;overflow:visible}
+.sthb{display:flex;flex-direction:column;gap:4px}.sth{display:grid;grid-template-columns:minmax(80px,32%) 1fr auto;gap:8px;align-items:center;cursor:pointer;font-size:13px;padding:2px 4px;border-radius:6px}
+.sth:hover,.sth.on{background:var(--nl1)}.sthl{white-space:nowrap;overflow:hidden;text-overflow:ellipsis}.sthbar{height:12px;background:var(--grid);border-radius:6px;overflow:hidden}.sthbar i{display:block;height:100%;background:var(--acc)}.sth.on .sthbar i{background:var(--thr)}
+.stnum{font-size:44px;font-weight:700;line-height:1.1;margin:6px 0}.stnumsub{display:flex;gap:12px;flex-wrap:wrap;color:var(--mut);font-size:12.5px}
+.sttab{width:100%;border-collapse:collapse;font-size:13px}.sttab td{padding:4px 6px;border-bottom:1px solid var(--bd)}.sttab td:last-child{text-align:right}.sttab tr[data-k]{cursor:pointer}.sttab tr.on td,.sttab tr[data-k]:hover td{background:var(--nl1)}.sttab .sttot td{font-weight:600}
+.stline{width:100%;height:150px;display:block}
+.stdlg{max-width:720px;width:calc(100% - 32px);border:1px solid var(--bd);border-radius:12px;background:var(--card);color:var(--tx);padding:16px}
+.stdlg .sthead{display:flex;align-items:center;justify-content:space-between}.stdlg h3{margin:0}.sttpl{display:flex;gap:6px;flex-wrap:wrap}
+.stform{display:grid;grid-template-columns:repeat(auto-fill,minmax(200px,1fr));gap:8px 12px;border:0;padding:0;margin:8px 0}.stform label{display:flex;flex-direction:column;gap:3px;font-size:12.5px;color:var(--mut)}
+.stform select,.stform input[type=text]{font-size:14px}.stform[disabled]{opacity:.55}.stchk{grid-column:1/-1;display:flex;gap:14px;flex-wrap:wrap}.stchk label{flex-direction:row;align-items:center;color:var(--tx)}
+.stprev{border:1px dashed var(--bd);border-radius:8px;padding:8px;margin:6px 0;min-height:80px}.stbtns{display:flex;gap:8px;align-items:center}.stmsg{color:var(--thr);font-size:13px}
+.stdlg hr{border:0;border-top:1px solid var(--bd);margin:10px 0}

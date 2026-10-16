@@ -1643,7 +1643,7 @@ function evGrid(evs, sv, useArt, grpMode) {
     TBL.on('dataTreeRowExpanded', row => { EVOPEN.add(row.getData().gid); });
     TBL.on('dataTreeRowCollapsed', row => { EVOPEN.delete(row.getData().gid); });
     TBL.on('dataFiltered', (f, rows) => { evCount(rows.map(r => r.getData())); });
-    TBL.on('tableBuilt', () => { TBL._built = true; evCount(data); syncDelBar(); });
+    TBL.on('tableBuilt', () => { TBL._built = true; evCount(data); syncDelBar(); tblFilter(); });
   } else if (TBL._built) {
     TBL.replaceData(data);
     for (const [f, v] of [['play', hasPlay], ['devs', hasDev]]) { try { v ? TBL.showColumn(f) : TBL.hideColumn(f); } catch (e) { } }
@@ -1807,6 +1807,41 @@ function dashSave(v) {
   st.lay = g.save(false).map(x => ({ id: x.id, x: x.x, y: x.y, w: x.w }));
   try { localStorage.setItem('gl_dash_' + v, JSON.stringify(st)); } catch (e) { }
 }
+function dashMk(v, p, st, lay, gEl, items) {          // ein Bereich als Panel (auch nachträglich, z. B. eigene Statistik)
+  const ns = p.nodes.filter(Boolean); if (!ns.length) return;
+  const it = el('div', { className: 'grid-stack-item' }), ct = el('div', { className: 'grid-stack-item-content' }), pn = el('div', { className: 'pnl' }); pn.dataset.p = p.id;
+  const hd = el('div', { className: 'pnlhd' });
+  hd.innerHTML = `<span class="pdrag" title="${esc(t('dash_drag'))}">⠿</span>${p.title != null ? `<b class="ptitle">${esc(p.title)}</b>` : `<b data-i="${p.t}">${esc(t(p.t))}</b>`}<span class="pnlx"></span>` +
+    (p.vis ? `<button type="button" class="pvis" title="${esc(t('dash_vis_tip'))}">⌖ ${esc(t('dash_vis'))}</button>` : '') +
+    `<button type="button" class="pcol" aria-label="${esc(t('dash_col'))}" title="${esc(t('dash_col'))}">▾</button><button type="button" class="phide" aria-label="${esc(t('dash_hide'))}" title="${esc(t('dash_hide'))}">✕</button>`;
+  const bd = el('div', { className: 'pnlbd' }); ns.forEach(n => bd.appendChild(n));
+  pn.append(hd, bd); ct.appendChild(pn); it.appendChild(ct);
+  const L = lay[p.id]; it.setAttribute('gs-id', p.id); it.setAttribute('gs-w', String(L ? L.w : p.w)); if (L) { it.setAttribute('gs-x', L.x); it.setAttribute('gs-y', L.y); }
+  gEl.appendChild(it); items.push([p, it, pn]);
+  hd.querySelector('.pcol').onclick = () => { if (pn.classList.contains('pquiet') && !pn.classList.contains('pcolx')) { const o = pn.classList.toggle('pqopen'); hd.querySelector('.pcol').textContent = o ? '▾' : '▸'; dashResized(); dashRefresh(); return; } st.col[p.id] = !st.col[p.id]; dashApply(v); dashSave(v); };
+  hd.querySelector('.phide').onclick = () => { if (!st.off.includes(p.id)) st.off.push(p.id); dashApply(v); dashSave(v); dashBar(v); };
+  hd.ondblclick = e => { if (!e.target.closest('button')) hd.querySelector('.pcol').click(); };
+  if (p.vis) hd.querySelector('.pvis').onclick = () => { st.vis[p.id] = !st.vis[p.id]; dashApply(v); dashSave(v); visChanged(); };
+  if (p.auto) { const n0 = ns[0]; const sync = () => { pn.classList.toggle('pempty', !!n0.hidden || !n0.childElementCount); const q = n0.classList.contains('quiet') && !n0.hidden && !!n0.childElementCount; if (!q) pn.classList.remove('pqopen'); pn.classList.toggle('pquiet', q); pn.querySelector('.pcol').textContent = pn.classList.contains('pcolx') || (q && !pn.classList.contains('pqopen')) ? '▸' : '▾'; }; new MutationObserver(sync).observe(n0, { attributes: true, attributeFilter: ['hidden', 'class'], childList: true }); sync(); }
+}
+function dashAddPanel(v, p) {
+  const g = DASH.grids[v], st = DASH.st[v]; if (!g) return;
+  const lay = {}; for (const x of st.lay || []) lay[x.id] = x;
+  const items = []; dashMk(v, p, st, lay, g.el, items); if (!items.length) return;
+  const [, it, pn] = items[0]; if (!lay[p.id]) it.setAttribute('gs-y', '9999');
+  if (st.off.includes(p.id)) it.style.display = 'none'; else g.makeWidget(it);
+  DASH.ro.observe(pn); (DASH.def[v] = DASH.def[v] || []).push(p); dashApply(v); dashBar(v);
+}
+function dashRemovePanel(v, id) {
+  const g = DASH.grids[v]; if (!g) return;
+  const it = g.el.querySelector(`:scope > .grid-stack-item[gs-id="${CSS.escape(id)}"]`);
+  if (it) { if (it.gridstackNode) g.removeWidget(it, true); else it.remove(); }
+  DASH.def[v] = (DASH.def[v] || []).filter(p => p.id !== id); const st = DASH.st[v]; st.off = st.off.filter(x => x !== id); dashSave(v); dashBar(v);
+}
+function dashTitle(v, id, title) {
+  const g = DASH.grids[v], it = g && g.el.querySelector(`:scope > .grid-stack-item[gs-id="${CSS.escape(id)}"] .ptitle`); if (it) it.textContent = title;
+  const p = (DASH.def[v] || []).find(x => x.id === id); if (p) p.title = title;
+}
 function dashInit() {
   if (typeof GridStack === 'undefined' || DASH.inited) return; DASH.inited = true;
   const defs = dashDefs();
@@ -1818,23 +1853,7 @@ function dashInit() {
     first.before(bar); bar.after(gEl);
     const lay = {}; for (const x of st.lay || []) lay[x.id] = x;
     const items = [];
-    for (const p of list) {
-      const ns = p.nodes.filter(Boolean); if (!ns.length) continue;
-      const it = el('div', { className: 'grid-stack-item' }), ct = el('div', { className: 'grid-stack-item-content' }), pn = el('div', { className: 'pnl' }); pn.dataset.p = p.id;
-      const hd = el('div', { className: 'pnlhd' });
-      hd.innerHTML = `<span class="pdrag" title="${esc(t('dash_drag'))}">⠿</span><b data-i="${p.t}">${esc(t(p.t))}</b><span class="pnlx"></span>` +
-        (p.vis ? `<button type="button" class="pvis" title="${esc(t('dash_vis_tip'))}">⌖ ${esc(t('dash_vis'))}</button>` : '') +
-        `<button type="button" class="pcol" aria-label="${esc(t('dash_col'))}" title="${esc(t('dash_col'))}">▾</button><button type="button" class="phide" aria-label="${esc(t('dash_hide'))}" title="${esc(t('dash_hide'))}">✕</button>`;
-      const bd = el('div', { className: 'pnlbd' }); ns.forEach(n => bd.appendChild(n));
-      pn.append(hd, bd); ct.appendChild(pn); it.appendChild(ct);
-      const L = lay[p.id]; it.setAttribute('gs-id', p.id); it.setAttribute('gs-w', String(L ? L.w : p.w)); if (L) { it.setAttribute('gs-x', L.x); it.setAttribute('gs-y', L.y); }
-      gEl.appendChild(it); items.push([p, it, pn]);
-      hd.querySelector('.pcol').onclick = () => { if (pn.classList.contains('pquiet') && !pn.classList.contains('pcolx')) { const o = pn.classList.toggle('pqopen'); hd.querySelector('.pcol').textContent = o ? '▾' : '▸'; dashResized(); dashRefresh(); return; } st.col[p.id] = !st.col[p.id]; dashApply(v); dashSave(v); };
-      hd.querySelector('.phide').onclick = () => { if (!st.off.includes(p.id)) st.off.push(p.id); dashApply(v); dashSave(v); dashBar(v); };
-      hd.ondblclick = e => { if (!e.target.closest('button')) hd.querySelector('.pcol').click(); };
-      if (p.vis) hd.querySelector('.pvis').onclick = () => { st.vis[p.id] = !st.vis[p.id]; dashApply(v); dashSave(v); visChanged(); };
-      if (p.auto) { const n0 = ns[0]; const sync = () => { pn.classList.toggle('pempty', !!n0.hidden || !n0.childElementCount); const q = n0.classList.contains('quiet') && !n0.hidden && !!n0.childElementCount; if (!q) pn.classList.remove('pqopen'); pn.classList.toggle('pquiet', q); pn.querySelector('.pcol').textContent = pn.classList.contains('pcolx') || (q && !pn.classList.contains('pqopen')) ? '▸' : '▾'; }; new MutationObserver(sync).observe(n0, { attributes: true, attributeFilter: ['hidden', 'class'], childList: true }); sync(); }
-    }
+    for (const p of list) dashMk(v, p, st, lay, gEl, items);
     pg_cleanup(host);
     const g = DASH.grids[v] = GridStack.init({ column: 12, cellHeight: 8, margin: 6, float: false, staticGrid: true, sizeToContent: true, handle: '.pdrag', animate: true,
       resizable: { handles: 'e,w' }, columnOpts: { breakpoints: [{ w: 760, c: 1 }], layout: 'list' } }, gEl);
@@ -1861,16 +1880,23 @@ function dashRefresh() { for (const v of Object.keys(DASH.grids)) { const g = DA
 function dashBar(v) {
   const g = DASH.grids[v], st = DASH.st[v], bar = g && g.el.previousElementSibling; if (!bar) return;
   const defs = DASH.def[v] || [];
-  bar.innerHTML = `<button type="button" class="chip dedit${DASH.edit ? ' pri' : ''}">▦ ${esc(t(DASH.edit ? 'dash_done' : 'dash_edit'))}</button>` +
-    (DASH.edit ? `<span class="dashoff">${defs.map(p => `<label><input type="checkbox" data-p="${p.id}"${st.off.includes(p.id) ? '' : ' checked'}> ${esc(t(p.t))}</label>`).join('')}</span><button type="button" class="chip dreset">↺ ${esc(t('dash_reset'))}</button>` :
+  bar.innerHTML = `<button type="button" class="chip dedit${DASH.edit ? ' pri' : ''}">▦ ${esc(t(DASH.edit ? 'dash_done' : 'dash_edit'))}</button><button type="button" class="chip dstat">📊 ＋ ${esc(t('st_add'))}</button>` +
+    (DASH.edit ? `<span class="dashoff">${defs.map(p => `<label><input type="checkbox" data-p="${p.id}"${st.off.includes(p.id) ? '' : ' checked'}> ${esc(p.title != null ? p.title : t(p.t))}</label>`).join('')}</span><button type="button" class="chip dreset">↺ ${esc(t('dash_reset'))}</button>` :
       st.off.length ? `<small class="mut">${esc(t('dash_hidden', { n: st.off.length }))}</small>` : '');
+  bar.querySelector('.dstat').onclick = () => statNew(v);
   bar.querySelector('.dedit').onclick = () => { DASH.edit = !DASH.edit; for (const k of Object.keys(DASH.grids)) { DASH.grids[k].setStatic(!DASH.edit); DASH.grids[k].el.classList.toggle('dashedit', DASH.edit); dashBar(k); } };
   bar.querySelectorAll('.dashoff input').forEach(c => c.onchange = () => { const id = c.dataset.p; st.off = st.off.filter(x => x !== id); if (!c.checked) st.off.push(id); dashApply(v); dashSave(v); });
   const rs = bar.querySelector('.dreset'); if (rs) rs.onclick = () => { if (!confirm(t('dash_reset_q'))) return; try { localStorage.removeItem('gl_dash_' + v); } catch (e) { } location.reload(); };
 }
 /* „nur sichtbarer Bereich“: Tabelle bzw. Sensor-Liste folgen dem Zoom im Verlauf */
 function dashVis(id) { const st = DASH.st.prot; return !!(st && st.vis && st.vis[id]) && DT.from != null && DT.to != null; }
-function visChanged() { clearTimeout(DASH.vt); DASH.vt = setTimeout(() => { if (TBL && TBL._built) { if (dashVis('ev')) TBL.setFilter(d => d.start + (d.dur || 0) * 1000 >= DT.from && d.start <= DT.to); else TBL.clearFilter(); } haListRender(); }, 250); }
+function visChanged() { clearTimeout(DASH.vt); DASH.vt = setTimeout(() => { tblFilter(); haListRender(); }, 250); }
+function tblFilter() {                               // Tabelle Protokolle: nur sichtbarer Bereich und/oder Klick in einer Statistik
+  if (!(TBL && TBL._built)) return;
+  const fs = []; if (dashVis('ev')) fs.push(d => d.start + (d.dur || 0) * 1000 >= DT.from && d.start <= DT.to);
+  const sf = STATS.filt.prot; if (sf) fs.push(d => statMatch(sf, d, 'prot'));
+  if (fs.length) TBL.setFilter(d => fs.every(f => f(d))); else TBL.clearFilter();
+}
 
 /* Anklickbare Stelle im Verlauf: bei Überlappung (z. B. Fernseher und Türsensor gleichzeitig) gewinnt die engste Fläche */
 function hitAt(S, x, y) {
@@ -4029,6 +4055,7 @@ function ringSVG(pct, size, stroke, color, inner) {
 const scoreColor = p => p >= 95 ? NC.acc : p >= 85 ? NC.warn : NC.red;
 function renderNight() {
   const d = NV.data; if (!d) return;
+  statRefresh('prot');
   const s = new Date(d.start), e = new Date(d.end), L = locale();
   document.querySelectorAll('#nper button').forEach(b => b.classList.toggle('on', b.dataset.p === NV.per));
   $('ndate').hidden = NV.per === 'free'; $('nfree').hidden = NV.per !== 'free';
@@ -4265,7 +4292,7 @@ function initNight() {
 async function init() {
   applyTheme(); readColors(); buildLUT();
   try { const r = await (await fetch('settings', { cache: 'no-store' })).json(); CUR = r.settings; SRC = r.sources || []; SCHED = r.schedule || []; MIRROR_ST = r.mirror || null; if (r.pro && r.pro.state) PRO = r.pro; } catch (e) { }
-  pickLang(CUR && CUR.language); dashInit(); tr(); setLive(true); syncRec(null); initHelp();
+  pickLang(CUR && CUR.language); dashInit(); statLoad(); tr(); setLive(true); syncRec(null); initHelp();
   proBanner(); setInterval(proLoad, 6 * 3600 * 1000);
   bindCanvas($('main'), false); bindCanvas($('spec'), true);
   $('livebtn').addEventListener('click', () => setLive(!view.live));
@@ -5420,9 +5447,10 @@ function levRender() {
     const inWin = d => { const a = d.start, b = a + (d.dur || 0) * 1000; return b >= win[0] && a <= win[1]; };
     for (let i = rows.length - 1; i >= 0; i--) if (!inWin(rows[i])) rows.splice(i, 1);
   }
+  const sf = STATS.filt.live; if (sf) for (let i = rows.length - 1; i >= 0; i--) if (!statMatch(sf, rows[i], 'live')) rows.splice(i, 1);
   const vh = $('ldevh'); if (vh) { vh.dataset.i = win ? 'lev_title' : 'lev_title_all'; vh.textContent = t(vh.dataset.i); }
   const vb = $('ldevvis'); if (vb) { vb.classList.toggle('on', LEV.vis); vb.textContent = (LEV.vis ? '◧ ' : '▭ ') + t('lev_vis'); vb.title = t('lev_vis_tip'); vb.setAttribute('aria-pressed', String(LEV.vis)); }
-  const sig = rows.map(d => d.id).join(',') + '|' + (LEV.fa) + '|' + rows.length;
+  const sig = rows.map(d => d.id).join(',') + '|' + (LEV.fa) + '|' + rows.length + '|' + JSON.stringify(sf);
   if (win && sig === LEV.sig && LTBL) return;          // nichts Neues im Bereich: Tabelle nicht neu aufbauen
   LEV.sig = sig;
   $('ldevn').textContent = t('lev_n', { n: win ? rows.length : (j.total != null ? j.total : evs.length) + sens.length });
@@ -5466,6 +5494,174 @@ function initLev() {
   $('ldevcfg').onclick = () => { const b = $('ldevcols'); b.hidden = !b.hidden; if (!b.hidden) levCols(); };
   $('ldevvis').onclick = () => { LEV.vis = !LEV.vis; levSave(); levLoad(true); };
   setInterval(levTick, 1000);
+  setInterval(() => { if (!document.hidden && !NV.open) statRefresh('live'); }, 60000);
+}
+/* ================= Eigene Statistiken: Vorlagen (frei) und selbst eingestellte (Pro), je ein Panel im Dashboard – nur lesen ================= */
+const STATS = { list: [], pro: false, tpls: [], sens: [], profiles: [], filt: { live: null, prot: null }, req: {} };
+async function statLoad() {
+  try { const j = await (await fetch('stats', { cache: 'no-store' })).json(); if (j.ok) Object.assign(STATS, { list: j.list || [], pro: !!j.pro, tpls: j.tpls || [], sens: j.sens || [], profiles: j.profiles || [] }); } catch (e) { }
+  statSync();
+}
+function statSync() {                                  // je Statistik ein Panel (anlegen, umbenennen, entfernen)
+  for (const v of ['live', 'prot']) {
+    if (!DASH.grids[v]) continue;
+    const want = STATS.list.filter(d => d.view === v);
+    for (const d of want) {
+      const pid = 'st_' + d.id, p = (DASH.def[v] || []).find(x => x.id === pid);
+      if (!p) { const node = el('div', { className: 'statcard' }); node.dataset.sid = d.id; dashAddPanel(v, { id: pid, title: d.name || t('st_unnamed'), nodes: [node], w: d.show === 'num' ? 4 : 6, stat: true }); }
+      else dashTitle(v, pid, d.name || t('st_unnamed'));
+    }
+    for (const p of [...(DASH.def[v] || [])]) if (p.stat && !want.some(d => 'st_' + d.id === p.id)) dashRemovePanel(v, p.id);
+    if (STATS.filt[v] && !want.some(d => d.id === STATS.filt[v].sid)) statSetFilt(v, null);
+  }
+  statRefresh();
+}
+function statRange(d) {
+  const now = nowServer();
+  if (d.range !== 'sel') return [now - (+d.range) * 86400000, now + 1000];
+  if (d.view === 'prot') {
+    const r = perRange(); if (r) return [new Date(r[0]).getTime(), new Date(r[1]).getTime()];
+    const nd = NV.data; if (nd && nd.start) return [new Date(nd.start).getTime(), new Date(nd.end).getTime()];
+  }
+  return [parseDay(isoDay(new Date(now))).getTime(), now + 1000];       // Live: heute
+}
+function statRefresh(view) { for (const d of STATS.list) if (!view || d.view === view) statDraw(d); }
+const weekKey = ms => { const x = new Date(ms); x.setHours(12, 0, 0, 0); x.setDate(x.getDate() - ((x.getDay() + 6) % 7)); return isoDay(x); };
+function statLabel(d, k) {
+  const loc = lang === 'en' ? 'en-GB' : 'de-DE', dd = s_ => { const [y, m, dd_] = s_.split('-'); return dd_ + '.' + m + '.'; };
+  switch (d.by) {
+    case 'hour': return pad(+k);
+    case 'wd': return new Date(2024, 0, 1 + +k).toLocaleDateString(loc, { weekday: 'short' });
+    case 'day': return dd(k);
+    case 'week': return t('st_wk', { d: dd(k) });
+    case 'month': { const [y, m] = k.split('-'); return new Date(+y, +m - 1, 1).toLocaleDateString(loc, { month: 'short', year: '2-digit' }); }
+    case 'art': if (d.src === 'sens') return sensIcon(k) + ' ' + k; return k.startsWith('p:') ? '🧩 ' + k.slice(2) : (ART_ICON[k] || '') + ' ' + artName(k);
+    case 'dev': return k === 'all' ? t('all_sources') : k === 'ha' ? 'Home Assistant' : viewName(k);
+    case 'tag': return k === '-' ? t('st_notag') : ntLabel(k);
+    case 'none': return '';
+    default: return k;
+  }
+}
+function statDur(v) { if (v == null) return '–'; if (v < 120) return numTxt(v.toFixed(v < 10 ? 1 : 0)) + ' s'; if (v < 7200) return numTxt((v / 60).toFixed(1)) + ' min'; return numTxt((v / 3600).toFixed(1)) + ' h'; }
+function statFmt(d, v, unit) { if (v == null) return '–'; if (d.metric === 'n') return String(v); if (d.metric === 'dur') return statDur(v); return (d.src === 'ev' ? fdb(v) : f2(v)) + (unit ? ' ' + unit : ''); }
+function statRangeText(d) {
+  if (d.range === 'sel') return t(d.view === 'prot' ? 'st_r_sel' : 'st_r_today');
+  return t(d.range === '1' ? 'st_r_24h' : 'st_r_days', { n: d.range });
+}
+async function statDraw(d) {
+  const box = document.querySelector(`.statcard[data-sid="${CSS.escape(d.id)}"]`); if (!box) return;
+  if (d.view === 'prot' && !NV.open && box.dataset.drawn) return;           // Reiter nicht sichtbar: später
+  const [a, b] = statRange(d), id = (STATS.req[d.id] || 0) + 1; STATS.req[d.id] = id;
+  let j = null; try { j = await (await fetch('stat_data', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ def: d, from: Math.round(a), to: Math.round(b) }) })).json(); } catch (e) { }
+  if (STATS.req[d.id] !== id) return;
+  box.dataset.drawn = '1';
+  box.innerHTML = statHtml(d, j, d.view) ;
+  statBind(box, d);
+}
+function statHtml(d, j, view) {
+  const f = view && STATS.filt[view] && STATS.filt[view].sid === d.id ? STATS.filt[view] : null;
+  const head = `<div class="sthd"><small class="mut">${esc(statRangeText(d))}${j && j.ok ? ' · ' + esc(t('st_n', { n: j.n })) : ''}</small>${f ? `<button type="button" class="chip on stfx" title="${esc(t('st_flt_off'))}">⏚ ${esc(statLabel(d, f.k))} ✕</button>` : ''}<span class="sthsp"></span>${view ? `<button type="button" class="chip stedit" title="${esc(t('st_edit'))}">⚙</button>` : ''}</div>`;
+  if (!j || !j.ok) return head + `<p class="mut">${esc(t('st_err'))}</p>`;
+  if (!j.n && d.show !== 'num') return head + `<p class="mut stnone">${esc(t('st_none'))}</p>`;
+  const vals = j.vals.map(v => v == null ? 0 : v), mx = Math.max(1e-9, ...vals.map(Math.abs)), lab = k => statLabel(d, k);
+  const pkScale = d.metric.startsWith('pk') && d.src === 'ev';          // dBFS: negativ, Balken relativ zwischen kleinstem und größtem Wert
+  const lo = pkScale ? Math.min(...vals.filter((v, i) => j.vals[i] != null)) - 3 : 0, hi = pkScale ? Math.max(...vals) : mx;
+  const pct = v => v == null ? 0 : Math.max(2, Math.round(100 * (pkScale ? (v - lo) / Math.max(1e-9, hi - lo) : Math.abs(v) / mx)));
+  const cat = ['art', 'dev', 'tag', 'sens'].includes(d.by);
+  if (d.show === 'num') return head + `<div class="stnum">${esc(statFmt(d, j.total, j.unit))}</div>` + (d.by !== 'none' && j.keys.length > 1 ? `<div class="stnumsub">${j.keys.slice(0, 4).map((k, i) => `<span>${esc(lab(k))}: <b>${esc(statFmt(d, j.vals[i], j.unit))}</b></span>`).join('')}</div>` : '');
+  if (d.show === 'table') return head + `<table class="sttab"><tbody>${j.keys.map((k, i) => `<tr data-k="${esc(k)}" class="${f && f.k === k ? 'on' : ''}"><td>${esc(lab(k))}</td><td>${esc(statFmt(d, j.vals[i], j.unit))}</td></tr>`).join('')}<tr class="sttot"><td>${esc(t('st_total'))}</td><td>${esc(statFmt(d, j.total, j.unit))}</td></tr></tbody></table>`;
+  if (d.show === 'line' && !cat && j.keys.length > 1) {
+    const n = j.keys.length, W = 600, H = 120, X = i => Math.round(i * (W - 10) / (n - 1)) + 5, Y = v => H - 8 - Math.round((H - 20) * pct(v) / 100);
+    const pts = j.vals.map((v, i) => X(i) + ',' + Y(v)).join(' '), step = Math.ceil(n / 8);
+    return head + `<svg class="stline" viewBox="0 0 ${W} ${H + 18}" preserveAspectRatio="none"><polyline points="${pts}" fill="none" stroke="var(--acc)" stroke-width="2.5" vector-effect="non-scaling-stroke"/>${j.vals.map((v, i) => `<circle cx="${X(i)}" cy="${Y(v)}" r="3" fill="var(--acc)"><title>${esc(lab(j.keys[i]) + ': ' + statFmt(d, j.vals[i], j.unit))}</title></circle>`).join('')}${j.keys.map((k, i) => i % step ? '' : `<text x="${X(i)}" y="${H + 14}" font-size="11" fill="var(--mut)" text-anchor="middle">${esc(lab(k))}</text>`).join('')}</svg>`;
+  }
+  if (cat) return head + `<div class="sthb">${j.keys.slice(0, 20).map((k, i) => `<div class="sth${f && f.k === k ? ' on' : ''}" data-k="${esc(k)}" title="${esc(lab(k) + ': ' + statFmt(d, j.vals[i], j.unit))}"><span class="sthl">${esc(lab(k))}</span><span class="sthbar"><i style="width:${pct(j.vals[i])}%"></i></span><b>${esc(statFmt(d, j.vals[i], j.unit))}</b></div>`).join('')}</div>`;
+  const step = Math.ceil(j.keys.length / 12);
+  return head + `<div class="stbars">${j.keys.map((k, i) => `<div class="stb${f && f.k === k ? ' on' : ''}" data-k="${esc(k)}" title="${esc(lab(k) + ': ' + statFmt(d, j.vals[i], j.unit))}"><em>${j.vals[i] ? esc(statFmt(d, j.vals[i], j.unit)) : ''}</em><i style="height:${j.vals[i] ? pct(j.vals[i]) : 0}%"></i><small>${i % step ? '' : esc(lab(k))}</small></div>`).join('')}</div>`;
+}
+function statBind(box, d) {
+  const ed = box.querySelector('.stedit'); if (ed) ed.onclick = () => statEdit(d);
+  const fx = box.querySelector('.stfx'); if (fx) fx.onclick = () => statSetFilt(d.view, null);
+  box.querySelectorAll('[data-k]').forEach(x => x.onclick = () => { const f = STATS.filt[d.view]; statSetFilt(d.view, f && f.sid === d.id && f.k === x.dataset.k ? null : { sid: d.id, src: d.src, by: d.by, k: x.dataset.k }); });
+}
+function statSetFilt(v, f) {                           // Klick auf einen Balken: Ereignis-Tabelle darauf filtern (nochmal klicken = aus)
+  const old = STATS.filt[v]; STATS.filt[v] = f;
+  for (const d of STATS.list) if (d.view === v && ((old && old.sid === d.id) || (f && f.sid === d.id))) statDraw(d);
+  if (v === 'prot') tblFilter(); else { LEV.sig = ''; levRender(); }
+}
+function statInfo(d, view) {                           // Zeile einer Ereignis-Tabelle -> {kind, ts, art, dev, tags, sens}
+  if (view === 'prot') {
+    if (d._t === 'ev') return { kind: 'ev', ts: d.start, art: d.r.prof ? 'p:' + d.r.prof : (d.r.art || '?'), dev: d.r.quelle_id || 'main' };
+    if (d._t === 'note') return { kind: 'note', ts: d.start, tags: (d.n && d.n.tags) || [], dev: (d.n && d.n.src) || 'all' };
+    if (d._t === 'sens') return { kind: 'sens', ts: d.start, art: d.x.kind, sens: d.x.name, dev: d.x.src };
+    return null;
+  }
+  if (d.r) return { kind: 'ev', ts: d.start, art: d.r.prof ? 'p:' + d.r.prof : (d.r.art || '?'), dev: d.r.quelle_id || 'main' };
+  if (d.fn) return { kind: 'note', ts: d.start, tags: d.fn.tags || [], dev: d.fn.src || 'all' };
+  if (d.x) return { kind: 'sens', ts: d.start, art: d.x.kind, sens: d.x.name, dev: d.x.src };
+  return null;
+}
+function statMatch(f, d, view) {
+  if (d._children && d._t === 'grp') return d._children.some(c => statMatch(f, c, view));
+  const x = statInfo(d, view); if (!x || x.kind !== f.src) return false;
+  const dt_ = new Date(x.ts), k = f.k;
+  switch (f.by) {
+    case 'hour': return dt_.getHours() === +k;
+    case 'wd': return (dt_.getDay() + 6) % 7 === +k;
+    case 'day': return isoDay(dt_) === k;
+    case 'week': return weekKey(x.ts) === k;
+    case 'month': return isoDay(dt_).slice(0, 7) === k;
+    case 'art': return x.art === k;
+    case 'dev': return x.dev === k;
+    case 'tag': return k === '-' ? !(x.tags || []).length : (x.tags || []).includes(k);
+    case 'sens': return (x.sens || x.art) === k;
+    default: return true;
+  }
+}
+/* ---- Anlegen und Einstellen ---- */
+function statNew(v) { statEdit({ view: v, src: 'ev', metric: 'n', by: v === 'live' ? 'hour' : 'day', show: 'bar', range: 'sel', name: '' }, true); }
+function statEdit(d0, isNew) {
+  let dlg = document.getElementById('stdlg');
+  if (!dlg) { dlg = el('dialog', { id: 'stdlg', className: 'stdlg' }); document.body.appendChild(dlg); }
+  const d = Object.assign({ art: '', sens: '', tag: '', dev: '', night: false, quiet: false, wkend: false }, d0), pro = STATS.pro;
+  const opt = (k, list) => `<select data-f="${k}">${list.map(([v, l]) => `<option value="${esc(v)}"${String(d[k]) === String(v) ? ' selected' : ''}>${esc(l)}</option>`).join('')}</select>`;
+  const arts = [['', t('st_any')]].concat(ART_ORDER.map(a => [a, (ART_ICON[a] || '') + ' ' + artName(a)]), STATS.profiles.map(p => ['p:' + p, '🧩 ' + p]));
+  const tags = [['', t('st_any')]].concat(ntList(new Set()).map(k => [k, ntLabel(k)]));
+  const devs = [['', t('all_sources')]].concat(SOURCES.map(x => [x.id, x.name]));
+  const tpls = STATS.tpls.filter(x => x.view === d.view);
+  dlg.innerHTML = `<div class="sthead"><h3>📊 ${esc(t(isNew ? 'st_new' : 'st_edit'))}</h3><button type="button" class="chip stx">✕</button></div>
+    ${isNew ? `<p class="mut">${esc(t('st_tpl_h'))}</p><div class="sttpl">${tpls.map(x => `<button type="button" class="chip" data-tpl="${esc(x.tpl)}">${esc(x.name[lang === 'en' ? 1 : 0])}</button>`).join('')}</div><hr>` : ''}
+    <p class="mut">${esc(t(pro ? 'st_own_h' : 'st_own_pro'))}</p>
+    <fieldset class="stform"${pro ? '' : ' disabled'}>
+      <label>${esc(t('st_f_name'))}<input type="text" data-f="name" maxlength="60" value="${esc(d.name || '')}" placeholder="${esc(t('st_name_ph'))}"></label>
+      <label>${esc(t('st_f_src'))}${opt('src', [['ev', t('st_src_ev')], ['sens', t('st_src_sens')], ['note', t('st_src_note')]])}</label>
+      <label class="st-ev">${esc(t('st_f_art'))}${opt('art', arts)}</label>
+      <label class="st-sens">${esc(t('st_f_sens'))}${opt('sens', [['', t('st_any')]].concat(STATS.sens.map(n => [n, n])))}</label>
+      <label class="st-note">${esc(t('st_f_tag'))}${opt('tag', tags)}</label>
+      <label>${esc(t('st_f_metric'))}${opt('metric', [['n', t('st_m_n')], ['dur', t('st_m_dur')], ['pk_avg', t('st_m_pkavg')], ['pk_max', t('st_m_pkmax')]])}</label>
+      <label>${esc(t('st_f_by'))}${opt('by', [['none', t('st_by_none')], ['hour', t('st_by_hour')], ['wd', t('st_by_wd')], ['day', t('st_by_day')], ['week', t('st_by_week')], ['month', t('st_by_month')], ['art', t('st_by_art')], ['dev', t('st_by_dev')], ['tag', t('st_by_tag')], ['sens', t('st_by_sens')]])}</label>
+      <label>${esc(t('st_f_show'))}${opt('show', [['bar', t('st_s_bar')], ['line', t('st_s_line')], ['num', t('st_s_num')], ['table', t('st_s_table')]])}</label>
+      <label>${esc(t('st_f_range'))}${opt('range', [['sel', t(d.view === 'prot' ? 'st_r_sel' : 'st_r_today')], ['1', t('st_r_24h')], ['7', t('st_r_days', { n: 7 })], ['30', t('st_r_days', { n: 30 })], ['90', t('st_r_days', { n: 90 })], ['365', t('st_r_days', { n: 365 })]])}</label>
+      <label>${esc(t('st_f_dev'))}${opt('dev', devs)}</label>
+      <div class="stchk"><label><input type="checkbox" data-f="night"${d.night ? ' checked' : ''}> ${esc(t('st_night'))}</label><label><input type="checkbox" data-f="quiet"${d.quiet ? ' checked' : ''}> ${esc(t('st_quiet'))}</label><label><input type="checkbox" data-f="wkend"${d.wkend ? ' checked' : ''}> ${esc(t('st_wkend'))}</label></div>
+    </fieldset>
+    <div class="stprev"></div>
+    <div class="stbtns">${!isNew ? `<button type="button" class="chip stdel">🗑 ${esc(t('st_del'))}</button>` : ''}<span class="sthsp"></span><span class="stmsg"></span><button type="button" class="chip stcancel">${esc(t('cancel'))}</button>${pro ? `<button type="button" class="pri stok">${esc(t(isNew ? 'st_create' : 'st_save'))}</button>` : ''}</div>`;
+  const read = () => { const o = Object.assign({}, d); dlg.querySelectorAll('[data-f]').forEach(x => { o[x.dataset.f] = x.type === 'checkbox' ? x.checked : x.value; }); return o; };
+  const vis = () => { const s_ = (dlg.querySelector('[data-f=src]') || {}).value || d.src; for (const k of ['ev', 'sens', 'note']) dlg.querySelectorAll('.st-' + k).forEach(x => x.style.display = s_ === k ? '' : 'none'); };
+  let pt = 0;
+  const prev = () => { clearTimeout(pt); pt = setTimeout(async () => { const o = read(), [a, b] = statRange(o), box = dlg.querySelector('.stprev'); let j = null;
+    try { j = await (await fetch('stat_data', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ def: o, from: Math.round(a), to: Math.round(b) }) })).json(); } catch (e) { }
+    box.innerHTML = `<small class="mut">${esc(t('st_preview'))}</small>` + statHtml(o, j, null); }, 250); };
+  const msg = m => { dlg.querySelector('.stmsg').textContent = m; };
+  const post = async body => { const j = await (await fetch('stats', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) })).json();
+    if (!j.ok) { msg(t(j.error === 'pro' ? 'st_need_pro' : j.error === 'limit' ? 'st_limit' : 'saveerr')); return false; } STATS.list = j.list; dlg.close(); statSync(); return true; };
+  dlg.querySelectorAll('[data-f]').forEach(x => { x.oninput = x.onchange = () => { vis(); prev(); }; });
+  dlg.querySelectorAll('[data-tpl]').forEach(b => b.onclick = () => post({ action: 'add', tpl: b.dataset.tpl }));
+  dlg.querySelector('.stx').onclick = dlg.querySelector('.stcancel').onclick = () => dlg.close();
+  const ok = dlg.querySelector('.stok'); if (ok) ok.onclick = () => post(isNew ? { action: 'add', def: read() } : { action: 'edit', id: d.id, def: read() });
+  const del = dlg.querySelector('.stdel'); if (del) del.onclick = () => { if (confirm(t('st_del_q', { n: d.name || t('st_unnamed') }))) post({ action: 'del', id: d.id }); };
+  vis(); prev(); if (!dlg.open) dlg.showModal();
 }
 /* ================= Freie Notiz („📝 Notiz jetzt“): einmal gespeichert, mit Zeitraum, an allen Aufzeichnungen dieser Zeit sichtbar ================= */
 const FN = { list: [], edit: null, tags: new Set(), t: 0 };

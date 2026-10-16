@@ -85,6 +85,18 @@ def main():
             dbl = pg.evaluate("() => { const o = document.querySelector('.ldevscroll'); return o ? getComputedStyle(o).overflowY : '' }")
             if dbl in ("auto", "scroll"):
                 fails.append("Ereignis-Tabelle Live: doppelter Rollbalken (äußerer Kasten scrollt)")
+            pg.click("#liveview .dashbar .dstat"); pg.wait_for_timeout(500)          # Statistik aus Vorlage (frei)
+            pg.click('#stdlg [data-tpl="today"]'); pg.wait_for_timeout(1200)
+            if not pg.locator("#liveview .statcard .stnum").count():
+                fails.append("Statistik-Vorlage erscheint nicht im Live-Dashboard")
+            pg.click("#tab_prot"); pg.wait_for_timeout(800)
+            pg.click("#nightview .dashbar .dstat"); pg.wait_for_timeout(500)
+            if not pg.locator("#stdlg fieldset.stform[disabled]").count():
+                fails.append("Statistik selbst einstellen ohne Pro nicht gesperrt")
+            pg.click('#stdlg [data-tpl="arts"]'); pg.wait_for_timeout(1500)
+            if not pg.locator("#nightview .statcard .sthd").count():
+                fails.append("Statistik-Vorlage erscheint nicht in Protokolle")
+            pg.click("#tab_live"); pg.wait_for_timeout(800)
             vb = pg.locator("#ldevvis")                                    # Tabelle: nur sichtbarer Bereich (an/aus)
             if vb.count() != 1 or "on" not in (vb.get_attribute("class") or ""):
                 fails.append("Knopf Nur sichtbarer Bereich fehlt oder ist nicht an")

@@ -32,7 +32,7 @@ HERE = os.path.dirname(os.path.abspath(__file__))
 WEB = os.path.join(HERE, "web")
 OPTIONS_FILE = os.environ.get("LAERM_OPTIONS", "/data/options.json")
 SETTINGS_FILE = os.environ.get("LAERM_SETTINGS", "/data/settings.json")
-VERSION = "1.67.1"
+VERSION = "1.68.0"
 
 # =====================================================================
 # Einstellungen
@@ -9613,7 +9613,7 @@ def restore_run(path, with_settings, pick=None, off=None):
             except OSError:
                 pass
             stores = {"notes.json": (NOTES_LOCK, notes_all, notes_save), "bereiche.json": (LABELS_LOCK, labels_all, labels_save),
-                      "art.json": (ART_LOCK, art_all, art_save), "schnellwahl.json": (QT_LOCK, qt_all, qt_save)}
+                      "art.json": (ART_LOCK, art_all, art_save), "schnellwahl.json": (QT_LOCK, qt_all, qt_save), "statistik.json": (STAT_LOCK, stat_all, stat_save)}
             for i in names:
                 BK_STATE["done"] += 1
                 a = i.filename
@@ -9940,6 +9940,226 @@ def events_summary(src="all", n=200, plist="", rng=None, art=""):
             "events": out_rows, "grps": {str(k): v for k, v in G.items() if k in used_g},
             "sens": _sens_for(src, rng), "ha_names": ha_rule_names(), "fnotes": _fnotes_for(src, rng), "fn_assign_min": CFG.get("fn_assign_min", 5),
             "fine": classify.fine_meta("en" if CFG.get("language") == "en" else "de") if classify is not None else {}}
+
+
+# =====================================================================
+# Eigene Statistiken (statistik.json neben den Clips, kommt so in die Sicherung). Nur lesen – aendert nie Daten.
+#   s = {id: Definition}; Vorlagen fuer alle, selbst einstellen nur mit Pro
+# =====================================================================
+STAT_LOCK = threading.RLock()
+STAT = {"data": None}
+STAT_MAX = 40
+STAT_SRC = ("ev", "sens", "note")
+STAT_METRIC = ("n", "dur", "pk_avg", "pk_max")
+STAT_BY = ("none", "hour", "wd", "day", "week", "month", "art", "dev", "tag", "sens")
+STAT_SHOW = ("bar", "line", "num", "table")
+STAT_RANGE = ("sel", "1", "7", "30", "90", "365")
+STAT_TPLS = [   # Vorlagen (frei): Name je Sprache
+    {"tpl": "night_hours", "name": ["Störungen pro Stunde (nachts)", "Disturbances per hour (night)"], "view": "prot", "src": "ev", "metric": "n", "by": "hour", "show": "bar", "range": "sel", "night": True},
+    {"tpl": "arts", "name": ["Arten im Vergleich", "Types compared"], "view": "prot", "src": "ev", "metric": "n", "by": "art", "show": "bar", "range": "sel"},
+    {"tpl": "week_trend", "name": ["Trend pro Woche", "Trend per week"], "view": "prot", "src": "ev", "metric": "n", "by": "week", "show": "line", "range": "90"},
+    {"tpl": "weekday", "name": ["Pro Wochentag (30 Tage)", "Per weekday (30 days)"], "view": "prot", "src": "ev", "metric": "n", "by": "wd", "show": "bar", "range": "30"},
+    {"tpl": "dur_day", "name": ["Gesamtdauer pro Tag", "Total duration per day"], "view": "prot", "src": "ev", "metric": "dur", "by": "day", "show": "bar", "range": "30"},
+    {"tpl": "today", "name": ["Störungen heute", "Disturbances today"], "view": "live", "src": "ev", "metric": "n", "by": "none", "show": "num", "range": "sel"},
+    {"tpl": "sens_day", "name": ["Sensoren pro Tag", "Sensors per day"], "view": "prot", "src": "sens", "metric": "n", "by": "day", "show": "bar", "range": "30"},
+    {"tpl": "notes_tag", "name": ["Notizen nach Taste", "Notes by button"], "view": "prot", "src": "note", "metric": "n", "by": "tag", "show": "bar", "range": "sel"},
+]
+
+
+def stat_path():
+    return os.path.join(paths()[1], "statistik.json")
+
+
+def stat_all():
+    with STAT_LOCK:
+        if STAT["data"] is None:
+            d = read_json(stat_path()) if os.path.exists(stat_path()) else {}
+            STAT["data"] = d if isinstance(d, dict) else {}
+        if not isinstance(STAT["data"].get("s"), dict):
+            STAT["data"]["s"] = {}
+        return STAT["data"]
+
+
+def stat_save():
+    with STAT_LOCK:
+        if STAT["data"] is None:
+            return
+        os.makedirs(os.path.dirname(stat_path()), exist_ok=True)
+        tmp = stat_path() + ".tmp"
+        with open(tmp, "w", encoding="utf-8") as f:
+            json.dump(stat_all(), f, ensure_ascii=False, separators=(",", ":"))
+        os.replace(tmp, stat_path())
+
+
+def stat_clean(d):
+    """Definition pruefen; Unbekanntes faellt auf Standard zurueck."""
+    d = d if isinstance(d, dict) else {}
+    pick = lambda k, opts: d.get(k) if d.get(k) in opts else opts[0]
+    txt = lambda k, n: re.sub(r"[\x00-\x1f<>]", "", str(d.get(k) or "")).strip()[:n]
+    out = {"name": txt("name", 60), "view": "live" if d.get("view") == "live" else "prot", "src": pick("src", STAT_SRC), "metric": pick("metric", STAT_METRIC),
+           "by": pick("by", STAT_BY), "show": pick("show", STAT_SHOW), "range": pick("range", STAT_RANGE),
+           "art": txt("art", 60), "sens": txt("sens", 80), "tag": txt("tag", 12), "dev": re.sub(r"[^a-z0-9_]", "", str(d.get("dev") or ""))[:16],
+           "night": d.get("night") is True, "quiet": d.get("quiet") is True, "wkend": d.get("wkend") is True}
+    if out["src"] != "ev" and out["metric"] in ("pk_avg", "pk_max") and out["src"] == "note":
+        out["metric"] = "n"
+    return out
+
+
+def stat_list():
+    with STAT_LOCK:
+        L = [dict(v, id=k) for k, v in stat_all()["s"].items() if isinstance(v, dict)]
+    return sorted(L, key=lambda x: x.get("ts") or "")
+
+
+def stat_change(data):
+    """add (tpl = Vorlage, frei | def = eigene, Pro), edit (id, def; Pro), del (id)."""
+    a = str(data.get("action") or "")
+    with STAT_LOCK:
+        S = stat_all()["s"]
+        if a == "add":
+            if len(S) >= STAT_MAX:
+                return {"ok": False, "error": "limit"}
+            if data.get("tpl"):
+                t_ = next((x for x in STAT_TPLS if x["tpl"] == data.get("tpl")), None)
+                if not t_:
+                    return {"ok": False, "error": "not found"}
+                d = stat_clean(dict(t_, name=t_["name"][1 if CFG.get("language") == "en" else 0])); d["tpl"] = t_["tpl"]
+            else:
+                if not pro_ok():
+                    return {"ok": False, "error": "pro"}
+                d = stat_clean(data.get("def"))
+            d["ts"] = dt.datetime.now().astimezone().isoformat(timespec="seconds")
+            k = "s_" + secrets.token_hex(4); S[k] = d
+            stat_save()
+            return {"ok": True, "id": k, "list": stat_list()}
+        k = str(data.get("id") or "")
+        if k not in S:
+            return {"ok": False, "error": "not found"}
+        if a == "edit":
+            if not pro_ok():
+                return {"ok": False, "error": "pro"}
+            d = stat_clean(data.get("def")); d["ts"] = S[k].get("ts") or ""
+            S[k] = d
+        elif a == "del":
+            S.pop(k, None)
+        else:
+            return {"ok": False, "error": "bad action"}
+        stat_save()
+        return {"ok": True, "list": stat_list()}
+
+
+def _week_key(t):
+    return (t - dt.timedelta(days=t.weekday())).date().isoformat()
+
+
+def stat_items(d, a_ms, b_ms):
+    """Eintraege fuer eine Statistik: (Zeit ms, Dauer s, Spitze, Art, Geraet, [Tasten], Sensor)."""
+    out = []
+    if d["src"] == "ev":
+        allrows = read_log()
+        a_s = dt.datetime.fromtimestamp(a_ms / 1000.0).strftime("%Y-%m-%dT%H:%M:%S")
+        b_s = dt.datetime.fromtimestamp(b_ms / 1000.0).strftime("%Y-%m-%dT%H:%M:%S")
+        keyed = sorted((dict(r, k=k) for r, k in zip(allrows, row_keys(allrows)) if a_s <= (r.get("start") or "")[:19] < b_s), key=lambda r: r.get("start") or "")
+        _, I, _ = incidents(keyed)
+        byk = {r["k"]: r for r in keyed}
+        for inc in I.values():
+            if inc["bg"]:
+                continue                                 # Hintergrund-Profile zaehlen nicht (wie ueberall)
+            lr = byk.get(inc["lead"]) or {}
+            af = art_fields(lr.get("datei") or "")
+            kind = ("p:" + af["prof"]) if af.get("prof") else (af.get("art") or "?")
+            if d["dev"] and d["dev"] not in {x[0] for x in inc["devs"]}:
+                continue
+            if d["art"] and d["art"] != kind:
+                continue
+            out.append((inc["a"], (inc["b"] - inc["a"]) / 1000.0, fnum(lr.get("spitze_dbfs")), kind, lr.get("quelle_id") or "main", [], ""))
+    elif d["src"] == "sens":
+        for x in sensor_events("all", a_ms, b_ms):
+            if d["sens"] and d["sens"] != x.get("name"):
+                continue
+            if d["dev"] and x.get("src") not in (d["dev"], "ha"):
+                continue
+            out.append((x["a"], max(0.0, (x["b"] - x["a"]) / 1000.0), x.get("peak"), x.get("kind") or "", x.get("src") or "", [], x.get("name") or ""))
+    else:
+        for x in fnotes_in(a_ms, b_ms, d["dev"] or "all"):
+            tg = x.get("tags") or []
+            if d["tag"] and d["tag"] not in tg:
+                continue
+            out.append((x["a"], max(0.0, ((x.get("b") or x["a"]) - x["a"]) / 1000.0), None, "", x.get("src") or "all", tg, ""))
+    res = []
+    for it in out:
+        if not (a_ms <= it[0] < b_ms):
+            continue
+        t = dt.datetime.fromtimestamp(it[0] / 1000.0)
+        if d["night"] and not (t.hour >= 22 or t.hour < 6):
+            continue
+        if d["quiet"] and not is_quiet_time(t):
+            continue
+        if d["wkend"] and t.weekday() < 5:
+            continue
+        res.append(it)
+    return res
+
+
+def stat_compute(d, a_ms, b_ms):
+    d = stat_clean(d)
+    a_ms, b_ms = int(a_ms), int(b_ms)
+    if b_ms <= a_ms or b_ms - a_ms > 400 * 86400000:
+        return {"ok": False, "error": "range"}
+    items = stat_items(d, a_ms, b_ms)
+    by = d["by"]
+    keys = []
+    if by == "hour":
+        keys = [str(h) for h in range(24)]
+    elif by == "wd":
+        keys = [str(i) for i in range(7)]
+    elif by in ("day", "week", "month"):
+        t, end = dt.datetime.fromtimestamp(a_ms / 1000.0), dt.datetime.fromtimestamp((b_ms - 1) / 1000.0)
+        seen = set()
+        while t <= end + dt.timedelta(days=1) and len(keys) < 400:
+            k = t.date().isoformat() if by == "day" else _week_key(t) if by == "week" else t.strftime("%Y-%m")
+            if k not in seen and t <= end:
+                seen.add(k); keys.append(k)
+            t += dt.timedelta(days=1)
+    elif by == "none":
+        keys = ["all"]
+
+    def kof(it):
+        t = dt.datetime.fromtimestamp(it[0] / 1000.0)
+        return {"hour": [str(t.hour)], "wd": [str(t.weekday())], "day": [t.date().isoformat()], "week": [_week_key(t)], "month": [t.strftime("%Y-%m")],
+                "art": [it[3] or "?"], "dev": [it[4] or "?"], "tag": it[5] or ["-"], "sens": [it[6] or it[3] or "?"], "none": ["all"]}[by]
+    agg = collections.OrderedDict((k, []) for k in keys)
+    for it in items:
+        for k in kof(it):
+            agg.setdefault(k, []).append(it)
+
+    def val(L):
+        if d["metric"] == "n":
+            return len(L)
+        if d["metric"] == "dur":
+            return round(sum(x[1] for x in L), 1)
+        pk = [x[2] for x in L if x[2] is not None]
+        if not pk:
+            return None
+        return round(sum(pk) / len(pk), 1) if d["metric"] == "pk_avg" else round(max(pk), 1)
+    if by in ("art", "dev", "tag", "sens"):                 # Kategorien: groesste zuerst
+        agg = collections.OrderedDict(sorted(agg.items(), key=lambda kv: -(val(kv[1]) or 0)))
+    return {"ok": True, "keys": list(agg.keys()), "vals": [val(v) for v in agg.values()], "total": val(items), "n": len(items),
+            "unit": "dBFS" if d["src"] == "ev" and d["metric"].startswith("pk") else ""}
+
+
+def stat_meta():
+    """Auswahl fuer den Einstell-Dialog: Sensoren der letzten 90 Tage, Tonprofile."""
+    now = int(time.time() * 1000)
+    try:
+        sn = sorted({x.get("name") or "" for x in sensor_events("all", now - 90 * 86400000, now)} - {""})
+    except Exception:
+        sn = []
+    try:
+        pf = sorted(profiles_all().keys())
+    except Exception:
+        pf = []
+    return {"sens": sn[:100], "profiles": pf[:100]}
 
 
 def ev_row(r):
@@ -10325,6 +10545,8 @@ class Handler(BaseHandler):
                 except (KeyError, ValueError, IndexError):
                     now_ = int(time.time() * 1000); a_, b_ = now_ - 900000, now_ + 60000
                 return self.js({"ok": True, "notes": fnotes_in(a_, b_, re.sub(r"[^a-z0-9_]", "", (q.get("src") or ["all"])[0])[:16] or "all")})
+            if name == "stats":                       # eigene Statistiken: Liste, Vorlagen, Pro, Auswahl
+                return self.js(dict({"ok": True, "list": stat_list(), "pro": pro_ok(), "tpls": STAT_TPLS}, **stat_meta()))
             if name == "notetags":                    # Schnellwahl: eingebaute + eigene Tasten, Reihenfolge, Vorschlaege
                 return self.js(qt_state())
             if name == "notes":
@@ -10637,6 +10859,19 @@ class Handler(BaseHandler):
                 except (TypeError, ValueError):
                     return self.js({"ok": False, "error": "range"}, 400)
                 return self.js(scan_start(f_, t_, clean_label_name(data.get("name")) if data.get("name") else "", data.get("events", True) is not False, data.get("areas", True) is not False))
+            if name == "stats":                         # Statistik anlegen / aendern / loeschen
+                data = json.loads(body or b"{}")
+                if not isinstance(data, dict):
+                    return self.js({"ok": False, "error": "bad request"}, 400)
+                return self.js(stat_change(data))
+            if name == "stat_data":                     # Werte einer Statistik (auch Vorschau beim Einstellen) - nur lesen
+                data = json.loads(body or b"{}")
+                if not isinstance(data, dict):
+                    return self.js({"ok": False, "error": "bad request"}, 400)
+                try:
+                    return self.js(stat_compute(data.get("def"), int(data.get("from")), int(data.get("to"))))
+                except (TypeError, ValueError):
+                    return self.js({"ok": False, "error": "range"}, 400)
             if name == "notetags":                      # Schnellwahl verwalten (eigene anlegen, umbenennen, loeschen, ausblenden)
                 data = json.loads(body or b"{}")
                 if not isinstance(data, dict):

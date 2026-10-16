@@ -1,5 +1,12 @@
 # Changelog
 
+## 1.68.0
+- **📊 Eigene Statistiken:** Knopf **📊 ＋ Statistik** über den Bereichen (Live und Protokolle). Jede Statistik ist ein eigener Bereich im Dashboard (verschieben, Breite, einklappen, ausblenden).
+- **Vorlagen für alle frei:** Störungen pro Stunde (nachts), Arten im Vergleich, Trend pro Woche, Pro Wochentag, Gesamtdauer pro Tag, Störungen heute, Sensoren pro Tag, Notizen nach Taste.
+- **Selbst einstellen (Pro):** Was zählen (Störungen/Art/Tonprofil, Sensoren, Notizen mit Taste), Kennzahl (Anzahl, Gesamtdauer, Ø/höchste Spitze), aufgeteilt nach (Stunde, Wochentag, Tag, Woche, Monat, Art, Gerät, Notiz-Taste, Sensor), Darstellung (Balken, Linie, große Zahl, Tabelle), Zeitraum, Gerät, nur nachts / Ruhezeit / Wochenende – mit Sofort-Vorschau.
+- **Klick auf einen Balken** filtert die Ereignis-Tabelle darauf (nochmal klicken = aus).
+- Statistiken lesen nur, ändern nie Daten. Gespeichert in `clips/statistik.json`, mit in der Sicherung.
+
 ## 1.67.1
 - Ereignis-Tabelle im Live-Reiter / Dashboard: kein doppelter Rollbalken mehr – nur die Tabelle selbst scrollt, Kopfzeile mit Filtern bleibt stehen.
 
