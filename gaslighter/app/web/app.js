@@ -5522,7 +5522,7 @@ function statSync() {                                  // je Statistik ein Panel
 function statRange(d) {
   const now = nowServer();
   if (d.range !== 'sel') return [now - (+d.range) * 86400000, now + 1000];
-  if (d.view === 'prot') {
+  if (d.view === 'prot' && NV.date) {                  // Tag in Protokolle schon gewählt (beim Laden der Seite noch nicht)
     const r = perRange(); if (r) return [new Date(r[0]).getTime(), new Date(r[1]).getTime()];
     const nd = NV.data; if (nd && nd.start) return [new Date(nd.start).getTime(), new Date(nd.end).getTime()];
   }
