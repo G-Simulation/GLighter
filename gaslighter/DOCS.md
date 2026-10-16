@@ -338,6 +338,7 @@ Gehört zu den externen Geräten und damit zu GasLighter Pro.
 ### Geräte-Karte
 
 - **Name**, **aktiv**, **Verstärkung (dB)** und Brummfilter.
+- **⏺ Nur aufzeichnen (keine Erkennung)**: Der Pegel wird weiter in der Tagesaufzeichnung gespeichert (mit Prüfsummen-Kette, live und im Verlauf sichtbar, im Lärmprotokoll-Graphen). Aus diesem Gerät entstehen aber keine Störungen, keine KI-Einordnung, keine Lärmspur und keine Meldung an Home Assistant. Die Kachel zeigt „⏺ nur Aufzeichnung“. Schaltest du die Erkennung wieder ein, gilt sie ab dann; ältere Zeiten lassen sich mit „Neu untersuchen“ auswerten.
 - **⚙ Pegel & Schwelle**: eigene Einstellungen nur für dieses Gerät.
 - **📏 Eigene Referenzlinien**: z. B. „Fernseher −70 dB“, erscheinen in allen Grafiken dieses Geräts.
 - **Protokolllisten**: Störungen dieses Geräts automatisch einer Liste zuordnen, auf Wunsch nur zu bestimmten Uhrzeiten.
@@ -1135,6 +1136,7 @@ Part of the external devices and therefore of GasLighter Pro.
 ### Device card
 
 - **Name**, **active**, **gain (dB)** and hum filter.
+- **⏺ Record only (no detection)**: the level is still stored in the day recording (with checksum chain, visible live, in the history and in the noise log chart). But this device creates no disturbances, no AI classification, no noise trace and no report to Home Assistant. The tile shows “⏺ record only”. When you switch detection back on it applies from then on; earlier times can be evaluated with “Re-examine”.
 - **⚙ Level & threshold**: own settings for this device only.
 - **📏 Own reference lines**: e.g. “TV −70 dB”, shown in all charts of this device.
 - **Log lists**: assign disturbances of this device to a list automatically, optionally only at certain times.

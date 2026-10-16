@@ -1269,7 +1269,7 @@ function tileBar() {
   const run = rotActive(), held = run && tileHeld(), s = srcById(selSrc);
   const key = JSON.stringify([devs.map(d => d.id), selSrc, run, held, TILE.at, TILE.ms, lang]);
   if (key === TILE.key) return; TILE.key = key;
-  $('tilename').textContent = (SRC_ICON[s && s.type] || '') + ' ' + (s ? s.name : '');
+  $('tilename').textContent = (SRC_ICON[s && s.type] || '') + ' ' + (s ? s.name : '') + (s && s.rec_only ? ' · ⏺ ' + t('rec_only_b') : '');
   const left = Math.max(0, TILE.ms - (Date.now() - TILE.at));
   $('tiledots').innerHTML = devs.map(d => `<button type="button" class="tdot${d.id === selSrc ? ' cur' : ''}${run && !held && d.id === selSrc ? ' run' : ''}" data-id="${esc(d.id)}" title="${esc(d.name)}" aria-label="${esc(d.name)}" style="--dur:${left}ms;--from:${(1 - left / TILE.ms).toFixed(3)}"></button>`).join('');
   $('tiledots').querySelectorAll('.tdot').forEach(b => b.onclick = () => { TILE.manual = true; TILE.key = ''; if (b.dataset.id !== selSrc) tileGo(b.dataset.id, true); else { tileBar(); evFollow(); } });
@@ -3089,6 +3089,8 @@ function sourceRow(s) {
   const hl = el('label', { textContent: t('hum') + ' ' }); hl.appendChild(hum); const hti = tipIcon('t_hum'); if (hti) hl.appendChild(hti); sub.appendChild(hl);
   if (s.hum && s.hum_ok === false) sub.appendChild(el('small', { textContent: t('hum_na') }));
   hum.addEventListener('change', () => upd({ hum: hum.value }));
+  { const rl = el('label', { className: 'recolab' }), rc = el('input', { type: 'checkbox', checked: !!s.rec_only });   // nur aufzeichnen, keine Erkennung
+    rl.append(rc, ' ⏺ ' + t('rec_only')); rc.onchange = () => upd({ rec_only: rc.checked }); sub.appendChild(rl); sub.appendChild(el('small', { className: 'recoh', textContent: t('h_rec_only') })); }
   let url = null, user = null, pass = null;
   if (s.type === 'url') {
     url = el('input', { type: 'url', value: s.url || '', placeholder: 'http://192.168.178.50:8080/audio.wav', className: 'srcurl' });

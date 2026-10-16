@@ -32,7 +32,7 @@ HERE = os.path.dirname(os.path.abspath(__file__))
 WEB = os.path.join(HERE, "web")
 OPTIONS_FILE = os.environ.get("LAERM_OPTIONS", "/data/options.json")
 SETTINGS_FILE = os.environ.get("LAERM_SETTINGS", "/data/settings.json")
-VERSION = "1.68.0"
+VERSION = "1.69.0"
 
 # =====================================================================
 # Einstellungen
@@ -1976,6 +1976,8 @@ def clean_source(d, existing=None):
         s["refs"] = clean_refs(d["refs"])
     if "plists" in d:                                  # Protokolllisten, in die dieses Geraet eintraegt (je mit Uhrzeit)
         s["plists"] = clean_plist_rules(d["plists"])
+    if "rec_only" in d:                                # nur aufzeichnen: Pegel in die Tagesaufzeichnung, keine Erkennung
+        s["rec_only"] = d["rec_only"] in (True, "true", "on", 1, "1")
     if "hum" in d:
         try:
             h = int(d["hum"])
@@ -4263,7 +4265,7 @@ def live_art_worker():
                 LIVE_ART.clear(); continue
             now = time.time()
             with SRC_LOCK:
-                rs = [r for r in RUNNERS.values() if now - LIVE_WANT.get(r.id, 0) < 10]
+                rs = [r for r in RUNNERS.values() if now - LIVE_WANT.get(r.id, 0) < 10 and not r.src.get("rec_only")]   # nur aufzeichnen: keine KI
             for r in rs:
                 audio, _s = ram_audio(r, sec=2)
                 rate = r.hist_rate
@@ -7268,7 +7270,7 @@ class Runner:
                 pub(f"{TOPIC}/force", "ON" if FORCE else "OFF", True)
             hold = ha_hold_for(self.id)
             quiet = ha_quiet_for(self.id)                  # „keine Störung melden“: Graph weiter, aber keine neue Störung
-            listening = (inh or self.id in FORCE) and not RUN["paused"] and not hold and not quiet
+            listening = (inh or self.id in FORCE) and not RUN["paused"] and not hold and not quiet and not self.src.get("rec_only")   # „nur aufzeichnen“: Graph ja, Störung nie
             virt = not C.get("save_audio")                 # ohne echten Ton: Stoerung = nur der Ausschlag, Messwerte aus der Tagesaufzeichnung
             pre_max = 1 if virt else int(round(C["pre_roll_s"] * 10)) + 1
             pre.append(blk)

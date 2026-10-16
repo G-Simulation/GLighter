@@ -1,5 +1,8 @@
 # Changelog
 
+## 1.69.0
+- **Mikrofon „⏺ Nur aufzeichnen (keine Erkennung)“** (Einstellungen → Geräte, je Gerät): Pegel weiter in der Tagesaufzeichnung mit Prüfsumme (live, Verlauf, Lärmprotokoll-Graph), aber keine Störungen, keine KI, keine Lärmspur, keine Meldung an Home Assistant. Kachel zeigt „⏺ nur Aufzeichnung“.
+
 ## 1.68.0
 - **📊 Eigene Statistiken:** Knopf **📊 ＋ Statistik** über den Bereichen (Live und Protokolle). Jede Statistik ist ein eigener Bereich im Dashboard (verschieben, Breite, einklappen, ausblenden).
 - **Vorlagen für alle frei:** Störungen pro Stunde (nachts), Arten im Vergleich, Trend pro Woche, Pro Wochentag, Gesamtdauer pro Tag, Störungen heute, Sensoren pro Tag, Notizen nach Taste.

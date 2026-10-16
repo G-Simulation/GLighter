@@ -78,6 +78,8 @@ def main():
             pg.click("#sbtn"); pg.wait_for_timeout(1500)
             if not pg.evaluate("() => !!document.getElementById('dlg') && document.getElementById('dlg').open"):
                 fails.append("Einstellungen öffnen sich nicht")
+            elif not pg.locator(".recolab input").count():
+                fails.append("Schalter Nur aufzeichnen fehlt bei den Geräten")
             elif pg.locator('fieldset[data-sec="s_mirror"] #mirnow').count() != 1:
                 fails.append("Kasten tägliche Sicherung fehlt")
             pg.keyboard.press("Escape"); pg.wait_for_timeout(300)

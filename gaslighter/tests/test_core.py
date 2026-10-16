@@ -519,6 +519,14 @@ class EigeneStatistik(unittest.TestCase):
         self.assertTrue(os.path.exists(os.path.join(self.tmp, "clips", "statistik.json")))
 
 
+class NurAufzeichnen(unittest.TestCase):
+    def test_schalter(self):
+        s = laerm.clean_source({"rec_only": True}, {"id": "main", "type": "local", "name": "M"})
+        self.assertTrue(s["rec_only"])
+        self.assertFalse(laerm.clean_source({"rec_only": "nein"}, s)["rec_only"])
+        self.assertTrue(laerm.clean_source({"name": "X"}, s)["rec_only"])       # andere Änderungen lassen den Schalter stehen
+
+
 class ArtStumm(unittest.TestCase):
     def test_liste(self):
         laerm.CFG["art_silent"] = laerm.clean_value("art_silent", "animal,knock") if hasattr(laerm, "clean_value") else "animal,knock"

@@ -55,6 +55,7 @@ Gehört zu den externen Geräten und damit zu [GasLighter Pro](#pro).
 ## Geräte-Karte {#karte}
 
 - **Name**, **aktiv**, **Verstärkung (dB)** und Brummfilter.
+- **⏺ Nur aufzeichnen (keine Erkennung)**: Der Pegel wird weiter in der Tagesaufzeichnung gespeichert (mit Prüfsummen-Kette, live und im Verlauf sichtbar, im Lärmprotokoll-Graphen). Aus diesem Gerät entstehen aber keine Störungen, keine KI-Einordnung, keine Lärmspur und keine Meldung an Home Assistant. Die Kachel zeigt „⏺ nur Aufzeichnung“. Schaltest du die Erkennung wieder ein, gilt sie ab dann; ältere Zeiten lassen sich mit „Neu untersuchen“ auswerten.
 - **⚙ Pegel & Schwelle**: eigene Einstellungen nur für dieses Gerät.
 - **📏 Eigene Referenzlinien**: z. B. „Fernseher −70 dB“, erscheinen in allen Grafiken dieses Geräts.
 - **Protokolllisten**: Störungen dieses Geräts automatisch einer Liste zuordnen, auf Wunsch nur zu bestimmten Uhrzeiten.

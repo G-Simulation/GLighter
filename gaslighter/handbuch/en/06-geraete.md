@@ -55,6 +55,7 @@ Part of the external devices and therefore of [GasLighter Pro](#pro).
 ## Device card {#karte}
 
 - **Name**, **active**, **gain (dB)** and hum filter.
+- **⏺ Record only (no detection)**: the level is still stored in the day recording (with checksum chain, visible live, in the history and in the noise log chart). But this device creates no disturbances, no AI classification, no noise trace and no report to Home Assistant. The tile shows “⏺ record only”. When you switch detection back on it applies from then on; earlier times can be evaluated with “Re-examine”.
 - **⚙ Level & threshold**: own settings for this device only.
 - **📏 Own reference lines**: e.g. “TV −70 dB”, shown in all charts of this device.
 - **Log lists**: assign disturbances of this device to a list automatically, optionally only at certain times.
