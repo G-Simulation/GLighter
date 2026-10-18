@@ -1137,8 +1137,9 @@ def group_opts(items):
 
 
 def mqtt_form_state():
-    pub(f"{TOPIC}/notiz", FORM["text"], True)
-    pub(f"{TOPIC}/zeuge", FORM["witness"], True)
+    # Leerer Text darf nicht „retained“ sein (das löscht nur die gespeicherte Nachricht) – dann gewöhnlich senden
+    pub(f"{TOPIC}/notiz", FORM["text"], bool(FORM["text"]))
+    pub(f"{TOPIC}/zeuge", FORM["witness"], bool(FORM["witness"]))
     for g, slug in GROUP_SLUG.items():
         pub(f"{TOPIC}/{slug}", FORM["pick"].get(g) or NONE_OPT, True)
 
@@ -1225,8 +1226,20 @@ def mqtt_announce(client=None, *_):
     mqtt_form_state()
     mqtt_notes()
     if hasattr(c, "subscribe") and client is not None:
-        c.subscribe([(f"{TOPIC}/+/set", 0)])
+        c.subscribe([(f"{TOPIC}/+/set", 0), ("homeassistant/status", 0)])
         MQ["ok"] = True
+        mqtt_states_soon()
+
+
+def mqtt_states_soon(delay=3.0):
+    """Zustände kurz nach der Anmeldung noch einmal senden – Home Assistant abonniert neue Entitäten erst danach."""
+    def go():
+        pub(f"{TOPIC}/schnellwahl", MQ["sel"], True)
+        mqtt_form_state()
+        mqtt_notes()
+    t = threading.Timer(delay, go)
+    t.daemon = True
+    t.start()
 
 
 def form_save(by="homeassistant"):
@@ -1259,6 +1272,11 @@ def mqtt_cmd(topic, raw):
         r = note_change("add", {"tags": [key], "from": now_iso()}, by="homeassistant")
         log("Notiz aus Home Assistant:", MQ["sel"], "ok" if r.get("ok") else r.get("error"))
         return r
+    if topic == "homeassistant/status":                      # Home Assistant neu gestartet: alles noch einmal ansagen
+        if raw == "online":
+            mqtt_announce()
+            mqtt_states_soon()
+        return None
     if topic == f"{TOPIC}/notiz/set":
         FORM["text"] = clean_text(raw, 255); pub(f"{TOPIC}/notiz", FORM["text"], True)
         return None
