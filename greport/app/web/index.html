@@ -14,6 +14,7 @@
     <div class="brand"><b data-i="title"></b><small>v{{VERSION}}</small></div>
     <span class="grow"></span>
     <span id="grstat" class="status"></span>
+    <button id="helpbtn" class="icon" type="button" data-ia="gr_help">?</button>
     <button id="themebtn" class="icon" type="button"></button>
     <button id="grmenu" class="icon" type="button" data-ia="gr_menu" aria-haspopup="true">⋯</button>
     <div id="grmenul" class="menu" role="menu" hidden></div>
@@ -106,6 +107,11 @@
   </section>
 </dialog>
 <input type="file" id="impf" accept=".txt,.csv,.json,.log,text/plain,text/csv,application/json" hidden>
+
+<dialog id="helpdlg" class="dlg wide">
+  <div class="dlghead"><h3 data-i="gr_help"></h3><button type="button" class="icon dlgx" data-ia="close">✕</button></div>
+  <div id="helpbody" class="help"></div>
+</dialog>
 
 <dialog id="prodlg" class="dlg">
   <div class="dlghead"><h3>⭐ <span data-i="pro_title"></span></h3><button type="button" class="icon dlgx" data-ia="close">✕</button></div>

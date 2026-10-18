@@ -61,6 +61,23 @@ def main():
             import re as _re
             if not _re.fullmatch(r"\d\d:\d\d", pg.locator("#capclock").inner_text().strip()) or not _re.fullmatch(r"\d{4}-\d\d-\d\d", pg.locator("#capdate").inner_text().strip()):
                 fails.append("Datums-/Zeitformat wirkt nicht: " + pg.locator("#capclock").inner_text() + " " + pg.locator("#capdate").inner_text())
+            pg.click("#fnptags .tag.add"); pg.wait_for_timeout(300)             # Pflicht-Gruppen: pulsieren, wenn alle gewählt
+            pg.locator("#qtlist .qtg.g-src .reqc input").check(); pg.wait_for_timeout(400)
+            pg.locator("#qtlist .qtg.g-kind .reqc input").check(); pg.wait_for_timeout(400)
+            pg.click("#qtdlg .dlgx"); pg.wait_for_timeout(200)
+            pg.click('#fnptags .tag[data-t="oben"]')
+            if "alldone" in (pg.locator("#fnpanel").get_attribute("class") or ""):
+                fails.append("Pflicht: leuchtet schon, obwohl „Was“ fehlt")
+            pg.click('#fnptags .tag[data-t="klopfen"]'); pg.wait_for_timeout(200)
+            if "alldone" not in (pg.locator("#fnpanel").get_attribute("class") or ""):
+                fails.append("Pflicht: leuchtet nicht, obwohl alles gewählt ist")
+            pg.click("#fnpsave"); pg.wait_for_timeout(600)
+            if "alldone" in (pg.locator("#fnpanel").get_attribute("class") or ""):
+                fails.append("Pflicht: Leuchten bleibt nach dem Speichern")
+            pg.click("#helpbtn"); pg.wait_for_timeout(300)
+            if pg.locator("#helpbody details").count() < 9 or "gr_h" in pg.locator("#helpbody").inner_text():
+                fails.append("Hilfe unvollständig")
+            pg.click("#helpdlg .dlgx")
             pg.click("#grmenu"); pg.wait_for_timeout(200)
             pg.locator("#grmenul button", has_text="Textdatei").click(); pg.wait_for_timeout(500)
             if not pg.locator("#txtdlg").is_visible() or not pg.locator("#txtpro").is_visible():

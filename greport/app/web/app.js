@@ -94,7 +94,7 @@ function ntsApply(j) {
   if (!j || !j.ok) return;
   if (j.tags) NOTE_TAGS = j.tags;
   NTS.own = {}; NTS.del = new Set(); for (const o of j.own || []) { NTS.own[o.k] = o.l; if (o.del) NTS.del.add(o.k); }
-  Object.assign(NTS, { hide: new Set(j.hide || []), use: j.use || {}, sug: j.suggest || [], max: j.own_max || 5, ren: j.ren || {}, grp: j.grp || {}, order: j.order || [], mode: j.mode || 'use', gcol: j.gcol || {} });
+  Object.assign(NTS, { hide: new Set(j.hide || []), use: j.use || {}, sug: j.suggest || [], max: j.own_max || 5, ren: j.ren || {}, grp: j.grp || {}, order: j.order || [], mode: j.mode || 'use', gcol: j.gcol || {}, req: new Set(j.req || []) });
   gcolApply();
 }
 const G_DEF = { src: '#0c8a6a', kind: '#d6336c', lvl: '#e67700', eff: '#6741d9', act: '#1c6fd6', misc: '#5f6b78', own: '#a61e4d' };
@@ -133,7 +133,7 @@ function fnpTags() {
   if (w) h += `<div class="sugline">💡 ${esc(t('qt_sug', { w: w.w, n: w.n }))} <button type="button" class="sugy">＋ ${esc(t('qt_create'))}</button><button type="button" class="sugn" aria-label="${esc(t('qt_sug_no'))}">✕</button></div>`;
   for (const g of GROUPS) {
     const ks = by[g] || []; if (!ks.length && g !== 'own') continue;
-    h += `<div class="grp"><span>${esc(t('gr_g_' + g))}</span><div>${ks.map(k => tagBtn(k, FNP.tags.has(k))).join('')}${g === 'own' ? `<button type="button" class="tag add">＋ ${esc(t('qt_add'))}</button>` : ''}</div></div>`;
+    h += `<div class="grp${NTS.req && NTS.req.has(g) ? ' req' : ''}" data-g="${g}"><span>${esc(t('gr_g_' + g))}${NTS.req && NTS.req.has(g) ? '<i class="reqm" title="' + esc(t('gr_req_tip')) + '"> *</i>' : ''}</span><div>${ks.map(k => tagBtn(k, FNP.tags.has(k))).join('')}${g === 'own' ? `<button type="button" class="tag add">＋ ${esc(t('qt_add'))}</button>` : ''}</div></div>`;
   }
   box.innerHTML = h;
   box.querySelectorAll('.grp>div').forEach(row => {          // Handy: Hinweis rechts, solange die Zeile weitergeht
@@ -141,15 +141,24 @@ function fnpTags() {
     row.addEventListener('scroll', upd, { passive: true }); requestAnimationFrame(upd);
   });
   box.querySelectorAll('.tag[data-t]').forEach(b => {
-    b.onclick = () => { const k = b.dataset.t; FNP.tags.has(k) ? FNP.tags.delete(k) : FNP.tags.add(k); b.classList.toggle('on', FNP.tags.has(k)); b.setAttribute('aria-pressed', FNP.tags.has(k)); fnpStart(); };
+    b.onclick = () => { const k = b.dataset.t; FNP.tags.has(k) ? FNP.tags.delete(k) : FNP.tags.add(k); b.classList.toggle('on', FNP.tags.has(k)); b.setAttribute('aria-pressed', FNP.tags.has(k)); fnpStart(); reqCheck(); };
     b.oncontextmenu = e => { e.preventDefault(); qtOpen(b.dataset.t); };
     let lp = 0; b.addEventListener('touchstart', () => { lp = setTimeout(() => { lp = -1; qtOpen(b.dataset.t); }, 600); }, { passive: true });
     b.addEventListener('touchend', e => { if (lp === -1) e.preventDefault(); clearTimeout(lp); });
     b.addEventListener('touchmove', () => clearTimeout(lp), { passive: true });
   });
   const ad = box.querySelector('.tag.add'); if (ad) ad.onclick = () => qtOpen();
+  reqCheck();
   const sy = box.querySelector('.sugy'); if (sy) sy.onclick = async () => { try { const j = await ntsPost({ action: 'add', l: w.w }); if (j.k) { FNP.tags.add(j.k); fnpTags(); } } catch (e) { alert(e.message); } };
   const sn = box.querySelector('.sugn'); if (sn) sn.onclick = () => ntsPost({ action: 'nope', w: w.k }).catch(e => alert(e.message));
+}
+function reqCheck() {                                 // alle Pflicht-Gruppen gewählt: gewählte Tasten und „Speichern“ leuchten pulsierend auf (gespeichert wird immer)
+  const req = [...(NTS.req || [])], pn = $('fnpanel'); if (!pn) return;
+  const have = new Set([...FNP.tags].map(ntGroup));
+  pn.querySelectorAll('.grp.req').forEach(r => r.classList.toggle('done', have.has(r.dataset.g)));
+  const all = req.length > 0 && req.every(g => have.has(g)), was = pn.classList.contains('alldone');
+  pn.classList.toggle('alldone', all);
+  if (all && !was) { const m = $('fnpmsg'); if (m && !m.textContent) { m.className = 'msg'; m.textContent = '✓ ' + t('gr_req_done'); setTimeout(() => { if (m.textContent === '✓ ' + t('gr_req_done')) m.textContent = ''; }, 3000); } }
 }
 function witList() {                                   // Pro: gespeicherte Personen zum Antippen (mehrere Zeugen)
   const box = $('fnpwitl'); if (!box) return; box.innerHTML = '';
@@ -174,7 +183,7 @@ function fnpReset() {
   FNP.from = null; FNP.tags = new Set(); FNP.edit = null; FNP.fixed = false;
   $('fnptext').value = ''; $('fnpwit').value = ''; $('fnpfromi').value = ''; $('fnptoi').value = ''; $('fnprun').checked = false;
   $('fnpcancel').hidden = true; $('fnpsave').textContent = t('save'); $('fnpanel').classList.remove('editing');
-  timeEdit(false); fnpTags(); fnpShow(); listDraw();
+  timeEdit(false); fnpTags(); fnpShow(); listDraw(); reqCheck();
 }
 function timeEdit(open) {
   $('fnpext').hidden = !open; $('fnptimebtn').setAttribute('aria-expanded', String(open));
@@ -331,7 +340,9 @@ function qtDraw(focus) {
   for (const g of GROUPS) {
     const ks = by[g] || []; if (!ks.length) continue;
     const sec = el('div', { className: 'qtg g-' + g }); const gc = (NTS.gcol || {})[g];
-    sec.innerHTML = `<h4>${esc(t('gr_g_' + g))}<input type="color" value="${esc(gc || G_DEF[g])}" aria-label="${esc(t('gr_gcol', { g: t('gr_g_' + g) }))}" title="${esc(t('gr_gcol', { g: t('gr_g_' + g) }))}">${gc ? `<button type="button" class="gcr" title="${esc(t('gr_gcol_reset'))}" aria-label="${esc(t('gr_gcol_reset'))}">↺</button>` : ''}</h4>`;
+ const rq = NTS.req && NTS.req.has(g);
+    sec.innerHTML = `<h4>${esc(t('gr_g_' + g))}<label class="reqc" title="${esc(t('gr_req_tip'))}"><input type="checkbox"${rq ? ' checked' : ''}> ${esc(t('gr_req'))}</label><input type="color" value="${esc(gc || G_DEF[g])}" aria-label="${esc(t('gr_gcol', { g: t('gr_g_' + g) }))}" title="${esc(t('gr_gcol', { g: t('gr_g_' + g) }))}">${gc ? `<button type="button" class="gcr" title="${esc(t('gr_gcol_reset'))}" aria-label="${esc(t('gr_gcol_reset'))}">↺</button>` : ''}</h4>`;
+    sec.querySelector('.reqc input').onchange = e => ntsPost({ action: 'req', g, on: e.target.checked }).then(() => qtDraw()).catch(x => alert(x.message));
     const ci = sec.querySelector('input[type=color]');
     ci.addEventListener('input', () => { NTS.gcol = Object.assign({}, NTS.gcol, { [g]: ci.value }); gcolApply(); });
     ci.addEventListener('change', () => ntsPost({ action: 'gcol', g, c: ci.value }).then(() => qtDraw()).catch(e => alert(e.message)));
@@ -448,6 +459,12 @@ function initTxt() {
   document.getElementById('impprev').onclick = async () => impShow(await post('import', impBody(false)).catch(() => ({ ok: false })));
   document.getElementById('impgo').onclick = async () => { const r = await post('import', impBody(true)).catch(() => ({ ok: false })); impShow(r); if (r.ok) { ntsLoad(); listLoad(); } };
 }
+/* ---------- Kleine Hilfe ---------- */
+const HELP = ['now', 'tags', 'req', 'time', 'list', 'ha', 'gl', 'txt', 'pro'];
+function helpOpen() {
+  document.getElementById('helpbody').innerHTML = HELP.map(k => `<details${k === 'now' ? ' open' : ''}><summary>${esc(t('gr_h_' + k))}</summary><p>${esc(t('gr_h_' + k + '_t'))}</p></details>`).join('');
+  document.getElementById('helpdlg').showModal();
+}
 /* ---------- Menü ---------- */
 function menu() {
   const m = document.getElementById('grmenul');
@@ -457,7 +474,7 @@ function menu() {
     ['⤓', t('gr_backup'), () => { location.href = 'backup'; }],
     ['📄', t('gr_txt_title'), txtOpen, lock],
     ['👤', t('gr_persons'), () => PRO() ? perOpen() : proOpen(), lock], null,
-    ['⭐', PRO() ? t('gr_pro_on') : t('gr_pro_get'), proOpen]];
+    ['?', t('gr_help'), helpOpen], ['⭐', PRO() ? t('gr_pro_on') : t('gr_pro_get'), proOpen]];
   m.innerHTML = '';
   for (const it of items) {
     if (!it) { m.appendChild(el('hr')); continue; }
@@ -505,6 +522,7 @@ async function init() {
   document.getElementById('themebtn').onclick = () => { THEME = THEME === 'auto' ? 'light' : THEME === 'light' ? 'dark' : 'auto'; try { localStorage.setItem('gr_theme', THEME); } catch (e) { } applyTheme(); };
   setInterval(() => { if (THEME === 'auto') applyTheme(); }, 4000);
   document.getElementById('grmenu').onclick = e => { e.stopPropagation(); menu(); };
+  document.getElementById('helpbtn').onclick = helpOpen;
   document.addEventListener('click', e => { const m = document.getElementById('grmenul'); if (!m.hidden && !e.target.closest('#grmenul')) m.hidden = true; });
   document.addEventListener('keydown', e => { if (e.key === 'Escape') document.getElementById('grmenul').hidden = true; });
   let qt = 0; document.getElementById('grq').addEventListener('input', e => { clearTimeout(qt); qt = setTimeout(() => { LST.q = e.target.value; listLoad(); }, 250); });

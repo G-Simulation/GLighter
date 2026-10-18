@@ -71,6 +71,16 @@ button,input,select,textarea{font:inherit;color:inherit}
 .sugline{font-size:13px;color:var(--mut);display:flex;gap:6px;align-items:center;flex-wrap:wrap}
 .sugline button{border:1px solid var(--line);background:var(--card);border-radius:999px;padding:2px 10px;cursor:pointer;font-size:12.5px}
 
+/* Pflicht-Gruppen: Sternchen; sind alle gewählt, pulsieren die gewählten Tasten und „Speichern“ */
+.reqm{font-style:normal;color:var(--warn);font-weight:700}
+.grp.req.done .reqm{color:var(--ok)}
+@keyframes grpulse{0%,100%{box-shadow:0 0 0 0 color-mix(in srgb,var(--gc) 0%,transparent)}50%{box-shadow:0 0 0 6px color-mix(in srgb,var(--gc) 35%,transparent),0 0 14px 2px color-mix(in srgb,var(--gc) 45%,transparent)}}
+@keyframes grpulse2{0%,100%{box-shadow:0 0 0 0 color-mix(in srgb,var(--acc) 0%,transparent)}50%{box-shadow:0 0 0 6px color-mix(in srgb,var(--acc) 30%,transparent),0 0 16px 3px color-mix(in srgb,var(--acc) 45%,transparent)}}
+.capture.alldone .grp.req .tag.on{animation:grpulse 1.6s ease-in-out infinite}
+.capture.alldone #fnpsave{animation:grpulse2 1.6s ease-in-out infinite}
+.qtg h4 .reqc{display:inline-flex;align-items:center;gap:4px;font-weight:400;font-size:12px;color:var(--mut);margin-left:4px;cursor:pointer}.qtg h4 .reqc input{accent-color:var(--acc)}
+@media(prefers-reduced-motion:reduce){.capture.alldone .grp.req .tag.on,.capture.alldone #fnpsave{animation:none;box-shadow:0 0 0 3px color-mix(in srgb,var(--gc,var(--acc)) 40%,transparent)}}
+
 /* Zeuge, Zeit */
 .witrow{display:flex;align-items:center;gap:8px;flex-wrap:wrap}
 .witicon{width:22px;text-align:center}
@@ -160,6 +170,13 @@ button,input,select,textarea{font:inherit;color:inherit}
 .qtr .b button:hover{background:var(--soft);color:var(--ink)}
 .toast{position:fixed;left:50%;bottom:22px;transform:translateX(-50%) translateY(20px);opacity:0;background:var(--ink);color:var(--card);padding:9px 16px;border-radius:10px;transition:.2s;z-index:50;pointer-events:none}
 .toast.on{opacity:1;transform:translateX(-50%)}
+
+/* Hilfe */
+.help{display:grid;gap:4px;margin-top:6px}
+.help details{border-bottom:1px solid var(--line);padding:6px 2px}
+.help summary{cursor:pointer;font-weight:600;font-size:14.5px;padding:4px 0}
+.help p{margin:4px 0 8px;color:var(--ink);font-size:14px;line-height:1.55;max-width:68ch}
+#helpbtn{font-weight:700}
 
 /* abgedockt */
 body.pop{background:var(--bg);margin:0}

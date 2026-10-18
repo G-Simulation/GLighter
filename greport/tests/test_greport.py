@@ -73,6 +73,11 @@ class Notizen(unittest.TestCase):
         self.assertEqual(G.qt_change({"action": "gcol", "g": "src", "c": ""})["gcol"], {})
         self.assertFalse(G.qt_change({"action": "gcol", "g": "xyz", "c": "#000000"})["ok"])
 
+    def test_pflicht_gruppen(self):
+        self.assertEqual(G.qt_change({"action": "req", "g": "src", "on": True})["req"], ["src"])
+        self.assertEqual(G.qt_change({"action": "req", "g": "src", "on": False})["req"], [])
+        self.assertTrue(G.note_change("add", {"text": "trotzdem"})["ok"])     # gespeichert wird immer
+
     def test_datum_uhrzeit(self):
         d = G.dt.datetime(2026, 10, 18, 5, 7, 9)
         self.assertEqual(G.fmt_date(d, dict(G.PREF_DEF)), "18.10.2026")

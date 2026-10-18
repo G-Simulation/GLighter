@@ -1,5 +1,7 @@
 # GReport
 
+Eine kurze Hilfe gibt es auch in der App: „?“ oben rechts.
+
 ## Notiz jetzt
 Oben steht groß die Uhrzeit – sie wird mit der Notiz festgehalten. Text eintippen (Enter speichert, Alt+Enter neue Zeile) oder Tasten der Schnellwahl antippen. Ohne Text bildet GReport aus den Tasten einen Satz, z. B. „Deutliche Schritte von oben“. Der Zeitpunkt ist der Moment des ersten Tastendrucks; unter „🕒 jetzt · Zeit ändern“ lassen sich von und bis von Hand setzen, „läuft noch“ setzt bis = beim Speichern. Mit ⧉ wird der Notizbereich als kleines Fenster abgedockt.
 
@@ -8,6 +10,7 @@ Oben steht groß die Uhrzeit – sie wird mit der Notiz festgehalten. Text einti
 - **Umbenennen:** jedes Wort, auch die eingebauten. Alte Notizen behalten ihre Zuordnung, nur die Beschriftung ändert sich.
 - **Gruppe:** Woher, Was, Wie stark, Folgen, Maßnahmen, Sonstiges oder Eigene – davon hängt die Farbe ab.
 - **Farbe der Gruppe:** Farbfeld neben der Gruppenüberschrift; gilt für alle Wörter der Gruppe, ↺ = Standardfarbe.
+- **Pflicht:** Häkchen neben der Gruppe – sie bekommt ein Sternchen. Sind alle Pflicht-Gruppen gewählt, leuchten die Tasten und „Speichern“ pulsierend auf. Gespeichert wird trotzdem immer.
 - **Reihenfolge:** „Nach Gebrauch“ (häufige Wörter nach vorne) oder „Fest angeordnet“ (ziehen oder ▲▼).
 - **Zeigen:** Häkchen weg blendet ein Wort aus (auch in Home Assistant).
 - **Auf Standard zurücksetzen:** eingebaute Wörter, Gruppen und Reihenfolge; eigene Wörter bleiben.

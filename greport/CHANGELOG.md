@@ -1,5 +1,9 @@
 # Changelog
 
+## 1.4.0
+- **Pflicht-Gruppen:** In „Schnellwahl verwalten“ lässt sich jede Gruppe als „Pflicht“ markieren, sie bekommt ein Sternchen. Sind in allen Pflicht-Gruppen Tasten gewählt, leuchten diese und „Speichern“ pulsierend auf („Alles Wichtige gewählt“). Das ist nur ein Hinweis, gespeichert wird immer. Wer weniger Bewegung eingestellt hat, sieht einen ruhigen Rand statt des Pulsierens.
+- **Kleine Hilfe:** „?“ oben oder ⋯ → Hilfe. Kurz erklärt sind Notiz jetzt, Schnellwahl, Pflicht-Gruppen, Zeit, Liste, Home Assistant, GLighter, Textdatei und Pro.
+
 ## 1.3.0
 - **Farbe pro Gruppe:** In „Schnellwahl verwalten“ hat jede Gruppe (Woher, Was, Wie stark …) neben der Überschrift ein Farbfeld. Die Farbe gilt für alle Wörter der Gruppe: in „Notiz jetzt“, in der Liste und bei den Filtern. Mit ↺ kommt die Standardfarbe zurück. Im dunklen Modus wird die Farbe etwas aufgehellt.
 
