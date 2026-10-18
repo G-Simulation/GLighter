@@ -31,7 +31,7 @@ WEB = os.path.join(HERE, "web")
 sys.path.insert(0, HERE)
 import lizenz  # noqa: E402
 
-VERSION = "1.2.1"
+VERSION = "1.3.0"
 BRAND = "GReport"
 OPTIONS = os.environ.get("GR_OPTIONS", "/data/options.json")
 PRIV = os.environ.get("GR_PRIVATE", "/data")                    # nur für GReport (Pro-Schlüssel)
@@ -164,7 +164,7 @@ def qt_all():
         if QT["data"] is None:
             d = read_json(qt_path(), {})
             QT["data"] = d if isinstance(d, dict) else {}
-        for k in ("own", "hide", "use", "words", "nope", "ren", "grp"):
+        for k in ("own", "hide", "use", "words", "nope", "ren", "grp", "gcol"):
             if not isinstance(QT["data"].get(k), dict):
                 QT["data"][k] = {}
         if not isinstance(QT["data"].get("order"), list):
@@ -245,6 +245,7 @@ def qt_state():
         return {"ok": True, "tags": NOTE_TAGS, "own_max": own_max(), "pro": pro_ok(), "groups": GROUPS,
                 "ren": {k: v for k, v in d["ren"].items() if k in NOTE_TAG_SET and v}, "grp": {k: v for k, v in d["grp"].items() if v in GROUPS},
                 "order": [k for k in d["order"] if tag_known(k)], "mode": d["mode"],
+                "gcol": {g: c for g, c in d["gcol"].items() if g in GROUPS and re.fullmatch(r"#[0-9a-fA-F]{6}", str(c))},
                 "own": [{"k": k, "l": o.get("l") or k, "del": bool(o.get("del"))} for k, o in d["own"].items() if isinstance(o, dict)],
                 "hide": sorted(k for k, v in d["hide"].items() if v and k in NOTE_TAG_SET),
                 "use": {k: int(v or 0) for k, v in d["use"].items() if isinstance(v, (int, float))},
@@ -280,6 +281,16 @@ def qt_change(data):
             if keys is None:
                 return {"ok": False, "error": "bad request"}
             d["order"] = list(dict.fromkeys(keys))[:200]; d["mode"] = "fixed"
+            qt_save()
+            return qt_state()
+        if a == "gcol":                                       # Farbe einer Gruppe (leer = Standardfarbe)
+            g, c = data.get("g"), str(data.get("c") or "")
+            if g not in GROUPS:
+                return {"ok": False, "error": "not found"}
+            if re.fullmatch(r"#[0-9a-fA-F]{6}", c):
+                d["gcol"][g] = c.lower()
+            else:
+                d["gcol"].pop(g, None)
             qt_save()
             return qt_state()
         if a == "mode":

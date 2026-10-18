@@ -42,8 +42,12 @@ def main():
             pg.fill("#qtnew", "Waschmaschine"); pg.click("#qtaddok"); pg.wait_for_timeout(500)
             r = pg.locator('#qtlist .qtr[data-k="musik"] input[type=text]'); r.fill("Bass"); r.press("Enter"); pg.wait_for_timeout(500)
             pg.click('#qtlist .qtr[data-k="unten"] .up'); pg.wait_for_timeout(500)
+            pg.locator('#qtlist .qtg.g-src h4 input[type=color]').evaluate("e => { e.value = '#ff0000'; e.dispatchEvent(new Event('input')); e.dispatchEvent(new Event('change')); }"); pg.wait_for_timeout(600)
             pg.click("#qtdlg .dlgx"); pg.wait_for_timeout(300)
             txt = pg.locator("#fnptags").inner_text()
+            gc = pg.locator('#fnptags .tag[data-t="oben"]').evaluate("e => getComputedStyle(e).getPropertyValue('--gc').trim()")
+            if gc.lower() not in ("#ff0000", "rgb(255, 0, 0)"):
+                fails.append("Gruppenfarbe wirkt nicht: " + gc)
             if "Waschmaschine" not in txt or "Bass" not in txt or "Musik/Bass" in txt:
                 fails.append("eigenes Wort oder Umbenennen wirkt nicht")
             src_ = [x.get_attribute("data-t") for x in pg.locator("#fnptags .grp >> nth=0").locator(".tag[data-t]").all()]

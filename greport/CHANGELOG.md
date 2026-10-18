@@ -1,5 +1,8 @@
 # Changelog
 
+## 1.3.0
+- **Farbe pro Gruppe:** In „Schnellwahl verwalten“ hat jede Gruppe (Woher, Was, Wie stark …) neben der Überschrift ein Farbfeld. Die Farbe gilt für alle Wörter der Gruppe: in „Notiz jetzt“, in der Liste und bei den Filtern. Mit ↺ kommt die Standardfarbe zurück. Im dunklen Modus wird die Farbe etwas aufgehellt.
+
 ## 1.2.1
 - Schnellwahl: Am PC und im abgedockten Fenster brechen die Tasten wieder in die nächste Zeile um, statt rechts abgeschnitten zu werden. Nur auf Handys mit Touch bleibt je Gruppe eine Zeile zum Wischen, mit einem Pfeil rechts, solange es weitergeht.
 

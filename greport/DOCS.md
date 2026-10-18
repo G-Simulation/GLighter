@@ -7,6 +7,7 @@ Oben steht groß die Uhrzeit – sie wird mit der Notiz festgehalten. Text einti
 ⋯ → **Schnellwahl verwalten** (oder **＋ Eigene**, Rechtsklick bzw. lange auf ein Wort drücken):
 - **Umbenennen:** jedes Wort, auch die eingebauten. Alte Notizen behalten ihre Zuordnung, nur die Beschriftung ändert sich.
 - **Gruppe:** Woher, Was, Wie stark, Folgen, Maßnahmen, Sonstiges oder Eigene – davon hängt die Farbe ab.
+- **Farbe der Gruppe:** Farbfeld neben der Gruppenüberschrift; gilt für alle Wörter der Gruppe, ↺ = Standardfarbe.
 - **Reihenfolge:** „Nach Gebrauch“ (häufige Wörter nach vorne) oder „Fest angeordnet“ (ziehen oder ▲▼).
 - **Zeigen:** Häkchen weg blendet ein Wort aus (auch in Home Assistant).
 - **Auf Standard zurücksetzen:** eingebaute Wörter, Gruppen und Reihenfolge; eigene Wörter bleiben.

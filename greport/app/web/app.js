@@ -94,7 +94,15 @@ function ntsApply(j) {
   if (!j || !j.ok) return;
   if (j.tags) NOTE_TAGS = j.tags;
   NTS.own = {}; NTS.del = new Set(); for (const o of j.own || []) { NTS.own[o.k] = o.l; if (o.del) NTS.del.add(o.k); }
-  Object.assign(NTS, { hide: new Set(j.hide || []), use: j.use || {}, sug: j.suggest || [], max: j.own_max || 5, ren: j.ren || {}, grp: j.grp || {}, order: j.order || [], mode: j.mode || 'use' });
+  Object.assign(NTS, { hide: new Set(j.hide || []), use: j.use || {}, sug: j.suggest || [], max: j.own_max || 5, ren: j.ren || {}, grp: j.grp || {}, order: j.order || [], mode: j.mode || 'use', gcol: j.gcol || {} });
+  gcolApply();
+}
+const G_DEF = { src: '#0c8a6a', kind: '#d6336c', lvl: '#e67700', eff: '#6741d9', act: '#1c6fd6', misc: '#5f6b78', own: '#a61e4d' };
+function gcolApply() {                                 // eigene Gruppenfarben als CSS-Variablen (auch im abgedockten Fenster)
+  for (const doc of [document, FNPOP && !FNPOP.closed ? FNPOP.document : null]) {
+    if (!doc) continue; const r = doc.documentElement.style;
+    for (const g of GROUPS) { const c = (NTS.gcol || {})[g]; if (c) { r.setProperty('--u-' + g, c); r.setProperty('--ud-' + g, `color-mix(in srgb, ${c} 72%, #fff)`); } else { r.removeProperty('--u-' + g); r.removeProperty('--ud-' + g); } }
+  }
 }
 async function ntsLoad() { try { ntsApply(await (await fetch('notetags', { cache: 'no-store' })).json()); } catch (e) { } fnpTags(); }
 async function ntsPost(body) {
@@ -242,7 +250,7 @@ async function fnPop() {
   const parent = panel.parentNode, next = panel.nextSibling;
   const ph = el('div', { className: 'popph' }); const pb = el('button', { type: 'button', className: 'btn', textContent: t('pop_back') });
   ph.append(el('span', { textContent: '📝 ' + t('pop_open'), className: 'grow' }), pb); parent.insertBefore(ph, panel);
-  doc.body.appendChild(panel); FNPOP = w;
+  doc.body.appendChild(panel); FNPOP = w; gcolApply();
   const back = () => { if (FNPOP !== w) return; FNPOP = null; ph.remove(); try { parent.insertBefore(panel, next && next.parentNode === parent ? next : null); } catch (e) { parent.appendChild(panel); } };
   pb.onclick = () => { try { w.close(); } catch (e) { } back(); };
   w.addEventListener('pagehide', back);
@@ -322,7 +330,12 @@ function qtDraw(focus) {
   const all = ntOrdered(ntAll()), by = {}; for (const k of all) (by[ntGroup(k)] = by[ntGroup(k)] || []).push(k);
   for (const g of GROUPS) {
     const ks = by[g] || []; if (!ks.length) continue;
-    const sec = el('div', { className: 'qtg g-' + g }); sec.innerHTML = `<h4>${esc(t('gr_g_' + g))}</h4>`;
+    const sec = el('div', { className: 'qtg g-' + g }); const gc = (NTS.gcol || {})[g];
+    sec.innerHTML = `<h4>${esc(t('gr_g_' + g))}<input type="color" value="${esc(gc || G_DEF[g])}" aria-label="${esc(t('gr_gcol', { g: t('gr_g_' + g) }))}" title="${esc(t('gr_gcol', { g: t('gr_g_' + g) }))}">${gc ? `<button type="button" class="gcr" title="${esc(t('gr_gcol_reset'))}" aria-label="${esc(t('gr_gcol_reset'))}">↺</button>` : ''}</h4>`;
+    const ci = sec.querySelector('input[type=color]');
+    ci.addEventListener('input', () => { NTS.gcol = Object.assign({}, NTS.gcol, { [g]: ci.value }); gcolApply(); });
+    ci.addEventListener('change', () => ntsPost({ action: 'gcol', g, c: ci.value }).then(() => qtDraw()).catch(e => alert(e.message)));
+    const cr = sec.querySelector('.gcr'); if (cr) cr.onclick = () => ntsPost({ action: 'gcol', g, c: '' }).then(() => qtDraw());
     const rows = el('div', { className: 'qtrows' });
     for (const k of ks) {
       const own = NTS.own[k] != null, off = NTS.hide.has(k);

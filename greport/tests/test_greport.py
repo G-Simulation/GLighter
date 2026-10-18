@@ -68,6 +68,11 @@ class Notizen(unittest.TestCase):
         G.qt_change({"action": "reset"})
         st = G.qt_state(); self.assertEqual(st["ren"], {}); self.assertEqual(st["mode"], "use"); self.assertEqual(st["grp"][k], "kind")   # eigene bleiben
 
+    def test_gruppenfarbe(self):
+        self.assertEqual(G.qt_change({"action": "gcol", "g": "src", "c": "#FF8800"})["gcol"], {"src": "#ff8800"})
+        self.assertEqual(G.qt_change({"action": "gcol", "g": "src", "c": ""})["gcol"], {})
+        self.assertFalse(G.qt_change({"action": "gcol", "g": "xyz", "c": "#000000"})["ok"])
+
     def test_datum_uhrzeit(self):
         d = G.dt.datetime(2026, 10, 18, 5, 7, 9)
         self.assertEqual(G.fmt_date(d, dict(G.PREF_DEF)), "18.10.2026")
