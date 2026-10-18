@@ -94,7 +94,7 @@ function ntsApply(j) {
   if (!j || !j.ok) return;
   if (j.tags) NOTE_TAGS = j.tags;
   NTS.own = {}; NTS.del = new Set(); for (const o of j.own || []) { NTS.own[o.k] = o.l; if (o.del) NTS.del.add(o.k); }
-  Object.assign(NTS, { hide: new Set(j.hide || []), use: j.use || {}, sug: j.suggest || [], max: j.own_max || 5, ren: j.ren || {}, grp: j.grp || {}, order: j.order || [], mode: j.mode || 'use', gcol: j.gcol || {}, req: new Set(j.req || []) });
+  Object.assign(NTS, { hide: new Set(j.hide || []), use: j.use || {}, sug: j.suggest || [], max: j.own_max || 5, ren: j.ren || {}, grp: j.grp || {}, order: j.order || [], mode: j.mode || 'use', gcol: j.gcol || {}, req: new Set(j.req || []), limit: j.limit || 5, show: j.show || 0, proMax: j.pro_max || 200 });
   gcolApply();
 }
 const G_DEF = { src: '#0c8a6a', kind: '#d6336c', lvl: '#e67700', eff: '#6741d9', act: '#1c6fd6', misc: '#5f6b78', own: '#a61e4d' };
@@ -124,7 +124,7 @@ function ntVisible(sel) { return ntOrdered(ntAll().filter(k => !NTS.hide.has(k) 
 const tagBtn = (tg, on) => `<button type="button" class="tag g-${ntGroup(tg)}${on ? ' on' : ''}" data-t="${esc(tg)}" aria-pressed="${!!on}">${esc(ntLabel(tg))}</button>`;
 const tagMk = tg => `<span class="mk g-${ntGroup(tg)}">${esc(ntLabel(tg))}</span>`;
 /* ---------- Notiz jetzt ---------- */
-const FNP = { from: null, tags: new Set(), edit: null, fixed: false };
+const FNP = { from: null, tags: new Set(), edit: null, fixed: false, open: new Set() };
 function fnpTags() {
   const box = $('fnptags'); if (!box) return;
   const vis = ntVisible(FNP.tags), by = {}; for (const k of vis) (by[ntGroup(k)] = by[ntGroup(k)] || []).push(k);
@@ -133,7 +133,8 @@ function fnpTags() {
   if (w) h += `<div class="sugline">💡 ${esc(t('qt_sug', { w: w.w, n: w.n }))} <button type="button" class="sugy">＋ ${esc(t('qt_create'))}</button><button type="button" class="sugn" aria-label="${esc(t('qt_sug_no'))}">✕</button></div>`;
   for (const g of GROUPS) {
     const ks = by[g] || []; if (!ks.length && g !== 'own') continue;
-    h += `<div class="grp${NTS.req && NTS.req.has(g) ? ' req' : ''}" data-g="${g}"><span>${esc(t('gr_g_' + g))}${NTS.req && NTS.req.has(g) ? '<i class="reqm" title="' + esc(t('gr_req_tip')) + '"> *</i>' : ''}</span><div>${ks.map(k => tagBtn(k, FNP.tags.has(k))).join('')}${g === 'own' ? `<button type="button" class="tag add">＋ ${esc(t('qt_add'))}</button>` : ''}</div></div>`;
+    const lim = NTS.show > 0 && !FNP.open.has(g) ? NTS.show : 0, shown = lim ? ks.filter((k, i) => i < lim || FNP.tags.has(k)) : ks, hid = ks.length - shown.length;   // Pro: nur die ersten N je Gruppe
+    h += `<div class="grp${NTS.req && NTS.req.has(g) ? ' req' : ''}" data-g="${g}"><span>${esc(t('gr_g_' + g))}${NTS.req && NTS.req.has(g) ? '<i class="reqm" title="' + esc(t('gr_req_tip')) + '"> *</i>' : ''}</span><div>${shown.map(k => tagBtn(k, FNP.tags.has(k))).join('')}${hid > 0 ? `<button type="button" class="tag more" data-g="${g}">${esc(t('gr_more', { n: hid }))}</button>` : FNP.open.has(g) && NTS.show > 0 && ks.length > NTS.show ? `<button type="button" class="tag more less" data-g="${g}">${esc(t('gr_less'))}</button>` : ''}${g === 'own' ? `<button type="button" class="tag add">＋ ${esc(t('qt_add'))}</button>` : ''}</div></div>`;
   }
   box.innerHTML = h;
   box.querySelectorAll('.grp>div').forEach(row => {          // Handy: Hinweis rechts, solange die Zeile weitergeht
@@ -147,6 +148,7 @@ function fnpTags() {
     b.addEventListener('touchend', e => { if (lp === -1) e.preventDefault(); clearTimeout(lp); });
     b.addEventListener('touchmove', () => clearTimeout(lp), { passive: true });
   });
+  box.querySelectorAll('.tag.more').forEach(b => b.onclick = () => { const g = b.dataset.g; FNP.open.has(g) ? FNP.open.delete(g) : FNP.open.add(g); fnpTags(); });
   const ad = box.querySelector('.tag.add'); if (ad) ad.onclick = () => qtOpen();
   reqCheck();
   const sy = box.querySelector('.sugy'); if (sy) sy.onclick = async () => { try { const j = await ntsPost({ action: 'add', l: w.w }); if (j.k) { FNP.tags.add(j.k); fnpTags(); } } catch (e) { alert(e.message); } };
@@ -333,7 +335,13 @@ function qtDraw(focus) {
   const box = document.getElementById('qtlist'); box.innerHTML = '';
   document.querySelectorAll('#qtdlg .seg button').forEach(b => { const on = b.dataset.mode === NTS.mode; b.classList.toggle('on', on); b.setAttribute('aria-checked', String(on)); b.setAttribute('role', 'radio'); });
   const ownN = Object.keys(NTS.own).filter(k => !NTS.del.has(k)).length;
-  document.getElementById('qtinfo').textContent = (PRO() ? '' : t('gr_qt_free', { n: ownN, m: NTS.max }) + ' ') + t(NTS.mode === 'fixed' ? 'gr_mode_fixed_h' : 'gr_mode_use_h');
+  document.getElementById('qtinfo').textContent = (PRO() ? t('gr_qt_pro', { n: ownN, m: NTS.max }) + ' ' : t('gr_qt_free', { n: ownN, m: NTS.max }) + ' ') + t(NTS.mode === 'fixed' ? 'gr_mode_fixed_h' : 'gr_mode_use_h');
+  const lim = document.getElementById('qtlim');
+  lim.innerHTML = `<label>${esc(t('gr_lim_own'))} <input type="number" id="qtlimn" min="5" max="${NTS.proMax}" value="${NTS.limit}"${PRO() ? '' : ' disabled'}></label><label>${esc(t('gr_lim_show'))} <input type="number" id="qtshown" min="0" max="50" value="${NTS.show}"${PRO() ? '' : ' disabled'}></label>${PRO() ? '' : '<span>🔒 Pro</span>'}`;
+  if (PRO()) {
+    document.getElementById('qtlimn').onchange = e => ntsPost({ action: 'limit', n: +e.target.value }).then(() => qtDraw()).catch(x => alert(x.message));
+    document.getElementById('qtshown').onchange = e => ntsPost({ action: 'show', n: +e.target.value }).then(() => qtDraw()).catch(x => alert(x.message));
+  }
   const sg = document.getElementById('qtsug'); sg.innerHTML = NTS.sug.map(w => `<button type="button" class="chip" data-w="${esc(w.w)}">💡 ${esc(w.w)} (${w.n}×) ＋</button>`).join('');
   sg.querySelectorAll('button').forEach(b => b.onclick = () => ntsPost({ action: 'add', l: b.dataset.w }).then(() => qtDraw()).catch(e => alert(e.message)));
   const all = ntOrdered(ntAll()), by = {}; for (const k of all) (by[ntGroup(k)] = by[ntGroup(k)] || []).push(k);

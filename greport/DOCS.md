@@ -15,7 +15,7 @@ Oben steht groß die Uhrzeit – sie wird mit der Notiz festgehalten. Text einti
 - **Zeigen:** Häkchen weg blendet ein Wort aus (auch in Home Assistant).
 - **Auf Standard zurücksetzen:** eingebaute Wörter, Gruppen und Reihenfolge; eigene Wörter bleiben.
 
-Diese Wörter stehen auch in Home Assistant in der Auswahlliste „Schnellwahl“. Ohne Pro sind 5 eigene Wörter möglich, mit Pro 40.
+Diese Wörter stehen auch in Home Assistant in der Auswahlliste „Schnellwahl“. Ohne Pro sind 5 eigene Wörter möglich. Mit Pro stellst du unter „Eigene Tasten höchstens“ bis zu 200 ein (Standard 40), und unter „Je Gruppe zeigen“, wie viele Tasten je Gruppe sichtbar sind (der Rest hinter „+ mehr“, 0 = alle).
 
 ## Datum und Uhrzeit
 ⋯ → **Datum und Uhrzeit**: Datum (18.10.2026, 18.10.26, So. 18.10., 2026-10-18, 18. Okt. 2026), Uhrzeit (mit/ohne Sekunden, 12 Stunden), Wochentag davor, „Heute/Gestern“ in der Liste. Gilt in der App und in der Export-Tabelle.

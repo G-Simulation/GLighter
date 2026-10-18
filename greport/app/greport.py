@@ -31,7 +31,7 @@ WEB = os.path.join(HERE, "web")
 sys.path.insert(0, HERE)
 import lizenz  # noqa: E402
 
-VERSION = "1.4.0"
+VERSION = "1.5.0"
 BRAND = "GReport"
 OPTIONS = os.environ.get("GR_OPTIONS", "/data/options.json")
 PRIV = os.environ.get("GR_PRIVATE", "/data")                    # nur für GReport (Pro-Schlüssel)
@@ -207,8 +207,27 @@ def clean_tags(v):
     return list(dict.fromkeys(t for t in v if tag_ok(t)))[:12] if isinstance(v, list) else []
 
 
+QT_OWN_PRO_MAX = 200
+
+
 def own_max():
-    return QT_OWN_MAX if pro_ok() else QT_OWN_FREE
+    """Eigene Tasten: frei 5; mit Pro einstellbar (Standard 40, höchstens 200)."""
+    if not pro_ok():
+        return QT_OWN_FREE
+    try:
+        return max(QT_OWN_FREE, min(QT_OWN_PRO_MAX, int(qt_all().get("limit") or QT_OWN_MAX)))
+    except (TypeError, ValueError):
+        return QT_OWN_MAX
+
+
+def show_n():
+    """Pro: so viele Tasten je Gruppe zeigen (0 = alle), der Rest hinter „mehr“."""
+    if not pro_ok():
+        return 0
+    try:
+        return max(0, min(50, int(qt_all().get("show") or 0)))
+    except (TypeError, ValueError):
+        return 0
 
 
 def qt_learn(tags, text):
@@ -247,6 +266,7 @@ def qt_state():
                 "order": [k for k in d["order"] if tag_known(k)], "mode": d["mode"],
                 "gcol": {g: c for g, c in d["gcol"].items() if g in GROUPS and re.fullmatch(r"#[0-9a-fA-F]{6}", str(c))},
                 "req": sorted(g for g, v in d["req"].items() if v and g in GROUPS),
+                "limit": own_max(), "show": show_n(), "pro_max": QT_OWN_PRO_MAX,
                 "own": [{"k": k, "l": o.get("l") or k, "del": bool(o.get("del"))} for k, o in d["own"].items() if isinstance(o, dict)],
                 "hide": sorted(k for k, v in d["hide"].items() if v and k in NOTE_TAG_SET),
                 "use": {k: int(v or 0) for k, v in d["use"].items() if isinstance(v, (int, float))},
@@ -282,6 +302,16 @@ def qt_change(data):
             if keys is None:
                 return {"ok": False, "error": "bad request"}
             d["order"] = list(dict.fromkeys(keys))[:200]; d["mode"] = "fixed"
+            qt_save()
+            return qt_state()
+        if a in ("limit", "show"):                           # Pro: Anzahl eigener Tasten / Tasten je Gruppe
+            if not pro_ok():
+                return {"ok": False, "error": "pro"}
+            try:
+                n = int(data.get("n"))
+            except (TypeError, ValueError):
+                return {"ok": False, "error": "bad request"}
+            d[a] = max(QT_OWN_FREE, min(QT_OWN_PRO_MAX, n)) if a == "limit" else max(0, min(50, n))
             qt_save()
             return qt_state()
         if a == "req":                                        # Gruppe als „muss gewählt werden“ markieren (nur Hinweis, gespeichert wird immer)

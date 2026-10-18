@@ -78,6 +78,15 @@ class Notizen(unittest.TestCase):
         self.assertEqual(G.qt_change({"action": "req", "g": "src", "on": False})["req"], [])
         self.assertTrue(G.note_change("add", {"text": "trotzdem"})["ok"])     # gespeichert wird immer
 
+    def test_pro_anzahl(self):
+        self.assertEqual(G.qt_change({"action": "limit", "n": 80})["error"], "pro")
+        G.pro_ok = lambda: True
+        self.assertEqual(G.qt_change({"action": "limit", "n": 80})["limit"], 80)
+        self.assertEqual(G.qt_change({"action": "limit", "n": 9999})["limit"], 200)
+        self.assertEqual(G.qt_change({"action": "show", "n": 4})["show"], 4)
+        G.pro_ok = lambda: False
+        self.assertEqual(G.qt_state()["show"], 0); self.assertEqual(G.own_max(), 5)   # ohne Pro: alles zeigen, 5 eigene
+
     def test_datum_uhrzeit(self):
         d = G.dt.datetime(2026, 10, 18, 5, 7, 9)
         self.assertEqual(G.fmt_date(d, dict(G.PREF_DEF)), "18.10.2026")

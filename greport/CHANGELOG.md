@@ -1,5 +1,11 @@
 # Changelog
 
+## 1.5.0
+- **Dezentere Tasten:** Jede Taste hat jetzt einen dünnen Rahmen in der Farbe ihrer Gruppe, der Punkt davor entfällt. Gewählte Tasten sind leicht in der Gruppenfarbe getönt. Die Marken in der Liste sehen genauso aus.
+- **Neu (Pro), unter „Schnellwahl verwalten“:**
+  - **Eigene Tasten höchstens:** frei einstellbar von 5 bis 200, Standard 40.
+  - **Je Gruppe zeigen:** zum Beispiel nur die ersten 4 je Gruppe, der Rest steckt hinter „+2 mehr“. 0 heißt alle. Gewählte Tasten bleiben immer sichtbar.
+
 ## 1.4.0
 - **Pflicht-Gruppen:** In „Schnellwahl verwalten“ lässt sich jede Gruppe als „Pflicht“ markieren, sie bekommt ein Sternchen. Sind in allen Pflicht-Gruppen Tasten gewählt, leuchten diese und „Speichern“ pulsierend auf („Alles Wichtige gewählt“). Das ist nur ein Hinweis, gespeichert wird immer. Wer weniger Bewegung eingestellt hat, sieht einen ruhigen Rand statt des Pulsierens.
 - **Kleine Hilfe:** „?“ oben oder ⋯ → Hilfe. Kurz erklärt sind Notiz jetzt, Schnellwahl, Pflicht-Gruppen, Zeit, Liste, Home Assistant, GLighter, Textdatei und Pro.
