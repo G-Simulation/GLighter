@@ -142,7 +142,7 @@ function fnpTags() {
     row.addEventListener('scroll', upd, { passive: true }); requestAnimationFrame(upd);
   });
   box.querySelectorAll('.tag[data-t]').forEach(b => {
-    b.onclick = () => { const k = b.dataset.t; FNP.tags.has(k) ? FNP.tags.delete(k) : FNP.tags.add(k); b.classList.toggle('on', FNP.tags.has(k)); b.setAttribute('aria-pressed', FNP.tags.has(k)); fnpStart(); reqCheck(); };
+    b.onclick = () => { const k = b.dataset.t; FNP.tags.has(k) ? FNP.tags.delete(k) : FNP.tags.add(k); b.classList.toggle('on', FNP.tags.has(k)); b.setAttribute('aria-pressed', FNP.tags.has(k)); fnpStart(); reqCheck(); if (SECHIDE.size) secDraw(); };
     b.oncontextmenu = e => { e.preventDefault(); qtOpen(b.dataset.t); };
     let lp = 0; b.addEventListener('touchstart', () => { lp = setTimeout(() => { lp = -1; qtOpen(b.dataset.t); }, 600); }, { passive: true });
     b.addEventListener('touchend', e => { if (lp === -1) e.preventDefault(); clearTimeout(lp); });
@@ -185,7 +185,7 @@ function fnpReset() {
   FNP.from = null; FNP.tags = new Set(); FNP.edit = null; FNP.fixed = false;
   $('fnptext').value = ''; $('fnpwit').value = ''; $('fnpfromi').value = ''; $('fnptoi').value = ''; $('fnprun').checked = false;
   $('fnpcancel').hidden = true; $('fnpsave').textContent = t('save'); $('fnpanel').classList.remove('editing');
-  timeEdit(false); fnpTags(); fnpShow(); listDraw(); reqCheck();
+  timeEdit(false); fnpTags(); fnpShow(); listDraw(); reqCheck(); secDraw();
 }
 function timeEdit(open) {
   $('fnpext').hidden = !open; $('fnptimebtn').setAttribute('aria-expanded', String(open));
@@ -268,8 +268,22 @@ async function fnPop() {
   addEventListener('pagehide', () => { try { w.close(); } catch (e) { } });
   setTimeout(() => { const tx = doc.getElementById('fnptext'); if (tx) tx.focus(); }, 100);
 }
+/* Abschnitte von „Notiz jetzt“ ein- und ausblenden (auch abgedockt), gemerkt pro Browser */
+const SECS = [['txt', 'fnptext', 'fnp_p_txt'], ['tags', 'fnptags', 'fnp_p_tags'], ['wit', 'secwit', 'fnp_p_wit'], ['time', 'sectime', 'gr_p_ext']];
+let SECHIDE = new Set(); try { SECHIDE = new Set(JSON.parse(localStorage.getItem('gr_sechide') || '[]')); } catch (e) { }
+function secDraw() {
+  const bar = $('secbar'); if (!bar) return; bar.innerHTML = '';
+  for (const [k, id, l] of SECS) {
+    const off = SECHIDE.has(k), e = $(id); if (e) e.hidden = off;
+    const n = off && k === 'tags' && FNP.tags.size ? ' · ' + FNP.tags.size : off && k === 'wit' && $('fnpwit').value.trim() ? ' · 1' : '';
+    const b = el('button', { type: 'button', className: 'secb' + (off ? '' : ' on'), textContent: t(l) + n });
+    b.setAttribute('aria-pressed', String(!off)); b.title = t(off ? 'gr_sec_show' : 'gr_sec_hide', { s: t(l) });
+    b.onclick = () => { off ? SECHIDE.delete(k) : SECHIDE.add(k); try { localStorage.setItem('gr_sechide', JSON.stringify([...SECHIDE])); } catch (x) { } secDraw(); };
+    bar.appendChild(b);
+  }
+}
 function initFnp() {
-  fnpTags(); fnpShow();
+  fnpTags(); fnpShow(); secDraw();
   $('fnppop').onclick = fnPop;
   $('fnptext').addEventListener('input', () => { if ($('fnptext').value.trim()) fnpStart(); });
   $('fnpwit').addEventListener('input', () => { if ($('fnpwit').value.trim()) fnpStart(); });

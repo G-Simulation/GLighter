@@ -49,9 +49,15 @@ button,input,select,textarea{font:inherit;color:inherit}
 .capinfo{display:grid;flex:1;min-width:0;padding-left:14px;border-left:1px solid var(--line)}
 .capinfo b{font-size:15px}.capinfo small{color:var(--mut);font-size:12.5px}
 .capture.editing .capinfo b{color:var(--warn)}
-.capbody{padding:6px 18px 12px;display:grid;gap:12px}
+.capbody{padding:6px 18px 12px;display:grid;gap:12px;align-content:start}
 #fnptext{width:100%;min-height:64px;resize:vertical;border:1px solid var(--line);background:var(--soft);border-radius:var(--r2);padding:11px 13px;font-size:16px;line-height:1.45}
 #fnptext:focus{background:var(--card);border-color:var(--acc);outline:none;box-shadow:0 0 0 3px color-mix(in srgb,var(--acc) 18%,transparent)}
+
+/* Abschnitte ein-/ausblenden */
+.secbar{display:flex;gap:6px;flex-wrap:wrap;margin:-2px 0 0}
+.secb{border:1px solid var(--line);background:transparent;color:var(--mut);border-radius:999px;padding:2px 11px;font-size:12px;cursor:pointer;line-height:20px}
+.secb::before{content:"○ ";opacity:.8}.secb.on{color:var(--ink);border-color:color-mix(in srgb,var(--acc) 45%,var(--line))}.secb.on::before{content:"● ";color:var(--acc)}
+.secb:hover{border-color:var(--mut)}
 
 /* Schnellwahl nach Gruppen */
 .groups{display:grid;gap:7px}

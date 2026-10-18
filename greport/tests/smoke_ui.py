@@ -74,6 +74,12 @@ def main():
             pg.click("#fnpsave"); pg.wait_for_timeout(600)
             if "alldone" in (pg.locator("#fnpanel").get_attribute("class") or ""):
                 fails.append("Pflicht: Leuchten bleibt nach dem Speichern")
+            pg.locator("#secbar .secb >> nth=1").click(); pg.wait_for_timeout(200)       # Abschnitt Schnellwahl ausblenden
+            if pg.locator("#fnptags").is_visible():
+                fails.append("Abschnitt Schnellwahl lässt sich nicht ausblenden")
+            pg.locator("#secbar .secb >> nth=1").click(); pg.wait_for_timeout(200)
+            if not pg.locator("#fnptags").is_visible():
+                fails.append("Abschnitt Schnellwahl lässt sich nicht wieder einblenden")
             pg.click("#helpbtn"); pg.wait_for_timeout(300)
             if pg.locator("#helpbody details").count() < 9 or "gr_h" in pg.locator("#helpbody").inner_text():
                 fails.append("Hilfe unvollständig")

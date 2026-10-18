@@ -1,5 +1,9 @@
 # Changelog
 
+## 1.5.1
+- Behoben: Die Abschnitte von „Notiz jetzt“ lassen sich wieder ein- und ausblenden, auch im abgedockten Fenster. Dafür gibt es oben eine schmale Leiste mit Textfeld, Schnellwahl, Zeuge und Zeitraum. Ein ausgeblendeter Abschnitt zeigt, wie viel darin gewählt ist. Der Zustand wird pro Browser gemerkt.
+- Im abgedockten Fenster ziehen sich die Zeilen nicht mehr in die Höhe, wenn Abschnitte ausgeblendet sind.
+
 ## 1.5.0
 - **Dezentere Tasten:** Jede Taste hat jetzt einen dünnen Rahmen in der Farbe ihrer Gruppe, der Punkt davor entfällt. Gewählte Tasten sind leicht in der Gruppenfarbe getönt. Die Marken in der Liste sehen genauso aus.
 - **Neu (Pro), unter „Schnellwahl verwalten“:**
