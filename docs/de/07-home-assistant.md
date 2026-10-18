@@ -4,20 +4,44 @@ GLighter arbeitet mit Home Assistant zusammen: Regeln fragen Zustände ab (Ferns
 
 <a id="regeln"></a>
 
-## Regeln: pausieren oder festhalten
+## Regeln
 
-![Home-Assistant-Regel mit Name](../../gaslighter/app/web/hb/regeln_de.png)
+![Regel „Schwelle anheben“ als Karte](../../gaslighter/app/web/hb/regeln_de.png)
 
-⚙ Einstellungen → Zeiten & Pausen → **Home Assistant: pausieren oder festhalten** → **Regel hinzufügen**.
+⚙ Einstellungen → Reiter **Regeln** → **＋ Regel hinzufügen**. Zuerst wählst du, was die Regel tun soll, danach das Gerät aus der Liste (mit Suche). Zustände, Nachlauf und Höchstdauer werden passend vorbelegt. Keine Automation, kein YAML.
+
+| Art | Was passiert | Beispiel |
+|---|---|---|
+| 📈 **Schwelle anheben** (Pro) | Erkennung läuft weiter, nur unempfindlicher | eigener Fernseher, Sonos |
+| 🔕 **keine Störung melden** | Graph läuft weiter, keine Störung | Sprachassistent, eigene Tür |
+| ⏸ **pausieren** | in dieser Zeit nicht auswerten | Staubsauger |
+| 📝 **nur festhalten** | weiter aufnehmen und mitschreiben, wann es an war | Fernseher |
+| 🚩 **als Ereignis** | wie festhalten, dazu Fähnchen und eigene Zeile | Tür-, Vibrationssensor |
+
+Jede Regel ist eine **Karte**. Zugeklappt zeigt sie Name, Art, Gerät, den Zustand jetzt und einen Schalter (an/aus). Ein Klick klappt sie auf:
 
 | Feld | Bedeutung |
 |---|---|
-| Entität | z. B. `media_player.fernseher`, `binary_sensor.vibration_wand` |
-| Gerät | für welches Mikrofon die Regel gilt (oder alle) |
 | **Name** | Unter diesem Namen wird die Regel festgehalten, z. B. „Erschütterung Wand“. Leer = Name aus Home Assistant. |
-| Aktion | **nur festhalten** (weiter aufnehmen und mitschreiben, z. B. eigener Fernseher), **als Ereignis** (wie festhalten, zusätzlich eigene Zeile in der Ereignistabelle, z. B. Tür- oder Vibrationssensor) oder **pausieren** (in dieser Zeit nicht aufnehmen) |
-| an bei / pausieren bei | `on, playing` = einer davon, `!off` = alles außer off, `>1` = Zahl größer 1 |
-| Nachlauf, höchstens | nur bei „pausieren“: so lange danach weiter pausieren, Höchstdauer |
+| Aktion | die Art (oben), jederzeit änderbar |
+| Gerät (Home Assistant) | z. B. `media_player.fernseher`, `binary_sensor.vibration_wand` |
+| Für welches Gerät | für welches Mikrofon die Regel gilt (oder alle) |
+| aktiv bei | Zustände zum Anhaken (z. B. *an*, *spielt*). Unter **Bedingung als Text** geht auch `!off` = alles außer off, `>1` = Zahl größer 1 |
+| Nachlauf, höchstens | bei Schwelle anheben, keine Störung melden und pausieren: so lange danach weiter, Höchstdauer |
+
+Unten in der Karte: **▶ Testen** (fragt Home Assistant jetzt und sagt, ob die Regel greift), **⧉ Kopieren**, **✕ Löschen**. Oben im Reiter steht, ob Home Assistant verbunden ist und welche Regeln gerade aktiv sind.
+
+<a id="anheben"></a>
+
+### Schwelle anheben (Fernseher, Sonos)
+
+Läuft dein eigener Fernseher, soll er keine Störung auslösen – Lärm von außen, der deutlich lauter ist, aber schon. Die Regel hebt dafür die Schwelle an, solange das Gerät an ist (plus Nachlauf). Die Erkennung läuft weiter.
+
+- **Anhebung:** z. B. +10 dB (0–40). Im Graph siehst du die angehobene Schwelle.
+- **Mit der Lautstärke mitgehen:** Meldet das Gerät seine Lautstärke, folgt die Anhebung ihr. Beispiel: eingepegelt bei 35 % mit +9 dB → bei 18 % etwa +4,5 dB, stumm keine Anhebung (höchstens das Doppelte).
+- **🎚 Einpegeln – gedrückt halten:** Fernseher oder Sonos so laut laufen lassen wie sonst, sonst möglichst still. Taste mindestens 3 Sekunden gedrückt halten. Solange gemessen wird, nimmt GLighter den Pegel; beim Loslassen übernimmt es die aktuelle Lautstärke. Anhebung = Pegel des Geräts (95 %) + 3 dB Abstand über der normalen Schwelle. Das Ergebnis steht in der Karte und im Protokoll.
+- **Nachweis:** In der Ereignistabelle steht bei jeder Störung in dieser Zeit „📈 Fernseher +9 dB“, in der Störung „Schwelle +9 dB“. Die Zeiträume stehen in `ha_anhebung.csv`. Die Tagesaufzeichnung läuft unverändert weiter.
+- Ohne Pro wird die Regel gespeichert, wirkt aber nicht.
 
 „jetzt: …“ zeigt live, was Home Assistant meldet – so siehst du, welchen Zustand ein Gerät wirklich hat. Im Zweifel wird aufgenommen.
 

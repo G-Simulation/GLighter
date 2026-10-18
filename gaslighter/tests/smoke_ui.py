@@ -82,6 +82,19 @@ def main():
                 fails.append("Schalter Nur aufzeichnen fehlt bei den Geräten")
             elif pg.locator('fieldset[data-sec="s_mirror"] #mirnow').count() != 1:
                 fails.append("Kasten tägliche Sicherung fehlt")
+            else:                                                         # eigener Reiter Regeln: Assistent und Karte
+                pg.click('#stabs .stab[data-tab="rules"]'); pg.wait_for_timeout(400)
+                if not pg.locator("#habox").is_visible():
+                    fails.append("Reiter Regeln zeigt die Regeln nicht")
+                else:
+                    pg.click("#habox .haadd"); pg.wait_for_timeout(300)
+                    if pg.locator("#hawiz .hatile").count() != 5 or not pg.locator("#hawiz .hatile.m-raise .protag").count():
+                        fails.append("Regel-Assistent: Kacheln fehlen oder Schwelle anheben ohne Pro-Schloss")
+                    pg.click("#hawiz .hatile.m-quiet"); pg.wait_for_timeout(300)
+                    pg.fill("#hawq", "switch.testgeraet"); pg.wait_for_timeout(200)
+                    pg.click("#hawiz .hawlist .chip"); pg.wait_for_timeout(1200)
+                    if not pg.locator('#halist .hacard.open .habody .hafoot').count():
+                        fails.append("Neue Regel erscheint nicht als offene Karte")
             pg.keyboard.press("Escape"); pg.wait_for_timeout(300)
             pg.click("#tab_live"); pg.wait_for_timeout(600)
             dbl = pg.evaluate("() => { const o = document.querySelector('.ldevscroll'); return o ? getComputedStyle(o).overflowY : '' }")

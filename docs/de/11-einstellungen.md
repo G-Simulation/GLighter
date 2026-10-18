@@ -50,7 +50,7 @@ Ganz oben wählst du **Alle Geräte** oder ein einzelnes Gerät. Beim Gerät las
 - **Wann wird überwacht?**<a id="s_time"></a> – Überwachen ab / bis (beide leer = rund um die Uhr, über Mitternacht möglich). Außerhalb davon wird nichts gezählt; über die Anzeige oben lässt sich trotzdem erfassen.
 - **Ruhezeit**<a id="s_notes"></a> – Ruhezeit ab / bis (üblich 22:00–6:00), Sonntag ganztägig Ruhezeit. Notizen und Störungen in der Ruhezeit bekommen 🌙.
 - **Andere Werte zu bestimmten Uhrzeiten** – siehe oben (Zeitprofile).
-- **Home Assistant: pausieren oder festhalten**<a id="s_ha"></a> – siehe [Home Assistant](07-home-assistant.md#regeln).
+- **Regeln (Home Assistant)**<a id="s_ha"></a> – eigener Reiter **Regeln**, siehe [Home Assistant](07-home-assistant.md#regeln).
 
 <a id="speichern"></a>
 

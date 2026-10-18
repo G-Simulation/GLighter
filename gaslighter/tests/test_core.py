@@ -612,3 +612,53 @@ class RuheKnopf(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+class RegelSchwelleAnheben(unittest.TestCase):
+    """Regel-Art „Schwelle anheben“ (z. B. Fernseher/Sonos ausblenden), mit Lautstärke und Einpegeln."""
+    def setUp(self):
+        self.r = laerm.clean_rules([{"id": "tv", "entity": "media_player.tv", "states": "on, playing", "mode": "raise", "raise_db": 12, "vol_scale": True, "cal_vol": 40},
+                                    {"id": "sx", "entity": "media_player.sonos", "mode": "raise", "raise_db": 99}])
+        laerm.HA_RULES[:] = self.r; laerm.HA_STATE.clear()
+        self._pro = laerm.pro_ok; laerm.pro_ok = lambda: True
+
+    def tearDown(self):
+        laerm.pro_ok = self._pro; laerm.HA_RULES[:] = []; laerm.HA_STATE.clear(); laerm.RAISE_OPEN.clear()
+
+    def test_felder(self):
+        self.assertEqual(self.r[0]["mode"], "raise"); self.assertEqual(self.r[0]["raise_db"], 12.0); self.assertTrue(self.r[0]["vol_scale"])
+        self.assertEqual(self.r[1]["raise_db"], 40.0)                 # begrenzt
+        self.assertNotIn("raise_db", laerm.clean_rules([{"id": "p", "entity": "switch.x", "mode": "pause"}])[0])
+
+    def test_pausiert_nicht_und_hebt_an(self):
+        laerm.HA_STATE["tv"] = {"hold": True, "active": True, "vol": 40, "mute": False, "name": "TV"}
+        self.assertIsNone(laerm.ha_hold_for("main")); self.assertIsNone(laerm.ha_quiet_for("main"))
+        self.assertEqual(laerm.ha_raise_for("main"), (12.0, "TV"))
+        laerm.HA_STATE["tv"]["vol"] = 20                              # halb so laut = halbe Anhebung
+        self.assertEqual(laerm.ha_raise_for("main")[0], 6.0)
+        laerm.HA_STATE["tv"]["mute"] = True
+        self.assertIsNone(laerm.ha_raise_for("main"))
+
+    def test_ohne_pro_keine_anhebung(self):
+        laerm.HA_STATE["tv"] = {"hold": True, "active": True, "vol": 40}
+        laerm.pro_ok = lambda: False
+        self.assertIsNone(laerm.ha_raise_for("main"))
+
+    def test_groesste_gilt(self):
+        laerm.HA_STATE["tv"] = {"hold": True, "active": True, "vol": 40}
+        laerm.HA_STATE["sx"] = {"hold": True, "active": True, "name": "Sonos"}
+        self.assertEqual(laerm.ha_raise_for("main"), (40.0, "Sonos"))
+
+    def test_einpegeln(self):
+        class R:
+            id = "main"; name = "M"
+        r = R(); laerm.RUNNERS["zz_test"] = r
+        try:
+            laerm.HCAL.update(rid="tv", t0=time.time() - 4, srcs=["zz_test"], entity="")
+            r.cal = [-40.0] * 300; r.thr_raw = -50.0
+            j = laerm.ha_cal({"action": "stop"})
+            self.assertTrue(j["ok"]); self.assertAlmostEqual(j["raise_db"], 13.0)       # Pegel -40 + 3 dB Abstand über -50
+            laerm.HCAL.update(rid="tv", t0=time.time() - 1, srcs=["zz_test"], entity=""); r.cal = [-40.0] * 300
+            self.assertEqual(laerm.ha_cal({"action": "stop"})["error"], "short")
+        finally:
+            laerm.RUNNERS.pop("zz_test", None)

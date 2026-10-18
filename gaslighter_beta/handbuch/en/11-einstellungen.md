@@ -40,7 +40,7 @@ At the very top choose **All devices** or a single device. For a device, “Own 
 - **When to monitor?** {#s_time} – monitor from / to (both empty = around the clock, past midnight possible). Outside of it nothing is counted; you can still capture via the display at the top.
 - **Quiet hours** {#s_notes} – quiet hours from / to (usually 22:00–6:00), Sunday all day. Notes and disturbances during quiet hours get 🌙.
 - **Different values at certain times** – see above (time profiles).
-- **Home Assistant: pause or record state** {#s_ha} – see [Home Assistant](#home-assistant/regeln).
+- **Rules (Home Assistant)** {#s_ha} – own tab **Rules**, see [Home Assistant](#home-assistant/regeln).
 
 ## Storage & backup {#speichern}
 

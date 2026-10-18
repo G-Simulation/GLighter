@@ -32,7 +32,7 @@ HERE = os.path.dirname(os.path.abspath(__file__))
 WEB = os.path.join(HERE, "web")
 OPTIONS_FILE = os.environ.get("LAERM_OPTIONS", "/data/options.json")
 SETTINGS_FILE = os.environ.get("LAERM_SETTINGS", "/data/settings.json")
-VERSION = "1.72.1"
+VERSION = "1.73.0"
 
 # =====================================================================
 # Einstellungen
@@ -1257,11 +1257,27 @@ def clean_rules(lst):
             pre = 0.0
         rid = re.sub(r"[^a-z0-9]", "", str(d.get("id") or ""))[:12] or secrets.token_hex(3)
         src = re.sub(r"[^a-z0-9_]", "", str(d.get("src") or "all"))[:16] or "all"
-        mode = d.get("mode") if d.get("mode") in ("note", "event", "quiet") else "pause"   # pause: anhalten; note: nur festhalten (z. B. Fernseher an/aus); event: als Ereignis (z. B. Türsensor); quiet: Graph läuft weiter, aber keine Störung melden
+        mode = d.get("mode") if d.get("mode") in ("note", "event", "quiet", "raise") else "pause"   # pause: anhalten; note: nur festhalten (z. B. Fernseher an/aus); event: als Ereignis (z. B. Türsensor); quiet: Graph läuft weiter, aber keine Störung melden
         out.append({"id": rid, "entity": ent, "states": st, "after_min": round(after, 1), "max_h": round(mx, 1), "mode": mode,
                     "src": src, "enabled": d.get("enabled", True) is not False, "label": re.sub(r"[\x00-\x1f]", "", str(d.get("label") or ""))[:60],
                     "big": d.get("big") is True, "pre_s": round(pre, 1) if mode == "quiet" else 0.0,                       # hervorgehoben: doppelt so grosses Faehnchen im Verlauf (nur „als Ereignis“)
                     "color": d.get("color") if re.fullmatch(r"#[0-9a-fA-F]{6}", str(d.get("color") or "")) else ""})   # Farbe im Verlauf (leer = automatisch)
+        if mode == "raise":                              # Schwelle anheben (z. B. Fernseher/Sonos ausblenden): um raise_db, wahlweise mit der Lautstärke
+            try:
+                rdb = max(0.0, min(40.0, float(d.get("raise_db", 10))))
+            except (TypeError, ValueError):
+                rdb = 10.0
+            try:
+                cv = int(d.get("cal_vol")) if d.get("cal_vol") not in (None, "") else None
+                cv = cv if cv and 1 <= cv <= 100 else None
+            except (TypeError, ValueError):
+                cv = None
+            try:
+                cl = round(float(d.get("cal_lvl")), 1) if d.get("cal_lvl") not in (None, "") else None
+            except (TypeError, ValueError):
+                cl = None
+            out[-1].update(raise_db=round(rdb, 1), vol_scale=d.get("vol_scale") is True, cal_vol=cv, cal_lvl=cl,
+                           cal_at=re.sub(r"[^0-9T:+\-]", "", str(d.get("cal_at") or ""))[:30])
     return out
 
 
@@ -1292,6 +1308,9 @@ def save_ha_rules(rules):
         for k in list(HA_STATE):
             if not any(r["id"] == k for r in HA_RULES):
                 HA_STATE.pop(k, None)
+        live = {r["id"] for r in HA_RULES if r["enabled"] and r.get("mode") == "raise"}
+        for k in [k for k in RAISE_OPEN if k not in live]:
+            o = RAISE_OPEN[k]; raise_track({"id": k, "src": o[3]}, o[1], 0)
     log("Pause-Regeln (Home Assistant):", json.dumps(HA_RULES, ensure_ascii=False))
     return HA_RULES
 
@@ -1331,7 +1350,7 @@ def ha_hold_for(src_id):
     now = time.time()
     with HA_LOCK:
         for r in HA_RULES:
-            if not r["enabled"] or r.get("mode") in ("note", "event", "quiet") or (r["src"] != "all" and r["src"] != src_id):
+            if not r["enabled"] or r.get("mode") in ("note", "event", "quiet", "raise") or (r["src"] != "all" and r["src"] != src_id):
                 continue
             h = HA_STATE.get(r["id"])
             if h and h.get("hold") and (h.get("active") or (h.get("until") or 0) > now):
@@ -1356,6 +1375,91 @@ def ha_quiet_for(src_id):
                 return {"label": r["label"] or h.get("name") or r["entity"], "state": h.get("state"), "entity": r["entity"],
                         "until": None if h.get("active") else dt.datetime.fromtimestamp(h["until"]).astimezone().isoformat(timespec="seconds")}
     return None
+
+
+def raise_amount(r, h):
+    """Aktuelle Anhebung (dB) einer Regel „Schwelle anheben“ nach ihrem Zustand h. Mit der Lautstärke: anteilig zur Lautstärke beim Einpegeln, stumm = 0."""
+    if not h or not h.get("hold"):
+        return 0.0
+    db = float(r.get("raise_db") or 0)
+    if r.get("vol_scale"):
+        if h.get("mute"):
+            return 0.0
+        v, cv = h.get("vol"), r.get("cal_vol")
+        if v is not None and cv:
+            db *= min(2.0, max(0.0, v / float(cv)))
+    return round(db, 1)
+
+
+def ha_raise_for(src_id):
+    """Größte Anhebung der Schwelle durch Regeln „Schwelle anheben“ (Pro). Liefert (dB, Bezeichnung) oder None."""
+    if not pro_ok():
+        return None
+    now = time.time(); best = None
+    with HA_LOCK:
+        for r in HA_RULES:
+            if not r["enabled"] or r.get("mode") != "raise" or (r["src"] != "all" and r["src"] != src_id):
+                continue
+            h = HA_STATE.get(r["id"])
+            if not (h and h.get("hold") and (h.get("active") or (h.get("until") or 0) > now)):
+                continue
+            db = raise_amount(r, h)
+            if db > 0 and (best is None or db > best[0]):
+                best = (db, r["label"] or h.get("name") or r["entity"])
+    return best
+
+
+RAISE_OPEN = {}          # rid -> [Beginn ms, Name, groesste Anhebung dB, Geraet]
+
+
+def raise_path():
+    return os.path.join(paths()[0], "ha_anhebung.csv")
+
+
+def raise_track(r, label, db):
+    """Zeiträume mit angehobener Schwelle festhalten (ha_anhebung.csv): für den Hinweis in der Ereignistabelle."""
+    now = int(time.time() * 1000); o = RAISE_OPEN.get(r["id"])
+    if db > 0:
+        if o is None:
+            RAISE_OPEN[r["id"]] = [now, label, db, r["src"]]
+        else:
+            o[2] = max(o[2], db); o[1] = label
+        return
+    if o is None:
+        return
+    RAISE_OPEN.pop(r["id"], None)
+    try:
+        f = raise_path(); os.makedirs(os.path.dirname(f), exist_ok=True); new = not os.path.exists(f)
+        with open(f, "a", newline="", encoding="utf-8") as fh:
+            w = csv.writer(fh)
+            if new:
+                w.writerow(["beginn", "ende", "regel", "name", "anhebung_db", "geraet"])
+            iso = lambda m: dt.datetime.fromtimestamp(m / 1000).astimezone().isoformat(timespec="seconds")
+            w.writerow([iso(o[0]), iso(now), r["id"], o[1], o[2], o[3]])
+    except OSError as e:
+        log("Anhebung nicht festgehalten:", e)
+
+
+def raise_intervals(t_from, t_to):
+    """[[a ms, b ms, Name, dB, Gerät]] der Zeiträume mit angehobener Schwelle (auch der laufenden)."""
+    out = []
+    try:
+        with open(raise_path(), newline="", encoding="utf-8", errors="replace") as fh:
+            for x in csv.DictReader(fh):
+                a, b = ms_of(x.get("beginn")), ms_of(x.get("ende"))
+                if a is None or b is None or b < t_from or a > t_to:
+                    continue
+                try:
+                    out.append([a, b, x.get("name") or "", float(x.get("anhebung_db") or 0), x.get("geraet") or "all"])
+                except ValueError:
+                    pass
+    except OSError:
+        pass
+    now = int(time.time() * 1000)
+    for o in list(RAISE_OPEN.values()):
+        if o[0] <= t_to:
+            out.append([o[0], now, o[1], o[2], o[3]])
+    return out
 
 
 def quiet_drop_log(r, ev):
@@ -1462,10 +1566,19 @@ def ha_watch():
             with HA_LOCK:
                 HA_STATE[r["id"]] = {"state": val, "name": name, "active": act and not capped, "capped": capped, "since": since,
                                      "until": until, "hold": hold, "err": err, "checked": now, "vol": vol, "mute": mute, "ons": ons}
+                if r.get("mode") == "raise":
+                    HA_STATE[r["id"]]["raise"] = raise_amount(r, HA_STATE[r["id"]]) if pro_ok() else 0.0
             label = r["label"] or name
+            if r.get("mode") == "raise":
+                raise_track(r, label, HA_STATE[r["id"]]["raise"])
             if hold != was.get(r["id"], False):
                 was[r["id"]] = hold
-                if r.get("mode") == "quiet":                       # Graph laeuft weiter, nur keine Stoerungsmeldung
+                if r.get("mode") == "raise":                       # Schwelle angehoben: Erkennung laeuft weiter, nur unempfindlicher
+                    db_ = HA_STATE[r["id"]].get("raise") or 0
+                    msg = (f"Schwelle +{db_:g} dB: {label} ist „{val}“" if hold else f"Schwelle wieder normal: {label} ist „{val}“") + ("" if r["src"] == "all" else f" (Gerät {r['src']})")
+                    log("Home-Assistant-Regel", msg)
+                    rec_log("Schwelle angehoben (Home Assistant)" if hold else "Schwelle wieder normal (Home Assistant)", f"{label}: {val}" + (f", +{db_:g} dB" if hold else ""))
+                elif r.get("mode") == "quiet":                       # Graph laeuft weiter, nur keine Stoerungsmeldung
                     msg = (f"keine Stoerungsmeldung: {label} ist „{val}“" if hold else f"Stoerungen werden wieder gemeldet: {label} ist „{val}“") + ("" if r["src"] == "all" else f" (Gerät {r['src']})")
                     log("Home-Assistant-Regel", msg)
                     rec_log("keine Störungsmeldung (Home Assistant)" if hold else "Störungen wieder gemeldet (Home Assistant)", f"{label}: {val}")
@@ -1787,12 +1900,25 @@ def ha_notes(src_id):
             out.append({"label": r["label"] or h.get("name") or r["entity"], "entity": r["entity"], "state": h.get("state"),
                         "on": None if h.get("state") in (None, "unavailable", "unknown") else bool(h.get("active")),
                         "vol": h.get("vol") if h.get("active") else None, "mute": h.get("mute") if h.get("active") else None})
+        for r in HA_RULES:                               # Schwelle angehoben: beim Ereignis vermerken, um wie viel
+            if not r["enabled"] or r.get("mode") != "raise" or (r["src"] != "all" and r["src"] != src_id):
+                continue
+            h = HA_STATE.get(r["id"]) or {}
+            db = h.get("raise") or 0
+            if not db:
+                continue
+            same = [x for x in out if x["entity"] == r["entity"]]
+            if same:
+                same[0]["raise"] = db
+            else:
+                out.append({"label": r["label"] or h.get("name") or r["entity"], "entity": r["entity"], "state": h.get("state"), "on": True,
+                            "vol": h.get("vol"), "mute": h.get("mute"), "raise": db})
     return out
 
 
 def ha_text(g):
     v = (g or {}).get("ha") or []
-    vt = lambda x: (", stumm" if x.get("mute") else (f', Lautstärke {x["vol"]} %' if x.get("vol") is not None else "")) if x.get("on") else ""
+    vt = lambda x: ((", stumm" if x.get("mute") else (f', Lautstärke {x["vol"]} %' if x.get("vol") is not None else "")) if x.get("on") else "") + (f', Schwelle +{x["raise"]:g} dB' if x.get("raise") else "")
     return " · ".join(f'{x["label"]}: {"an" if x["on"] else "aus" if x["on"] is False else "unbekannt"}' + (f' ({x["state"]})' if x.get("state") else "") + vt(x) for x in v)
 
 
@@ -1866,11 +1992,97 @@ def ha_rules_payload():
             h = HA_STATE.get(r["id"]) or {}
             rows.append(dict(r, now_state=h.get("state"), name=h.get("name"), active=bool(h.get("active")), hold=bool(h.get("hold") and (h.get("active") or (h.get("until") or 0) > now)),
                              until=dt.datetime.fromtimestamp(h["until"]).astimezone().isoformat(timespec="seconds") if h.get("until") else None,
-                             capped=bool(h.get("capped")), err=h.get("err") or "",
+                             capped=bool(h.get("capped")), err=h.get("err") or "", vol=h.get("vol"), mute=h.get("mute"), raise_now=h.get("raise"),
                              hist=(None if r.get("mode") not in ("note", "event") else {"ok": HA_SYNC.get("ok"), "err": HA_SYNC.get("err", ""), "n": HA_SYNC["cnt"].get(r["id"], 0),
                                                                                          "last": HA_SYNC["lon"].get(r["id"])})))
     url, _ = ha_api()
-    return {"rules": rows, "available": bool(url), "ok": HA_INFO["ok"], "error": HA_INFO["error"]}
+    return {"rules": rows, "available": bool(url), "ok": HA_INFO["ok"], "error": HA_INFO["error"], "pro": pro_ok(), "cal": cal_status()}
+
+
+HCAL = {"rid": None, "t0": 0.0, "srcs": [], "entity": ""}     # Einpegeln läuft (Taste gedrückt)
+
+
+def cal_status():
+    return {"on": bool(HCAL["rid"]), "rid": HCAL["rid"], "s": round(time.time() - HCAL["t0"], 1) if HCAL["rid"] else 0}
+
+
+def cal_runners(src):
+    with SRC_LOCK:
+        return [r for k, r in RUNNERS.items() if src in ("all", "", None) or k == src]
+
+
+def ha_cal(data):
+    """Einpegeln einer Regel „Schwelle anheben“: start = Pegel sammeln (Fernseher läuft), stop = auswerten.
+    Anhebung = 95 % der gemessenen Pegel + 3 dB über der normalen Schwelle; dazu die Lautstärke des Geräts jetzt."""
+    act = data.get("action")
+    if act == "start":
+        if not pro_ok():
+            return {"ok": False, "error": "pro"}
+        rid = re.sub(r"[^a-z0-9]", "", str(data.get("rid") or ""))[:12]
+        src = re.sub(r"[^a-z0-9_]", "", str(data.get("src") or "all"))[:16] or "all"
+        rs = cal_runners(src)
+        if not rs:
+            return {"ok": False, "error": "nodev"}
+        for r in RUNNERS.values():
+            r.cal = None
+        for r in rs:
+            r.cal = []
+        HCAL.update(rid=rid or "neu", t0=time.time(), srcs=[r.id for r in rs],
+                   entity=re.sub(r"[^a-z0-9_.]", "", str(data.get("entity") or "").lower())[:120])
+        return {"ok": True, "cal": cal_status()}
+    rs = [RUNNERS[k] for k in HCAL["srcs"] if k in RUNNERS]
+    dur = time.time() - HCAL["t0"]
+    got = [(r, list(r.__dict__.get("cal") or []), r.__dict__.get("thr_raw")) for r in rs]
+    for r in RUNNERS.values():
+        r.cal = None
+    ent = HCAL["entity"]
+    HCAL.update(rid=None, srcs=[], entity="")
+    if act != "stop":
+        return {"ok": True, "cal": cal_status()}
+    if dur < 2.5:
+        return {"ok": False, "error": "short"}
+    best = None
+    for r, lv, thr in got:
+        lv = [v for v in lv if v > -129]
+        if thr is None or len(lv) < 100:
+            continue
+        p95 = float(np.percentile(lv, 95))
+        need = p95 + 3.0 - thr
+        if best is None or need > best[0]:
+            best = (need, p95, thr, r.name)
+    if best is None:
+        return {"ok": False, "error": "nothr"}
+    vol = mute = None
+    if ent:
+        try:
+            at_ = ha_get("/states/" + ent).get("attributes") or {}
+            v = at_.get("volume_level")
+            vol = int(round(float(v) * 100)) if isinstance(v, (int, float)) else None
+            mute = at_.get("is_volume_muted") is True
+        except Exception:
+            pass
+    db = round(max(0.0, min(40.0, best[0])), 1)
+    log(f"Einpegeln ({best[3]}): Pegel {best[1]:.1f} dBFS, Schwelle {best[2]:.1f} dBFS -> Anhebung +{db:g} dB" + (f", Lautstärke {vol} %" if vol is not None else ""))
+    return {"ok": True, "raise_db": db, "cal_lvl": round(best[1], 1), "thr": round(best[2], 1), "cal_vol": vol if vol and not mute else None,
+            "mute": mute, "s": round(dur, 1), "dev": best[3], "cal_at": dt.datetime.now().astimezone().isoformat(timespec="seconds")}
+
+
+def ha_test(entity, states):
+    """Regel testen: Zustand des Geräts jetzt und ob die Regel greifen würde."""
+    ent = re.sub(r"[^a-z0-9_.]", "", str(entity or "").lower())[:120]
+    if not re.fullmatch(r"[a-z_]+\.[a-z0-9_]+", ent or ""):
+        return {"ok": False, "error": "entity"}
+    try:
+        d = ha_get("/states/" + ent)
+    except urllib.error.HTTPError as e:
+        return {"ok": False, "error": "notfound" if e.code == 404 else f"HTTP {e.code}"}
+    except Exception as e:
+        return {"ok": False, "error": str(e)[:120]}
+    at_ = d.get("attributes") or {}
+    v = at_.get("volume_level")
+    return {"ok": True, "state": d.get("state"), "name": at_.get("friendly_name") or ent, "match": rule_match(states or "on", d.get("state")),
+            "vol": int(round(float(v) * 100)) if isinstance(v, (int, float)) else None, "mute": at_.get("is_volume_muted") if isinstance(at_.get("is_volume_muted"), bool) else None,
+            "src_list": at_.get("source_list") if isinstance(at_.get("source_list"), list) else None}
 
 
 def ha_entities():
@@ -1880,7 +2092,7 @@ def ha_entities():
         return {"ok": False, "error": str(e)[:160], "entities": []}
     out = [{"id": x.get("entity_id"), "name": (x.get("attributes") or {}).get("friendly_name") or "", "state": x.get("state")}
            for x in lst if isinstance(x, dict) and str(x.get("entity_id", "")).split(".")[0] in
-           ("media_player", "binary_sensor", "sensor", "switch", "input_boolean", "light", "fan", "vacuum", "remote", "device_tracker", "select", "climate")]
+           ("media_player", "binary_sensor", "sensor", "switch", "input_boolean", "light", "fan", "vacuum", "remote", "device_tracker", "select", "climate", "assist_satellite")]
     out.sort(key=lambda e: e["id"])
     return {"ok": True, "entities": out[:2000]}
 
@@ -7277,6 +7489,13 @@ class Runner:
             while len(pre) > pre_max:
                 pre.popleft()
             thr, at_floor, at_ceil = threshold(base, bg.stuck, C)
+            self.thr_raw = thr
+            rz = ha_raise_for(self.id) if thr is not None else None   # Regel „Schwelle anheben“ (z. B. Fernseher läuft)
+            if rz:
+                thr = thr + rz[0]
+            cal_ = self.__dict__.get("cal")
+            if cal_ is not None and len(cal_) < 12000:               # Einpegeln: Pegel sammeln, solange die Taste gedrückt ist
+                cal_.extend(float(v) for v in fl)
             f0 = fc; fc += FRAMES
             if ev is None:
                 need = max(1, int(round(C["min_event_ms"] / 20.0)))
@@ -7380,7 +7599,8 @@ class Runner:
             if (not RUN["paused"] and not hold) or ev is not None:      # gestoppt/pausiert = Luecke im Nachtbericht
                 self.minute_add(ms, peak, base, shown_thr, ev is not None and not ev.get("drop"))
             self.status.update(ts=ts, level=round(peak, 1), base=rec[2], thr=rec[3], active=ev is not None,
-                               listening=listening, forced=bool(self.id in FORCE and not inh), ha_hold=hold or None, ha_quiet=quiet or None, learning=base is None and C["thr_mode"] != "fixed",
+                               listening=listening, forced=bool(self.id in FORCE and not inh), ha_hold=hold or None, ha_quiet=quiet or None,
+                               ha_raise={"db": rz[0], "label": rz[1]} if rz else None, thr_raw=None if self.thr_raw is None else round(self.thr_raw, 1), learning=base is None and C["thr_mode"] != "fixed",
                                learn_pct=bg.pct, silent=zero_n > 30, floor=at_floor, ceil=at_ceil, online=True)
             if nblk % 10 == 0:
                 pub(f"{t}/level", f"{sec_max:.1f}")
@@ -7738,7 +7958,7 @@ def reset_app(parts):
                 r.dayb = []
         with LOG_LOCK:
             files = [lg, os.path.join(out, "geloescht.csv"), os.path.join(out, "aufzeichnung.csv"), os.path.join(out, "ha_zustand.csv"),
-                     os.path.join(out, "ha_lautstaerke.csv"), levels_dir(), reports_dir()] + glob.glob(os.path.join(out, "log_vor_loeschen_*.csv"))
+                     os.path.join(out, "ha_lautstaerke.csv"), os.path.join(out, "ha_anhebung.csv"), levels_dir(), reports_dir()] + glob.glob(os.path.join(out, "log_vor_loeschen_*.csv"))
             files += [os.path.join(clips, d_) for d_ in ("tag", "ki", "mit", "graphen", "geloescht", "scan")]
             files += [os.path.join(clips, f_) for f_ in ("art.json", "ereignisse.jsonl", "spuren_kette.json", "einpegeln.json")]
             files += glob.glob(os.path.join(clips, "*" + SPUR_EXT)) + glob.glob(os.path.join(clips, "*.wav")) + glob.glob(os.path.join(clips, "*.mp4"))
@@ -9936,6 +10156,17 @@ def events_summary(src="all", n=200, plist="", rng=None, art=""):
                 on_ = sorted({x[2] for x in hv_ if x[0] <= a0 + d0 and x[1] >= a0})
                 if on_:
                     e["ha_on"] = on_
+        try:                                         # Regel „Schwelle anheben“: Hinweis, dass die Schwelle zur Zeit der Störung höher lag
+            rv_ = raise_intervals(int(min(a for a, _ in ts_)) - 1000, int(max(a + d for a, d in ts_)) + 1000) if ts_ else []
+        except (ValueError, TypeError):
+            rv_ = []
+        for e, (a0, d0) in zip(out_rows, ts_):
+            rs_ = {}
+            for x in rv_:
+                if x[0] <= a0 + d0 and x[1] >= a0 and (x[4] == "all" or x[4] == e.get("quelle_id")):
+                    rs_[x[2]] = max(rs_.get(x[2], 0), x[3])
+            if rs_:
+                e["raise_on"] = [[k, v] for k, v in sorted(rs_.items())]
     used_i = {e["inc"] for e in out_rows if "inc" in e}; used_g = {e["grp"] for e in out_rows if "grp" in e}
     return {"total": sum(days.values()), "rows": len(rows), "bg_n": bg_n, "today": days.get(dt.date.today().isoformat(), 0), "hours": hours,
             "days": sorted(days.items(), reverse=True)[:(62 if rng else 14)], "n": n,
@@ -10525,6 +10756,8 @@ class Handler(BaseHandler):
                 return self.js(ha_rules_payload())
             if name == "ha_entities":
                 return self.js(ha_entities())
+            if name == "ha_test":
+                return self.js(ha_test((q.get("entity") or [""])[0], (q.get("states") or [""])[0][:200]))
             if name == "fnote_target":                 # Notiz-Leiste: welcher Stoerung die Notiz jetzt zugeordnet wuerde
                 try:
                     at_ = int(q["at"][0])
@@ -10932,6 +11165,9 @@ class Handler(BaseHandler):
                     return self.js({"ok": False, "error": "bad request"}, 400)
                 save_ha_rules(data["rules"])
                 return self.js(dict(ha_rules_payload(), ok=True))
+            if name == "ha_cal":                         # Einpegeln (Taste gedrückt halten)
+                data = json.loads(body or b"{}")
+                return self.js(ha_cal(data if isinstance(data, dict) else {}))
             if name == "schedule":
                 data = json.loads(body or b"{}")
                 if not isinstance(data, dict) or not isinstance(data.get("slots"), list):

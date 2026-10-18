@@ -1,5 +1,15 @@
 # Changelog
 
+## 1.73.0
+- **Regeln im eigenen Reiter** (⚙ Einstellungen → Regeln): jede Regel als Karte mit Schalter und Zustand jetzt. Oben steht, ob Home Assistant verbunden ist und welche Regeln gerade aktiv sind.
+- **Neue Regel mit Assistent:** Art als Kachel wählen, dann das Gerät aus einer Liste mit Suche. Zustände werden passend vorbelegt und lassen sich anhaken. Der Text für Sonderfälle wie `!off` oder `>1` bleibt unter „erweitert“.
+- **Testen, Kopieren, Löschen** direkt in der Karte. „Testen“ fragt Home Assistant und sagt, ob die Regel jetzt greift.
+- **Neu (Pro): Regel „Schwelle anheben“.** Läuft der eigene Fernseher oder das Sonos, hebt GLighter die Schwelle um +X dB an. Die Erkennung läuft weiter, nur unempfindlicher.
+  - Wahlweise „Mit der Lautstärke mitgehen“: halb so laut ergibt die halbe Anhebung, stumm keine.
+  - **Einpegeln per Taste gedrückt halten:** GLighter misst den Pegel, solange die Taste gedrückt ist, und übernimmt die aktuelle Lautstärke.
+  - Im Graph ist die angehobene Schwelle zu sehen, in der Ereignistabelle steht „📈 Fernseher +9 dB“. Die Zeiträume stehen in `ha_anhebung.csv`.
+  - Die Tagesaufzeichnung bleibt unverändert.
+
 ## 1.72.1
 - GLighter-Logo: Schriftzug feiner ausgerichtet.
 

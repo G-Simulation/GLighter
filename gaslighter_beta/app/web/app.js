@@ -1188,6 +1188,7 @@ function updateStatus() {
   else if (st.paused) { txt = t('stopped'); p.classList.add('w'); }
   else if (st.ha_hold) { txt = t('ha_pill', { l: st.ha_hold.label }); p.classList.add('w'); }
   else if (st.ha_quiet) { txt = t('ha_qpill', { l: st.ha_quiet.label }); p.classList.add('w'); }
+  else if (st.ha_raise && st.listening && txt === t('quiet')) { txt = t('ha_rpill', { l: st.ha_raise.label, d: fmtDb(st.ha_raise.db) }); }
   else if (st.forced) { txt = t('outside_forced'); p.classList.add('man'); }
   else if (!st.listening) { txt = t('outside'); p.classList.add('w'); }
   const clk = !!st.forced || (!st.listening && !st.paused && txt === t('outside'));
@@ -1506,7 +1507,7 @@ function renderEvents() {
   // Nur neu aufbauen, wenn sich etwas geaendert hat. Der Player ist von der Tabelle getrennt: Wiedergabe laeuft weiter.
   const grpMode = EVVIEW === 'grp';
   const sv = sensVis();
-  const sig = JSON.stringify([useArt, lang, grpMode, evs.map(r => [r.k, r.ha_on, r.start, r.art, r.art_c, r.art_man, r.video, r.audio, r.datei, r.notes, r.labels, r.kinds, r.prof, r.prof_c, r.prof_ok, r.inc, r.grp, r.lead, r.devs, r.bg]), SOURCES.map(x => [x.id, x.name]), sv, [...SHIDE]]);
+  const sig = JSON.stringify([useArt, lang, grpMode, evs.map(r => [r.k, r.ha_on, r.raise_on, r.start, r.art, r.art_c, r.art_man, r.video, r.audio, r.datei, r.notes, r.labels, r.kinds, r.prof, r.prof_c, r.prof_ok, r.inc, r.grp, r.lead, r.devs, r.bg]), SOURCES.map(x => [x.id, x.name]), sv, [...SHIDE]]);
   const sig2 = sig + JSON.stringify([(EV.fnotes || []).map(n => [n.id, n.a, n.b, n.text, n.tags, n.witness]), fnShow()]);
   if (sig2 === EVSIG) return;
   EVSIG = sig2;
@@ -1598,7 +1599,7 @@ function evGrid(evs, sv, useArt, grpMode) {
         if (d._t === 'sens') return `<span class="art sensc">${sensIcon(d.x.kind)} ${esc(sensLabel(d.x))}</span>${d.x.note ? `<div class="hant">📝 ${esc(d.x.note)}</div>` : ''}`;
         if (d._t === 'note') return `<span class="art fnc">📝 ${esc(t('fn_row'))}</span>${d.ev ? `<button type="button" class="chip fnlink" title="${esc(t('fn_link_tip'))}">🔗 ${esc(t('fn_link', { c: clockOf(d.ev.start) }))}</button>` : ''}<div class="fnrowt">${fnText(d.n)}</div>`;
         if (d._t === 'grp') return d.g.prof ? `<span class="art prof">🧩 ${esc(d.g.kind)}</span>` : d.g.kind && d.g.kind !== '?' ? artChip(d.g.kind, null, false) : esc(t('art_pending'));
-        const r = d.r; return `${(d.fn || []).map(n => `<div class="fnrowt fnon" title="${esc(t('fn_on_ev'))}">📝 ${fnText(n)}</div>`).join('')}${(r.ha_on || []).filter(n => !SHIDE.has('ha:' + n)).map(n => `<span class="art haon" title="${esc(t('ha_on_tip'))}">📡 ${esc(n)} ${esc(t('ha_on'))}</span>`).join('')}${profChip(r)}${(r.labels || []).map(n => `<span class="art lbl" title="${esc(t('lb_own'))}">🏷 ${esc(n)}</span>`).join('')}${r.art ? artChip(r.art, r.art_c, r.art_man) : (r.datei && !(r.labels || []).length && !r.prof ? '<span class="noclip" title="' + esc(t('art_pending')) + '">…</span>' : (r.labels || []).length || r.prof ? '' : '<span class="noclip">–</span>')}`; }) },
+        const r = d.r; return `${(d.fn || []).map(n => `<div class="fnrowt fnon" title="${esc(t('fn_on_ev'))}">📝 ${fnText(n)}</div>`).join('')}${(r.ha_on || []).filter(n => !SHIDE.has('ha:' + n)).map(n => `<span class="art haon" title="${esc(t('ha_on_tip'))}">📡 ${esc(n)} ${esc(t('ha_on'))}</span>`).join('')}${(r.raise_on || []).map(x => `<span class="art haraisec" title="${esc(t('ha_raise_tip'))}">📈 ${esc(x[0])} +${esc(fmtDb(x[1]))} dB</span>`).join('')}${profChip(r)}${(r.labels || []).map(n => `<span class="art lbl" title="${esc(t('lb_own'))}">🏷 ${esc(n)}</span>`).join('')}${r.art ? artChip(r.art, r.art_c, r.art_man) : (r.datei && !(r.labels || []).length && !r.prof ? '<span class="noclip" title="' + esc(t('art_pending')) + '">…</span>' : (r.labels || []).length || r.prof ? '' : '<span class="noclip">–</span>')}`; }) },
     { field: 'kinds', title: t('kinds_col'), minWidth: 150, widthGrow: 2, visible: useArt, responsive: 4, headerSort: false, cssClass: 'kinds', formatter: fmtCell(d => d._t === 'ev' ? kindsHTML(d.r.kinds, EV.fine) : '') },
     { field: 'devs', title: t('devs_col'), minWidth: 130, visible: hasDev, responsive: 5, headerSort: false, cssClass: 'devc',
       formatter: fmtCell(d => { if (d._t !== 'ev') return ''; const x = d.r.devs || []; if (x.length < 2) return '<span class="noclip">–</span>';
@@ -2760,10 +2761,16 @@ async function srcPost(body) {
   SOURCES = r.sources; renderSrcBar(); syncEvFilter();
   return r;
 }
-/* ================= Pause durch Home Assistant (Regeln) ================= */
-const HAR = { rules: [], info: {}, ents: null, timer: 0 };
-function haDefaults(ent) {
+/* ================= Regeln (Home Assistant): eigener Reiter ================= */
+const HAR = { rules: [], info: {}, ents: null, timer: 0, open: new Set(), wiz: null, cal: null };
+const HA_MODES = [['raise', '📈'], ['quiet', '🔕'], ['pause', '⏸'], ['note', '📝'], ['event', '🚩']];
+const haIcon = m => (HA_MODES.find(x => x[0] === m) || ['', '⏸'])[1];
+const HA_STS = { media_player: ['on', 'playing', 'paused', 'idle', 'standby', 'buffering', 'off'], assist_satellite: ['listening', 'processing', 'responding', 'idle'],
+  vacuum: ['cleaning', 'returning', 'paused', 'idle', 'docked'], device_tracker: ['home', 'not_home'], climate: ['heat', 'cool', 'auto', 'off'] };
+const haStsFor = ent => { const d = (ent || '').split('.')[0]; return HA_STS[d] || (['sensor'].includes(d) ? [] : ['on', 'off']); };
+function haDefaults(ent, mode) {
   const dom = (ent || '').split('.')[0];
+  if (mode === 'raise') return { states: dom === 'media_player' ? 'on, playing' : 'on', after_min: 0.5, max_h: 12, raise_db: 10, vol_scale: dom === 'media_player' };
   if (dom === 'media_player') return { states: 'on, playing', after_min: 1, max_h: 8 };
   if (dom === 'assist_satellite') return { states: '!idle', after_min: 0.5, max_h: 1, mode: 'quiet', pre_s: 3 };   // Sprachassistent: Rufwort und Antwort nicht als Störung
   if (dom === 'sensor') return { states: '>1', after_min: 30, max_h: 2 };
@@ -2774,20 +2781,25 @@ function haBox() {
   const lg = el('legend', { textContent: t('s_ha') }); const ti = tipIcon('t_ha'); if (ti) lg.appendChild(ti); fs.appendChild(lg);
   fs.appendChild(el('small', { className: 'schedhelp', textContent: t('h_ha') }));
   fs.appendChild(el('div', { id: 'hastat', className: 'hastat' }));
+  fs.appendChild(el('div', { id: 'hawiz', className: 'hawiz', hidden: true }));
   fs.appendChild(el('div', { id: 'halist', className: 'halist' }));
-  const add = el('button', { type: 'button', textContent: '+ ' + t('ha_add') });
-  add.onclick = () => { HAR.rules.push(Object.assign({ id: '', entity: '', src: 'all', enabled: true, label: '' }, haDefaults(''))); haRender(true); };
+  const add = el('button', { type: 'button', className: 'pri haadd', textContent: '＋ ' + t('ha_add') });
+  add.onclick = () => haWizard();
   fs.appendChild(add);
   fs.appendChild(el('datalist', { id: 'haents' }));
   haLoad(); haLoadEnts();
-  clearInterval(HAR.timer); HAR.timer = setInterval(() => { if (!$('dlg').open || !$('habox')) { clearInterval(HAR.timer); return; } haLoad(true); }, 5000);
+  clearInterval(HAR.timer); HAR.timer = setInterval(() => { if (!$('dlg').open || !$('habox')) { clearInterval(HAR.timer); return; } if (!HAR.cal) haLoad(true); }, 5000);
   return fs;
 }
 async function haLoad(onlyState) {
-  try { const r = await (await fetch('ha_rules', { cache: 'no-store' })).json(); HAR.info = r; if (!onlyState || !document.activeElement || !document.activeElement.closest('#halist')) { HAR.rules = r.rules; haRender(); } else haStates(r.rules); } catch (e) { }
+  try { const r = await (await fetch('ha_rules', { cache: 'no-store' })).json(); HAR.info = r;
+    const loc = HAR.rules.filter(x => x.entity), same = onlyState && loc.length === r.rules.length && loc.every((x, i) => x.id === r.rules[i].id);
+    if (same) { r.rules.forEach((x, i) => { for (const k of ['now_state', 'name', 'active', 'hold', 'until', 'capped', 'err', 'hist', 'vol', 'mute', 'raise_now']) loc[i][k] = x[k]; }); haStates(HAR.rules); }
+    else if (!onlyState || !document.activeElement || !document.activeElement.closest('#halist,#hawiz')) { HAR.rules = r.rules; haRender(); }
+  } catch (e) { }
 }
 async function haLoadEnts() {
-  try { const r = await (await fetch('ha_entities', { cache: 'no-store' })).json(); HAR.ents = r.entities || []; const dl = $('haents'); if (dl) dl.innerHTML = HAR.ents.map(e => `<option value="${esc(e.id)}">${esc(e.name)} (${esc(e.state)})</option>`).join(''); } catch (e) { }
+  try { const r = await (await fetch('ha_entities', { cache: 'no-store' })).json(); HAR.ents = r.entities || []; const dl = $('haents'); if (dl) dl.innerHTML = HAR.ents.map(e => `<option value="${esc(e.id)}">${esc(e.name)} (${esc(e.state)})</option>`).join(''); if (HAR.wiz && HAR.wiz.step === 2) haWizRender(); } catch (e) { }
 }
 function haHistTxt(r) {
   const h = r.hist; if (!h) return '';
@@ -2795,64 +2807,224 @@ function haHistTxt(r) {
   if (h.ok == null) return '';
   return ' · ' + t('ha_hist_ok', { n: h.n, l: h.last ? new Date(h.last).toLocaleTimeString(lang === 'en' ? 'en-GB' : 'de-DE') : '–' });
 }
+const haName = r => r.label || (r.name && r.name !== r.entity ? r.name : '') || r.entity || t('ha_new');
 function haStateTxt(r) { return haStateTxt0(r) + haHistTxt(r); }
 function haStateTxt0(r) {
   if (!r.entity) return '';
+  if (r.enabled === false) return t('ha_disabled');
   if (r.err) return '⚠ ' + r.err;
   if (r.now_state == null) return t('ha_wait');
-  if (r.mode === 'note') return (r.label ? r.label + ' · ' : r.name && r.name !== r.entity ? r.name + ' · ' : '') + t('ha_now', { s: r.now_state }) + ' · 📝 ' + t(r.active ? 'ha_noting' : 'ha_noting_off');
-  return (r.label ? r.label + ' · ' : r.name && r.name !== r.entity ? r.name + ' · ' : '') + t('ha_now', { s: r.now_state }) + ' · ' + (r.hold ? (r.active ? (r.mode === 'quiet' ? '🔕 ' + t('ha_qholding') : '⏸ ' + t('ha_holding')) : (r.mode === 'quiet' ? '🔕 ' : '⏸ ') + t('ha_after', { u: r.until ? new Date(r.until).toLocaleTimeString(lang === 'en' ? 'en-GB' : 'de-DE', { hour: '2-digit', minute: '2-digit' }) : '' })) : (r.capped ? '⚠ ' + t('ha_capped') : '▶ ' + t('ha_rec')));
+  const now = t('ha_now', { s: haStLabel(r.now_state) }) + (r.vol != null && r.active ? ' · 🔊 ' + (r.mute ? t('ha_muted') : r.vol + ' %') : '');
+  if (r.mode === 'note' || r.mode === 'event') return now + ' · 📝 ' + t(r.active ? 'ha_noting' : 'ha_noting_off');
+  if (r.mode === 'raise') { if (!HAR.info.pro) return now + ' · 🔒 ' + t('ha_r_nopro'); if (r.hold) return now + ' · 📈 ' + t('ha_r_on', { d: fmtDb(r.raise_now || 0) }) + (r.active ? '' : ' · ' + haUntil(r)); return now + ' · ' + (r.capped ? '⚠ ' + t('ha_capped') : t('ha_r_off')); }
+  return now + ' · ' + (r.hold ? (r.active ? (r.mode === 'quiet' ? '🔕 ' + t('ha_qholding') : '⏸ ' + t('ha_holding')) : (r.mode === 'quiet' ? '🔕 ' : '⏸ ') + haUntil(r)) : (r.capped ? '⚠ ' + t('ha_capped') : '▶ ' + t('ha_rec')));
 }
-function haStates(rows) { rows.forEach(r => { const e = document.querySelector(`#halist .harow[data-id="${r.id}"] .hanow`); if (e) { e.textContent = haStateTxt(r); e.classList.toggle('hold', !!r.hold); } }); }
-function haRender(focusLast) {
-  const box = $('halist'), st = $('hastat'); if (!box) return;
-  const i = HAR.info || {};
-  st.textContent = i.available === false ? '⚠ ' + t('ha_noapi') : i.ok === false && i.error ? '⚠ ' + t('ha_err', { e: i.error }) : '';
+const fmtDb = v => (Math.round(v * 10) / 10).toLocaleString(lang === 'en' ? 'en-GB' : 'de-DE');
+const haUntil = r => t('ha_after', { u: r.until ? new Date(r.until).toLocaleTimeString(lang === 'en' ? 'en-GB' : 'de-DE', { hour: '2-digit', minute: '2-digit' }) : '' });
+function haStLabel(s) { const k = 'hs_' + String(s).toLowerCase(); const v = t(k); return v && v !== k ? v : String(s); }
+function haStates(rows) {
+  rows.forEach(r => { const c = document.querySelector(`#halist .hacard[data-id="${r.id}"]`); if (!c) return; const e = c.querySelector('.hanow'); if (e) { e.textContent = haStateTxt(r); e.classList.toggle('hold', !!r.hold); } c.classList.toggle('hon', !!r.hold && r.enabled !== false); });
+  haOverview(rows);
+}
+function haOverview(rows) {
+  const st = $('hastat'); if (!st) return; const i = HAR.info || {};
+  st.innerHTML = '';
+  if (i.available === false) { st.textContent = '⚠ ' + t('ha_noapi'); return; }
+  if (i.ok === false && i.error) { st.textContent = '⚠ ' + t('ha_err', { e: i.error }); return; }
+  const on = (rows || []).filter(r => r.enabled !== false && (r.hold || ((r.mode === 'note' || r.mode === 'event') && r.active)));
+  st.appendChild(el('span', { className: 'haok', textContent: '✓ ' + t('ha_conn') }));
+  if (!on.length) st.appendChild(el('span', { className: 'mut', textContent: ' · ' + t('ha_none_on') }));
+  else { st.appendChild(document.createTextNode(' · ' + t('ha_on_now') + ' ')); on.forEach(r => st.appendChild(el('span', { className: 'chip haonc m-' + r.mode, textContent: haIcon(r.mode) + ' ' + haName(r) + (r.mode === 'raise' && r.raise_now ? ' +' + fmtDb(r.raise_now) + ' dB' : '') }))); }
+}
+/* Neue Regel: erst die Art (Kacheln), dann das Gerät (Liste mit Suche) */
+function haWizard() { HAR.wiz = { step: 1, mode: '', q: '' }; haWizRender(); $('hawiz').scrollIntoView({ block: 'nearest' }); }
+function haWizRender() {
+  const w = $('hawiz'); if (!w) return; const z = HAR.wiz; w.hidden = !z; w.innerHTML = ''; if (!z) return;
+  const top = el('div', { className: 'hawtop' });
+  top.append(el('b', { textContent: z.step === 1 ? t('ha_w1') : t('ha_w2', { m: t('ha_mode_' + z.mode) }) }));
+  const x = el('button', { type: 'button', className: 'hadel', textContent: '✕', title: t('cancel') }); x.onclick = () => { HAR.wiz = null; haWizRender(); }; top.append(x); w.appendChild(top);
+  if (z.step === 1) {
+    const g = el('div', { className: 'hatiles' });
+    for (const [m, ic] of HA_MODES) {
+      const b = el('button', { type: 'button', className: 'hatile m-' + m });
+      b.innerHTML = `<span class="hati">${ic}</span><b>${esc(t('ha_mode_' + m))}</b><small>${esc(t('ha_md_' + m))}</small>`;
+      if (m === 'raise' && !PRO.ok) b.appendChild(proLockTag());
+      b.onclick = () => { if (m === 'raise' && !PRO.ok) { proGate('raise'); return; } z.mode = m; z.step = 2; haWizRender(); setTimeout(() => { const q = $('hawq'); if (q) q.focus(); }, 30); };
+      g.appendChild(b);
+    }
+    w.appendChild(g); return;
+  }
+  const q = el('input', { type: 'search', id: 'hawq', className: 'hawq', value: z.q, placeholder: t('ha_w_search') });
+  const list = el('div', { className: 'hawlist' });
+  const pref = { raise: ['media_player'], quiet: ['assist_satellite', 'media_player'], pause: ['vacuum', 'switch', 'fan'], note: ['media_player'], event: ['binary_sensor'] }[z.mode] || [];
+  const fill = () => {
+    list.innerHTML = ''; const s = q.value.trim().toLowerCase(); z.q = q.value;
+    const all = (HAR.ents || []).filter(e => !s || e.id.includes(s) || (e.name || '').toLowerCase().includes(s));
+    all.sort((a, b) => { const pa = pref.indexOf(a.id.split('.')[0]), pb = pref.indexOf(b.id.split('.')[0]); return (pa < 0 ? 99 : pa) - (pb < 0 ? 99 : pb) || (a.name || a.id).localeCompare(b.name || b.id); });
+    all.slice(0, 80).forEach(e => { const b = el('button', { type: 'button', className: 'hawent' }); b.innerHTML = `<b>${esc(e.name || e.id)}</b><small>${esc(e.id)} · ${esc(haStLabel(e.state))}</small>`; b.onclick = () => haWizPick(e.id, e.name); list.appendChild(b); });
+    if (HAR.ents == null) list.appendChild(el('div', { className: 'mut', textContent: t('ha_w_loading') }));
+    else if (!all.length) list.appendChild(el('div', { className: 'mut', textContent: t('ha_w_noent') }));
+    if (/^[a-z_]+\.[a-z0-9_]+$/.test(s) && !all.some(e => e.id === s)) { const b = el('button', { type: 'button', className: 'chip', textContent: t('ha_w_manual', { e: s }) }); b.onclick = () => haWizPick(s, ''); list.prepend(b); }
+  };
+  q.addEventListener('input', fill); q.addEventListener('keydown', e => { if (e.key === 'Enter') { e.preventDefault(); const b = list.querySelector('button'); if (b) b.click(); } });
+  const back = el('button', { type: 'button', className: 'chip', textContent: '← ' + t('ha_w_back') }); back.onclick = () => { z.step = 1; haWizRender(); };
+  w.append(q, list, back); fill();
+}
+function haWizPick(ent, name) {
+  const m = HAR.wiz.mode, d = haDefaults(ent, m);
+  const r = Object.assign({ id: '', entity: ent, src: 'all', enabled: true, label: '' }, d, { mode: m });
+  if (m !== 'quiet') r.pre_s = 0;
+  HAR.rules.push(r); HAR.wiz = null; haWizRender();
+  HAR.open.add('#new'); haRender(); haSave().then(() => { const c = $('halist').lastElementChild; if (c) c.scrollIntoView({ block: 'nearest' }); });
+}
+function haRender() {
+  const box = $('halist'); if (!box) return;
+  haOverview(HAR.rules);
   box.innerHTML = '';
   if (!HAR.rules.length) box.appendChild(el('div', { className: 'ntnone', textContent: t('ha_none') }));
-  HAR.rules.forEach((r, idx) => {
-    const row = el('div', { className: 'harow' }); row.dataset.id = r.id || '';
-    const on = el('input', { type: 'checkbox', checked: r.enabled !== false, title: t('ha_enabled') });
-    const ent = el('input', { type: 'text', value: r.entity || '', placeholder: 'media_player.fernseher', className: 'haent' }); ent.setAttribute('list', 'haents');
-    const src = el('select', { className: 'hasrc', title: t('ha_src') });
-    option(src, 'all', t('all_sources')); SOURCES.forEach(x => option(src, x.id, x.name)); src.value = r.src || 'all';
-    const sts = el('input', { type: 'text', value: r.states || '', placeholder: 'on, playing  ·  !off  ·  >1', className: 'hasts', title: t('ha_states_tip') });
-    const aft = el('input', { type: 'number', min: 0, max: 240, step: 1, value: r.after_min ?? 1, className: 'n', title: t('ha_after_tip') });
-    const mx = el('input', { type: 'number', min: 0, max: 48, step: 1, value: r.max_h ?? 8, className: 'n', title: t('ha_max_tip') });
-    const del = el('button', { type: 'button', className: 'hadel', textContent: '✕', title: t('nt_del') });
-    const now = el('small', { className: 'hanow' + (r.hold ? ' hold' : ''), textContent: haStateTxt(r) });
-    const nmi = el('input', { type: 'text', value: r.label || '', maxLength: 60, placeholder: r.name && r.name !== r.entity ? r.name : t('ha_name_ph'), className: 'haname', title: t('ha_name_tip') });   // Name, unter dem die Regel festgehalten wird
-    const md = el('select', { className: 'hamode', title: t('ha_model') });   // pausieren oder nur festhalten (z. B. Fernseher an/aus)
-    option(md, 'pause', t('ha_mode_pause')); option(md, 'note', t('ha_mode_note')); option(md, 'event', t('ha_mode_event')); option(md, 'quiet', t('ha_mode_quiet')); md.value = ['pause', 'event', 'quiet'].includes(r.mode) ? r.mode : 'note';          // neue Regeln: nur vermerken (Standard)
-    const l1 = el('div', { className: 'harow1' }); l1.append(on, ent, src, del);
-    const l2 = el('div', { className: 'harow2' });
-    const lab = (txt, inp, unit) => { const L = el('label'); L.append(document.createTextNode(txt + ' '), inp); if (unit) L.append(' ' + unit); return L; };
-    const note = !['pause', 'quiet'].includes(md.value);      // pausieren und „keine Störung melden“ haben Nachlauf und Höchstdauer
-    const la = lab(t('ha_afterl'), aft, 'min'), lm = lab(t('ha_maxl'), mx, 'h'); la.hidden = lm.hidden = note;
+  HAR.rules.forEach((r, idx) => box.appendChild(haCard(r, idx)));
+}
+function haCard(r, idx) {
+  const key = r.id || '#new';
+  const open = HAR.open.has(key);
+  const c = el('div', { className: 'harow hacard m-' + (r.mode || 'pause') + (open ? ' open' : '') + (r.enabled === false ? ' off' : '') + (r.hold && r.enabled !== false ? ' hon' : '') }); c.dataset.id = r.id || '';
+  const hd = el('div', { className: 'hahead', tabIndex: 0 }); hd.setAttribute('role', 'button'); hd.setAttribute('aria-expanded', String(open));
+  const on = el('input', { type: 'checkbox', className: 'haon', checked: r.enabled !== false, title: t('ha_enabled') });
+  const ttl = el('div', { className: 'hattl' });
+  ttl.innerHTML = `<b>${esc(haIcon(r.mode))} ${esc(haName(r))}</b><small>${esc(t('ha_mode_' + (r.mode || 'pause')))}${r.mode === 'raise' ? ' +' + esc(fmtDb(r.raise_db ?? 10)) + ' dB' + (r.vol_scale ? ' 🔊' : '') : ''} · ${esc(r.entity || '')}${r.src && r.src !== 'all' ? ' · ' + esc((SOURCES.find(x => x.id === r.src) || {}).name || r.src) : ''}</small>`;
+  const now = el('small', { className: 'hanow' + (r.hold ? ' hold' : ''), textContent: haStateTxt(r) }); ttl.appendChild(now);
+  const chev = el('span', { className: 'hachev', textContent: open ? '▾' : '▸' });
+  hd.append(on, ttl, chev);
+  const flip = () => { if (open) HAR.open.delete(key); else HAR.open.add(key); haRender(); };
+  hd.onclick = e => { if (e.target === on) return; flip(); };
+  hd.onkeydown = e => { if ((e.key === 'Enter' || e.key === ' ') && e.target === hd) { e.preventDefault(); flip(); } };
+  on.addEventListener('change', () => { r.enabled = on.checked; haSave().then(haRender); });
+  c.appendChild(hd);
+  if (open) c.appendChild(haBody(r, idx));
+  return c;
+}
+function haBody(r, idx) {
+  const b = el('div', { className: 'habody' });
+  const lab = (txt, inp, unit, tip) => { const L = el('label', { className: 'hafld' }); L.append(el('span', { textContent: txt }), inp); if (unit) L.append(el('em', { textContent: unit })); if (tip) L.title = tip; return L; };
+  const save = () => haSave();
+  const nmi = el('input', { type: 'text', value: r.label || '', maxLength: 60, placeholder: r.name && r.name !== r.entity ? r.name : t('ha_name_ph'), title: t('ha_name_tip') });
+  nmi.addEventListener('change', () => { r.label = nmi.value.trim(); save(); });
+  const md = el('select', { className: 'hamode' });
+  for (const [m, ic] of HA_MODES) option(md, m, ic + ' ' + t('ha_mode_' + m) + (m === 'raise' && !PRO.ok ? ' 🔒' : ''));
+  md.value = r.mode || 'pause';
+  md.addEventListener('change', () => { if (md.value === 'raise' && !PRO.ok) { md.value = r.mode; proGate('raise'); return; } r.mode = md.value; if (r.mode === 'raise') Object.assign(r, Object.assign(haDefaults(r.entity, 'raise'), { states: r.states })); save().then(haRender); });
+  const ent = el('input', { type: 'text', value: r.entity || '', placeholder: 'media_player.fernseher', className: 'haent' }); ent.setAttribute('list', 'haents');
+  ent.addEventListener('change', () => { r.entity = ent.value.trim(); save().then(haRender); });
+  const src = el('select', { className: 'hasrc', title: t('ha_src') });
+  option(src, 'all', t('all_sources')); SOURCES.forEach(x => option(src, x.id, x.name)); src.value = r.src || 'all';
+  src.addEventListener('change', () => { r.src = src.value; save(); });
+  const g1 = el('div', { className: 'hagrid' }); g1.append(lab(t('ha_name'), nmi), lab(t('ha_model'), md), lab(t('ha_dev'), ent), lab(t('ha_src'), src));
+  b.appendChild(g1);
+  /* Wann aktiv: Zustände zum Anhaken (dazu frei als Text, z. B. !off oder >1) */
+  const wn = el('div', { className: 'hawhen' });
+  wn.appendChild(el('span', { className: 'hawl', textContent: t(['pause', 'quiet', 'raise'].includes(r.mode) ? 'ha_when' : 'ha_whenn') }));
+  const toks = String(r.states || '').split(',').map(x => x.trim()).filter(Boolean);
+  const pos = new Set(toks.filter(x => !/^[!<>]/.test(x)).map(x => x.toLowerCase())), extra = toks.filter(x => /^[!<>]/.test(x));
+  const cand = [...new Set([...haStsFor(r.entity), ...pos, ...(r.now_state && !/^(unknown|unavailable)$/.test(r.now_state) ? [String(r.now_state).toLowerCase()] : [])])];
+  const sts = el('input', { type: 'text', value: r.states || '', className: 'hasts', placeholder: 'on, playing  ·  !off  ·  >1', title: t('ha_states_tip') });
+  const chips = el('div', { className: 'hachips' });
+  cand.forEach(s => { const L = el('label', { className: 'chip hachk' + (pos.has(s) ? ' on' : '') }); const cb = el('input', { type: 'checkbox', checked: pos.has(s) }); L.append(cb, document.createTextNode(' ' + haStLabel(s) + (haStLabel(s).toLowerCase() !== s ? ' (' + s + ')' : ''))); cb.addEventListener('change', () => { if (cb.checked) pos.add(s); else pos.delete(s); r.states = [...cand.filter(x => pos.has(x)), ...[...pos].filter(x => !cand.includes(x)), ...extra].join(', '); sts.value = r.states; L.classList.toggle('on', cb.checked); save(); }); chips.appendChild(L); });
+  sts.addEventListener('change', () => { r.states = sts.value; save().then(haRender); });
+  const adv = el('details', { className: 'haadv' }); adv.open = !!extra.length || !cand.length; adv.append(el('summary', { textContent: t('ha_adv') }), sts, el('small', { className: 'mut', textContent: t('ha_states_tip') }));
+  wn.append(chips, adv); b.appendChild(wn);
+  /* Zeiten */
+  const g2 = el('div', { className: 'hagrid' });
+  if (['pause', 'quiet', 'raise'].includes(r.mode)) {
+    const aft = el('input', { type: 'number', min: 0, max: 240, step: 0.5, value: r.after_min ?? 1, className: 'n' }); aft.addEventListener('change', () => { r.after_min = +aft.value; save(); });
+    const mx = el('input', { type: 'number', min: 0, max: 48, step: 1, value: r.max_h ?? 8, className: 'n' }); mx.addEventListener('change', () => { r.max_h = +mx.value; save(); });
+    g2.append(lab(t('ha_afterl'), aft, 'min', t('ha_after_tip')), lab(t('ha_maxl'), mx, 'h', t('ha_max_tip')));
+  }
+  if (r.mode === 'quiet') { const preI = el('input', { type: 'number', min: 0, max: 30, step: 0.5, value: r.pre_s || 0, className: 'n' }); preI.addEventListener('change', () => { r.pre_s = +preI.value || 0; save(); }); g2.append(lab(t('ha_pre'), preI, 's', t('ha_pre_tip'))); }
+  if (r.mode === 'event') {
     const nmNow = r.label || r.name || r.entity || '';
     const colI = el('input', { type: 'color', className: 'hacol', value: r.color || sensCol([0, 0, nmNow]), title: t('ha_col_tip') });
     const colR = el('button', { type: 'button', className: 'chip hacolr', textContent: '↺', title: t('ha_col_auto'), hidden: !r.color });
-    const bigI = el('input', { type: 'checkbox', checked: !!r.big, title: t('ha_big_tip') });
-    const lbg = lab(t('ha_big'), bigI); lbg.title = t('ha_big_tip'); lbg.hidden = md.value !== 'event';   // Hervorhebung: doppelt so großes Fähnchen
-    const preI = el('input', { type: 'number', min: 0, max: 30, step: 0.5, value: r.pre_s || 0, className: 'n', title: t('ha_pre_tip') });
-    const lpr = lab(t('ha_pre'), preI, 's'); lpr.title = t('ha_pre_tip'); lpr.hidden = md.value !== 'quiet';   // Vorlauf: auch kurz davor Begonnenes (z. B. „Hey Jarvis“) zählt nicht
-    const lc = lab(t('ha_col'), colI); lc.appendChild(colR); lc.hidden = md.value !== 'event';   // Farbe des Fähnchens im Verlauf (nur „als Ereignis“)
-    colI.addEventListener('change', () => { HAR.rules[idx].color = colI.value; colR.hidden = false; haSave(); });
-    colR.onclick = () => { HAR.rules[idx].color = ''; colI.value = sensCol([0, 0, nmNow]); colR.hidden = true; haSave(); };
-    l2.append(lab(t('ha_name'), nmi), lab(t('ha_model'), md), lab(t(note ? 'ha_whenn' : 'ha_when'), sts), la, lm, lpr, lc, lbg);
-    row.append(l1, l2, now); box.appendChild(row);
-    const upd = () => { Object.assign(HAR.rules[idx], { enabled: on.checked, entity: ent.value.trim(), label: nmi.value.trim(), src: src.value, states: sts.value, after_min: +aft.value, max_h: +mx.value, mode: md.value, big: bigI.checked, pre_s: +preI.value || 0 }); haSave(); };
-    md.addEventListener('change', () => { upd(); haRender(); });
-    ent.addEventListener('change', () => { const d = haDefaults(ent.value.trim()); if (!sts.value || sts.value === haDefaults('').states) { sts.value = d.states; aft.value = d.after_min; mx.value = d.max_h; if (d.mode) { md.value = d.mode; preI.value = d.pre_s || 0; } } upd(); if (d.mode) haRender(); });
-    for (const x of [on, src, sts, aft, mx, nmi, bigI, preI]) x.addEventListener('change', upd);
-    del.onclick = () => { HAR.rules.splice(idx, 1); haSave(); haRender(); };
-    if (focusLast && idx === HAR.rules.length - 1) setTimeout(() => ent.focus(), 30);
-  });
+    colI.addEventListener('change', () => { r.color = colI.value; colR.hidden = false; save(); });
+    colR.onclick = () => { r.color = ''; colI.value = sensCol([0, 0, nmNow]); colR.hidden = true; save(); };
+    const lc = lab(t('ha_col'), colI); lc.appendChild(colR);
+    const bigI = el('input', { type: 'checkbox', checked: !!r.big }); bigI.addEventListener('change', () => { r.big = bigI.checked; save(); });
+    g2.append(lc, lab(t('ha_big'), bigI, '', t('ha_big_tip')));
+  }
+  if (g2.childNodes.length) b.appendChild(g2);
+  if (r.mode === 'raise') b.appendChild(haRaiseBox(r));
+  /* Testen, Kopieren, Löschen */
+  const ft = el('div', { className: 'hafoot' });
+  const res = el('small', { className: 'hatest' });
+  const tst = el('button', { type: 'button', className: 'chip', textContent: '▶ ' + t('ha_test') });
+  tst.onclick = async () => { res.textContent = '…'; try { const j = await (await fetch('ha_test?entity=' + encodeURIComponent(r.entity || '') + '&states=' + encodeURIComponent(r.states || ''), { cache: 'no-store' })).json(); res.className = 'hatest ' + (j.ok ? (j.match ? 'yes' : 'no') : 'err'); res.textContent = j.ok ? t('ha_test_res', { n: j.name, s: haStLabel(j.state) }) + (j.vol != null ? ' · 🔊 ' + (j.mute ? t('ha_muted') : j.vol + ' %') : '') + ' → ' + t(j.match ? 'ha_test_yes' : 'ha_test_no') : '⚠ ' + (j.error === 'notfound' ? t('ha_test_nf') : j.error); } catch (e) { res.textContent = '⚠ ' + e.message; } };
+  const cp = el('button', { type: 'button', className: 'chip', textContent: '⧉ ' + t('ha_copy') });
+  cp.onclick = () => { const n = Object.assign({}, r, { id: '', label: (r.label || r.name || r.entity) + ' (2)' }); ['now_state', 'name', 'active', 'hold', 'until', 'capped', 'err', 'hist', 'vol', 'mute', 'raise_now'].forEach(k => delete n[k]); HAR.rules.splice(idx + 1, 0, n); HAR.open.add('#new'); haSave().then(haRender); };
+  const del = el('button', { type: 'button', className: 'chip hadelb', textContent: '✕ ' + t('nt_del') });
+  del.onclick = () => { if (!confirm(t('ha_del_q', { n: haName(r) }))) return; HAR.rules.splice(idx, 1); haSave().then(haRender); };
+  ft.append(tst, cp, del, res); b.appendChild(ft);
+  return b;
+}
+/* Schwelle anheben: Stärke, mit der Lautstärke mitgehen, Einpegeln (Taste gedrückt halten) */
+function haRaiseBox(r) {
+  const w = el('div', { className: 'haraise' });
+  if (!PRO.ok) { const p = el('div', { className: 'haprow' }); p.append(proLockTag(), document.createTextNode(' ' + t('ha_r_nopro_l'))); w.appendChild(p); }
+  const row = el('div', { className: 'hagrid' });
+  const sl = el('input', { type: 'range', min: 0, max: 40, step: 0.5, value: r.raise_db ?? 10, className: 'haslider' });
+  const nv = el('input', { type: 'number', min: 0, max: 40, step: 0.5, value: r.raise_db ?? 10, className: 'n' });
+  sl.addEventListener('input', () => { nv.value = sl.value; }); sl.addEventListener('change', () => { r.raise_db = +sl.value; haSave(); });
+  nv.addEventListener('change', () => { sl.value = nv.value; r.raise_db = +nv.value; haSave(); });
+  const L = el('label', { className: 'hafld hawide' }); L.append(el('span', { textContent: t('ha_r_db') }), sl, nv, el('em', { textContent: 'dB' }));
+  const vs = el('input', { type: 'checkbox', checked: !!r.vol_scale }); vs.addEventListener('change', () => { r.vol_scale = vs.checked; haSave().then(haRender); });
+  const L2 = el('label', { className: 'hafld hachkl' }); L2.title = t('ha_r_vol_tip'); L2.append(vs, el('span', { textContent: ' ' + t('ha_r_vol') }));
+  row.append(L, L2); w.appendChild(row);
+  if (r.vol_scale) w.appendChild(el('small', { className: 'mut', textContent: r.cal_vol ? t('ha_r_vol_ex', { d: fmtDb(r.raise_db ?? 10), v: r.cal_vol, h: fmtDb((r.raise_db ?? 10) / 2), v2: Math.round(r.cal_vol / 2) }) : t('ha_r_vol_nocal') }));
+  const cb = el('div', { className: 'hacalrow' });
+  const btn = el('button', { type: 'button', className: 'pri hacalb', textContent: '🎚 ' + t('ha_cal') }); btn.title = t('ha_cal_tip');
+  const info = el('small', { className: 'hacalinfo' });
+  info.textContent = r.cal_at ? t('ha_cal_last', { d: new Date(r.cal_at).toLocaleString(lang === 'en' ? 'en-GB' : 'de-DE', { dateStyle: 'short', timeStyle: 'short' }), l: r.cal_lvl != null ? fmtDb(r.cal_lvl) : '–', v: r.cal_vol != null ? r.cal_vol + ' %' : '–' }) : t('ha_cal_none');
+  if (!PRO.ok) { btn.disabled = true; btn.appendChild(proLockTag()); }
+  let t0 = 0, tick = 0, busy = false, held = false;
+  const start = async e => {
+    held = true; if (e) e.preventDefault(); if (busy || HAR.cal || !PRO.ok) return; busy = true;
+    if (!r.id) await haSave();
+    if (!r.id) { busy = false; return; }
+    try { btn.setPointerCapture && e && e.pointerId != null && btn.setPointerCapture(e.pointerId); } catch (x) { }
+    const j = await (await fetch('ha_cal', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ action: 'start', rid: r.id, src: r.src || 'all', entity: r.entity }) })).json().catch(() => ({ ok: false }));
+    if (!j.ok) { busy = false; info.textContent = '⚠ ' + t('ha_cal_e_' + (j.error || 'x')); return; }
+    HAR.cal = r.id; t0 = Date.now(); btn.classList.add('on'); w.classList.add('caling');
+    const up = () => { const s = (Date.now() - t0) / 1000; info.textContent = '🎚 ' + t('ha_cal_run', { s: fmtDb(Math.floor(s * 10) / 10) }) + (s < 3 ? ' · ' + t('ha_cal_hold') : ' · ' + t('ha_cal_ok')); };
+    up(); tick = setInterval(up, 200); busy = false;
+    if (!held) stop();              // schon losgelassen, während der Start lief
+  };
+  const stop = async () => {
+    held = false; if (HAR.cal !== r.id || busy) return;
+    clearInterval(tick); btn.classList.remove('on'); w.classList.remove('caling'); busy = true;
+    const j = await (await fetch('ha_cal', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ action: 'stop' }) })).json().catch(() => ({ ok: false }));
+    HAR.cal = null; busy = false;
+    if (!j.ok) { info.textContent = '⚠ ' + t('ha_cal_e_' + (j.error || 'x')); return; }
+    Object.assign(r, { raise_db: j.raise_db, cal_lvl: j.cal_lvl, cal_at: j.cal_at }); if (j.cal_vol != null) r.cal_vol = j.cal_vol;
+    await haSave(); haRender();
+    const c = document.querySelector(`#halist .hacard[data-id="${r.id}"] .hacalinfo`); if (c) { c.textContent = '✓ ' + t('ha_cal_done', { d: fmtDb(j.raise_db), l: fmtDb(j.cal_lvl), th: fmtDb(j.thr), v: j.cal_vol != null ? j.cal_vol + ' %' : '–' }); c.classList.add('ok'); }
+  };
+  btn.addEventListener('pointerdown', e => start(e));
+  for (const ev of ['pointerup', 'pointercancel', 'lostpointercapture']) btn.addEventListener(ev, () => stop());
+  btn.addEventListener('contextmenu', e => e.preventDefault());
+  btn.addEventListener('keydown', e => { if ((e.key === ' ' || e.key === 'Enter') && !e.repeat) start(e); });
+  btn.addEventListener('keyup', e => { if (e.key === ' ' || e.key === 'Enter') stop(); });
+  cb.append(btn, info); w.appendChild(cb);
+  w.appendChild(el('small', { className: 'mut', textContent: t('ha_cal_help') }));
+  return w;
 }
 async function haSave() {
   try {
     const r = await (await fetch('ha_rules', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ rules: HAR.rules.filter(x => x.entity) }) })).json();
-    if (r.ok) { const keep = HAR.rules.filter(x => !x.entity); HAR.info = r; HAR.rules = r.rules.concat(keep); haStates(r.rules); document.querySelectorAll('#halist .harow').forEach((row, i) => { if (HAR.rules[i]) row.dataset.id = HAR.rules[i].id || ''; }); flash($('habox')); }
+    if (r.ok) {
+      const keep = HAR.rules.filter(x => !x.entity);
+      if (HAR.open.has('#new')) { HAR.open.delete('#new'); const nw = r.rules.find(x => !HAR.rules.some(o => o.id && o.id === x.id)); if (nw) HAR.open.add(nw.id); }
+      const loc = HAR.rules.filter(x => x.entity);   // Objekte behalten (Bezüge in offenen Karten), nur mit dem Server abgleichen
+      r.rules.forEach((x, i) => { if (loc[i]) Object.assign(loc[i], x); });
+      HAR.info = r; HAR.rules = (loc.length === r.rules.length ? loc : r.rules).concat(keep); haStates(HAR.rules); flash($('habox'));
+    }
   } catch (e) { alert(t('saveerr') + ' ' + e.message); }
 }
 /* Einstellungs-Bereiche einklappbar; Zustand pro Browser gemerkt */
@@ -2875,8 +3047,8 @@ function makeCollapsible() {
 }
 function openSec(key) { if (SEC_TAB[key]) setSTab(SEC_TAB[key]); const fs = $('sbody').querySelector(`fieldset[data-sec="${key}"], fieldset#${key}`); if (fs && fs.classList.contains('shut')) fs.querySelector(':scope > legend').click(); return fs; }
 /* Einstellungen in Reitern; Inhalte der Bereiche bleiben unveraendert. Bereiche ohne Reiter (Auswahl des Geraets) stehen in jedem Reiter. */
-const STABS = [['dev', 'st_dev'], ['det', 'st_det'], ['time', 'st_time'], ['save', 'st_save'], ['gen', 'st_gen']];
-const SEC_TAB = { s_ki: 'det', s_quiet: 'time', s_place: 'save', s_keep: 'save', s_list: 'gen', s_pro: 'gen', s_wav: 'save', s_mirror: 'save', s_reset: 'gen', rsbox: 'gen', s_prof: 'det', pfbox: 'det', srcbox1: 'dev', diagset: 'gen', s_diag: 'gen', srcbox: 'dev', calbox: 'dev', s_cal: 'dev', s_audio: 'dev', s_thr: 'det', s_time: 'time', s_sched: 'time', schedbox: 'time', s_ha: 'time', habox: 'time', s_notes: 'time', s_rec: 'save', s_video: 'save', s_misc: 'gen', s_backup: 'save', bkbox: 'save' };
+const STABS = [['dev', 'st_dev'], ['det', 'st_det'], ['time', 'st_time'], ['rules', 'st_rules'], ['save', 'st_save'], ['gen', 'st_gen']];
+const SEC_TAB = { s_ki: 'det', s_quiet: 'time', s_place: 'save', s_keep: 'save', s_list: 'gen', s_pro: 'gen', s_wav: 'save', s_mirror: 'save', s_reset: 'gen', rsbox: 'gen', s_prof: 'det', pfbox: 'det', srcbox1: 'dev', diagset: 'gen', s_diag: 'gen', srcbox: 'dev', calbox: 'dev', s_cal: 'dev', s_audio: 'dev', s_thr: 'det', s_time: 'time', s_sched: 'time', schedbox: 'time', s_ha: 'rules', habox: 'rules', s_notes: 'time', s_rec: 'save', s_video: 'save', s_misc: 'gen', s_backup: 'save', bkbox: 'save' };
 let STAB = 'dev'; try { STAB = localStorage.getItem('laerm_stab') || 'dev'; } catch (e) { }
 if (!STABS.some(x => x[0] === STAB)) STAB = 'dev';
 function applySTab() {
@@ -4528,7 +4700,7 @@ function drawCmp() {
 }
 function haInfo(g) {
   return ((g && g.ha) || []).map(x => [x.label, (x.on ? t('ha_on') : x.on === false ? t('ha_off') : t('ha_unk')) + (x.state && !['on', 'off', 'unknown', 'unavailable'].includes(String(x.state).toLowerCase()) ? ' · ' + x.state : '')   // „aus · off“ doppelt: Rohzustand nur, wenn er mehr sagt (z. B. playing)
-    + (x.on && x.mute ? ' · 🔇 ' + t('ha_mute') : x.on && x.vol != null ? ' · 🔊 ' + x.vol + ' %' : ''), x.entity]);
+    + (x.on && x.mute ? ' · 🔇 ' + t('ha_mute') : x.on && x.vol != null ? ' · 🔊 ' + x.vol + ' %' : '') + (x.raise ? ' · 📈 ' + t('ha_r_on', { d: fmtDb(x.raise) }) : ''), x.entity]);
 }
 
 /* ================= Ganzer Tag (Tagesspur): im Nachtbericht und in der Live-Ansicht ================= */
