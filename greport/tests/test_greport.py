@@ -56,6 +56,10 @@ class Notizen(unittest.TestCase):
         G.qt_change({"action": "hide", "k": "klopfen", "on": True})
         self.assertNotIn("Klopfen", [l for _, l in G.qt_visible()])  # ausgeblendet = auch nicht in Home Assistant
 
+    def test_ingress_ueber_ipv6(self):
+        self.assertIn(G.client_ip("::ffff:172.30.32.2"), G.ALLOWED)
+        self.assertNotIn(G.client_ip("::ffff:192.168.1.5"), G.ALLOWED)
+
     def test_schluessel_beide_produkte(self):
         self.assertIn("gaslighter", G.lizenz.PRODUCTS); self.assertIn("greport", G.lizenz.PRODUCTS)
         self.assertEqual(G.lizenz.check("GL1-AAAAA")["state"], "invalid")

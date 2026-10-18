@@ -1,5 +1,8 @@
 # Changelog
 
+## 1.0.1
+- Behoben: Beim Öffnen in Home Assistant kam nur „forbidden“. Der Zugriff über Home Assistant wird jetzt auch über IPv6 erkannt.
+
 ## 1.0.0
 - Erste Fassung: der Notiz-Teil von GLighter als eigene App.
 - Notiz jetzt: Textfeld (Enter speichert), Schnellwahl mit eigenen Tasten (lernt mit, häufigste zuerst), Zeuge, Zeitraum von–bis, „läuft noch“, Notizbereich abdocken (⧉).

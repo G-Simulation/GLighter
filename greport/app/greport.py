@@ -31,7 +31,7 @@ WEB = os.path.join(HERE, "web")
 sys.path.insert(0, HERE)
 import lizenz  # noqa: E402
 
-VERSION = "1.0.0"
+VERSION = "1.0.1"
 BRAND = "GReport"
 OPTIONS = os.environ.get("GR_OPTIONS", "/data/options.json")
 PRIV = os.environ.get("GR_PRIVATE", "/data")                    # nur für GReport (Pro-Schlüssel)
@@ -659,6 +659,12 @@ def state():
             "persons": persons(), "dir": DIR, "own_max": own_max()}
 
 
+def client_ip(a):
+    """Der Server lauscht auf IPv6 und IPv4: Home Assistant (Ingress) kommt dann als „::ffff:172.30.32.2“ an."""
+    a = str(a or "")
+    return a[7:] if a.startswith("::ffff:") else a
+
+
 class H(http.server.BaseHTTPRequestHandler):
     server_version = "GReport"
 
@@ -666,7 +672,7 @@ class H(http.server.BaseHTTPRequestHandler):
         pass
 
     def allowed(self):
-        if not RESTRICT or self.client_address[0] in ALLOWED:
+        if not RESTRICT or client_ip(self.client_address[0]) in ALLOWED:
             return True
         self.send(403, "text/plain", b"forbidden")
         return False
