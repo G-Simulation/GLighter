@@ -182,8 +182,6 @@ body.pop .capbody{flex:1}
   .clocknum{font-size:32px}
   .capbody{padding:6px 14px 12px}
   .grp{grid-template-columns:1fr;gap:4px}.grp>span{padding:0}
-  .grp>div{flex-wrap:nowrap;overflow-x:auto;scrollbar-width:none;margin:0 -14px;padding:0 14px 2px;scroll-padding:14px}
-  .grp>div::-webkit-scrollbar{display:none}
   .tag{height:34px;font-size:14px}
   .savebar{position:sticky;bottom:0;z-index:5;padding:10px 14px calc(10px + env(safe-area-inset-bottom))}
   .btn.primary{flex:0 0 auto;min-width:130px;height:44px}
@@ -192,5 +190,14 @@ body.pop .capbody{flex:1}
   .note{grid-template-columns:70px 1fr auto;gap:2px 8px}.note .t small{font-size:11px}
   .qtr{grid-template-columns:22px 1fr auto;grid-template-areas:"h i b" "h g g"}
   .qtr .hd{grid-area:h}.qtr input[type=text]{grid-area:i}.qtr select{grid-area:g}.qtr .b{grid-area:b}
+}
+/* nur echte Handys (Touch): je Gruppe eine Zeile zum Wischen, rechts ein Verlauf + Pfeil, solange es weitergeht.
+   Am PC und im abgedockten Fenster brechen die Tasten um. */
+@media(max-width:600px) and (pointer:coarse){
+  .grp>div{flex-wrap:nowrap;overflow-x:auto;scrollbar-width:none;margin:0 -14px;padding:0 14px 2px;scroll-padding:14px}
+  .grp>div::-webkit-scrollbar{display:none}
+  .grp{position:relative}
+  .grp.more::after{content:"›";position:absolute;right:-14px;bottom:2px;height:34px;width:44px;display:grid;place-items:center end;padding-right:6px;font-size:22px;color:var(--mut);
+    background:linear-gradient(to right,transparent,var(--card) 65%);pointer-events:none}
 }
 @media(prefers-reduced-motion:reduce){*{transition:none!important}}

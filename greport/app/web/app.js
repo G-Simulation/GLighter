@@ -128,6 +128,10 @@ function fnpTags() {
     h += `<div class="grp"><span>${esc(t('gr_g_' + g))}</span><div>${ks.map(k => tagBtn(k, FNP.tags.has(k))).join('')}${g === 'own' ? `<button type="button" class="tag add">＋ ${esc(t('qt_add'))}</button>` : ''}</div></div>`;
   }
   box.innerHTML = h;
+  box.querySelectorAll('.grp>div').forEach(row => {          // Handy: Hinweis rechts, solange die Zeile weitergeht
+    const upd = () => row.parentNode.classList.toggle('more', row.scrollWidth - row.scrollLeft - row.clientWidth > 4);
+    row.addEventListener('scroll', upd, { passive: true }); requestAnimationFrame(upd);
+  });
   box.querySelectorAll('.tag[data-t]').forEach(b => {
     b.onclick = () => { const k = b.dataset.t; FNP.tags.has(k) ? FNP.tags.delete(k) : FNP.tags.add(k); b.classList.toggle('on', FNP.tags.has(k)); b.setAttribute('aria-pressed', FNP.tags.has(k)); fnpStart(); };
     b.oncontextmenu = e => { e.preventDefault(); qtOpen(b.dataset.t); };

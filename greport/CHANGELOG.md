@@ -1,5 +1,8 @@
 # Changelog
 
+## 1.2.1
+- Schnellwahl: Am PC und im abgedockten Fenster brechen die Tasten wieder in die nächste Zeile um, statt rechts abgeschnitten zu werden. Nur auf Handys mit Touch bleibt je Gruppe eine Zeile zum Wischen, mit einem Pfeil rechts, solange es weitergeht.
+
 ## 1.2.0
 - **Neu (Pro): Tagebuch als Textdatei.** GReport führt eine gut lesbare Datei nach Tagen: je Tag eine Überschrift, darunter die Notizen nach Uhrzeit. Neue, geänderte und gelöschte Notizen werden sofort eingetragen, nachgetragene Notizen landen unter ihrem Tag.
   - Datei frei wählbar unter `/share` oder `/media`, z. B. auf einem Netzlaufwerk.
