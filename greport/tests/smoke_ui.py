@@ -25,8 +25,8 @@ def main():
             pg.on("pageerror", lambda e: errors.append("pageerror: " + str(e)))
             pg.on("console", lambda m: errors.append("console: " + m.text) if m.type == "error" else None)
             pg.goto(url); pg.wait_for_selector("#fnptags .ntchip"); pg.wait_for_timeout(500)
-            if pg.locator("#fnpsrcl").is_visible():
-                fails.append("Quelle / Gerät sichtbar, obwohl GLighter nicht verbunden ist")
+            if pg.locator("#fnpsrcl, #fnprun").count():
+                fails.append("Quelle / Gerät oder „läuft noch“ ist noch da")
             pg.fill("#fnptext", "Bass dröhnt"); pg.click('#fnptags .ntchip[data-t="klopfen"]'); pg.click("#fnpsave"); pg.wait_for_timeout(800)
             if pg.locator("#grnotes .grn").count() != 1 or "Bass dröhnt" not in pg.locator("#grnotes").inner_text():
                 fails.append("gespeicherte Notiz erscheint nicht in der Liste")

@@ -43,7 +43,7 @@ const PRO = () => !!(ST.pro && ST.pro.ok);
 async function stLoad() {
   try { ST = await (await fetch('state', { cache: 'no-store' })).json(); } catch (e) { }
   if (ST.lang === 'de' || ST.lang === 'en') lang = ST.lang;
-  stShow(); fnpSrc(); witList();
+  stShow(); witList();
 }
 function stShow() {
   const b = $('grstat'); if (!b) return; b.innerHTML = '';
@@ -173,13 +173,6 @@ function fnpTags() {
   const mb = box.querySelector('.fnpmoretags'); if (mb) mb.onclick = () => { FNP.more = !FNP.more; fnpTags(); };
   ntChipBind(box, FNP.tags, () => fnpStart());
 }
-function fnpSrc() {                                    // „Quelle / Gerät“ nur, wenn GLighter verbunden ist (seine Geräte)
-  const srcs = (ST.glighter && ST.glighter.linked && ST.glighter.sources) || [], sel = $('fnpsrc'); if (!sel) return;
-  $('fnpsrcl').hidden = !srcs.length;
-  const cur = sel.value || (() => { try { return localStorage.getItem('gr_src') || 'all'; } catch (e) { return 'all'; } })();
-  sel.innerHTML = ''; option(sel, 'all', t('all_sources')); srcs.forEach(x => option(sel, x.id, x.name));
-  sel.value = [...sel.options].some(o => o.value === cur) ? cur : 'all';
-}
 function witList() {                                   // Pro: gespeicherte Personen zum Antippen (mehrere Zeugen)
   const box = $('fnpwitl'); if (!box) return; box.innerHTML = '';
   if (!PRO()) return;
@@ -194,12 +187,12 @@ function fnpShow() {
   const hm = ts => { const d = new Date(ts); return pad(d.getHours()) + ':' + pad(d.getMinutes()) + ':' + pad(d.getSeconds()); };
   const f = $('fnpfrom');
   f.textContent = FNP.edit ? t('gr_editing', { t: new Date(FNP.edit.a).toLocaleString(locale()) }) : FNP.from == null ? t(matchMedia('(pointer:coarse)').matches ? 'gr_wait_m' : 'gr_wait')
-    : t('fnp_from', { t: hm(FNP.from) }) + ($('fnprun').checked ? ' – ' + hm(nowServer()) : '');
+    : t('fnp_from', { t: hm(FNP.from) });
   f.classList.toggle('on', FNP.from != null || !!FNP.edit);
 }
 function fnpReset() {
   FNP.from = null; FNP.tags = new Set(); FNP.edit = null; FNP.fixed = false;
-  $('fnptext').value = ''; $('fnpwit').value = ''; $('fnpfromi').value = ''; $('fnptoi').value = ''; $('fnprun').checked = false;
+  $('fnptext').value = ''; $('fnpwit').value = ''; $('fnpfromi').value = ''; $('fnptoi').value = '';
   $('fnpcancel').hidden = true; $('fnpsave').textContent = t('save'); $('fnpanel').classList.remove('editing');
   fnpTags(); fnpShow(); listDraw();
 }
@@ -208,15 +201,14 @@ function fnpFold(open) {
   try { localStorage.setItem('gr_fnp', open ? '1' : '0'); } catch (e) { }
 }
 async function fnpSave() {
-  const run = $('fnprun').checked, fixed = FNP.fixed && $('fnpfromi').value, tv = $('fnptoi').value;
+  const fixed = FNP.fixed && $('fnpfromi').value, tv = $('fnptoi').value;
   const ed = FNP.edit;
-  const body = { action: ed ? 'edit' : 'add', id: ed ? ed.id : '', from: fixed ? $('fnpfromi').value : ed ? ed.from : dtl(new Date(nowServer())), to: tv || (run ? dtl(new Date(nowServer())) : ''),
-    src: $('fnpsrc').value || 'all', text: autoText($('fnptext').value, FNP.tags), typed: !!$('fnptext').value.trim(), tags: [...FNP.tags], witness: $('fnpwit').value };
+  const body = { action: ed ? 'edit' : 'add', id: ed ? ed.id : '', from: fixed ? $('fnpfromi').value : ed ? ed.from : dtl(new Date(nowServer())), to: tv,
+    src: ed ? (ed.src || 'all') : 'all', text: autoText($('fnptext').value, FNP.tags), typed: !!$('fnptext').value.trim(), tags: [...FNP.tags], witness: $('fnpwit').value };
   const msg = $('fnpmsg'); msg.className = 'fnpmsg';
   try {
     const r = await (await fetch('note', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) })).json();
     if (!r.ok) { msg.textContent = t(r.error === 'empty' ? 'fn_empty' : r.error === 'to' ? 'fn_bad_to' : 'saveerr'); msg.classList.add('err'); return; }
-    try { localStorage.setItem('gr_src', $('fnpsrc').value); } catch (e) { }
     fnpReset(); ntsLoad(); msg.textContent = '✓ ' + t(ed ? 'gr_changed' : 'fnp_saved'); setTimeout(() => { if (msg.textContent.startsWith('✓')) msg.textContent = ''; }, 4000);
     listLoad();
   } catch (e) { msg.textContent = t('saveerr'); msg.classList.add('err'); }
@@ -224,8 +216,7 @@ async function fnpSave() {
 function fnpEdit(n) {                                  // gespeicherte Notiz in der Leiste ändern
   FNP.edit = n; FNP.tags = new Set(n.tags || []); FNP.fixed = true; FNP.from = n.a;
   $('fnptext').value = n.text || ''; $('fnpwit').value = n.witness || '';
-  $('fnpfromi').value = n.from ? dtl(new Date(n.from)) : ''; $('fnptoi').value = n.to ? dtl(new Date(n.to)) : ''; $('fnprun').checked = false;
-  const s = $('fnpsrc'); if ([...s.options].some(o => o.value === (n.src || 'all'))) s.value = n.src || 'all';
+  $('fnpfromi').value = n.from ? dtl(new Date(n.from)) : ''; $('fnptoi').value = n.to ? dtl(new Date(n.to)) : '';
   $('fnpcancel').hidden = false; $('fnpsave').textContent = t('gr_change'); $('fnpanel').classList.add('editing');
   fnpFold(true); fnpTags(); fnpShow(); listDraw(); $('fnpanel').scrollIntoView({ block: 'nearest', behavior: 'smooth' }); $('fnptext').focus();
 }
@@ -260,7 +251,6 @@ function initFnp() {
   $('fnptog').onclick = () => { const o = $('fnpbody').hidden; fnpFold(o); if (o) $('fnptext').focus(); };
   $('fnptext').addEventListener('input', () => { if ($('fnptext').value.trim()) fnpStart(); });
   $('fnpwit').addEventListener('input', () => { if ($('fnpwit').value.trim()) fnpStart(); });
-  $('fnprun').onchange = () => { fnpStart(); fnpShow(); };
   $('fnpsave').onclick = fnpSave; $('fnpcancel').onclick = fnpReset;
   enterSave($('fnptext'), fnpSave);
   {                                                   // jeder Teil einzeln einklappbar (Textfeld, Schnellwahl, Zeuge, Zeitraum) – gemerkt pro Browser
@@ -295,7 +285,7 @@ function initFnp() {
       if (FNP.from != null) FNP.from = now;
       const fi = $('fnpfromi'); if (fi && fi.ownerDocument.activeElement !== fi) fi.value = dtl(new Date(now));
     }
-    if ($('fnprun').checked || (FNP.from != null && !FNP.fixed)) fnpShow();
+    if (FNP.from != null && !FNP.fixed) fnpShow();
   }, 1000);
   if (!matchMedia('(pointer:coarse)').matches) setTimeout(() => $('fnptext').focus({ preventScroll: true }), 300);
 }
