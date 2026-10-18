@@ -1,5 +1,8 @@
 # Changelog
 
+## 1.74.1
+- Neues GLighter-Logo und App-Symbol (im App-Store, in der Seitenleiste und als Browser-Symbol).
+
 ## 1.74.0
 - **GReport-Anbindung (Pro):** Ist die neue App **GReport** (der Notiz-Teil als eigene App) installiert, findet GLighter sie selbst. Ihre Notizen erscheinen dann an den Störungen, im Verlauf und im Lärmprotokoll, markiert mit „GReport“. Eine Kopplung ist nicht nötig. Geändert werden diese Notizen in GReport.
 - GReport bekommt von GLighter die Geräte für „Quelle / Gerät“.

@@ -1,5 +1,8 @@
 # Changelog
 
+## 1.6.1
+- Neues GReport-Logo und App-Symbol (im App-Store, in der App und als Browser-Symbol).
+
 ## 1.6.0
 - **Notiz direkt im Dashboard:** Das Gerät „GReport“ in Home Assistant hat jetzt alles, was man für eine Notiz braucht: Textfeld „Notiz“, je Gruppe eine Auswahlliste (Woher, Was, Wie stark, Folgen, Maßnahmen, Sonstiges, Eigene – eigene Tasten kommen automatisch in ihre Gruppe), „Zeuge“ und den Knopf „Speichern“. Danach sind die Felder wieder leer.
 - **Neue Sensoren:** „Letzte Notiz“ (mit den letzten 10 Notizen als Attribut, z. B. für eine eigene Notizen-Kachel) und „Notizen heute“.
