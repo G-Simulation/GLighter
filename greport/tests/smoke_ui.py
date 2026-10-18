@@ -24,26 +24,44 @@ def main():
             pg = b.new_context(locale="de-DE", viewport={"width": 1200, "height": 900}).new_page()
             pg.on("pageerror", lambda e: errors.append("pageerror: " + str(e)))
             pg.on("console", lambda m: errors.append("console: " + m.text) if m.type == "error" else None)
-            pg.goto(url); pg.wait_for_selector("#fnptags .ntchip"); pg.wait_for_timeout(500)
-            if pg.locator("#fnpsrcl").is_visible():
-                fails.append("Quelle / Gerät sichtbar, obwohl GLighter nicht verbunden ist")
-            pg.fill("#fnptext", "Bass dröhnt"); pg.click('#fnptags .ntchip[data-t="klopfen"]'); pg.click("#fnpsave"); pg.wait_for_timeout(800)
-            if pg.locator("#grnotes .grn").count() != 1 or "Bass dröhnt" not in pg.locator("#grnotes").inner_text():
+            pg.goto(url); pg.wait_for_selector("#fnptags .tag[data-t]"); pg.wait_for_timeout(500)
+            if pg.locator("#fnpsrc, #fnpsrcl").count():
+                fails.append("„Quelle / Gerät“ ist noch da")
+            if not pg.locator("#fnprun").count():
+                fails.append("„läuft noch“ fehlt")
+            if pg.locator("#fnptags .grp").count() < 5:
+                fails.append("Schnellwahl nicht nach Gruppen")
+            pg.fill("#fnptext", "Bass dröhnt"); pg.click('#fnptags .tag[data-t="klopfen"]'); pg.click("#fnpsave"); pg.wait_for_timeout(800)
+            if pg.locator("#grnotes .note").count() != 1 or "Bass dröhnt" not in pg.locator("#grnotes").inner_text():
                 fails.append("gespeicherte Notiz erscheint nicht in der Liste")
-            pg.click("#grnotes .grn .gre"); pg.wait_for_timeout(300)
+            pg.click("#grnotes .note .e"); pg.wait_for_timeout(300)
             if pg.input_value("#fnptext") != "Bass dröhnt" or not pg.locator("#fnpcancel").is_visible():
-                fails.append("Ändern füllt die Notiz-Leiste nicht")
-            pg.click("#fnpcancel"); pg.click("#fnptags .ntadd"); pg.fill("#fnptags_qt .qtnew", "Waschmaschine"); pg.click("#fnptags_qt .qtaddok"); pg.wait_for_timeout(600)
-            if not pg.locator('#fnptags .ntchip:has-text("Waschmaschine")').count():
-                fails.append("eigene Schnellwahl-Taste erscheint nicht")
-            if any("fnp_" in x or "gr_" in x for x in [pg.locator("#fnpsec").inner_text(), pg.locator("#fnpmsg").inner_text()]):
-                fails.append("Text-Schlüssel statt Text sichtbar")
+                fails.append("Ändern füllt „Notiz jetzt“ nicht")
+            pg.click("#fnpcancel")
+            pg.click("#fnptags .tag.add"); pg.wait_for_timeout(300)                   # Schnellwahl bearbeiten
+            pg.fill("#qtnew", "Waschmaschine"); pg.click("#qtaddok"); pg.wait_for_timeout(500)
+            r = pg.locator('#qtlist .qtr[data-k="musik"] input[type=text]'); r.fill("Bass"); r.press("Enter"); pg.wait_for_timeout(500)
+            pg.click('#qtlist .qtr[data-k="unten"] .up'); pg.wait_for_timeout(500)
+            pg.click("#qtdlg .dlgx"); pg.wait_for_timeout(300)
+            txt = pg.locator("#fnptags").inner_text()
+            if "Waschmaschine" not in txt or "Bass" not in txt or "Musik/Bass" in txt:
+                fails.append("eigenes Wort oder Umbenennen wirkt nicht")
+            src_ = [x.get_attribute("data-t") for x in pg.locator("#fnptags .grp >> nth=0").locator(".tag[data-t]").all()]
+            if src_[:2] != ["unten", "oben"]:
+                fails.append("Anordnen wirkt nicht: " + ",".join(src_[:3]))
             pg.click("#grmenu"); pg.wait_for_timeout(200)
-            if pg.locator("#grmenul button").count() < 5:
+            if pg.locator("#grmenul button").count() < 7:
                 fails.append("Menü unvollständig")
+            pg.locator("#grmenul button >> nth=1").click(); pg.wait_for_timeout(300)   # Datum und Uhrzeit
+            pg.select_option("#pfdate", "iso"); pg.select_option("#pftime", "hm"); pg.click("#pfsave"); pg.wait_for_timeout(500)
+            import re as _re
+            if not _re.fullmatch(r"\d\d:\d\d", pg.locator("#capclock").inner_text().strip()) or not _re.fullmatch(r"\d{4}-\d\d-\d\d", pg.locator("#capdate").inner_text().strip()):
+                fails.append("Datums-/Zeitformat wirkt nicht: " + pg.locator("#capclock").inner_text() + " " + pg.locator("#capdate").inner_text())
+            if any(k in pg.locator("body").inner_text() for k in ("gr_", "fnp_", "qt_", "nt_")):
+                fails.append("Text-Schlüssel statt Text sichtbar")
             mp = b.new_context(locale="de-DE", viewport={"width": 375, "height": 760}, is_mobile=True, has_touch=True).new_page()
             mp.on("pageerror", lambda e: errors.append("pageerror (Handy): " + str(e)))
-            mp.goto(url); mp.wait_for_selector("#fnptags .ntchip"); mp.wait_for_timeout(500)
+            mp.goto(url); mp.wait_for_selector("#fnptags .tag"); mp.wait_for_timeout(500)
             if mp.evaluate("() => document.documentElement.scrollWidth - document.documentElement.clientWidth") > 1:
                 fails.append("Handy: Seite breiter als der Bildschirm")
             b.close()

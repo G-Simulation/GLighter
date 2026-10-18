@@ -2,59 +2,95 @@
 <html lang="de">
 <head>
 <meta charset="utf-8">
-<meta name="viewport" content="width=device-width,initial-scale=1">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
 <title>GReport</title>
 <link rel="icon" type="image/png" href="icon.png">
-<link rel="stylesheet" href="app.css?v={{VERSION}}">
 <link rel="stylesheet" href="greport.css?v={{VERSION}}">
 </head>
-<body class="gr">
-<div class="wrap">
-  <header class="grhd">
-    <h1><img src="icon.png" alt="" class="grlogo"><span data-i="title"></span><span class="ver">v{{VERSION}}</span></h1>
-    <span class="hbreak"></span>
-    <span id="grstat" class="grstat"></span>
-    <button id="themebtn" class="chip themebtn" type="button"></button>
-    <button id="grmenu" class="chip" type="button" data-ia="gr_menu" aria-haspopup="true">⋯</button>
-    <div id="grmenul" class="hmenu grmenul" hidden></div>
+<body>
+<div class="page">
+  <header class="top">
+    <img src="icon.png" alt="" class="logo" width="36" height="36">
+    <div class="brand"><b data-i="title"></b><small>v{{VERSION}}</small></div>
+    <span class="grow"></span>
+    <span id="grstat" class="status"></span>
+    <button id="themebtn" class="icon" type="button"></button>
+    <button id="grmenu" class="icon" type="button" data-ia="gr_menu" aria-haspopup="true">⋯</button>
+    <div id="grmenul" class="menu" role="menu" hidden></div>
   </header>
 
-  <div id="fnpanel" class="card fnpanel">
-    <div class="fnphd"><button type="button" id="fnptog" class="fnptog" aria-expanded="true">📝 <b data-i="fn_btn"></b><i class="fnpcar">▾</i></button><small id="fnpfrom" class="fnpfrom"></small><button type="button" id="fnppop" class="chip fnppop" data-ia="pop_tip">⧉</button></div>
-    <div id="fnpbody" class="fnpbody">
-      <textarea id="fnptext" class="nttext" rows="2" maxlength="500" data-iph="fn_ph"></textarea>
-      <div id="fnptags" class="fntags"></div>
-      <input type="text" id="fnpwit" class="fnwit" maxlength="200" data-iph="fn_wit">
-      <div id="fnpwitl" class="grwitl"></div>
-      <div id="fnpext" class="fnpext">
-        <div class="fnrow"><label><span data-i="per_from"></span> <input type="datetime-local" id="fnpfromi" step="1"></label><button type="button" id="fnpfnow" class="chip" data-i="fn_now"></button></div>
-        <div class="fnrow"><label><span data-i="per_to"></span> <input type="datetime-local" id="fnptoi" step="1"></label><button type="button" id="fnptnow" class="chip" data-i="fn_now"></button><button type="button" id="fnptclr" class="chip" data-ia="time_clear">✕</button></div>
-      </div>
-      <div class="fnprow"><label id="fnpsrcl" hidden><span data-i="src_col"></span> <select id="fnpsrc"></select></label><label class="fnprun"><input type="checkbox" id="fnprun"> <span data-i="fnp_run"></span></label><span class="fnpgap"></span><small id="fnpmsg" class="fnpmsg"></small><button type="button" id="fnpcancel" class="chip" data-i="cancel" hidden></button><button type="button" id="fnpsave" class="pri" data-i="save"></button></div>
+  <section id="fnpanel" class="capture" aria-labelledby="capttl">
+    <div class="caphead">
+      <div class="clock"><time id="capclock" class="clocknum">--:--:--</time><span id="capdate" class="clockdate"></span></div>
+      <div class="capinfo"><b id="capttl" data-i="fn_btn"></b><small id="fnpfrom"></small></div>
+      <button type="button" id="fnppop" class="icon" data-ia="pop_tip">⧉</button>
     </div>
-  </div>
+    <div id="fnpbody" class="capbody">
+      <textarea id="fnptext" rows="2" maxlength="500" data-iph="fn_ph"></textarea>
+      <div id="fnptags" class="groups"></div>
+      <div class="witrow"><span class="witicon" aria-hidden="true">👤</span><input type="text" id="fnpwit" maxlength="200" data-iph="fn_wit"><div id="fnpwitl" class="witlist"></div></div>
+      <div class="timerow">
+        <button type="button" id="fnptimebtn" class="linkbtn" aria-expanded="false"><span aria-hidden="true">🕒</span> <span id="fnptimetxt"></span></button>
+        <div id="fnpext" class="timeedit" hidden>
+          <label><span data-i="per_from"></span><input type="datetime-local" id="fnpfromi" step="1"><button type="button" id="fnpfnow" class="chip" data-i="fn_now"></button></label>
+          <label><span data-i="per_to"></span><input type="datetime-local" id="fnptoi" step="1"><button type="button" id="fnptnow" class="chip" data-i="fn_now"></button><button type="button" id="fnptclr" class="chip" data-ia="time_clear">✕</button></label>
+          <label class="check"><input type="checkbox" id="fnprun"> <span data-i="fnp_run"></span></label>
+        </div>
+      </div>
+    </div>
+    <div class="savebar">
+      <small id="fnpmsg" class="msg" role="status"></small>
+      <button type="button" id="fnpcancel" class="btn" data-i="cancel" hidden></button>
+      <button type="button" id="fnpsave" class="btn primary" data-i="save"></button>
+    </div>
+  </section>
 
-  <div class="card grlist">
-    <div class="grlhd"><h2 data-i="gr_list"></h2><input type="search" id="grq" data-iph="gr_search"><small id="grcount" class="mut"></small></div>
-    <div id="grnotes" class="grnotes"></div>
-  </div>
-  <p class="grfoot mut"><span data-i="gr_foot"></span></p>
+  <section class="log" aria-labelledby="logttl">
+    <div class="loghead"><h2 id="logttl" data-i="gr_list"></h2><small id="grcount"></small><span class="grow"></span><input type="search" id="grq" data-iph="gr_search"></div>
+    <div id="grfilt" class="filters"></div>
+    <div id="grnotes" class="timeline"></div>
+  </section>
+  <p class="foot" data-i="gr_foot"></p>
 </div>
 
-<dialog id="prodlg" class="evdlg grdlg">
-  <h3>⭐ <span data-i="pro_title"></span></h3>
-  <p id="prost"></p>
-  <p class="mut" data-i="gr_pro_list"></p>
-  <div class="grrow"><input type="text" id="prokey" placeholder="GL1-…" autocomplete="off" spellcheck="false"><button type="button" id="prosave" class="pri" data-i="pro_activate"></button></div>
-  <p id="promsg" class="fnpmsg"></p>
-  <div class="ntedbtns"><a id="probuy" class="chip pri" target="_blank" rel="noopener" data-i="pro_buy"></a><button type="button" id="prodel" class="chip" data-i="pro_remove" hidden></button><span style="flex:1"></span><button type="button" class="chip dlgx" data-i="close"></button></div>
+<dialog id="qtdlg" class="dlg wide">
+  <div class="dlghead"><h3 data-i="qt_title"></h3><button type="button" class="icon dlgx" data-ia="close">✕</button></div>
+  <p class="hint" data-i="gr_qt_ha"></p>
+  <div class="qtbar">
+    <div class="seg" role="radiogroup"><button type="button" data-mode="use" data-i="gr_mode_use"></button><button type="button" data-mode="fixed" data-i="gr_mode_fixed"></button></div>
+    <span class="grow"></span>
+    <button type="button" id="qtreset" class="btn" data-i="gr_reset"></button>
+  </div>
+  <div class="qtadd"><input type="text" id="qtnew" maxlength="30" data-iph="qt_new_ph"><select id="qtnewg"></select><button type="button" id="qtaddok" class="btn primary" data-i="qt_create"></button></div>
+  <small id="qtinfo" class="hint"></small>
+  <div id="qtsug" class="sug"></div>
+  <div id="qtlist" class="qtlist"></div>
 </dialog>
 
-<dialog id="perdlg" class="evdlg grdlg">
-  <h3>👤 <span data-i="gr_persons"></span></h3>
-  <p class="mut" data-i="gr_persons_h"></p>
+<dialog id="prefdlg" class="dlg">
+  <div class="dlghead"><h3 data-i="gr_prefs"></h3><button type="button" class="icon dlgx" data-ia="close">✕</button></div>
+  <label class="field"><span data-i="gr_p_date"></span><select id="pfdate"></select></label>
+  <label class="field"><span data-i="gr_p_time"></span><select id="pftime"></select></label>
+  <label class="check"><input type="checkbox" id="pfrel"> <span data-i="gr_p_rel"></span></label>
+  <label class="check"><input type="checkbox" id="pfwd"> <span data-i="gr_p_wd"></span></label>
+  <p class="hint"><span data-i="gr_p_example"></span> <b id="pfex"></b></p>
+  <div class="dlgfoot"><span class="grow"></span><button type="button" class="btn dlgx" data-i="cancel"></button><button type="button" id="pfsave" class="btn primary" data-i="save"></button></div>
+</dialog>
+
+<dialog id="prodlg" class="dlg">
+  <div class="dlghead"><h3>⭐ <span data-i="pro_title"></span></h3><button type="button" class="icon dlgx" data-ia="close">✕</button></div>
+  <p id="prost"></p>
+  <p class="hint" data-i="gr_pro_list"></p>
+  <div class="row"><input type="text" id="prokey" placeholder="GL1-…" autocomplete="off" spellcheck="false"><button type="button" id="prosave" class="btn primary" data-i="pro_activate"></button></div>
+  <p id="promsg" class="msg"></p>
+  <div class="dlgfoot"><a id="probuy" class="btn" target="_blank" rel="noopener" data-i="pro_buy"></a><button type="button" id="prodel" class="btn" data-i="pro_remove" hidden></button></div>
+</dialog>
+
+<dialog id="perdlg" class="dlg">
+  <div class="dlghead"><h3 data-i="gr_persons"></h3><button type="button" class="icon dlgx" data-ia="close">✕</button></div>
+  <p class="hint" data-i="gr_persons_h"></p>
   <textarea id="perlist" rows="6"></textarea>
-  <div class="ntedbtns"><span style="flex:1"></span><button type="button" class="chip dlgx" data-i="cancel"></button><button type="button" id="persave" class="pri" data-i="save"></button></div>
+  <div class="dlgfoot"><span class="grow"></span><button type="button" class="btn dlgx" data-i="cancel"></button><button type="button" id="persave" class="btn primary" data-i="save"></button></div>
 </dialog>
 <input type="file" id="grimpf" accept=".json,application/json" hidden>
 <script src="i18n.js?v={{VERSION}}"></script>

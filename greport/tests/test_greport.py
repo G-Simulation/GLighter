@@ -56,6 +56,27 @@ class Notizen(unittest.TestCase):
         G.qt_change({"action": "hide", "k": "klopfen", "on": True})
         self.assertNotIn("Klopfen", [l for _, l in G.qt_visible()])  # ausgeblendet = auch nicht in Home Assistant
 
+    def test_woerter_umbenennen_anordnen(self):
+        G.qt_change({"action": "ren", "k": "musik", "l": "Bass"})
+        self.assertEqual(G.tag_label("musik"), "Bass")
+        k = G.qt_change({"action": "add", "l": "Waschmaschine", "g": "kind"})["k"]
+        self.assertEqual(G.qt_state()["grp"][k], "kind")
+        G.qt_change({"action": "order", "keys": ["unten", "oben", k]})
+        vis = [x for x, _ in G.qt_visible()]
+        self.assertEqual(vis[:3], ["unten", "oben", k])         # feste Reihenfolge auch in Home Assistant
+        self.assertIn("Bass", [l for _, l in G.qt_visible()])
+        G.qt_change({"action": "reset"})
+        st = G.qt_state(); self.assertEqual(st["ren"], {}); self.assertEqual(st["mode"], "use"); self.assertEqual(st["grp"][k], "kind")   # eigene bleiben
+
+    def test_datum_uhrzeit(self):
+        d = G.dt.datetime(2026, 10, 18, 5, 7, 9)
+        self.assertEqual(G.fmt_date(d, dict(G.PREF_DEF)), "18.10.2026")
+        self.assertEqual(G.fmt_date(d, dict(G.PREF_DEF, date="iso", wd=True)), "So. 2026-10-18")
+        self.assertEqual(G.fmt_time(d, dict(G.PREF_DEF, time="hm")), "05:07")
+        self.assertEqual(G.fmt_time(d, dict(G.PREF_DEF, time="h12")), "5:07:09 AM")
+        self.assertEqual(G.prefs_set({"date": "long", "time": "bogus"})["date"], "long")
+        self.assertEqual(G.prefs()["time"], "hms")
+
     def test_ingress_ueber_ipv6(self):
         self.assertIn(G.client_ip("::ffff:172.30.32.2"), G.ALLOWED)
         self.assertNotIn(G.client_ip("::ffff:192.168.1.5"), G.ALLOWED)

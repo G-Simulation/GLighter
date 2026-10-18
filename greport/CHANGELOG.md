@@ -1,5 +1,18 @@
 # Changelog
 
+## 1.1.0
+- **Neues Erscheinungsbild.** Große Uhrzeit als Anker (sie wird mit der Notiz festgehalten). Die Schnellwahl ist nach Gruppen geordnet (Woher, Was, Wie stark, Folgen, Maßnahmen, Sonstiges, Eigene), jede mit eigener Farbe. Die Zeit ist eingeklappt („jetzt · Zeit ändern“), „Speichern“ steht in einer festen Leiste, am Handy unten am Bildschirm.
+- Die Liste ist eine Zeitleiste nach Tagen („Heute“, „Gestern“, Datum), mit Filter nach Wörtern. Hell und dunkel, auch am Handy ohne Überbreite.
+- **Schnellwahl verwalten** (⋯ → Schnellwahl verwalten, ＋ Eigene oder lange auf ein Wort drücken):
+  - alle Wörter umbenennen, auch die eingebauten,
+  - jedem Wort eine Gruppe geben,
+  - die Reihenfolge selbst festlegen (ziehen oder ▲▼) oder nach Gebrauch,
+  - Wörter zeigen oder ausblenden,
+  - alles auf Standard zurücksetzen.
+  - Die Auswahlliste „Schnellwahl“ in Home Assistant übernimmt Namen und Reihenfolge.
+- **Datum und Uhrzeit einstellbar** (⋯ → Datum und Uhrzeit): 18.10.2026 · 18.10.26 · So. 18.10. · 2026-10-18 · 18. Okt. 2026, mit oder ohne Sekunden, 12 Stunden, Wochentag, „Heute/Gestern“. Gilt auch in der Export-Tabelle (CSV, zusätzlich mit genauer Zeit).
+- „Quelle / Gerät“ entfällt. „läuft noch (bis = beim Speichern)“ bleibt.
+
 ## 1.0.1
 - Behoben: Beim Öffnen in Home Assistant kam nur „forbidden“. Der Zugriff über Home Assistant wird jetzt auch über IPv6 erkannt.
 

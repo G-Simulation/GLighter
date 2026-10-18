@@ -31,7 +31,7 @@ WEB = os.path.join(HERE, "web")
 sys.path.insert(0, HERE)
 import lizenz  # noqa: E402
 
-VERSION = "1.0.1"
+VERSION = "1.1.0"
 BRAND = "GReport"
 OPTIONS = os.environ.get("GR_OPTIONS", "/data/options.json")
 PRIV = os.environ.get("GR_PRIVATE", "/data")                    # nur für GReport (Pro-Schlüssel)
@@ -164,9 +164,13 @@ def qt_all():
         if QT["data"] is None:
             d = read_json(qt_path(), {})
             QT["data"] = d if isinstance(d, dict) else {}
-        for k in ("own", "hide", "use", "words", "nope"):
+        for k in ("own", "hide", "use", "words", "nope", "ren", "grp"):
             if not isinstance(QT["data"].get(k), dict):
                 QT["data"][k] = {}
+        if not isinstance(QT["data"].get("order"), list):
+            QT["data"]["order"] = []
+        if QT["data"].get("mode") not in ("use", "fixed"):
+            QT["data"]["mode"] = "use"               # Reihenfolge: nach Gebrauch (häufigste zuerst) oder fest (selbst angeordnet)
         return QT["data"]
 
 
@@ -190,9 +194,11 @@ def tag_ok(t):
 
 
 def tag_label(t, lg=None):
-    o = qt_all()["own"].get(t)
+    d = qt_all(); o = d["own"].get(t)
     if isinstance(o, dict):
         return o.get("l") or t
+    if d["ren"].get(t):                                   # eingebautes Wort umbenannt
+        return d["ren"][t]
     return (TAG_EN if (lg or lang()) == "en" else TAG_DE).get(t, t)
 
 
@@ -211,6 +217,7 @@ def qt_learn(tags, text):
             d["use"][t] = int(d["use"].get(t) or 0) + 1
         labels = {(o.get("l") or "").lower() for o in d["own"].values() if isinstance(o, dict) and not o.get("del")}
         labels |= {x.lower() for x in TAG_DE.values()} | {x.lower() for x in TAG_EN.values()}
+        labels |= {str(x).lower() for x in d["ren"].values()}
         seen = set()
         for w in re.findall(r"[A-Za-zÄÖÜäöüß][A-Za-zÄÖÜäöüß\-]{3,23}", str(text or "")):
             lw = w.lower().strip("-")
@@ -234,19 +241,63 @@ def qt_state():
         labels = {(o.get("l") or "").lower() for o in d["own"].values() if isinstance(o, dict) and not o.get("del")}
         sug = sorted(((k, e) for k, e in d["words"].items() if isinstance(e, dict) and int(e.get("n") or 0) >= QT_SUGGEST_N
                       and not d["nope"].get(k) and k not in labels), key=lambda x: -int(x[1].get("n") or 0))
-        return {"ok": True, "tags": NOTE_TAGS, "own_max": own_max(), "pro": pro_ok(),
+        return {"ok": True, "tags": NOTE_TAGS, "own_max": own_max(), "pro": pro_ok(), "groups": GROUPS,
+                "ren": {k: v for k, v in d["ren"].items() if k in NOTE_TAG_SET and v}, "grp": {k: v for k, v in d["grp"].items() if v in GROUPS},
+                "order": [k for k in d["order"] if tag_known(k)], "mode": d["mode"],
                 "own": [{"k": k, "l": o.get("l") or k, "del": bool(o.get("del"))} for k, o in d["own"].items() if isinstance(o, dict)],
                 "hide": sorted(k for k, v in d["hide"].items() if v and k in NOTE_TAG_SET),
                 "use": {k: int(v or 0) for k, v in d["use"].items() if isinstance(v, (int, float))},
                 "suggest": [{"w": e.get("w") or k, "k": k, "n": int(e.get("n") or 0)} for k, e in sug[:5]]}
 
 
+GROUPS = ["src", "kind", "lvl", "eff", "act", "misc", "own"]     # Woher, Was, Wie stark, Folgen, Maßnahmen, Sonstiges, Eigene
+
+
+def tag_known(t):
+    return isinstance(t, str) and (t in NOTE_TAG_SET or isinstance(qt_all()["own"].get(t), dict))
+
+
 def qt_change(data):
-    """Schnellwahl verwalten: add (l), ren (k, l), del (k), undel (k), hide (k, on), nope (w)."""
+    """Schnellwahl verwalten: add (l, g), ren (k, l – auch eingebaute), del (k), undel (k), hide (k, on), nope (w),
+    grp (k, g), order (keys), mode (use|fixed), reset (eingebaute Wörter, Reihenfolge und Gruppen auf Standard)."""
     a = str(data.get("action") or "")
     with QT_LOCK:
         d = qt_all()
         k = str(data.get("k") or "")
+        if a == "grp":
+            if not tag_known(k) or data.get("g") not in GROUPS:
+                return {"ok": False, "error": "not found"}
+            dflt = next((g for g, v in NOTE_TAGS.items() if k in v), "own")
+            if data["g"] == dflt:
+                d["grp"].pop(k, None)
+            else:
+                d["grp"][k] = data["g"]
+            qt_save()
+            return qt_state()
+        if a == "order":
+            keys = [x for x in (data.get("keys") or []) if tag_known(x)] if isinstance(data.get("keys"), list) else None
+            if keys is None:
+                return {"ok": False, "error": "bad request"}
+            d["order"] = list(dict.fromkeys(keys))[:200]; d["mode"] = "fixed"
+            qt_save()
+            return qt_state()
+        if a == "mode":
+            d["mode"] = "fixed" if data.get("mode") == "fixed" else "use"
+            qt_save()
+            return qt_state()
+        if a == "reset":
+            d["ren"] = {}; d["grp"] = {k_: v for k_, v in d["grp"].items() if k_ not in NOTE_TAG_SET}; d["hide"] = {}; d["order"] = []; d["mode"] = "use"
+            qt_save()
+            return qt_state()
+        if a == "ren" and k in NOTE_TAG_SET:                 # eingebautes Wort umbenennen (alte Notizen behalten den Schlüssel)
+            l = qt_clean_label(data.get("l"))
+            dflt = TAG_EN.get(k) if lang() == "en" else TAG_DE.get(k)
+            if not l or l == dflt:
+                d["ren"].pop(k, None)
+            else:
+                d["ren"][k] = l
+            qt_save()
+            return qt_state()
         if a == "add":
             l = qt_clean_label(data.get("l"))
             if not l:
@@ -259,6 +310,10 @@ def qt_change(data):
                     return {"ok": False, "error": "limit" if pro_ok() else "limit_free"}
                 k_ = "c_" + secrets.token_hex(3)
                 d["own"][k_] = {"l": l, "ts": now_iso()}
+                if data.get("g") in GROUPS and data.get("g") != "own":
+                    d["grp"][k_] = data["g"]
+                if d["mode"] == "fixed":
+                    d["order"].append(k_)
             d["words"].pop(l.lower(), None)
             qt_save()
             return dict(qt_state(), k=k_)
@@ -294,16 +349,83 @@ def qt_change(data):
 
 
 def qt_visible():
-    """Sichtbare Tasten in fester Reihenfolge (für die Auswahlliste in Home Assistant): [(Schlüssel, Beschriftung)]."""
-    d = qt_all(); out = []
+    """Sichtbare Tasten (für die Auswahlliste in Home Assistant): [(Schlüssel, Beschriftung)].
+    Reihenfolge wie in der App: selbst angeordnet, sonst nach Gruppen."""
+    d = qt_all(); keys = []
     for g in NOTE_TAGS.values():
-        for t in g:
-            if not d["hide"].get(t):
-                out.append((t, tag_label(t)))
-    for k, o in d["own"].items():
-        if isinstance(o, dict) and not o.get("del"):
-            out.append((k, o.get("l") or k))
+        keys += [t for t in g if not d["hide"].get(t)]
+    keys += [k for k, o in d["own"].items() if isinstance(o, dict) and not o.get("del")]
+    if d["mode"] == "fixed" and d["order"]:
+        pos = {k: i for i, k in enumerate(d["order"])}
+        keys.sort(key=lambda k: pos.get(k, 10 ** 6))
+    return [(k, tag_label(k)) for k in keys]
+
+
+# =====================================================================
+# Anzeige: Datum und Uhrzeit (gilt in der App und im Export)
+# =====================================================================
+PREF_DEF = {"date": "dmy4", "time": "hms", "rel": True, "wd": False}
+DATE_FMTS = ("dmy4", "dmy2", "wdm", "iso", "long")
+TIME_FMTS = ("hms", "hm", "h12")
+
+
+def prefs():
+    d = read_json(os.path.join(DIR, "einstellungen.json"), {}) or {}
+    out = dict(PREF_DEF)
+    if d.get("date") in DATE_FMTS:
+        out["date"] = d["date"]
+    if d.get("time") in TIME_FMTS:
+        out["time"] = d["time"]
+    for k in ("rel", "wd"):
+        if isinstance(d.get(k), bool):
+            out[k] = d[k]
     return out
+
+
+def prefs_set(d):
+    cur = prefs()
+    if d.get("date") in DATE_FMTS:
+        cur["date"] = d["date"]
+    if d.get("time") in TIME_FMTS:
+        cur["time"] = d["time"]
+    for k in ("rel", "wd"):
+        if isinstance(d.get(k), bool):
+            cur[k] = d[k]
+    write_json(os.path.join(DIR, "einstellungen.json"), cur)
+    return dict(cur, ok=True)
+
+
+MON_DE = ["Jan.", "Feb.", "März", "Apr.", "Mai", "Juni", "Juli", "Aug.", "Sep.", "Okt.", "Nov.", "Dez."]
+MON_EN = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"]
+WD_DE = ["Mo.", "Di.", "Mi.", "Do.", "Fr.", "Sa.", "So."]
+WD_EN = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"]
+
+
+def fmt_date(d, p=None):
+    p = p or prefs(); en = lang() == "en"
+    f = p["date"]
+    if f == "dmy2":
+        s = d.strftime("%d.%m.%y")
+    elif f == "wdm":
+        s = (WD_EN if en else WD_DE)[d.weekday()] + " " + d.strftime("%d.%m.")
+    elif f == "iso":
+        s = d.strftime("%Y-%m-%d")
+    elif f == "long":
+        s = f"{d.day}. {(MON_EN if en else MON_DE)[d.month - 1]} {d.year}" if not en else f"{d.day} {MON_EN[d.month - 1]} {d.year}"
+    else:
+        s = d.strftime("%d.%m.%Y")
+    if p["wd"] and f != "wdm":
+        s = (WD_EN if en else WD_DE)[d.weekday()] + " " + s
+    return s
+
+
+def fmt_time(d, p=None):
+    p = p or prefs()
+    if p["time"] == "hm":
+        return d.strftime("%H:%M")
+    if p["time"] == "h12":
+        return (d.strftime("%I:%M:%S %p")).lstrip("0")
+    return d.strftime("%H:%M:%S")
 
 
 # =====================================================================
@@ -459,10 +581,13 @@ def notes_import(data):
 
 
 def export_csv():
-    out = io.StringIO(); w = csv.writer(out, delimiter=";")
-    w.writerow(["von", "bis", "schnellwahl", "text", "zeuge", "geschrieben", "kennung"])
+    """Tabelle: Datum und Uhrzeit wie in der Anzeige eingestellt, dazu die genaue Zeit (ISO) für den Abgleich."""
+    out = io.StringIO(); w = csv.writer(out, delimiter=";"); pf = prefs()
+    w.writerow(["datum", "von", "bis", "schnellwahl", "text", "zeuge", "von_iso", "bis_iso", "geschrieben", "kennung"])
     for p in sorted(notes_list(limit=5000), key=lambda p: p["a"]):
-        w.writerow([p.get("from"), p.get("to"), ", ".join(p["tagl"]), p.get("text"), p.get("witness"), p.get("ts"), p.get("id")])
+        a = dt.datetime.fromtimestamp(p["a"] / 1000).astimezone(); b = dt.datetime.fromtimestamp(p["b"] / 1000).astimezone() if p.get("to") else None
+        w.writerow([fmt_date(a, pf), fmt_time(a, pf), fmt_time(b, pf) if b else "", ", ".join(p["tagl"]), p.get("text"), p.get("witness"),
+                    p.get("from"), p.get("to"), p.get("ts"), p.get("id")])
     return ("﻿" + out.getvalue()).encode("utf-8")
 
 
@@ -656,7 +781,7 @@ TYPES = {".html": "text/html; charset=utf-8", ".js": "text/javascript; charset=u
 def state():
     return {"ok": True, "version": VERSION, "lang": OPT.get("language", "auto"), "pro": pro_info(), "glighter": glighter(),
             "ha": {"api": bool(ha_api()[0]), "ok": HA["ok"], "error": HA["error"]}, "mqtt": bool(MQ["ok"]),
-            "persons": persons(), "dir": DIR, "own_max": own_max()}
+            "persons": persons(), "dir": DIR, "own_max": own_max(), "prefs": prefs()}
 
 
 def client_ip(a):
@@ -753,6 +878,8 @@ class H(http.server.BaseHTTPRequestHandler):
             return self.js(qt_change(d))
         if name == "persons":
             return self.js(persons_set(d.get("list")))
+        if name == "prefs":
+            return self.js(prefs_set(d))
         if name == "import":
             return self.js(notes_import(d))
         if name == "pro":
