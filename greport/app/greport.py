@@ -31,7 +31,7 @@ WEB = os.path.join(HERE, "web")
 sys.path.insert(0, HERE)
 import lizenz  # noqa: E402
 
-VERSION = "1.1.0"
+VERSION = "1.2.0"
 BRAND = "GReport"
 OPTIONS = os.environ.get("GR_OPTIONS", "/data/options.json")
 PRIV = os.environ.get("GR_PRIVATE", "/data")                    # nur für GReport (Pro-Schlüssel)
@@ -178,6 +178,7 @@ def qt_save():
     with QT_LOCK:
         write_json(qt_path(), qt_all())
     mqtt_announce()
+    diary_soon()
 
 
 def qt_clean_label(v):
@@ -391,7 +392,10 @@ def prefs_set(d):
     for k in ("rel", "wd"):
         if isinstance(d.get(k), bool):
             cur[k] = d[k]
-    write_json(os.path.join(DIR, "einstellungen.json"), cur)
+    allp = read_json(os.path.join(DIR, "einstellungen.json"), {}) or {}
+    allp.update(cur)                                     # andere Einstellungen (z. B. Textdatei) bleiben
+    write_json(os.path.join(DIR, "einstellungen.json"), allp)
+    diary_soon()                                         # Tagebuch im neuen Datumsformat
     return dict(cur, ok=True)
 
 
@@ -516,6 +520,7 @@ def note_change(action, data, by="app"):
                 return {"ok": False, "error": "not found"}
             a["trash"].append(dict(lst.pop(idx), deleted=now_iso()))
             notes_save()
+            diary_soon()
             return {"ok": True}
         f = str(data.get("from") or "")[:25] or now_iso(); to = str(data.get("to") or "")[:25]
         fa, tb = ms_of(f), (ms_of(to) if to else None)
@@ -549,6 +554,7 @@ def note_change(action, data, by="app"):
         notes_save()
     if action == "add":
         logbook(x)
+    diary_soon()
     return {"ok": True, "note": note_public(x)}
 
 
@@ -577,7 +583,387 @@ def notes_import(data):
             a["free"].append(rec); have.add(nid); n += 1
         if n:
             notes_save()
+    diary_soon()
     return {"ok": True, "n": n}
+
+
+# =====================================================================
+# Textdatei (Pro): Tagebuch nach Tagen, Export in eine Datei, Import aus TXT/CSV/JSON
+# =====================================================================
+TXT_ROOTS = [r for r in os.environ.get("GR_TXT_ROOTS", "/share:/media").split(":") if r]
+TXT_DEF = {"on": False, "path": "", "monthly": False, "fmt": "txt"}
+DIARY = {"lock": threading.Lock(), "timer": None, "last": None, "error": "", "files": []}
+
+
+def txt_default_path(ext="txt"):
+    return os.path.join(DIR, "greport_tagebuch." + ext)
+
+
+def txt_cfg():
+    d = (read_json(os.path.join(DIR, "einstellungen.json"), {}) or {}).get("txt") or {}
+    out = dict(TXT_DEF)
+    if isinstance(d, dict):
+        out["on"] = d.get("on") is True
+        out["monthly"] = d.get("monthly") is True
+        out["fmt"] = "csv" if d.get("fmt") == "csv" else "txt"
+        out["path"] = str(d.get("path") or "")[:300]
+    return out
+
+
+def safe_path(p, exts):
+    """Nur Dateien unter /share oder /media (Home Assistant), mit passender Endung. Liefert den echten Pfad oder None."""
+    p = str(p or "").strip()
+    if not p or "\x00" in p:
+        return None
+    full = os.path.realpath(p if os.path.isabs(p) else os.path.join(DIR, p))
+    if os.path.splitext(full)[1].lower() not in exts:
+        return None
+    for r in TXT_ROOTS:
+        rr = os.path.realpath(r)
+        if full == rr or full.startswith(rr + os.sep):
+            return full
+    return None
+
+
+def txt_set(d):
+    if not pro_ok():
+        return {"ok": False, "error": "pro"}
+    cur = txt_cfg()
+    if isinstance(d.get("on"), bool):
+        cur["on"] = d["on"]
+    if isinstance(d.get("monthly"), bool):
+        cur["monthly"] = d["monthly"]
+    if d.get("fmt") in ("txt", "csv"):
+        cur["fmt"] = d["fmt"]
+    if "path" in d:
+        path = str(d.get("path") or "").strip()
+        if path and not safe_path(path, (".txt", ".csv", ".log")):
+            return {"ok": False, "error": "path"}
+        cur["path"] = path
+    allp = read_json(os.path.join(DIR, "einstellungen.json"), {}) or {}
+    allp["txt"] = cur
+    write_json(os.path.join(DIR, "einstellungen.json"), allp)
+    if cur["on"]:
+        diary_write()
+    return txt_state()
+
+
+def txt_state():
+    c = txt_cfg()
+    return dict(c, ok=True, pro=pro_ok(), default=txt_default_path("csv" if c["fmt"] == "csv" else "txt"), roots=TXT_ROOTS,
+                last=DIARY["last"], error=DIARY["error"], files=DIARY["files"][-6:])
+
+
+def _line_txt(p, pf):
+    a = dt.datetime.fromtimestamp(p["a"] / 1000).astimezone()
+    s = fmt_time(a, pf)
+    if p.get("to"):
+        s += " – " + fmt_time(dt.datetime.fromtimestamp(p["b"] / 1000).astimezone(), pf)
+    tags = [tag_label(t) for t in p.get("tags") or [] if not (t == "zeuge" and p.get("witness"))]
+    s += "  "
+    if tags:
+        s += "[" + ", ".join(tags) + "] "
+    if p.get("text"):
+        s += p["text"].replace("\n", " / ")
+    if p.get("witness"):
+        s += (" – " if (tags or p.get("text")) else "") + ("Witness: " if lang() == "en" else "Zeuge: ") + p["witness"]
+    if p.get("edited"):
+        s += " (changed)" if lang() == "en" else " (geändert)"
+    return s.rstrip()
+
+
+def diary_render(notes, fmt, pf=None):
+    """Tagebuch: je Tag eine Überschrift, darunter die Notizen nach Uhrzeit; zwischen den Tagen eine Leerzeile."""
+    pf = pf or prefs()
+    notes = sorted(notes, key=lambda p: p["a"])
+    if fmt == "csv":
+        out = io.StringIO(); w = csv.writer(out, delimiter=";")
+        w.writerow(["datum", "uhrzeit", "bis", "schnellwahl", "text", "zeuge", "geaendert", "von_iso", "bis_iso", "kennung"])
+        for p in notes:
+            a = dt.datetime.fromtimestamp(p["a"] / 1000).astimezone(); b = dt.datetime.fromtimestamp(p["b"] / 1000).astimezone() if p.get("to") else None
+            w.writerow([fmt_date(a, pf), fmt_time(a, pf), fmt_time(b, pf) if b else "", ", ".join(tag_label(t) for t in p.get("tags") or []),
+                        p.get("text") or "", p.get("witness") or "", "ja" if p.get("edited") else "", p.get("from"), p.get("to") or "", p.get("id")])
+        return "\ufeff" + out.getvalue()
+    hp = dict(pf, wd=True)
+    lines, day = [], None
+    for p in notes:
+        a = dt.datetime.fromtimestamp(p["a"] / 1000).astimezone()
+        if a.date() != day:
+            if day is not None:
+                lines.append("")
+            day = a.date(); lines.append(fmt_date(a, hp))
+        lines.append(_line_txt(p, pf))
+    return "\n".join(lines) + ("\n" if lines else "")
+
+
+def _write_text(path, text):
+    os.makedirs(os.path.dirname(path), exist_ok=True)
+    tmp = path + ".tmp"
+    with open(tmp, "w", encoding="utf-8", newline="") as f:
+        f.write(text); f.flush(); os.fsync(f.fileno())
+    os.replace(tmp, path)
+
+
+def diary_write():
+    """Tagebuch-Datei(en) neu schreiben (Pro, wenn eingeschaltet). Mit „je Monat“: name_JJJJ-MM.txt."""
+    c = txt_cfg()
+    if not (pro_ok() and c["on"]):
+        return False
+    path = safe_path(c["path"], (".txt", ".csv", ".log")) if c["path"] else txt_default_path("csv" if c["fmt"] == "csv" else "txt")
+    if not path:
+        DIARY["error"] = "path"; return False
+    with DIARY["lock"]:
+        try:
+            notes = notes_list(limit=10 ** 6); pf = prefs(); files = []
+            if c["monthly"]:
+                base, ext = os.path.splitext(path); by = {}
+                for p in notes:
+                    by.setdefault(dt.datetime.fromtimestamp(p["a"] / 1000).astimezone().strftime("%Y-%m"), []).append(p)
+                for m, ns in sorted(by.items()):
+                    f = f"{base}_{m}{ext}"; _write_text(f, diary_render(ns, c["fmt"], pf)); files.append(f)
+            else:
+                _write_text(path, diary_render(notes, c["fmt"], pf)); files.append(path)
+            DIARY.update(last=now_iso(), error="", files=files)
+            return True
+        except OSError as e:
+            DIARY["error"] = str(e)[:160]; log("Textdatei:", e)
+            return False
+
+
+def diary_soon():
+    """Nach einer Änderung kurz warten (mehrere Änderungen zusammen), dann die Datei schreiben."""
+    c = txt_cfg()
+    if not (c["on"] and pro_ok()):
+        return
+    t = DIARY.get("timer")
+    if t:
+        t.cancel()
+    DIARY["timer"] = threading.Timer(1.0, diary_write); DIARY["timer"].daemon = True; DIARY["timer"].start()
+
+
+def export_file(d):
+    """Pro: alle Notizen in eine Datei auf dem Home-Assistant-Rechner schreiben (TXT-Tagebuch, CSV oder JSON)."""
+    if not pro_ok():
+        return {"ok": False, "error": "pro"}
+    fmt = d.get("fmt") if d.get("fmt") in ("txt", "csv", "json") else "txt"
+    path = safe_path(d.get("path") or os.path.join(DIR, f"greport_export_{dt.date.today()}.{fmt}"), ("." + fmt, ".log") if fmt == "txt" else ("." + fmt,))
+    if not path:
+        return {"ok": False, "error": "path"}
+    _write_text(path, export_text(fmt))
+    return {"ok": True, "path": path, "n": len(notes_all()["free"])}
+
+
+def export_text(fmt):
+    if fmt == "json":
+        return json.dumps({"app": BRAND, "v": VERSION, "notes": notes_all()["free"]}, ensure_ascii=False, indent=1)
+    return diary_render(notes_list(limit=10 ** 6), fmt)
+
+
+# ---------- Import ----------
+WD_ALL = set(x.lower().strip(".") for x in WD_DE + WD_EN) | {"montag", "dienstag", "mittwoch", "donnerstag", "freitag", "samstag", "sonntag",
+                                                         "monday", "tuesday", "wednesday", "thursday", "friday", "saturday", "sunday"}
+
+
+def parse_date(s):
+    """Datum in den Formaten von GReport (und üblichen): 18.10.2026, 18.10.26, 2026-10-18, 18. Okt. 2026, mit Wochentag davor."""
+    s = str(s or "").strip().rstrip(":")
+    s = re.sub(r"^([A-Za-zÄÖÜäöü]+)\.?,?\s+", lambda m: "" if m.group(1).lower() in WD_ALL else m.group(0), s)
+    m = re.fullmatch(r"(\d{4})-(\d{1,2})-(\d{1,2})", s)
+    if m:
+        y, mo, d = int(m[1]), int(m[2]), int(m[3])
+    else:
+        m = re.fullmatch(r"(\d{1,2})\.(\d{1,2})\.(\d{2}|\d{4})?", s)
+        if m:
+            d, mo = int(m[1]), int(m[2]); y = int(m[3]) if m[3] else dt.date.today().year
+            y = 2000 + y if y < 100 else y
+        else:
+            m = re.fullmatch(r"(\d{1,2})\.?\s+([A-Za-zäÄ]+)\.?\s+(\d{4})", s)
+            if not m:
+                return None
+            mons = [x.lower().strip(".") for x in MON_DE]; mons_en = [x.lower() for x in MON_EN]; w = m[2].lower().strip(".")
+            mo = next((i + 1 for i, x in enumerate(mons) if w.startswith(x[:3])), None) or next((i + 1 for i, x in enumerate(mons_en) if w.startswith(x[:3])), None)
+            if not mo:
+                return None
+            d, y = int(m[1]), int(m[3])
+    try:
+        return dt.date(y, mo, d)
+    except ValueError:
+        return None
+
+
+def parse_time(s):
+    m = re.match(r"\s*(\d{1,2}):(\d{2})(?::(\d{2}))?\s*([AaPp][Mm])?", str(s or ""))
+    if not m:
+        return None, None
+    h, mi, se = int(m[1]), int(m[2]), int(m[3] or 0)
+    if m[4]:
+        h = h % 12 + (12 if m[4].lower() == "pm" else 0)
+    if h > 23 or mi > 59 or se > 59:
+        return None, None
+    return dt.time(h, mi, se), m.end()
+
+
+def _when(day, tm):
+    return dt.datetime.combine(day, tm).astimezone().isoformat(timespec="seconds")
+
+
+def parse_import(text):
+    """TXT (Tagebuch), CSV (Export/Tagebuch) oder JSON → Liste roher Notizen {from, to, tags(labels|keys), text, witness, id}."""
+    text = str(text or "").lstrip("\ufeff")
+    st = text.lstrip()
+    if st.startswith("{") or st.startswith("["):
+        try:
+            d = json.loads(text)
+        except ValueError:
+            return None, "format"
+        lst = d.get("notes") if isinstance(d, dict) else d
+        if not isinstance(lst, list):
+            return None, "format"
+        return [{"from": x.get("from"), "to": x.get("to") or "", "keys": x.get("tags") or [], "text": x.get("text") or "", "witness": x.get("witness") or "",
+                 "id": x.get("id")} for x in lst if isinstance(x, dict)], None
+    first = text.split("\n", 1)[0]
+    if ";" in first and re.search(r"(datum|von_iso|schnellwahl)", first, re.I):
+        out = []
+        for r in csv.DictReader(io.StringIO(text), delimiter=";"):
+            r = {str(k or "").strip().lower(): (v or "").strip() for k, v in r.items()}
+            frm = r.get("von_iso")
+            if not frm:
+                day = parse_date(r.get("datum")); tm, _ = parse_time(r.get("uhrzeit") or r.get("von"))
+                frm = _when(day, tm) if day and tm else ""
+            to = r.get("bis_iso") or ""
+            if not to and r.get("bis") and frm:
+                tm, _ = parse_time(r["bis"]); to = _when(dt.datetime.fromisoformat(frm).date(), tm) if tm else ""
+            out.append({"from": frm, "to": to, "labels": [x.strip() for x in (r.get("schnellwahl") or "").split(",") if x.strip()],
+                        "text": r.get("text") or "", "witness": r.get("zeuge") or "", "id": r.get("kennung") or None})
+        return out, None
+    out, day = [], None
+    wit_re = re.compile(r"\s*–\s*(?:Zeuge|Zeugin|Witness):\s*(.+?)\s*$")
+    for raw in text.splitlines():
+        line = raw.strip()
+        if not line:
+            continue
+        tm, end = parse_time(line)
+        if tm is None:
+            d_ = parse_date(line)
+            if d_:
+                day = d_
+            continue
+        if day is None:
+            continue
+        rest = line[end:].strip(); to = ""
+        m = re.match(r"[–-]\s*(\d{1,2}:\d{2}(?::\d{2})?(?:\s*[AaPp][Mm])?)\s*", rest)
+        if m:
+            t2, _ = parse_time(m[1]); to = _when(day, t2) if t2 else ""; rest = rest[m.end():]
+        rest = re.sub(r"\s*\((?:geändert|changed)\)\s*$", "", rest)
+        labels = []
+        m = re.match(r"\[([^\]]*)\]\s*", rest)
+        if m:
+            labels = [x.strip() for x in m[1].split(",") if x.strip()]; rest = rest[m.end():]
+        wit = ""
+        m = wit_re.search(rest)
+        if m:
+            wit = m[1]; rest = rest[:m.start()]
+        elif re.match(r"(?:Zeuge|Zeugin|Witness):\s*", rest):
+            wit = re.sub(r"^(?:Zeuge|Zeugin|Witness):\s*", "", rest); rest = ""
+        out.append({"from": _when(day, tm), "to": to, "labels": labels, "text": rest.replace(" / ", "\n").strip(), "witness": wit.strip(), "id": None})
+    return out, None if out else "empty"
+
+
+def _label_map():
+    m = {}
+    for g in NOTE_TAGS.values():
+        for k in g:
+            for l in (TAG_DE.get(k), TAG_EN.get(k), qt_all()["ren"].get(k), k):
+                if l:
+                    m[str(l).lower()] = k
+    for k, o in qt_all()["own"].items():
+        if isinstance(o, dict) and not o.get("del"):
+            m[(o.get("l") or k).lower()] = k
+    return m
+
+
+def import_plan(text):
+    """Vorschau/Übernahme: welche Notizen neu sind, welche schon da (gleiche Kennung oder gleiche Zeit, gleicher Text, gleiche Wörter)."""
+    rows, err = parse_import(text)
+    if err:
+        return None, err
+    lm = _label_map()
+    with NOTES_LOCK:
+        have_id = {x.get("id") for x in notes_all()["free"]}
+        have_key = {(ms_of(x.get("from")), (x.get("text") or "").strip(), tuple(sorted(x.get("tags") or []))) for x in notes_all()["free"]}
+    plan = {"new": [], "dup": 0, "bad": 0, "words": []}
+    words = {}
+    for r in rows:
+        a = ms_of(r.get("from"))
+        if a is None:
+            plan["bad"] += 1; continue
+        keys = [k for k in (r.get("keys") or []) if isinstance(k, str) and (k in NOTE_TAG_SET or k.startswith("c_"))]
+        for l in r.get("labels") or []:
+            k = lm.get(l.lower())
+            if k:
+                keys.append(k)
+            else:
+                words.setdefault(l.lower(), l); keys.append("?" + l)
+        text = clean_text(r.get("text")); wit = clean_text(r.get("witness"), 200)
+        if wit:
+            keys.append("zeuge")
+        keys = list(dict.fromkeys(keys))
+        if not text and not keys:
+            plan["bad"] += 1; continue
+        nid = re.sub(r"[^a-z0-9_]", "", str(r.get("id") or ""))[:20]
+        if (nid and nid in have_id) or (a, text, tuple(sorted(k for k in keys if not k.startswith("?")))) in have_key:
+            plan["dup"] += 1; continue
+        b = ms_of(r.get("to")) if r.get("to") else None
+        plan["new"].append({"id": nid, "from": iso_of(a), "to": iso_of(b) if b and b >= a else "", "keys": keys, "text": text, "witness": wit})
+    plan["words"] = sorted(words.values(), key=str.lower)
+    return plan, None
+
+
+def import_text(d, apply=False):
+    if not pro_ok():
+        return {"ok": False, "error": "pro"}
+    if d.get("path"):
+        p = safe_path(d["path"], (".txt", ".csv", ".json", ".log"))
+        if not p or not os.path.isfile(p):
+            return {"ok": False, "error": "path"}
+        if os.path.getsize(p) > 20 * 1024 * 1024:
+            return {"ok": False, "error": "too big"}
+        with open(p, encoding="utf-8", errors="replace") as f:
+            text = f.read()
+    else:
+        text = str(d.get("content") or "")
+    plan, err = import_plan(text)
+    if err:
+        return {"ok": False, "error": err}
+    res = {"ok": True, "new": len(plan["new"]), "dup": plan["dup"], "bad": plan["bad"], "words": plan["words"][:30],
+           "sample": [{"from": x["from"], "text": x["text"][:80]} for x in plan["new"][:5]]}
+    if not apply:
+        return res
+    made = {}
+    for w in plan["words"]:                            # unbekannte Wörter als eigene anlegen (so weit erlaubt)
+        r = qt_change({"action": "add", "l": w})
+        if r.get("ok") and r.get("k"):
+            made[w.lower()] = r["k"]
+    n = 0
+    with NOTES_LOCK:
+        a = notes_all(); have = {x.get("id") for x in a["free"]}
+        for x in plan["new"][:NOTES_MAX - len(a["free"])]:
+            keys, extra = [], []
+            for k in x["keys"]:
+                if k.startswith("?"):
+                    kk = made.get(k[1:].lower())
+                    (keys.append(kk) if kk else extra.append(k[1:]))
+                else:
+                    keys.append(k)
+            text = x["text"] if not extra else ((", ".join(extra) + (" – " if x["text"] else "")) + x["text"])
+            nid = x["id"] if x["id"] and x["id"] not in have else "r_" + secrets.token_hex(5)
+            a["free"].append({"id": nid, "from": x["from"], "to": x["to"], "src": "all", "text": text, "tags": list(dict.fromkeys(keys))[:12],
+                              "witness": x["witness"], "ts": now_iso(), "by": "import"})
+            have.add(nid); n += 1
+        if n:
+            notes_save()
+    diary_soon()
+    return dict(res, applied=n, words_made=len(made))
 
 
 def export_csv():
@@ -858,7 +1244,11 @@ class H(http.server.BaseHTTPRequestHandler):
             if g("fmt") == "json":
                 return self.send(200, "application/json", json.dumps({"app": BRAND, "v": VERSION, "notes": notes_all()["free"]}, ensure_ascii=False).encode(),
                                  {"Content-Disposition": f'attachment; filename="greport_{dt.date.today()}.json"'})
+            if g("fmt") == "txt":
+                return self.send(200, "text/plain; charset=utf-8", export_text("txt").encode("utf-8"), {"Content-Disposition": f'attachment; filename="greport_{dt.date.today()}.txt"'})
             return self.send(200, "text/csv; charset=utf-8", export_csv(), {"Content-Disposition": f'attachment; filename="greport_{dt.date.today()}.csv"'})
+        if name == "textfile":
+            return self.js(txt_state())
         if name == "pro":
             return self.js(pro_info())
         return self.send(404, "text/plain", b"not found")
@@ -881,7 +1271,16 @@ class H(http.server.BaseHTTPRequestHandler):
         if name == "prefs":
             return self.js(prefs_set(d))
         if name == "import":
+            if "content" in d or "path" in d:                 # Textdatei: Vorschau (preview) oder übernehmen
+                return self.js(import_text(d, apply=d.get("apply") is True))
             return self.js(notes_import(d))
+        if name == "textfile":
+            if d.get("action") == "write":
+                ok = diary_write()
+                return self.js(dict(txt_state(), ok=ok, error=None if ok else (DIARY["error"] or ("pro" if not pro_ok() else "off"))))
+            return self.js(txt_set(d))
+        if name == "export_file":
+            return self.js(export_file(d))
         if name == "pro":
             if d.get("action") == "del":
                 try:

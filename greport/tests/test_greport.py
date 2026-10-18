@@ -77,6 +77,33 @@ class Notizen(unittest.TestCase):
         self.assertEqual(G.prefs_set({"date": "long", "time": "bogus"})["date"], "long")
         self.assertEqual(G.prefs()["time"], "hms")
 
+    def test_tagebuch_und_import(self):
+        G.pro_ok = lambda: True
+        G.TXT_ROOTS[:] = [D]
+        G.note_change("add", {"tags": ["klopfen", "oben"], "text": "Bass", "witness": "Anna", "from": "2026-10-18T05:07:12"})
+        G.note_change("add", {"tags": ["schritte"], "from": "2026-10-18T05:15:08"})
+        G.note_change("add", {"text": "Tür knallt", "from": "2026-10-17T23:41:10", "to": "2026-10-17T23:45:00"})
+        path = os.path.join(G.DIR, "tagebuch.txt")
+        self.assertTrue(G.txt_set({"on": True, "path": path})["ok"])
+        txt = open(path, encoding="utf-8").read()
+        self.assertIn("Sa. 17.10.2026\n23:41:10 – 23:45:00  Tür knallt\n\nSo. 18.10.2026\n05:07:12  [Klopfen, oben] Bass – Zeuge: Anna\n05:15:08  [Schritte]", txt)
+        self.assertEqual(G.txt_set({"path": "/etc/passwd.txt"})["error"], "path")          # nur unter /share oder /media
+        # zurücklesen: alles schon da
+        r = G.import_text({"content": txt})
+        self.assertEqual((r["new"], r["dup"]), (0, 3))
+        # andere Datei mit neuem Wort
+        r = G.import_text({"content": "Mo. 19.10.2026\n22:10  [Waschmaschine, stark] schleudert – Zeuge: Bert\n"}, apply=True)
+        self.assertEqual((r["applied"], r["words"]), (1, ["Waschmaschine"]))
+        n = G.notes_list(q="schleudert")[0]
+        self.assertIn("stark", n["tags"]); self.assertEqual(n["witness"], "Bert"); self.assertIn("Waschmaschine", n["tagl"])
+        # CSV-Export einlesen
+        r = G.import_text({"content": G.export_text("csv")})
+        self.assertEqual(r["new"], 0)
+        e = G.export_file({"fmt": "json", "path": os.path.join(G.DIR, "x.json")}); self.assertTrue(e["ok"])
+        self.assertEqual(G.import_text({"path": e["path"]})["dup"], 4)
+        G.txt_set({"monthly": True}); G.diary_write()
+        self.assertTrue(os.path.exists(os.path.join(G.DIR, "tagebuch_2026-10.txt")))
+
     def test_ingress_ueber_ipv6(self):
         self.assertIn(G.client_ip("::ffff:172.30.32.2"), G.ALLOWED)
         self.assertNotIn(G.client_ip("::ffff:192.168.1.5"), G.ALLOWED)

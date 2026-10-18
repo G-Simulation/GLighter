@@ -1,5 +1,14 @@
 # Changelog
 
+## 1.2.0
+- **Neu (Pro): Tagebuch als Textdatei.** GReport führt eine gut lesbare Datei nach Tagen: je Tag eine Überschrift, darunter die Notizen nach Uhrzeit. Neue, geänderte und gelöschte Notizen werden sofort eingetragen, nachgetragene Notizen landen unter ihrem Tag.
+  - Datei frei wählbar unter `/share` oder `/media`, z. B. auf einem Netzlaufwerk.
+  - Format Text oder CSV, auf Wunsch eine Datei pro Monat.
+  - Datum und Uhrzeit wie eingestellt.
+- **Export in eine Datei** (Text, CSV oder JSON) direkt auf den Home-Assistant-Rechner, oder herunterladen.
+- **Import aus Textdateien:** Text-Tagebuch, CSV und JSON, auch die eigenen Exporte. Vorher zeigt eine Vorschau, wie viele Notizen neu sind und wie viele schon vorhanden. Doppelte werden übersprungen, unbekannte Wörter als eigene angelegt.
+- Alles unter ⋯ → **Textdatei & Import/Export**. Die ZIP-Sicherung bleibt frei.
+
 ## 1.1.0
 - **Neues Erscheinungsbild.** Große Uhrzeit als Anker (sie wird mit der Notiz festgehalten). Die Schnellwahl ist nach Gruppen geordnet (Woher, Was, Wie stark, Folgen, Maßnahmen, Sonstiges, Eigene), jede mit eigener Farbe. Die Zeit ist eingeklappt („jetzt · Zeit ändern“), „Speichern“ steht in einer festen Leiste, am Handy unten am Bildschirm.
 - Die Liste ist eine Zeitleiste nach Tagen („Heute“, „Gestern“, Datum), mit Filter nach Wörtern. Hell und dunkel, auch am Handy ohne Überbreite.

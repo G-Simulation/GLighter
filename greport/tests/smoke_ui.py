@@ -50,13 +50,20 @@ def main():
             if src_[:2] != ["unten", "oben"]:
                 fails.append("Anordnen wirkt nicht: " + ",".join(src_[:3]))
             pg.click("#grmenu"); pg.wait_for_timeout(200)
-            if pg.locator("#grmenul button").count() < 7:
+            if pg.locator("#grmenul button").count() < 6:
                 fails.append("Menü unvollständig")
             pg.locator("#grmenul button >> nth=1").click(); pg.wait_for_timeout(300)   # Datum und Uhrzeit
             pg.select_option("#pfdate", "iso"); pg.select_option("#pftime", "hm"); pg.click("#pfsave"); pg.wait_for_timeout(500)
             import re as _re
             if not _re.fullmatch(r"\d\d:\d\d", pg.locator("#capclock").inner_text().strip()) or not _re.fullmatch(r"\d{4}-\d\d-\d\d", pg.locator("#capdate").inner_text().strip()):
                 fails.append("Datums-/Zeitformat wirkt nicht: " + pg.locator("#capclock").inner_text() + " " + pg.locator("#capdate").inner_text())
+            pg.click("#grmenu"); pg.wait_for_timeout(200)
+            pg.locator("#grmenul button", has_text="Textdatei").click(); pg.wait_for_timeout(500)
+            if not pg.locator("#txtdlg").is_visible() or not pg.locator("#txtpro").is_visible():
+                fails.append("Textdatei-Dialog fehlt oder ohne Pro nicht gesperrt")
+            if any(k in pg.locator("#txtdlg").inner_text() for k in ("gr_", "fnp_")):
+                fails.append("Text-Schlüssel im Textdatei-Dialog")
+            pg.click("#txtdlg .dlgx"); pg.wait_for_timeout(200)
             if any(k in pg.locator("body").inner_text() for k in ("gr_", "fnp_", "qt_", "nt_")):
                 fails.append("Text-Schlüssel statt Text sichtbar")
             mp = b.new_context(locale="de-DE", viewport={"width": 375, "height": 760}, is_mobile=True, has_touch=True).new_page()

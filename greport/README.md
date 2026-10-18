@@ -8,5 +8,5 @@ Notizen zu Störungen festhalten – der Notiz-Teil von [GLighter](../gaslighter
 - **Mit GLighter:** Ist GLighter installiert, erscheinen die Notizen mit GLighter Pro automatisch dort – ohne Kopplung.
 - Läuft auch allein, die Notizen bleiben in `/share/greport`.
 
-Pro (ein GLighter-Pro-Schlüssel gilt auch): Export/Import, bis zu 40 eigene Tasten, tägliche Sicherung, mehrere Zeugen.
+Pro (ein GLighter-Pro-Schlüssel gilt auch): Tagebuch als Textdatei, Export/Import (Text, CSV, JSON), bis zu 40 eigene Tasten, tägliche Sicherung, mehrere Zeugen.
 Die Sicherung als ZIP ist immer frei. Es wird kein Ton aufgenommen.

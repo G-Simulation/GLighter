@@ -372,6 +372,65 @@ function prefOpen() {
   upd(); document.getElementById('prefdlg').showModal();
 }
 const prefRead = () => ({ date: document.getElementById('pfdate').value, time: document.getElementById('pftime').value, rel: document.getElementById('pfrel').checked, wd: document.getElementById('pfwd').checked });
+/* ---------- Textdatei & Import/Export (Pro) ---------- */
+const TXT = { st: null, content: null };
+const txtErr = e => { const k = 'gr_err_' + String(e || 'x').replace(/\W/g, '_'); const v = t(k); return v === k ? t('gr_err_x') + (e ? ' (' + e + ')' : '') : v; };
+async function txtOpen() {
+  const d = document.getElementById('txtdlg');
+  try { TXT.st = await (await fetch('textfile', { cache: 'no-store' })).json(); } catch (e) { TXT.st = {}; }
+  const s = TXT.st || {};
+  document.getElementById('txton').checked = !!s.on; document.getElementById('txtmon').checked = !!s.monthly;
+  document.getElementById('txtfmt').value = s.fmt || 'txt';
+  const pth = document.getElementById('txtpath'); pth.value = s.path || ''; pth.placeholder = s.default || '/share/greport/greport_tagebuch.txt';
+  txtStatus();
+  const lk = document.getElementById('txtpro'); lk.hidden = PRO(); lk.textContent = '🔒 ' + t('gr_txt_pro');
+  if (PRO()) d.removeAttribute('data-locked'); else d.setAttribute('data-locked', '');
+  expPath(); document.getElementById('impres').hidden = true; document.getElementById('impgo').disabled = true; TXT.content = null;
+  document.getElementById('imppath').value = '';
+  d.showModal();
+}
+function txtStatus() {
+  const s = TXT.st || {}, el_ = document.getElementById('txtst');
+  el_.textContent = s.error ? '⚠ ' + txtErr(s.error) : s.last ? '✓ ' + t('gr_txt_last', { t: fDate(new Date(s.last).getTime()) + ' ' + fTime(new Date(s.last).getTime()), f: (s.files || []).slice(-1)[0] || '' }) : t('gr_txt_roots', { r: (s.roots || ['/share', '/media']).join(', ') });
+}
+function expPath() {
+  const f = document.getElementById('expfmt').value, p = document.getElementById('exppath');
+  p.placeholder = '/share/greport/greport_export_' + isoDay(new Date()) + '.' + f;
+}
+function impShow(r) {
+  const box = document.getElementById('impres'); box.hidden = false;
+  if (!r.ok) { box.textContent = '⚠ ' + txtErr(r.error); document.getElementById('impgo').disabled = true; return; }
+  box.innerHTML = r.applied != null ? `✓ ${esc(t('gr_imp_done', { n: r.applied, w: r.words_made || 0 }))}`
+    : `${esc(t('gr_imp_found', { n: r.new, d: r.dup, b: r.bad }))}${r.words && r.words.length ? `<br>${esc(t('gr_imp_words', { w: r.words.join(', ') }))}` : ''}${r.sample && r.sample.length ? `<ul>${r.sample.map(x => `<li>${esc(fDate(new Date(x.from).getTime()) + ' ' + fTime(new Date(x.from).getTime()))} – ${esc(x.text || '…')}</li>`).join('')}</ul>` : ''}`;
+  document.getElementById('impgo').disabled = r.applied != null || !r.new;
+}
+function impBody(apply) {
+  const p = document.getElementById('imppath').value.trim();
+  return TXT.content != null && !p ? { content: TXT.content, apply } : { path: p, apply };
+}
+function initTxt() {
+  document.getElementById('txtsave').onclick = async () => {
+    const j = await post('textfile', { on: document.getElementById('txton').checked, monthly: document.getElementById('txtmon').checked, fmt: document.getElementById('txtfmt').value, path: document.getElementById('txtpath').value.trim() }).catch(() => ({ ok: false }));
+    if (!j.ok) { document.getElementById('txtst').textContent = '⚠ ' + txtErr(j.error); return; }
+    TXT.st = j; txtStatus(); toast('✓ ' + t('gr_txt_saved'));
+  };
+  document.getElementById('txtnow').onclick = async () => { const j = await post('textfile', { action: 'write' }).catch(() => ({ ok: false })); TXT.st = Object.assign(TXT.st || {}, j); if (!j.ok) TXT.st.error = j.error; txtStatus(); };
+  document.getElementById('expfmt').onchange = expPath;
+  document.getElementById('expdl').onclick = () => { location.href = 'export?fmt=' + document.getElementById('expfmt').value; };
+  document.getElementById('expgo').onclick = async () => {
+    const j = await post('export_file', { fmt: document.getElementById('expfmt').value, path: document.getElementById('exppath').value.trim() }).catch(() => ({ ok: false }));
+    document.getElementById('expst').textContent = j.ok ? '✓ ' + t('gr_exp_done', { n: j.n, p: j.path }) : '⚠ ' + txtErr(j.error);
+  };
+  document.getElementById('impfile').onclick = () => document.getElementById('impf').click();
+  document.getElementById('impf').onchange = async e => {
+    const f = e.target.files[0]; e.target.value = ''; if (!f) return;
+    TXT.content = await f.text(); document.getElementById('imppath').value = ''; document.getElementById('imppath').placeholder = '📎 ' + f.name;
+    impShow(await post('import', impBody(false)).catch(() => ({ ok: false })));
+  };
+  document.getElementById('imppath').addEventListener('input', () => { TXT.content = null; document.getElementById('impgo').disabled = true; });
+  document.getElementById('impprev').onclick = async () => impShow(await post('import', impBody(false)).catch(() => ({ ok: false })));
+  document.getElementById('impgo').onclick = async () => { const r = await post('import', impBody(true)).catch(() => ({ ok: false })); impShow(r); if (r.ok) { ntsLoad(); listLoad(); } };
+}
 /* ---------- Menü ---------- */
 function menu() {
   const m = document.getElementById('grmenul');
@@ -379,9 +438,7 @@ function menu() {
   const lock = PRO() ? '' : '🔒 Pro';
   const items = [['✎', t('qt_title'), () => qtOpen()], ['🕒', t('gr_prefs'), prefOpen], null,
     ['⤓', t('gr_backup'), () => { location.href = 'backup'; }],
-    ['📄', t('gr_export_csv'), () => PRO() ? (location.href = 'export?fmt=csv') : proOpen(), lock],
-    ['🗂', t('gr_export_json'), () => PRO() ? (location.href = 'export?fmt=json') : proOpen(), lock],
-    ['⤒', t('gr_import'), () => PRO() ? document.getElementById('grimpf').click() : proOpen(), lock],
+    ['📄', t('gr_txt_title'), txtOpen, lock],
     ['👤', t('gr_persons'), () => PRO() ? perOpen() : proOpen(), lock], null,
     ['⭐', PRO() ? t('gr_pro_on') : t('gr_pro_get'), proOpen]];
   m.innerHTML = '';
@@ -423,7 +480,7 @@ function initDialogs() {
     const f = e.target.files[0]; e.target.value = ''; if (!f) return;
     try { const j = await (await fetch('import', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: await f.text() })).json(); toast(j.ok ? t('gr_imported_n', { n: j.n }) : t('gr_import_bad')); listLoad(); } catch (x) { toast(t('gr_import_bad')); }
   };
-  initQt();
+  initQt(); initTxt();
 }
 /* ---------- Start ---------- */
 async function init() {

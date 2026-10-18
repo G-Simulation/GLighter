@@ -23,8 +23,28 @@ Diese Wörter stehen auch in Home Assistant in der Auswahlliste „Schnellwahl�
 ## Mit GLighter
 Ist GLighter installiert, findet es GReport selbst (über `/share/greport`). Mit GLighter Pro erscheinen die Notizen dort an den Störungen, im Verlauf und im Lärmprotokoll; geändert werden sie in GReport.
 
-## Sicherung, Export, Import
-Menü ⋯: **Sicherung (ZIP)** ist immer frei. Pro: Export als Tabelle (CSV) oder für den Import (JSON), Import, Personen/Zeugen zum Antippen und eine tägliche Sicherung nach `/share/greport/sicherung` (14 Tage).
+## Sicherung
+Menü ⋯ → **Sicherung herunterladen (ZIP)** ist immer frei. Mit Pro zusätzlich eine tägliche Sicherung nach `/share/greport/sicherung` (14 Tage).
+
+## Textdatei & Import/Export (Pro)
+Menü ⋯ → **Textdatei & Import/Export**.
+
+**Tagebuch als Textdatei:** Einschalten und Datei wählen (unter `/share` oder `/media`, Standard `/share/greport/greport_tagebuch.txt`). GReport führt die Datei nach Tagen:
+
+```
+So. 18.10.2026
+05:07:12  [Klopfen, oben, stark] Bass dröhnt seit 22 Uhr – Zeuge: Anna
+05:15:08  [Schritte, oben]
+
+Mo. 19.10.2026
+23:41:10 – 23:45:00  [Tür, Treppenhaus] Tür knallt mehrmals (geändert)
+```
+
+Gibt es den Tag schon, kommt die Notiz nach Uhrzeit darunter, sonst entsteht am Ende ein neuer Absatz mit dem Datum. Geänderte Notizen werden ersetzt (mit „(geändert)“), gelöschte entfernt. Format Text oder CSV, auf Wunsch eine Datei pro Monat (`…_2026-10.txt`). Die Datei wird von GReport geführt – eigene Änderungen darin gehen beim nächsten Schreiben verloren. Der fälschungssichere Stand bleibt die Datenbank von GReport.
+
+**Export:** Text, CSV oder JSON – herunterladen oder direkt in eine Datei schreiben.
+
+**Import:** Pfad einer Datei auf dem Home-Assistant-Rechner eintragen oder eine Datei hochladen, dann **Vorschau** und **Übernehmen**. Gelesen werden das Text-Tagebuch, CSV und JSON (auch die Exporte von GReport). Doppelte Notizen (gleiche Kennung oder gleiche Zeit, gleicher Text, gleiche Wörter) werden übersprungen, unbekannte Wörter als eigene angelegt.
 
 ## Pro
 Ein GReport-Schlüssel oder ein GLighter-Pro-Schlüssel (Menü ⋯ → Pro). Geprüft wird offline.

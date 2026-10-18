@@ -77,6 +77,36 @@
   <div class="dlgfoot"><span class="grow"></span><button type="button" class="btn dlgx" data-i="cancel"></button><button type="button" id="pfsave" class="btn primary" data-i="save"></button></div>
 </dialog>
 
+<dialog id="txtdlg" class="dlg wide">
+  <div class="dlghead"><h3 data-i="gr_txt_title"></h3><button type="button" class="icon dlgx" data-ia="close">✕</button></div>
+  <p id="txtpro" class="hint lockline" hidden></p>
+  <section class="blk">
+    <h4 data-i="gr_txt_diary"></h4>
+    <p class="hint" data-i="gr_txt_diary_h"></p>
+    <label class="check"><input type="checkbox" id="txton"> <span data-i="gr_txt_on"></span></label>
+    <label class="field"><span data-i="gr_txt_path"></span><input type="text" id="txtpath" spellcheck="false" autocomplete="off"></label>
+    <div class="row wrap"><label class="field inl"><span data-i="gr_txt_fmt"></span><select id="txtfmt"><option value="txt" data-i="gr_fmt_txt"></option><option value="csv" data-i="gr_fmt_csv"></option></select></label>
+      <label class="check"><input type="checkbox" id="txtmon"> <span data-i="gr_txt_monthly"></span></label></div>
+    <small id="txtst" class="hint"></small>
+    <div class="dlgfoot"><span class="grow"></span><button type="button" id="txtnow" class="btn" data-i="gr_txt_now"></button><button type="button" id="txtsave" class="btn primary" data-i="save"></button></div>
+  </section>
+  <section class="blk">
+    <h4 data-i="gr_exp_title"></h4>
+    <div class="row wrap"><select id="expfmt"><option value="txt" data-i="gr_fmt_txt"></option><option value="csv" data-i="gr_fmt_csv"></option><option value="json" data-i="gr_fmt_json"></option></select>
+      <input type="text" id="exppath" class="grow" spellcheck="false" autocomplete="off"></div>
+    <small id="expst" class="hint"></small>
+    <div class="dlgfoot"><button type="button" id="expdl" class="btn" data-i="gr_exp_dl"></button><span class="grow"></span><button type="button" id="expgo" class="btn primary" data-i="gr_exp_go"></button></div>
+  </section>
+  <section class="blk">
+    <h4 data-i="gr_imp_title"></h4>
+    <p class="hint" data-i="gr_imp_h"></p>
+    <div class="row wrap"><input type="text" id="imppath" class="grow" spellcheck="false" autocomplete="off" data-iph="gr_imp_path_ph"><button type="button" id="impfile" class="btn" data-i="gr_imp_file"></button></div>
+    <div id="impres" class="impres" hidden></div>
+    <div class="dlgfoot"><span class="grow"></span><button type="button" id="impprev" class="btn" data-i="gr_imp_prev"></button><button type="button" id="impgo" class="btn primary" data-i="gr_imp_go" disabled></button></div>
+  </section>
+</dialog>
+<input type="file" id="impf" accept=".txt,.csv,.json,.log,text/plain,text/csv,application/json" hidden>
+
 <dialog id="prodlg" class="dlg">
   <div class="dlghead"><h3>⭐ <span data-i="pro_title"></span></h3><button type="button" class="icon dlgx" data-ia="close">✕</button></div>
   <p id="prost"></p>
