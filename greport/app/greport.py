@@ -1316,6 +1316,71 @@ def mqtt_start():
 
 
 # =====================================================================
+# Dashboard-Karte „GReport“ (custom:greport-card): Datei nach /homeassistant/www/greport, Ressource eintragen
+# =====================================================================
+HA_CFG = os.environ.get("GR_HA_CONFIG", "/homeassistant")
+CARD_NAME = "greport-card.js"
+CARD_URL = "/local/greport/" + CARD_NAME
+CARD = {"file": False, "resource": None, "restart": False, "error": ""}
+
+
+def card_file():
+    """Karte nach www/greport im Konfigurationsordner legen (nur wenn neu oder geändert). True = Datei liegt bereit."""
+    src = os.path.join(WEB, CARD_NAME)
+    if not os.path.isdir(HA_CFG) or not os.path.isfile(src):
+        CARD["error"] = "config"
+        return False
+    www = os.path.join(HA_CFG, "www")
+    CARD["restart"] = CARD["restart"] or not os.path.isdir(www)     # neuer www-Ordner: Home Assistant liest ihn erst nach Neustart
+    dst = os.path.join(www, "greport", CARD_NAME)
+    os.makedirs(os.path.dirname(dst), exist_ok=True)
+    data = open(src, "rb").read().replace(b"{{VERSION}}", VERSION.encode())
+    try:
+        old = open(dst, "rb").read()
+    except OSError:
+        old = None
+    if old != data:
+        with open(dst + ".tmp", "wb") as f:
+            f.write(data)
+        os.replace(dst + ".tmp", dst)
+    CARD["file"] = True
+    return True
+
+
+def card_install():
+    """Einstellung „Dashboard-Karte“: Datei bereitlegen und als Ressource eintragen; aus = nur unsere Ressource austragen."""
+    on = OPT.get("dashboard_card", True)
+    try:
+        if on and not card_file():
+            log("Dashboard-Karte: kein Zugriff auf den Konfigurationsordner von Home Assistant")
+            return CARD
+        url, tok = ha_api()
+        if not url or not tok:
+            return CARD
+        import haws  # noqa: PLC0415
+        res = haws.call(url, tok, {"type": "lovelace/resources"})[0] or []
+        mine = [r for r in res if str(r.get("url") or "").split("?")[0] == CARD_URL]
+        want = f"{CARD_URL}?v={VERSION}"
+        if on and not mine:
+            haws.call(url, tok, {"type": "lovelace/resources/create", "res_type": "module", "url": want})
+            log("Dashboard-Karte „GReport“ eingetragen:", want)
+        elif on and mine[0].get("url") != want:
+            haws.call(url, tok, {"type": "lovelace/resources/update", "resource_id": mine[0]["id"], "res_type": "module", "url": want})
+        elif not on:
+            for r in mine:
+                haws.call(url, tok, {"type": "lovelace/resources/delete", "resource_id": r["id"]})
+                log("Dashboard-Karte „GReport“ ausgetragen")
+        CARD.update(resource=on, error="")
+        if on and CARD["restart"]:
+            log("Dashboard-Karte: Ordner www neu angelegt – Home Assistant einmal neu starten, dann ist die Karte da")
+    except Exception as e:                                          # z. B. Dashboards im YAML-Modus
+        CARD.update(resource=False, error=str(e)[:160])
+        if on:
+            log("Dashboard-Karte nicht eingetragen:", e, f"– von Hand als Ressource hinzufügen: {CARD_URL} (JavaScript-Modul)")
+    return CARD
+
+
+# =====================================================================
 # GLighter: erkennen (Pro-Verbindung liest GLighter selbst aus /share/greport)
 # =====================================================================
 def glighter():
