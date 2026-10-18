@@ -22,7 +22,12 @@ Diese Wörter stehen auch in Home Assistant in der Auswahlliste „Schnellwahl�
 
 ## Home Assistant
 - **Logbuch:** jede neue Notiz erscheint als Eintrag „GReport“ (abschaltbar in der Konfiguration).
-- **Auswahlliste „Schnellwahl“ und Knopf „Hinzufügen“** (Gerät „GReport“, braucht den MQTT-Broker Mosquitto): Wort wählen, Knopf drücken – die Notiz ist mit der Uhrzeit angelegt. Der Knopf lässt sich auch in Automationen verwenden (z. B. Zigbee-Taster).
+- **Gerät „GReport“** (braucht den MQTT-Broker Mosquitto) – auf der Geräteseite „Zu Dashboard hinzufügen“, ohne Adresse und ohne Bastelei:
+  - `text.greport_notiz` – freies Textfeld
+  - je Gruppe eine Auswahlliste: `select.greport_woher`, `…_was`, `…_wie_stark`, `…_folgen`, `…_massnahmen`, `…_sonstiges`, `…_eigene` – eigene Tasten erscheinen automatisch in ihrer Gruppe, ausgeblendete nicht
+  - `text.greport_zeuge` und Knopf `button.greport_speichern` – legt die Notiz mit der Uhrzeit an und leert die Felder
+  - `sensor.greport_letzte_notiz` (Attribut `notizen`: die letzten 10 mit Datum, Uhrzeit, Text, Zeuge, Wörtern) und `sensor.greport_notizen_heute`
+- **Auswahlliste „Schnellwahl“ und Knopf „Hinzufügen“**: Wort wählen, Knopf drücken – die Notiz ist mit der Uhrzeit angelegt. Der Knopf lässt sich auch in Automationen verwenden (z. B. Zigbee-Taster).
 
 ## Mit GLighter
 Ist GLighter installiert, findet es GReport selbst (über `/share/greport`). Mit GLighter Pro erscheinen die Notizen dort an den Störungen, im Verlauf und im Lärmprotokoll; geändert werden sie in GReport.

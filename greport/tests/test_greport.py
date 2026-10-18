@@ -56,6 +56,54 @@ class Notizen(unittest.TestCase):
         G.qt_change({"action": "hide", "k": "klopfen", "on": True})
         self.assertNotIn("Klopfen", [l for _, l in G.qt_visible()])  # ausgeblendet = auch nicht in Home Assistant
 
+    def test_home_assistant_felder_und_speichern(self):
+        k = G.qt_change({"action": "add", "l": "Waschmaschine", "g": "kind"})["k"]
+        e = G.qt_change({"action": "add", "l": "Nachbar B"})["k"]
+        grp = G.qt_groups()
+        self.assertIn((k, "Waschmaschine"), grp["kind"])                 # eigene Taste in ihrer Gruppe
+        self.assertIn((e, "Nachbar B"), grp["own"])
+        self.assertEqual(G.group_opts(grp["lvl"])[0], G.NONE_OPT)
+        G.mqtt_cmd("greport/notiz/set", "Bass dröhnt")
+        G.mqtt_cmd("greport/was/set", "Waschmaschine")
+        G.mqtt_cmd("greport/woher/set", "oben")
+        G.mqtt_cmd("greport/wie_stark/set", "gibt es nicht")              # unbekannt = ignoriert
+        G.mqtt_cmd("greport/zeuge/set", "Anna")
+        r = G.mqtt_cmd("greport/speichern/set", "PRESS")
+        self.assertTrue(r["ok"]); n = r["note"]
+        self.assertEqual(n["text"], "Bass dröhnt"); self.assertEqual(n["witness"], "Anna"); self.assertEqual(n["by"], "homeassistant")
+        self.assertEqual(set(n["tags"]), {"oben", k, "zeuge"})
+        self.assertEqual((G.FORM["text"], G.FORM["witness"], G.FORM["pick"]["kind"]), ("", "", G.NONE_OPT))   # Felder geleert
+        self.assertEqual(G.mqtt_cmd("greport/speichern/set", "PRESS")["error"], "empty")              # leer: nichts gespeichert
+        s = G.notes_summary()
+        self.assertEqual(s["today"], 1); self.assertIn("Bass dröhnt", s["last"])
+        self.assertEqual(s["attr"]["notizen"][0]["zeuge"], "Anna"); self.assertIn("Waschmaschine", s["attr"]["notizen"][0]["woerter"])
+
+    def test_home_assistant_entitaeten(self):
+        sent = {}
+
+        class C:
+            def publish(self, t, p, retain=False):
+                sent[t] = p
+
+            def subscribe(self, *_):
+                pass
+        G.MQ["c"] = C()
+        try:
+            G.qt_change({"action": "add", "l": "Waschmaschine"})
+            G.mqtt_announce(G.MQ["c"])
+            cfg = {t.split("/")[1] + "." + t.split("/")[3]: json.loads(p) for t, p in sent.items() if t.endswith("/config") and p}
+            for e in ("text.notiz", "text.zeuge", "button.speichern", "sensor.letzte_notiz", "sensor.notizen_heute",
+                      "select.woher", "select.was", "select.wie_stark", "select.folgen", "select.massnahmen", "select.eigene",
+                      "select.schnellwahl", "button.hinzufuegen"):
+                self.assertIn(e, cfg)
+            self.assertEqual(cfg["select.eigene"]["options"], [G.NONE_OPT, "Waschmaschine"])
+            self.assertEqual(cfg["sensor.letzte_notiz"]["json_attributes_topic"], "greport/notizen/attr")
+            G.note_change("add", {"text": "Test"})
+            self.assertEqual(sent["greport/notizen_heute"], "1")
+            self.assertEqual(json.loads(sent["greport/notizen/attr"])["notizen"][0]["text"], "Test")
+        finally:
+            G.MQ["c"] = None
+
     def test_woerter_umbenennen_anordnen(self):
         G.qt_change({"action": "ren", "k": "musik", "l": "Bass"})
         self.assertEqual(G.tag_label("musik"), "Bass")

@@ -1,5 +1,10 @@
 # Changelog
 
+## 1.6.0
+- **Notiz direkt im Dashboard:** Das Gerät „GReport“ in Home Assistant hat jetzt alles, was man für eine Notiz braucht: Textfeld „Notiz“, je Gruppe eine Auswahlliste (Woher, Was, Wie stark, Folgen, Maßnahmen, Sonstiges, Eigene – eigene Tasten kommen automatisch in ihre Gruppe), „Zeuge“ und den Knopf „Speichern“. Danach sind die Felder wieder leer.
+- **Neue Sensoren:** „Letzte Notiz“ (mit den letzten 10 Notizen als Attribut, z. B. für eine eigene Notizen-Kachel) und „Notizen heute“.
+- Damit funktioniert bei jedem Nutzer „Zu Dashboard hinzufügen“ auf der Geräteseite – ohne Adresse und ohne Bastelei. „Schnellwahl“ und „Hinzufügen“ bleiben für Automationen.
+
 ## 1.5.1
 - Behoben: Die Abschnitte von „Notiz jetzt“ lassen sich wieder ein- und ausblenden, auch im abgedockten Fenster. Dafür gibt es oben eine schmale Leiste mit Textfeld, Schnellwahl, Zeuge und Zeitraum. Ein ausgeblendeter Abschnitt zeigt, wie viel darin gewählt ist. Der Zustand wird pro Browser gemerkt.
 - Im abgedockten Fenster ziehen sich die Zeilen nicht mehr in die Höhe, wenn Abschnitte ausgeblendet sind.

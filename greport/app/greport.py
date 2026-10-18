@@ -3,7 +3,9 @@
 
 - Notiz jetzt: Text, Schnellwahl (eigene Tasten, lernt mit), Zeuge, Zeitraum von–bis.
 - Jede neue Notiz kommt ins Logbuch von Home Assistant.
-- In Home Assistant: Auswahlliste „Schnellwahl“ und Knopf „Hinzufügen“ (über MQTT).
+- In Home Assistant (über MQTT): Textfeld „Notiz“, eine Auswahlliste je Gruppe, „Zeuge“, Knopf „Speichern“,
+  Sensoren „Letzte Notiz“ und „Notizen heute“ – dazu weiterhin „Schnellwahl“ und „Hinzufügen“.
+- Eigene Dashboard-Karte „GReport“ (custom:greport-card), die sich die Ingress-Adresse selbst holt.
 - Ist GLighter (Pro) installiert, liest es die Notizen aus /share/greport und zeigt sie mit an.
 Nur Python-Standardbibliothek (MQTT über paho, wenn vorhanden).
 """
@@ -31,7 +33,7 @@ WEB = os.path.join(HERE, "web")
 sys.path.insert(0, HERE)
 import lizenz  # noqa: E402
 
-VERSION = "1.5.1"
+VERSION = "1.6.0"
 BRAND = "GReport"
 OPTIONS = os.environ.get("GR_OPTIONS", "/data/options.json")
 PRIV = os.environ.get("GR_PRIVATE", "/data")                    # nur für GReport (Pro-Schlüssel)
@@ -61,7 +63,7 @@ def write_json(p, data):
     os.replace(tmp, p)
 
 
-OPT = {"language": "auto", "mqtt": True, "logbook": True, "output_dir": "/share/greport"}
+OPT = {"language": "auto", "mqtt": True, "logbook": True, "output_dir": "/share/greport", "dashboard_card": True}
 OPT.update({k: v for k, v in (read_json(OPTIONS, {}) or {}).items() if k in OPT})
 DIR = os.environ.get("GR_DIR") or OPT["output_dir"] or "/share/greport"
 GL_DIR = os.environ.get("GR_GLIGHTER_DIR", "/share/gaslighter")
@@ -280,6 +282,14 @@ def tag_known(t):
     return isinstance(t, str) and (t in NOTE_TAG_SET or isinstance(qt_all()["own"].get(t), dict))
 
 
+def tag_group(k):
+    """Gruppe einer Taste: selbst zugeordnet, sonst die eingebaute; eigene Tasten ohne Zuordnung = „Eigene“."""
+    g = qt_all()["grp"].get(k)
+    if g in GROUPS:
+        return g
+    return next((g for g, v in NOTE_TAGS.items() if k in v), "own")
+
+
 def qt_change(data):
     """Schnellwahl verwalten: add (l, g), ren (k, l – auch eingebaute), del (k), undel (k), hide (k, on), nope (w),
     grp (k, g), order (keys), mode (use|fixed), reset (eingebaute Wörter, Reihenfolge und Gruppen auf Standard)."""
@@ -414,6 +424,14 @@ def qt_visible():
     return [(k, tag_label(k)) for k in keys]
 
 
+def qt_groups():
+    """Sichtbare Tasten je Gruppe (eine Auswahlliste pro Gruppe in Home Assistant); eigene Tasten kommen in ihre Gruppe."""
+    out = {g: [] for g in GROUPS}
+    for k, l in qt_visible():
+        out[tag_group(k)].append((k, l))
+    return out
+
+
 # =====================================================================
 # Anzeige: Datum und Uhrzeit (gilt in der App und im Export)
 # =====================================================================
@@ -526,6 +544,7 @@ def notes_all():
 def notes_save():
     with NOTES_LOCK:
         write_json(notes_path(), notes_all())
+    mqtt_notes()
 
 
 def note_public(x):
@@ -1093,7 +1112,15 @@ def logbook(x):
     threading.Thread(target=go, daemon=True).start()
 
 
-MQ = {"c": None, "ok": False, "sel": None}
+MQ = {"c": None, "ok": False, "sel": None, "day": None}
+NONE_OPT = "–"
+GROUP_SLUG = {"src": "woher", "kind": "was", "lvl": "wie_stark", "eff": "folgen", "act": "massnahmen", "misc": "sonstiges", "own": "eigene"}
+GROUP_DE = {"src": "Woher", "kind": "Was", "lvl": "Wie stark", "eff": "Folgen", "act": "Maßnahmen", "misc": "Sonstiges", "own": "Eigene"}
+GROUP_EN = {"src": "Source", "kind": "What", "lvl": "How strong", "eff": "Effects", "act": "Actions", "misc": "Other", "own": "Own"}
+GROUP_ICON = {"src": "mdi:compass-outline", "kind": "mdi:volume-high", "lvl": "mdi:signal-cellular-3", "eff": "mdi:sleep-off",
+              "act": "mdi:account-voice", "misc": "mdi:dots-horizontal", "own": "mdi:star-outline"}
+FORM = {"text": "", "witness": "", "pick": {g: NONE_OPT for g in GROUPS}}     # Eingaben aus Home Assistant bis „Speichern“
+LAST_N = 10                                                                    # so viele Notizen als Attribut des Sensors
 
 
 def pub(topic, payload, retain=False):
@@ -1105,33 +1132,122 @@ def pub(topic, payload, retain=False):
             pass
 
 
+def group_opts(items):
+    return [NONE_OPT] + [x for x in dict.fromkeys(l for _, l in items) if x != NONE_OPT]
+
+
+def mqtt_form_state():
+    pub(f"{TOPIC}/notiz", FORM["text"], True)
+    pub(f"{TOPIC}/zeuge", FORM["witness"], True)
+    for g, slug in GROUP_SLUG.items():
+        pub(f"{TOPIC}/{slug}", FORM["pick"].get(g) or NONE_OPT, True)
+
+
+def notes_summary():
+    """Werte für die Sensoren „Letzte Notiz“ und „Notizen heute“ (nur lesen, ändert nichts)."""
+    today = dt.datetime.now().astimezone().replace(hour=0, minute=0, second=0, microsecond=0)
+    t0 = int(today.timestamp() * 1000)
+    last = notes_list(limit=LAST_N)
+    n_today = len(notes_list(t_from=t0, limit=5000))
+    p = prefs(); items = []
+    for x in last:
+        d = dt.datetime.fromtimestamp(x["a"] / 1000.0)
+        items.append({"datum": fmt_date(d, p), "zeit": fmt_time(d, p), "von": x.get("from"), "bis": x.get("to") or "",
+                      "text": note_text(x), "zeuge": x.get("witness") or "", "woerter": x.get("tagl") or []})
+    if last:
+        d = dt.datetime.fromtimestamp(last[0]["a"] / 1000.0)
+        state_txt = (fmt_time(d, p) + " " + (note_text(last[0]) or "Notiz"))[:255]
+    else:
+        state_txt = "–"
+    return {"last": state_txt, "today": n_today, "attr": {"notizen": items, "heute": n_today, "von": last[0].get("from") if last else ""}}
+
+
+def mqtt_notes():
+    if MQ["c"] is None:
+        return None
+    try:
+        s = notes_summary()
+    except Exception as e:
+        log("Sensoren:", e)
+        return None
+    pub(f"{TOPIC}/letzte_notiz", s["last"], True)
+    pub(f"{TOPIC}/notizen_heute", str(s["today"]), True)
+    pub(f"{TOPIC}/notizen/attr", json.dumps(s["attr"], ensure_ascii=False), True)
+    MQ["day"] = dt.date.today()
+    return s
+
+
 def mqtt_announce(client=None, *_):
     c = client if hasattr(client, "subscribe") else MQ["c"]
     if c is None:
         return
     de = lang() == "de"
     dev = {"identifiers": [HAID], "name": BRAND, "manufacturer": "G-Simulation", "model": "GReport", "sw_version": VERSION}
+    avail = {"availability_topic": f"{TOPIC}/status", "device": dev}
+
+    def cfg(kind, oid, d):
+        pub(f"homeassistant/{kind}/{HAID}/{oid}/config", json.dumps(dict(d, unique_id=f"{HAID}_{oid}", object_id=f"{HAID}_{oid}", **avail),
+                                                                   ensure_ascii=False), True)
     opts = [l for _, l in qt_visible()] or ["–"]
     opts = list(dict.fromkeys(opts))
     if MQ["sel"] not in opts:
         MQ["sel"] = opts[0]
     pub(f"{TOPIC}/status", "online", True)
-    pub(f"homeassistant/select/{HAID}/schnellwahl/config", json.dumps({
-        "name": "Schnellwahl" if de else "Quick select", "unique_id": f"{HAID}_schnellwahl", "object_id": f"{HAID}_schnellwahl",
-        "command_topic": f"{TOPIC}/schnellwahl/set", "state_topic": f"{TOPIC}/schnellwahl", "options": opts, "icon": "mdi:format-list-bulleted",
-        "availability_topic": f"{TOPIC}/status", "device": dev}, ensure_ascii=False), True)
-    pub(f"homeassistant/button/{HAID}/hinzufuegen/config", json.dumps({
-        "name": "Hinzufügen" if de else "Add", "unique_id": f"{HAID}_hinzufuegen", "object_id": f"{HAID}_hinzufuegen",
-        "command_topic": f"{TOPIC}/hinzufuegen/set", "payload_press": "PRESS", "icon": "mdi:note-plus",
-        "availability_topic": f"{TOPIC}/status", "device": dev}, ensure_ascii=False), True)
+    # wie bisher: eine Taste wählen + „Hinzufügen“ = Notiz mit Uhrzeit (auch für Automationen)
+    cfg("select", "schnellwahl", {"name": "Schnellwahl" if de else "Quick select", "command_topic": f"{TOPIC}/schnellwahl/set",
+                                  "state_topic": f"{TOPIC}/schnellwahl", "options": opts, "icon": "mdi:format-list-bulleted"})
+    cfg("button", "hinzufuegen", {"name": "Hinzufügen" if de else "Add", "command_topic": f"{TOPIC}/hinzufuegen/set",
+                                  "payload_press": "PRESS", "icon": "mdi:note-plus"})
+    # Notiz wie in der App: Text, je Gruppe eine Auswahl, Zeuge, Speichern
+    cfg("text", "notiz", {"name": "Notiz" if de else "Note", "command_topic": f"{TOPIC}/notiz/set", "state_topic": f"{TOPIC}/notiz",
+                          "max": 255, "mode": "text", "icon": "mdi:note-text-outline"})
+    cfg("text", "zeuge", {"name": "Zeuge" if de else "Witness", "command_topic": f"{TOPIC}/zeuge/set", "state_topic": f"{TOPIC}/zeuge",
+                          "max": 200, "mode": "text", "icon": "mdi:account-eye-outline"})
+    groups = qt_groups()
+    for g, slug in GROUP_SLUG.items():
+        if groups.get(g):
+            go = group_opts(groups[g])
+            if FORM["pick"].get(g) not in go:
+                FORM["pick"][g] = NONE_OPT
+            cfg("select", slug, {"name": (GROUP_DE if de else GROUP_EN)[g], "command_topic": f"{TOPIC}/{slug}/set",
+                                 "state_topic": f"{TOPIC}/{slug}", "options": go, "icon": GROUP_ICON[g]})
+        else:                                                   # Gruppe ohne sichtbare Tasten: Auswahlliste entfernen
+            FORM["pick"][g] = NONE_OPT
+            pub(f"homeassistant/select/{HAID}/{slug}/config", "", True)
+    cfg("button", "speichern", {"name": "Speichern" if de else "Save", "command_topic": f"{TOPIC}/speichern/set",
+                                "payload_press": "PRESS", "icon": "mdi:content-save-outline"})
+    cfg("sensor", "letzte_notiz", {"name": "Letzte Notiz" if de else "Last note", "state_topic": f"{TOPIC}/letzte_notiz",
+                                   "json_attributes_topic": f"{TOPIC}/notizen/attr", "icon": "mdi:note-outline"})
+    cfg("sensor", "notizen_heute", {"name": "Notizen heute" if de else "Notes today", "state_topic": f"{TOPIC}/notizen_heute",
+                                    "state_class": "measurement", "unit_of_measurement": "Notizen" if de else "notes",
+                                    "icon": "mdi:counter"})
     pub(f"{TOPIC}/schnellwahl", MQ["sel"], True)
+    mqtt_form_state()
+    mqtt_notes()
     if hasattr(c, "subscribe") and client is not None:
-        c.subscribe([(f"{TOPIC}/schnellwahl/set", 0), (f"{TOPIC}/hinzufuegen/set", 0)])
+        c.subscribe([(f"{TOPIC}/+/set", 0)])
         MQ["ok"] = True
 
 
+def form_save(by="homeassistant"):
+    """„Speichern“ in Home Assistant: Notiz aus Text, gewählten Wörtern (je Gruppe) und Zeuge anlegen, Felder leeren."""
+    groups = qt_groups(); tags = []
+    for g in GROUPS:
+        lab = FORM["pick"].get(g)
+        if lab and lab != NONE_OPT:
+            k = next((k for k, l in groups.get(g, []) if l == lab), None)
+            if k:
+                tags.append(k)
+    r = note_change("add", {"text": FORM["text"], "tags": tags, "witness": FORM["witness"], "from": now_iso(), "typed": True}, by=by)
+    if r.get("ok"):
+        FORM.update(text="", witness="", pick={g: NONE_OPT for g in GROUPS})
+        mqtt_form_state()
+    log("Notiz aus Home Assistant (Speichern):", "ok" if r.get("ok") else r.get("error"))
+    return r
+
+
 def mqtt_cmd(topic, raw):
-    """Befehl aus Home Assistant: Auswahl merken bzw. Notiz mit der gewählten Taste anlegen."""
+    """Befehl aus Home Assistant: Felder merken bzw. Notiz anlegen."""
     if topic.endswith("/schnellwahl/set"):
         if raw in [l for _, l in qt_visible()]:
             MQ["sel"] = raw; pub(f"{TOPIC}/schnellwahl", raw, True)
@@ -1143,6 +1259,19 @@ def mqtt_cmd(topic, raw):
         r = note_change("add", {"tags": [key], "from": now_iso()}, by="homeassistant")
         log("Notiz aus Home Assistant:", MQ["sel"], "ok" if r.get("ok") else r.get("error"))
         return r
+    if topic == f"{TOPIC}/notiz/set":
+        FORM["text"] = clean_text(raw, 255); pub(f"{TOPIC}/notiz", FORM["text"], True)
+        return None
+    if topic == f"{TOPIC}/zeuge/set":
+        FORM["witness"] = clean_text(raw, 200); pub(f"{TOPIC}/zeuge", FORM["witness"], True)
+        return None
+    if topic == f"{TOPIC}/speichern/set":
+        return form_save()
+    for g, slug in GROUP_SLUG.items():
+        if topic == f"{TOPIC}/{slug}/set":
+            if raw == NONE_OPT or raw in [l for _, l in qt_groups().get(g, [])]:
+                FORM["pick"][g] = raw; pub(f"{TOPIC}/{slug}", raw, True)
+            return None
     return None
 
 
@@ -1187,6 +1316,8 @@ def bg_loop():
     while True:
         try:
             heartbeat(); daily_backup()
+            if MQ["ok"] and MQ["day"] != dt.date.today():        # nach Mitternacht: „Notizen heute“ wieder bei 0
+                mqtt_notes()
         except Exception as e:
             log("Hintergrund:", e)
         time.sleep(60)
