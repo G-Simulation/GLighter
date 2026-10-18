@@ -1,7 +1,7 @@
 """Regressionstests für die Datenpfade (ohne Mikrofon, ohne Home Assistant).
 Aufruf:  python3 -m unittest discover -s tests -v     (aus dem Ordner gaslighter/)
 Jeder Test legt seine Dateien in einem eigenen Wegwerf-Ordner an."""
-import csv, datetime as dt, gzip, hashlib, json, os, sys, tempfile, time, unittest
+import csv, datetime as dt, gzip, hashlib, json, os, shutil, sys, tempfile, time, unittest
 
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", "app"))
 import numpy as np                                    # noqa: E402
@@ -662,3 +662,30 @@ class RegelSchwelleAnheben(unittest.TestCase):
             self.assertEqual(laerm.ha_cal({"action": "stop"})["error"], "short")
         finally:
             laerm.RUNNERS.pop("zz_test", None)
+
+
+class GReportEinbinden(unittest.TestCase):
+    """GReport installiert: mit Pro erscheinen seine Notizen bei den freien Notizen (nur lesen)."""
+    def setUp(self):
+        self.d = tempfile.mkdtemp(); self._dir = laerm.GR_DIR; laerm.GR_DIR = self.d; laerm.GR_CACHE["key"] = None
+        self._pro = laerm.pro_ok
+        json.dump({"app": "GReport", "v": "1.0.0", "t": time.time()}, open(os.path.join(self.d, "greport.json"), "w"))
+        json.dump({"own": {"c_abc123": {"l": "Waschmaschine"}}}, open(os.path.join(self.d, "schnellwahl.json"), "w"))
+        json.dump({"free": [{"id": "r_1", "from": "2026-10-18T03:00:00+02:00", "to": "", "src": "all", "text": "Bass", "tags": ["klopfen", "c_abc123"], "witness": "Anna"}]},
+                  open(os.path.join(self.d, "notizen.json"), "w"))
+
+    def tearDown(self):
+        laerm.GR_DIR = self._dir; laerm.pro_ok = self._pro; laerm.GR_CACHE["key"] = None
+        shutil.rmtree(self.d, ignore_errors=True)
+
+    def test_nur_mit_pro(self):
+        laerm.pro_ok = lambda: False
+        self.assertEqual(laerm.gr_notes(), [])
+        st = laerm.gr_status(); self.assertTrue(st["found"]); self.assertFalse(st["linked"])
+
+    def test_notizen_erscheinen(self):
+        laerm.pro_ok = lambda: True
+        n = laerm.gr_notes()
+        self.assertEqual(len(n), 1); self.assertEqual(n[0]["tags"], ["klopfen", "g:Waschmaschine"])
+        self.assertEqual(laerm.tag_label("g:Waschmaschine"), "Waschmaschine")
+        self.assertTrue(laerm.gr_status()["linked"])

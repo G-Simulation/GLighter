@@ -53,7 +53,7 @@ function placeHeader() {
 function hbOpen(at) { const th = document.documentElement.getAttribute('data-theme') || ''; const w = window.open('handbuch.html?lang=' + lang + (th ? '&theme=' + th : '') + '#' + (at || ''), 'gaslighter_hb'); if (w) w.focus(); }
 document.addEventListener('click', e => { const a = e.target.closest && e.target.closest('[data-hb]'); if (!a) return; e.preventDefault(); e.stopPropagation(); hbOpen(a.dataset.hb); });
 const HB_SEC = { s_pro: 'pro', s_thr: 'einstellungen/s_thr', s_time: 'einstellungen/s_time', s_ha: 'home-assistant/regeln', habox: 'home-assistant/regeln', s_sched: 'einstellungen/s_sched', schedbox: 'einstellungen/s_sched',
-  s_notes: 'einstellungen/s_notes', s_quiet: 'einstellungen/s_notes', s_ki: 'ki', s_place: 'einstellungen/s_place', s_keep: 'einstellungen/s_keep', s_list: 'einstellungen/s_list', s_rec: 'einstellungen/s_rec', s_wav: 'einstellungen/s_wav', s_video: 'einstellungen/s_video', s_misc: 'einstellungen/s_misc', s_audio: 'einstellungen/s_audio',
+  s_notes: 'einstellungen/s_notes', s_quiet: 'einstellungen/s_notes', s_ki: 'ki', s_place: 'einstellungen/s_place', s_keep: 'einstellungen/s_keep', s_list: 'einstellungen/s_list', s_rec: 'einstellungen/s_rec', s_wav: 'einstellungen/s_wav', s_video: 'einstellungen/s_video', s_misc: 'einstellungen/s_misc', s_greport: 'einstellungen/s_greport', s_audio: 'einstellungen/s_audio',
   srcbox: 'geraete', srcbox1: 'geraete/karte', calbox: 'geraete/einpegeln', s_cal: 'geraete/einpegeln', pfbox: 'ki/tonprofile', s_prof: 'ki/tonprofile', bkbox: 'sicherung', s_backup: 'sicherung', s_mirror: 'sicherung/ziel',
   rsbox: 'sicherung/zuruecksetzen', s_reset: 'sicherung/zuruecksetzen', diagset: 'fehlerbehebung', s_diag: 'fehlerbehebung' };
 function toggleHMenu(e) {
@@ -1537,7 +1537,7 @@ function fnLink(notes, evs, asg) {
   });
 }
 const fnShow = () => !SHIDE.has('_fn') && (!ARTSEL.size || ARTSEL.has('_notes') || ARTSEL.has('_fn'));
-const fnText = n => `${(n.tags || []).map(ntTag).join('')}${n.text ? `<span class="ntt">${esc(n.text)}</span>` : ''}${n.witness ? `<span class="ntw">👤 ${esc(n.witness)}</span>` : ''}`;
+const fnText = n => `${n.gr ? '<span class="art grsrc" title="' + esc(t('gr_from_tip')) + '">GReport</span>' : ''}${(n.tags || []).map(ntTag).join('')}${n.text ? `<span class="ntt">${esc(n.text)}</span>` : ''}${n.witness ? `<span class="ntw">👤 ${esc(n.witness)}</span>` : ''}`;
 function evRows(evs, sv, grpMode) {
   const G = EV.grps || {}, out = [], seen = new Map();
   const one = r => ({ _t: 'ev', id: ek(r), r, start: new Date(r.start).getTime(), src: evSrcName(r), tags: evTags(r), dur: +r.dauer_s || 0, pk: r.spitze_dbfs, thr: r.schwelle_dbfs, bg: r.hintergrund_dbfs });
@@ -2423,10 +2423,10 @@ function ntaBind() {
 let NOTE_TAGS = { src: ['oben', 'unten', 'nebenan', 'treppenhaus', 'draussen', 'unklar'], kind: ['klopfen', 'schritte', 'musik', 'stimmen', 'tuer', 'moebel', 'bohren', 'hund'],
   lvl: ['leicht', 'deutlich', 'stark'], eff: ['aufgewacht', 'kind_geweckt', 'kein_schlaf', 'gestoert'], act: ['geklingelt', 'angesprochen', 'verwaltung', 'polizei'], misc: ['zeuge', 'serie'] };
 const NT_GCOL = { src: '#0ca678', kind: '#e0314b', lvl: '#f08c00', eff: '#7048e8', act: '#1c7ed6', misc: '#868e96' };
-function ntGroup(tag) { for (const g in NOTE_TAGS) if (NOTE_TAGS[g].includes(tag)) return g; return NTS.own[tag] != null ? 'own' : 'misc'; }
+function ntGroup(tag) { for (const g in NOTE_TAGS) if (NOTE_TAGS[g].includes(tag)) return g; return NTS.own[tag] != null || String(tag).startsWith('g:') ? 'own' : 'misc'; }
 /* ===== Schnellwahl: eigene Tasten, ausgeblendete eingebaute, Reihenfolge nach Gebrauch, gelernte Vorschläge ===== */
 const NTS = { own: {}, del: new Set(), hide: new Set(), use: {}, sug: [] };
-function ntLabel(tg) { return NTS.own[tg] != null ? NTS.own[tg] : t('nt_' + tg); }
+function ntLabel(tg) { return NTS.own[tg] != null ? NTS.own[tg] : String(tg).startsWith('g:') ? tg.slice(2) : t('nt_' + tg); }   // g: = eigene Taste aus GReport
 function ntsApply(j) {
   if (!j || !j.ok) return;
   if (j.tags) NOTE_TAGS = j.tags;
@@ -3028,7 +3028,7 @@ async function haSave() {
   } catch (e) { alert(t('saveerr') + ' ' + e.message); }
 }
 /* Einstellungs-Bereiche einklappbar; Zustand pro Browser gemerkt */
-const SEC_OPEN_DEFAULT = { s_pro: true, s_prof: true, srcbox1: true, srcbox: true, s_audio: true, s_time: true, s_quiet: true, s_thr: true, s_ki: true, s_ha: true, s_rec: true, s_keep: true, s_backup: true, s_mirror: true, s_misc: true, s_list: true, s_diag: true };
+const SEC_OPEN_DEFAULT = { s_pro: true, s_greport: true, s_prof: true, srcbox1: true, srcbox: true, s_audio: true, s_time: true, s_quiet: true, s_thr: true, s_ki: true, s_ha: true, s_rec: true, s_keep: true, s_backup: true, s_mirror: true, s_misc: true, s_list: true, s_diag: true };
 function secState() { try { return JSON.parse(localStorage.getItem('laerm_secs') || '{}'); } catch (e) { return {}; } }
 function makeCollapsible() {
   const st = secState();
@@ -3048,7 +3048,7 @@ function makeCollapsible() {
 function openSec(key) { if (SEC_TAB[key]) setSTab(SEC_TAB[key]); const fs = $('sbody').querySelector(`fieldset[data-sec="${key}"], fieldset#${key}`); if (fs && fs.classList.contains('shut')) fs.querySelector(':scope > legend').click(); return fs; }
 /* Einstellungen in Reitern; Inhalte der Bereiche bleiben unveraendert. Bereiche ohne Reiter (Auswahl des Geraets) stehen in jedem Reiter. */
 const STABS = [['dev', 'st_dev'], ['det', 'st_det'], ['time', 'st_time'], ['rules', 'st_rules'], ['save', 'st_save'], ['gen', 'st_gen']];
-const SEC_TAB = { s_ki: 'det', s_quiet: 'time', s_place: 'save', s_keep: 'save', s_list: 'gen', s_pro: 'gen', s_wav: 'save', s_mirror: 'save', s_reset: 'gen', rsbox: 'gen', s_prof: 'det', pfbox: 'det', srcbox1: 'dev', diagset: 'gen', s_diag: 'gen', srcbox: 'dev', calbox: 'dev', s_cal: 'dev', s_audio: 'dev', s_thr: 'det', s_time: 'time', s_sched: 'time', schedbox: 'time', s_ha: 'rules', habox: 'rules', s_notes: 'time', s_rec: 'save', s_video: 'save', s_misc: 'gen', s_backup: 'save', bkbox: 'save' };
+const SEC_TAB = { s_ki: 'det', s_quiet: 'time', s_place: 'save', s_keep: 'save', s_list: 'gen', s_pro: 'gen', s_wav: 'save', s_mirror: 'save', s_reset: 'gen', rsbox: 'gen', s_greport: 'gen', grbox: 'gen', s_prof: 'det', pfbox: 'det', srcbox1: 'dev', diagset: 'gen', s_diag: 'gen', srcbox: 'dev', calbox: 'dev', s_cal: 'dev', s_audio: 'dev', s_thr: 'det', s_time: 'time', s_sched: 'time', schedbox: 'time', s_ha: 'rules', habox: 'rules', s_notes: 'time', s_rec: 'save', s_video: 'save', s_misc: 'gen', s_backup: 'save', bkbox: 'save' };
 let STAB = 'dev'; try { STAB = localStorage.getItem('laerm_stab') || 'dev'; } catch (e) { }
 if (!STABS.some(x => x[0] === STAB)) STAB = 'dev';
 function applySTab() {
@@ -3472,6 +3472,21 @@ function proGate(feat) {
 function proLockTag() { const s = el('span', { className: 'protag', textContent: '🔒 Pro' }); s.title = t('pro_title'); return s; }
 /* Einstellungen → Allgemein → Pro */
 /* Tägliche Sicherung ins Ziel (Netzlaufwerk/NAS/USB): Stand und „Jetzt sichern“ */
+/* GReport (eigene App für Notizen): erkannt? Mit Pro erscheinen ihre Notizen hier mit */
+function grBox() {
+  const fs = el('fieldset', { id: 'grbox', className: 'ff' }); fs.dataset.sec = 's_greport';
+  fs.appendChild(el('legend', { textContent: t('s_greport') }));
+  const st = el('div', { className: 'grst' }); fs.appendChild(st);
+  fs.appendChild(el('small', { className: 'schedhelp', textContent: t('h_greport') }));
+  (async () => {
+    let j = {}; try { j = await (await fetch('greport', { cache: 'no-store' })).json(); } catch (e) { }
+    st.innerHTML = '';
+    if (!j.found) st.textContent = t('gr_nf');
+    else if (!j.pro) { st.append(proLockTag(), document.createTextNode(' ' + t('gr_found_nopro'))); }
+    else st.textContent = '✓ ' + t('gr_linked', { n: j.n || 0, v: j.v || '' }) + (j.running ? '' : ' · ' + t('gr_not_running'));
+  })();
+  return fs;
+}
 function mirrorBox() {
   const b = el('div', { className: 'mirrorbox', id: 'mirrorbox' });
   const show = m => {
@@ -3909,6 +3924,7 @@ function buildForm(base) {
   applyDevState();
   body.appendChild(bkBox()); body.appendChild(rsBox()); body.appendChild(diagBox());
   { const mf = body.querySelector('fieldset[data-sec="s_mirror"]'); if (mf) mf.appendChild(mirrorBox()); }
+  { const pf = body.querySelector('fieldset[data-sec="s_pro"]'); if (pf) pf.after(grBox()); else body.appendChild(grBox()); }
   { const misc = body.querySelector('fieldset[data-sec="s_misc"]'); const pb = proBox(); if (misc) misc.before(pb); else body.appendChild(pb); }
   proApplyForm();
   secOrder(body); formDirty = false; makeCollapsible();
@@ -5901,6 +5917,7 @@ function enterSave(ta, save) {
   });
 }
 function fnOpen(n) {
+  if (n && n.gr) { toast(t('gr_edit_there')); return; }       // Notiz aus GReport: dort ändern
   FN.fromPanel = false; FN.edit = n && n.id ? n : null; FN.tags = new Set((n && n.tags) || []);
   $('fnfrom').value = n && n.from ? dtl(new Date(n.from)) : dtl(new Date(nowServer()));     // „von“ = Zeitpunkt des Öffnens
   $('fnto').value = n && n.to ? dtl(new Date(n.to)) : '';

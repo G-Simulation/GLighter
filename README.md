@@ -56,6 +56,10 @@ Voraussetzung: Home Assistant OS oder Supervised (mit App-Store) und ein USB-Mik
 
 Updates erscheinen automatisch in Home Assistant. Änderungen: [CHANGELOG](gaslighter/CHANGELOG.md).
 
+### GReport (Notizen-App)
+
+Ebenfalls im Repository: **GReport** – der Notiz-Teil von GLighter als eigene App (Notiz jetzt, Schnellwahl, Zeuge, Zeitraum). Jede Notiz kommt ins Logbuch von Home Assistant, dazu gibt es die Auswahlliste „Schnellwahl“ und den Knopf „Hinzufügen“. GReport läuft auch allein; ist GLighter installiert, erscheinen die Notizen mit GLighter Pro automatisch dort. Siehe [greport/README.md](greport/README.md).
+
 ### Beta (Testversion)
 
 Im selben Repository steht zusätzlich **GLighter Beta** – die Arbeitsversion mit den neuesten Änderungen, bevor sie freigegeben werden. Sie läuft **neben** dem normalen GLighter (eigener Datenordner `/share/gaslighter_beta`, eigene Entitäten, Handy-Port 18444) und kann Fehler enthalten. Für den Alltag den normalen GLighter verwenden.

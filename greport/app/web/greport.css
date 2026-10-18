@@ -1,0 +1,23 @@
+/* GReport: nur das, was über das Aussehen von GLighter hinausgeht */
+.grhd h1{display:flex;align-items:center;gap:10px}.grlogo{width:34px;height:34px;border-radius:8px}
+.grstat{display:flex;gap:6px;flex-wrap:wrap;font-size:12.5px}.grstat .chip{padding:3px 10px;font-size:12px}
+.grstat .ok{color:var(--ok);border-color:color-mix(in srgb,var(--ok) 45%,var(--bd))}.grstat .warn{color:var(--thr)}
+.grmenul{right:16px;top:60px}
+.grmenul button{display:flex;width:100%;justify-content:flex-start;text-align:left}
+.grwitl{display:flex;gap:6px;flex-wrap:wrap;margin:-2px 0 6px}.grwitl:empty{display:none}.grwitl .chip{padding:2px 10px;font-size:12px}
+.grlist{padding:12px 14px}.grlhd{display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin-bottom:8px}.grlhd h2{margin:0;font-size:16px;flex:1}
+.grlhd input{min-width:200px;flex:0 1 260px}
+.grnotes{display:grid;gap:6px}
+.grn{display:grid;grid-template-columns:auto 1fr auto;gap:4px 12px;align-items:start;padding:8px 10px;border:1px solid var(--bd);border-radius:10px;background:var(--card)}
+.grn .grt{font-variant-numeric:tabular-nums;font-size:13px;color:var(--mut);white-space:nowrap}.grn .grt b{color:var(--tx);display:block;font-size:14px}
+.grn .grb{display:flex;flex-wrap:wrap;gap:4px 8px;align-items:center;min-width:0}.grn .ntt{overflow-wrap:anywhere}
+.grn .gra{display:flex;gap:4px}.grn .gra button{padding:3px 8px}
+.grn.edit{border-color:#7048e8;box-shadow:0 0 0 1px #7048e8 inset}
+.grn .grby{font-size:11px;color:var(--mut)}
+.grday{font-size:12px;font-weight:600;color:var(--mut);margin:8px 2px 0}
+.grfoot{font-size:12px;text-align:center;margin:14px 0}
+.grdlg{max-width:520px}.grdlg textarea,.grdlg input[type=text]{width:100%}.grrow{display:flex;gap:6px}.grrow input{flex:1}
+.fnpanel.editing{border-left-color:var(--thr)}
+@media(max-width:600px){.grn{grid-template-columns:1fr auto}.grn .grb{grid-column:1/-1;order:3}.grlhd input{flex:1 1 100%;min-width:0}.grstat{order:5;flex-basis:100%}}
+[hidden]{display:none!important}
+@media(max-width:600px){.fnpext .fnrow{flex-wrap:wrap;max-width:100%}.fnpext .fnrow label{min-width:0;max-width:100%}.fnpext input[type=datetime-local]{min-width:0;max-width:calc(100vw - 150px)}}

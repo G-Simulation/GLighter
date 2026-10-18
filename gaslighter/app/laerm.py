@@ -32,7 +32,7 @@ HERE = os.path.dirname(os.path.abspath(__file__))
 WEB = os.path.join(HERE, "web")
 OPTIONS_FILE = os.environ.get("LAERM_OPTIONS", "/data/options.json")
 SETTINGS_FILE = os.environ.get("LAERM_SETTINGS", "/data/settings.json")
-VERSION = "1.73.0"
+VERSION = "1.74.0"
 
 # =====================================================================
 # Einstellungen
@@ -5588,6 +5588,8 @@ def tag_known(t):
 
 
 def tag_label(t):
+    if isinstance(t, str) and t.startswith("g:"):          # eigene Taste aus GReport
+        return t[2:]
     o = qt_all()["own"].get(t)
     if isinstance(o, dict):
         return o.get("l") or t
@@ -5880,7 +5882,8 @@ def fnote_public(x):
 
 
 def fnotes_in(t_from, t_to, src="all"):
-    """Freie Notizen, die den Zeitraum [t_from, t_to] (ms) beruehren; Geraet passt oder Notiz gilt fuer alle."""
+    """Freie Notizen, die den Zeitraum [t_from, t_to] (ms) beruehren; Geraet passt oder Notiz gilt fuer alle.
+    Mit Pro kommen die Notizen aus GReport dazu (falls installiert)."""
     out = []
     with NOTES_LOCK:
         for x in notes_all().get("free") or []:
@@ -5889,8 +5892,79 @@ def fnotes_in(t_from, t_to, src="all"):
                 continue
             if p["a"] <= t_to and p["b"] >= t_from and (src == "all" or x.get("src", "all") in ("all", src)):
                 out.append(p)
+    for x in gr_notes():
+        if x["a"] <= t_to and x["b"] >= t_from and (src == "all" or x.get("src", "all") in ("all", src)):
+            out.append(x)
     out.sort(key=lambda p: p["a"])
     return out
+
+
+# ---------------------------------------------------------------------
+# GReport (eigene App für Notizen): ist sie installiert, liest GLighter mit Pro ihre Notizen aus /share/greport
+# (nur lesen – geändert wird in GReport). GLighter meldet sich dort mit glighter.json (Geräte für „Quelle / Gerät“).
+# ---------------------------------------------------------------------
+GR_DIR = os.environ.get("LAERM_GREPORT_DIR", "/share/greport")
+GR_CACHE = {"key": None, "rows": [], "tags": {}}
+
+
+def gr_status():
+    hb = read_json(os.path.join(GR_DIR, "greport.json")) if os.path.exists(os.path.join(GR_DIR, "greport.json")) else {}
+    hb = hb if isinstance(hb, dict) else {}
+    found = bool(hb)
+    return {"found": found, "running": found and time.time() - float(hb.get("t") or 0) < 300, "v": hb.get("v"), "pro": pro_ok(),
+            "linked": found and pro_ok(), "n": len(gr_notes()) if found and pro_ok() else None}
+
+
+def gr_notes():
+    """Notizen aus GReport (nur mit Pro), im Format der freien Notizen. Eigene Tasten aus GReport werden zu „g:Beschriftung“."""
+    if not pro_ok():
+        return []
+    f = os.path.join(GR_DIR, "notizen.json")
+    try:
+        st = os.stat(f)
+    except OSError:
+        return []
+    key = (st.st_mtime_ns, st.st_size)
+    if GR_CACHE["key"] != key:
+        d = read_json(f); qt = read_json(os.path.join(GR_DIR, "schnellwahl.json")) if os.path.exists(os.path.join(GR_DIR, "schnellwahl.json")) else {}
+        own = (qt or {}).get("own") if isinstance(qt, dict) else {}
+        own = own if isinstance(own, dict) else {}
+        rows = []
+        for x in (d.get("free") if isinstance(d, dict) else None) or []:
+            if not isinstance(x, dict):
+                continue
+            tags = []
+            for t_ in x.get("tags") or []:
+                if t_ in NOTE_TAG_SET:
+                    tags.append(t_)
+                elif isinstance(own.get(t_), dict):
+                    tags.append("g:" + str(own[t_].get("l") or t_)[:30])
+            rec = {"id": str(x.get("id") or "")[:20], "from": x.get("from"), "to": x.get("to") or "", "src": re.sub(r"[^a-z0-9_]", "", str(x.get("src") or "all"))[:16] or "all",
+                   "text": clean_text(x.get("text")), "tags": tags, "witness": clean_text(x.get("witness"), 200), "ts": x.get("ts"), "gr": True}
+            try:
+                p = fnote_public(rec)
+            except Exception:
+                continue
+            if p["a"] is not None:
+                rows.append(p)
+        GR_CACHE.update(key=key, rows=rows)
+    return GR_CACHE["rows"]
+
+
+def gr_hello():
+    """Alle 60 s: GLighter meldet sich bei GReport (Version, Pro, Geräte für „Quelle / Gerät“)."""
+    while True:
+        try:
+            if os.path.isdir(GR_DIR) and os.path.exists(os.path.join(GR_DIR, "greport.json")):
+                with SRC_LOCK:
+                    srcs = [{"id": r.id, "name": r.name} for r in RUNNERS.values()]
+                p = os.path.join(GR_DIR, "glighter.json")
+                with open(p + ".tmp", "w", encoding="utf-8") as fh:
+                    json.dump({"app": BRAND, "v": VERSION, "t": time.time(), "pro": pro_ok(), "sources": srcs if pro_ok() else []}, fh, ensure_ascii=False)
+                os.replace(p + ".tmp", p)
+        except Exception as e:
+            log("GReport:", e)
+        time.sleep(60)
 
 
 def row_core(r):
@@ -7894,6 +7968,7 @@ def main():
     threading.Thread(target=pause_watch, daemon=True).start()
     threading.Thread(target=mirror_watch, daemon=True).start()
     threading.Thread(target=ha_watch, daemon=True).start()
+    threading.Thread(target=gr_hello, daemon=True).start()
     if classify is not None:
         threading.Thread(target=art_worker, daemon=True).start()
         threading.Thread(target=live_art_worker, daemon=True).start()
@@ -10756,6 +10831,8 @@ class Handler(BaseHandler):
                 return self.js(ha_rules_payload())
             if name == "ha_entities":
                 return self.js(ha_entities())
+            if name == "greport":
+                return self.js(dict(gr_status(), ok=True))
             if name == "ha_test":
                 return self.js(ha_test((q.get("entity") or [""])[0], (q.get("states") or [""])[0][:200]))
             if name == "fnote_target":                 # Notiz-Leiste: welcher Stoerung die Notiz jetzt zugeordnet wuerde

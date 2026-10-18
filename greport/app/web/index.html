@@ -1,0 +1,63 @@
+<!doctype html>
+<html lang="de">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>GReport</title>
+<link rel="icon" type="image/png" href="icon.png">
+<link rel="stylesheet" href="app.css?v={{VERSION}}">
+<link rel="stylesheet" href="greport.css?v={{VERSION}}">
+</head>
+<body class="gr">
+<div class="wrap">
+  <header class="grhd">
+    <h1><img src="icon.png" alt="" class="grlogo"><span data-i="title"></span><span class="ver">v{{VERSION}}</span></h1>
+    <span class="hbreak"></span>
+    <span id="grstat" class="grstat"></span>
+    <button id="themebtn" class="chip themebtn" type="button"></button>
+    <button id="grmenu" class="chip" type="button" data-ia="gr_menu" aria-haspopup="true">⋯</button>
+    <div id="grmenul" class="hmenu grmenul" hidden></div>
+  </header>
+
+  <div id="fnpanel" class="card fnpanel">
+    <div class="fnphd"><button type="button" id="fnptog" class="fnptog" aria-expanded="true">📝 <b data-i="fn_btn"></b><i class="fnpcar">▾</i></button><small id="fnpfrom" class="fnpfrom"></small><button type="button" id="fnppop" class="chip fnppop" data-ia="pop_tip">⧉</button></div>
+    <div id="fnpbody" class="fnpbody">
+      <textarea id="fnptext" class="nttext" rows="2" maxlength="500" data-iph="fn_ph"></textarea>
+      <div id="fnptags" class="fntags"></div>
+      <input type="text" id="fnpwit" class="fnwit" maxlength="200" data-iph="fn_wit">
+      <div id="fnpwitl" class="grwitl"></div>
+      <div id="fnpext" class="fnpext">
+        <div class="fnrow"><label><span data-i="per_from"></span> <input type="datetime-local" id="fnpfromi" step="1"></label><button type="button" id="fnpfnow" class="chip" data-i="fn_now"></button></div>
+        <div class="fnrow"><label><span data-i="per_to"></span> <input type="datetime-local" id="fnptoi" step="1"></label><button type="button" id="fnptnow" class="chip" data-i="fn_now"></button><button type="button" id="fnptclr" class="chip" data-ia="time_clear">✕</button></div>
+      </div>
+      <div class="fnprow"><label id="fnpsrcl" hidden><span data-i="src_col"></span> <select id="fnpsrc"></select></label><label class="fnprun"><input type="checkbox" id="fnprun"> <span data-i="fnp_run"></span></label><span class="fnpgap"></span><small id="fnpmsg" class="fnpmsg"></small><button type="button" id="fnpcancel" class="chip" data-i="cancel" hidden></button><button type="button" id="fnpsave" class="pri" data-i="save"></button></div>
+    </div>
+  </div>
+
+  <div class="card grlist">
+    <div class="grlhd"><h2 data-i="gr_list"></h2><input type="search" id="grq" data-iph="gr_search"><small id="grcount" class="mut"></small></div>
+    <div id="grnotes" class="grnotes"></div>
+  </div>
+  <p class="grfoot mut"><span data-i="gr_foot"></span></p>
+</div>
+
+<dialog id="prodlg" class="evdlg grdlg">
+  <h3>⭐ <span data-i="pro_title"></span></h3>
+  <p id="prost"></p>
+  <p class="mut" data-i="gr_pro_list"></p>
+  <div class="grrow"><input type="text" id="prokey" placeholder="GL1-…" autocomplete="off" spellcheck="false"><button type="button" id="prosave" class="pri" data-i="pro_activate"></button></div>
+  <p id="promsg" class="fnpmsg"></p>
+  <div class="ntedbtns"><a id="probuy" class="chip pri" target="_blank" rel="noopener" data-i="pro_buy"></a><button type="button" id="prodel" class="chip" data-i="pro_remove" hidden></button><span style="flex:1"></span><button type="button" class="chip dlgx" data-i="close"></button></div>
+</dialog>
+
+<dialog id="perdlg" class="evdlg grdlg">
+  <h3>👤 <span data-i="gr_persons"></span></h3>
+  <p class="mut" data-i="gr_persons_h"></p>
+  <textarea id="perlist" rows="6"></textarea>
+  <div class="ntedbtns"><span style="flex:1"></span><button type="button" class="chip dlgx" data-i="cancel"></button><button type="button" id="persave" class="pri" data-i="save"></button></div>
+</dialog>
+<input type="file" id="grimpf" accept=".json,application/json" hidden>
+<script src="i18n.js?v={{VERSION}}"></script>
+<script src="app.js?v={{VERSION}}"></script>
+</body>
+</html>

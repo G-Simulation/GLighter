@@ -1,0 +1,29 @@
+name: "GReport"
+version: "1.0.0"
+slug: greport
+description: "Notizen zu Störungen festhalten – mit Schnellwahl, Zeugen und Logbuch in Home Assistant; arbeitet mit GLighter zusammen / Record notes about disturbances – quick select, witnesses, Home Assistant logbook; works with GLighter"
+url: "https://www.gsimulations.de/greport/"
+arch: [amd64, aarch64]
+init: false
+startup: application
+boot: auto
+watchdog: "tcp://[HOST]:[PORT:8099]"
+homeassistant_api: true
+ingress: true
+ingress_port: 8099
+panel_icon: mdi:note-edit-outline
+panel_title: "GReport"
+services:
+  - mqtt:want
+map:
+  - share:rw
+options:
+  language: "auto"
+  mqtt: true
+  logbook: true
+  output_dir: "/share/greport"
+schema:
+  language: list(auto|de|en)?
+  mqtt: bool
+  logbook: bool
+  output_dir: str

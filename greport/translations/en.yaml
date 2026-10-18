@@ -1,0 +1,13 @@
+configuration:
+  language:
+    name: Language
+    description: "auto = like the browser"
+  mqtt:
+    name: Home Assistant (MQTT)
+    description: "Select “Quick select” and button “Add” in Home Assistant (needs the Mosquitto broker)."
+  logbook:
+    name: Logbook
+    description: "Every new note as an entry in the Home Assistant logbook."
+  output_dir:
+    name: Data folder
+    description: "The notes are stored here. GLighter reads them from here (default /share/greport)."

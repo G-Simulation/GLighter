@@ -95,6 +95,9 @@ def main():
                     pg.click("#hawiz .hawlist .chip"); pg.wait_for_timeout(1200)
                     if not pg.locator('#halist .hacard.open .habody .hafoot').count():
                         fails.append("Neue Regel erscheint nicht als offene Karte")
+                pg.click('#stabs .stab[data-tab="gen"]'); pg.wait_for_timeout(600)          # Allgemein: Stand von GReport
+                if not pg.locator("#grbox .grst").is_visible() or not pg.locator("#grbox .grst").inner_text().strip():
+                    fails.append("Kasten GReport fehlt in Allgemein")
             pg.keyboard.press("Escape"); pg.wait_for_timeout(300)
             pg.click("#tab_live"); pg.wait_for_timeout(600)
             dbl = pg.evaluate("() => { const o = document.querySelector('.ldevscroll'); return o ? getComputedStyle(o).overflowY : '' }")

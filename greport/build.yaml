@@ -1,0 +1,9 @@
+# Basis-Images für den Build mit home-assistant/builder (fertige Images für ghcr.io)
+build_from:
+  amd64: ghcr.io/home-assistant/amd64-base:3.21
+  aarch64: ghcr.io/home-assistant/aarch64-base:3.21
+labels:
+  org.opencontainers.image.title: "GReport"
+  org.opencontainers.image.description: "Notizen zu Störungen für Home Assistant / Disturbance notes for Home Assistant"
+  org.opencontainers.image.source: "https://github.com/G-Simulation/GLighter"
+  org.opencontainers.image.licenses: "LicenseRef-GLighter-All-Rights-Reserved"

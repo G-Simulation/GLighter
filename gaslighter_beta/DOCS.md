@@ -684,6 +684,7 @@ Video-Breite, Bilder pro Sekunde, Videoqualität (für IP-Kameras und Handys).
 - **Sprache** – Deutsch, Englisch oder wie der Browser.
 - **Protokoll & Notizen** – **Störungen zusammenfassen bei bis zu (s) Abstand** (Gruppen in der Liste), **Notiz gehört zur Störung, wenn bis zu (min) danach**.
 - **GLighter Pro** – siehe Pro.
+- **GReport (Notizen-App)** – GReport ist der Notiz-Teil als eigene App (z. B. fürs Handy oder für Mitbewohner). Ist GReport installiert, erscheinen seine Notizen mit Pro automatisch hier – an den Störungen, im Verlauf und im Lärmprotokoll, markiert mit „GReport“. Geändert werden sie in GReport.
 - **Zurücksetzen** – siehe Zurücksetzen.
 - **Diagnose** – Angaben zu Mikrofon und Soundkarte für die Fehlersuche.
 
@@ -1505,6 +1506,7 @@ Video width, frames per second, video quality (for IP cameras and phones).
 - **Language** – German, English or like the browser.
 - **Log & notes** – **Group disturbances up to (s) apart** (groups in the list), **Note belongs to the disturbance if up to (min) after it**.
 - **GLighter Pro** – see Pro.
+- **GReport (notes app)** – GReport is the notes part as its own app (e.g. for phones or flatmates). When GReport is installed, its notes appear here automatically with Pro – at disturbances, in the history and in the noise log, marked “GReport”. They are edited in GReport.
 - **Reset** – see Reset.
 - **Diagnostics** – details about microphone and sound card for troubleshooting.
 

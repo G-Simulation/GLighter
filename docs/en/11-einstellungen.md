@@ -104,6 +104,7 @@ Video width, frames per second, video quality (for IP cameras and phones).
 - **Language**<a id="s_misc"></a> – German, English or like the browser.
 - **Log & notes**<a id="s_list"></a> – **Group disturbances up to (s) apart** (groups in the list), **Note belongs to the disturbance if up to (min) after it**.
 - **GLighter Pro** – see [Pro](14-pro.md).
+- **GReport (notes app)**<a id="s_greport"></a> – GReport is the notes part as its own app (e.g. for phones or flatmates). When GReport is installed, its notes appear here automatically with Pro – at disturbances, in the history and in the noise log, marked “GReport”. They are edited in GReport.
 - **Reset** – see [Reset](09-sicherung.md#zuruecksetzen).
 - **Diagnostics** – details about microphone and sound card for troubleshooting.
 

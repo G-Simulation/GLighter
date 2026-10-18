@@ -1,5 +1,10 @@
 # Changelog
 
+## 1.74.0
+- **GReport-Anbindung (Pro):** Ist die neue App **GReport** (der Notiz-Teil als eigene App) installiert, findet GLighter sie selbst. Ihre Notizen erscheinen dann an den Störungen, im Verlauf und im Lärmprotokoll, markiert mit „GReport“. Eine Kopplung ist nicht nötig. Geändert werden diese Notizen in GReport.
+- GReport bekommt von GLighter die Geräte für „Quelle / Gerät“.
+- Den Stand zeigt ⚙ Einstellungen → Allgemein → **GReport**.
+
 ## 1.73.0
 - **Regeln im eigenen Reiter** (⚙ Einstellungen → Regeln): jede Regel als Karte mit Schalter und Zustand jetzt. Oben steht, ob Home Assistant verbunden ist und welche Regeln gerade aktiv sind.
 - **Neue Regel mit Assistent:** Art als Kachel wählen, dann das Gerät aus einer Liste mit Suche. Zustände werden passend vorbelegt und lassen sich anhaken. Der Text für Sonderfälle wie `!off` oder `>1` bleibt unter „erweitert“.

@@ -59,6 +59,14 @@ jobs:
           echo "Beta config.yaml $a, laerm.py $b"; test "$a" = "$b"
           grep -q '^slug: gaslighter_beta' gaslighter_beta/config.yaml
           (cd gaslighter_beta/app && LAERM_CHANNEL=beta python -c "import laerm; assert laerm.HAID == 'gaslighter_beta' and laerm.TOPIC == 'gaslighter_beta', laerm.HAID; print('Beta-Kennung ok')")
+      - name: "GReport: übersetzen, Texte, Tests, Version"
+        run: |
+          python -m py_compile greport/app/*.py
+          for f in greport/app/web/*.js; do node --check "$f"; done
+          (cd greport/app/web && node ../../tools/check_i18n.js)
+          (cd greport && python -m unittest discover -s tests)
+          a=$(grep -oP '^version: "\K[^"]+' greport/config.yaml); b=$(grep -oP '^VERSION = "\K[^"]+' greport/app/greport.py)
+          echo "GReport config.yaml $a, greport.py $b"; test "$a" = "$b"
 
   oberflaeche:
     runs-on: ubuntu-latest
@@ -74,3 +82,5 @@ jobs:
           cd gaslighter && python tests/smoke_ui.py
       - name: "Beta: Oberflächen-Rauchtest"
         run: cd gaslighter_beta && python tests/smoke_ui.py
+      - name: "GReport: Oberflächen-Rauchtest"
+        run: cd greport && python tests/smoke_ui.py
