@@ -143,9 +143,9 @@ or manually: **Settings → Apps → App store → ⋮ → Repositories** → `h
 
 | App | What it does |
 |---|---|
-| <img src="docs/images/logos/GLighter.png" width="24" alt="">&nbsp**GLighter** | Noise log – measures noise 24/7 and logs disturbances tamper-evident. No audio recording, no cloud. Printable noise report. [Manual](docs/en/README.md) |
-| <img src="docs/images/logos/GReport.png" width="24" alt="">&nbsp**GReport** | Disturbance notes – note, quick select, witness, time span. Own dashboard card "GReport" for all users. Works on its own. |
-| <img src="docs/images/logos/GJarvis.png" width="24" alt="">&nbsp**GJarvis** | German voice assistant "Hey Jarvis". Pro: timers, reminders, memory, briefing, weather, web search. Needs Whisper, Piper and Mosquitto. |
+| <img src="docs/images/logos/GLighter.png" width="24" alt="">**GLighter** | Noise log – measures noise 24/7 and logs disturbances tamper-evident. No audio recording, no cloud. Printable noise report. [Manual](docs/en/README.md) |
+| <img src="docs/images/logos/GReport.png" width="24" alt="">**GReport** | Disturbance notes – note, quick select, witness, time span. Own dashboard card "GReport" for all users. Works on its own. |
+| <img src="docs/images/logos/GJarvis.png" width="24" alt="">**GJarvis** | German voice assistant "Hey Jarvis". Pro: timers, reminders, memory, briefing, weather, web search. Needs Whisper, Piper and Mosquitto. |
 
 All data stays on your Home Assistant computer. [Privacy](PRIVACY.md) · [Issues](https://github.com/G-Simulation/GSimulations-HomeAssistant/issues/new/choose) · [gsimulations.de](https://www.gsimulations.de/)
 
