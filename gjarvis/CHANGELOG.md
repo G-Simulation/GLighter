@@ -1,5 +1,12 @@
 # Änderungen
 
+## 1.10.0
+
+- Sicherer: Die Oberfläche und ihre Schnittstelle sind nur noch über Home Assistant (Seitenleiste) erreichbar, nicht mehr direkt von anderen Apps im Netz
+- Sicherer: Der API-Schlüssel der eigenen KI wird nur noch an die eingetragene Adresse geschickt
+- GJarvis braucht weniger Rechte (kein Zugriff mehr auf `/share`, Home-Assistant-Rolle „default“). „Whisper einrichten“ zeigt deshalb die Werte zum Eintragen an, statt Whisper selbst umzustellen
+- Freischaltung mit dem Schlüssel aus dem Shop unverändert
+
 ## 1.9.0
 
 - Pro mit dem Schlüssel aus dem Shop freischalten (z. B. GJ-XXXXX-XXXXX-XXXXX-XXXXX): GJarvis prüft ihn einmal online bei gsimulations.de und arbeitet danach wieder ganz ohne Internet

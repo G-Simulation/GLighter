@@ -1,5 +1,12 @@
 # Changelog
 
+## 1.76.0
+- **Prüfkette mit eigenem Schlüssel:** Jede Minute wird jetzt zusätzlich mit einem geheimen Schlüssel dieser Installation (HMAC-SHA256) gesichert. Der Schlüssel liegt nicht in `/share`, sondern geschützt im App-Speicher. Nachträgliche Änderungen lassen sich so nicht mehr unbemerkt neu durchrechnen. Ältere Tage bleiben gültig und heißen im Protokoll „alte Kette nur SHA-256“.
+- **Wichtig für Sicherungen:** Die heruntergeladene Sicherungs-ZIP enthält jetzt den Kettenschlüssel, damit ein Umzug funktioniert. Bewahre sie privat auf. Die tägliche NAS-Sicherung enthält ihn bewusst nicht.
+- **Updates über `/share` sicherer:** Die neue Option „share_update“ ist standardmäßig aus. Eingeschaltet startet GLighter nur noch Pakete, die von G-Simulation signiert sind. Wer bisher per Samba aktualisiert hat, leert den Ordner `/share/gaslighter_update` vorher.
+- **Behoben:** Pro-Einstellungen aus dem Reiter „Konfiguration“ und aus dem ersten kostenlosen Import einer Sicherung gelten nur noch mit Pro. Eingetragene Werte bleiben gespeichert und gelten sofort nach der Freischaltung, ohne Neustart.
+- Freischaltung mit dem Schlüssel aus dem Shop unverändert.
+
 ## 1.75.0
 - **Pro mit dem Schlüssel aus dem Shop:** Der Schlüssel aus der Kauf-E-Mail (z. B. GL-XXXXX-XXXXX-…) funktioniert jetzt direkt. GLighter prüft ihn beim Eintragen einmal online bei gsimulations.de und arbeitet danach wieder ganz ohne Internet. Bisherige GL1-Schlüssel gelten weiter.
 - Klare Meldungen, wenn der Lizenzserver nicht erreichbar oder ein Schlüssel gesperrt ist.
