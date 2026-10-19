@@ -1,5 +1,9 @@
 # Changelog
 
+## 1.75.0
+- **Pro mit dem Schlüssel aus dem Shop:** Der Schlüssel aus der Kauf-E-Mail (z. B. GL-XXXXX-XXXXX-…) funktioniert jetzt direkt. GLighter prüft ihn beim Eintragen einmal online bei gsimulations.de und arbeitet danach wieder ganz ohne Internet. Bisherige GL1-Schlüssel gelten weiter.
+- Klare Meldungen, wenn der Lizenzserver nicht erreichbar oder ein Schlüssel gesperrt ist.
+
 ## 1.74.1
 - Neues GLighter-Logo und App-Symbol (im App-Store, in der Seitenleiste und als Browser-Symbol).
 

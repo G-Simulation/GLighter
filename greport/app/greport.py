@@ -33,7 +33,7 @@ WEB = os.path.join(HERE, "web")
 sys.path.insert(0, HERE)
 import lizenz  # noqa: E402
 
-VERSION = "1.6.2"
+VERSION = "1.6.3"
 BRAND = "GReport"
 OPTIONS = os.environ.get("GR_OPTIONS", "/data/options.json")
 PRIV = os.environ.get("GR_PRIVATE", "/data")                    # nur für GReport (Pro-Schlüssel)
@@ -117,9 +117,12 @@ def pro_ok():
 
 
 def pro_set(key):
-    r = lizenz.check(key)
+    key, r, shop = lizenz.resolve(key)  # Shop-Schlüssel (WordPress) werden einmal online getauscht
     if r.get("ok") or r.get("state") == "expired":
-        write_json(os.path.join(PRIV, "pro.json"), {"key": str(key).strip(), "at": now_iso()})
+        rec = {"key": str(key).strip(), "at": now_iso()}
+        if shop:
+            rec["shop_key"] = shop
+        write_json(os.path.join(PRIV, "pro.json"), rec)
         PRO_CACHE["v"] = None
     return r
 

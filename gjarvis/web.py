@@ -27,7 +27,8 @@ GROUPS = [
     ]),
     ("stimme", "Stimme & Lautsprecher", "Wie und wo Jarvis spricht", False, [
         "tts_voice", "volume", "output_media_player", "output_tts_entity", "output_latency_seconds",
-        "ack_phrases", "ack_order", "instant_ack_phrases",
+        "ack_phrases", "ack_order", "ack_mode", "ack_delay_ms", "instant_ack_phrases", "weather_ack_phrases",
+        "ack_slow_triggers",
     ]),
     ("satellit", "Mikrofon & Satellit", "Woher Jarvis hört – Server-Mikrofon oder ESPHome-Satellit", False, [
         "audio_source", "satellite_host", "satellite_port", "satellite_key", "satellite_led",

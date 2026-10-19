@@ -25,8 +25,20 @@ configuration:
     name: Rückmeldungen
     description: Was GJarvis nach dem Weckwort sagt, z. B. "Ja, Moses?"
   instant_ack_phrases:
-    name: Rückmeldung bei Befehl in einem Atemzug
-    description: Sagst du "Hey Jarvis, wie spät ist es" ohne Pause, kommt kein "Ja, Moses?", sondern sofort eine dieser Antworten, während Jarvis es schon erledigt
+    name: Sofort-Rückmeldung („Moment, ich schaue nach“)
+    description: Sagt Jarvis direkt nach dem Verstehen, wenn die Antwort länger dauert (Internet, KI, Briefing) – so weißt du sofort, dass er dich verstanden hat
+  weather_ack_phrases:
+    name: Sofort-Rückmeldung bei Wetter
+    description: Wie oben, aber für Wetter- und Flugwetter-Fragen
+  ack_mode:
+    name: Wann sofort zurückmelden
+    description: slow = bei langsamen Fragen sofort, bei allem anderen nur, wenn es länger als die Wartezeit dauert (empfohlen); always = immer sofort; off = nie
+  ack_delay_ms:
+    name: Wartezeit vor der Rückmeldung (ms)
+    description: Ist die Antwort bis dahin nicht fertig, sagt Jarvis „Moment, ich schaue nach“. Licht, Timer und Uhrzeit sind meist schneller und bekommen keine Rückmeldung (Standard 900)
+  ack_slow_triggers:
+    name: Zusätzliche Wörter für sofortige Rückmeldung
+    description: Enthält die Frage eines dieser Wörter, meldet sich Jarvis sofort zurück (z. B. „Bundesliga“, „Kino“)
   one_breath_seconds:
     name: Atemzug-Erkennung (s)
     description: So lange hört Jarvis nach dem Weckwort hin, ob du gleich weitersprichst (Standard 0,6)

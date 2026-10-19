@@ -159,3 +159,52 @@ def check(key, today=None):
 def pretty(raw32):
     """Base32 ohne '=' in Fünfergruppen mit Präfix GL1."""
     return "GL1-" + "-".join(raw32[i:i + 5] for i in range(0, len(raw32), 5))
+
+
+# ---------- Schlüssel aus dem Shop (WordPress / License Manager for WooCommerce) ----------
+# Ein Shop-Schlüssel wie GJ-MN63R-URMYH-YY3CA-2GU34 wird einmalig online beim Lizenzserver gegen einen
+# signierten Offline-Schlüssel getauscht. Danach läuft die Prüfung wieder ganz ohne Internet.
+ACTIVATE_URL = "https://www.gsimulations.de/wp-json/gsim/v1/aktivieren"
+
+
+def is_shop_key(key):
+    import re
+    k = str(key or "").strip().upper()
+    return bool(re.fullmatch(r"[A-Z0-9]{1,4}(-[A-Z0-9]{3,8}){2,8}", k)) and len(k) <= 60
+
+
+def activate_online(key, url=ACTIVATE_URL, timeout=15):
+    """Ergebnis: dict(ok, key?, error?)  error: invalid | disabled | product | expired | server | offline | zu_oft"""
+    import urllib.request, urllib.error
+    req = urllib.request.Request(url, data=json.dumps({"key": str(key).strip(), "product": PRODUCT}).encode(),
+                                 headers={"Content-Type": "application/json", "User-Agent": "GSimulations-" + PRODUCT}, method="POST")
+    try:
+        with urllib.request.urlopen(req, timeout=timeout) as r:
+            d = json.loads(r.read().decode("utf-8") or "{}")
+    except urllib.error.HTTPError as e:
+        try:
+            d = json.loads(e.read().decode("utf-8") or "{}")
+        except Exception:  # noqa: BLE001
+            d = {}
+        d["ok"] = False
+        d.setdefault("error", "server")
+    except Exception:  # noqa: BLE001
+        return {"ok": False, "error": "offline"}
+    if d.get("ok") and d.get("key"):
+        st = check(d["key"])
+        if st.get("ok"):
+            return {"ok": True, "key": d["key"]}
+        return {"ok": False, "error": st.get("error") or st.get("state") or "invalid"}
+    return {"ok": False, "error": str(d.get("error") or "invalid")}
+
+
+def resolve(key):
+    """Offline-Schlüssel direkt prüfen; Shop-Schlüssel vorher online tauschen.
+    Ergebnis: (schlüssel_zum_speichern, prüfergebnis, shop_schlüssel_oder_None)"""
+    r = check(key)
+    if r.get("state") == "invalid" and r.get("error") == "format" and is_shop_key(key):
+        a = activate_online(key)
+        if not a.get("ok"):
+            return key, {"ok": False, "state": "invalid", "error": a.get("error") or "invalid"}, None
+        return a["key"], check(a["key"]), str(key).strip()
+    return key, r, None

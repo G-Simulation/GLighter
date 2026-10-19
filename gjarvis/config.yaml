@@ -1,5 +1,5 @@
 name: GJarvis
-version: "1.8.1"
+version: "1.9.0"
 slug: gjarvis
 description: Deutscher Sprachassistent "Jarvis" – Free mit "Hey Jarvis" für Home Assistant, Pro wie im Film mit Timern, Erinnerungen, Gedächtnis, Briefing, Wetter und Internet-Suche.
 url: https://www.gsimulations.de/gjarvis/
@@ -41,9 +41,16 @@ options:
     - "Zu Diensten, {user}."
   ack_order: rotate
   instant_ack_phrases:
-    - "Moment, ich schaue."
-    - "Sofort, {user}."
-    - "Einen Augenblick."
+    - "Moment, ich schaue nach."
+    - "Einen Augenblick, {user}."
+    - "Ich sehe mal nach."
+  weather_ack_phrases:
+    - "Moment, ich schaue nach dem Wetter."
+    - "Ich sehe mir das Wetter an."
+    - "Einen Augenblick, ich schaue nach."
+  ack_mode: slow
+  ack_delay_ms: 900
+  ack_slow_triggers: []
   one_breath_seconds: 0.6
   local_agent_id: conversation.home_assistant
   agent_id: conversation.home_assistant
@@ -174,6 +181,12 @@ schema:
     - str
   ack_order: list(rotate|random)
   instant_ack_phrases:
+    - str
+  weather_ack_phrases:
+    - str
+  ack_mode: list(off|slow|always)
+  ack_delay_ms: int(0,5000)
+  ack_slow_triggers:
     - str
   one_breath_seconds: float(0.2,2)
   local_agent_id: str?

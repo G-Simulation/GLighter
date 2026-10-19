@@ -519,7 +519,7 @@ function initDialogs() {
   document.getElementById('prosave').onclick = async () => {
     const k = document.getElementById('prokey').value.trim(); if (!k) return;
     const j = await post('pro', { key: k }).catch(() => ({ ok: false }));
-    const m = document.getElementById('promsg'); m.className = 'msg' + (j.ok ? '' : ' err'); m.textContent = j.ok ? '✓ ' + t('gr_pro_ok') : t('gr_pro_bad');
+    const m = document.getElementById('promsg'); m.className = 'msg' + (j.ok ? '' : ' err'); m.textContent = j.ok ? '✓ ' + t('gr_pro_ok') : t(j.error === 'offline' ? 'gr_pro_offline' : 'gr_pro_bad');
     if (j.ok) { document.getElementById('prokey').value = ''; await stLoad(); ntsLoad(); setTimeout(() => document.getElementById('prodlg').close(), 900); }
   };
   document.getElementById('prodel').onclick = async () => { if (!confirm(t('pro_remove_q'))) return; await post('pro', { action: 'del' }).catch(() => { }); await stLoad(); proOpen(); };

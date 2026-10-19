@@ -416,7 +416,7 @@ $('bBench').onclick=async()=>{const models=[...$('llmSel').options].map(o=>o.val
 benchPoll();
 
 // ---------------------------------------------------------------- Pro
-const PROERR={invalid:'Der Schlüssel ist ungültig.',signature:'Der Schlüssel ist ungültig.',format:'Der Schlüssel ist unvollständig.',product:'Das ist ein Schlüssel für ein anderes Produkt (z. B. GasLighter).',expired:'Der Schlüssel ist abgelaufen.',empty:'Bitte Schlüssel eintragen.'};
+const PROERR={offline:'Der Lizenzserver ist nicht erreichbar – bitte Internetverbindung prüfen und nochmal versuchen.',server:'Der Lizenzserver ist gerade nicht bereit. Bitte später nochmal versuchen.',disabled:'Dieser Schlüssel ist gesperrt.',zu_oft:'Zu viele Versuche – bitte in einer Stunde nochmal.',invalid:'Der Schlüssel ist ungültig.',signature:'Der Schlüssel ist ungültig.',format:'Der Schlüssel ist unvollständig.',product:'Das ist ein Schlüssel für ein anderes Produkt (z. B. GasLighter).',expired:'Der Schlüssel ist abgelaufen.',empty:'Bitte Schlüssel eintragen.'};
 let proKey='';
 const dmy=d=>esc(String(d||'').split('-').reverse().join('.'));
 function showPro(p){

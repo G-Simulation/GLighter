@@ -1,5 +1,8 @@
 # Changelog
 
+## 1.6.3
+- **Pro mit dem Schlüssel aus dem Shop:** Der Schlüssel aus der Kauf-E-Mail (GReport oder GLighter) funktioniert jetzt direkt. GReport prüft ihn beim Eintragen einmal online bei gsimulations.de und arbeitet danach wieder ohne Internet.
+
 ## 1.6.2
 - **Eigene Karte „GReport“:** GReport bringt jetzt eine fertige Dashboard-Karte mit. Sie wird beim Start automatisch eingerichtet und steht danach unter „Karte hinzufügen“ → „Nach Karte“ → **GReport**. Darin: Notiz, alle Auswahllisten (Woher, Was, Wie stark …), Zeuge und „Speichern“, dazu „Notizen heute“ und „Letzte Notiz“. Funktioniert für alle Benutzer, auch ohne Administratorrechte – ohne Adresse und ohne Bastelei.
 - **Eigener Bereich „GReport“:** Bei einer neuen Installation legt Home Assistant das Gerät gleich im Bereich „GReport“ an. In „Zum Dashboard hinzufügen“ → „Nach Entität“ stehen alle GReport-Felder damit unter **GReport**. (Bei bestehenden Installationen den Bereich einmal von Hand zuweisen: Einstellungen → Geräte → GReport → Bereich.)

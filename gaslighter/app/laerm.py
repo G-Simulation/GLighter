@@ -32,7 +32,7 @@ HERE = os.path.dirname(os.path.abspath(__file__))
 WEB = os.path.join(HERE, "web")
 OPTIONS_FILE = os.environ.get("LAERM_OPTIONS", "/data/options.json")
 SETTINGS_FILE = os.environ.get("LAERM_SETTINGS", "/data/settings.json")
-VERSION = "1.74.1"
+VERSION = "1.75.0"
 
 # =====================================================================
 # Einstellungen
@@ -1072,10 +1072,12 @@ def pro_ok():
 
 
 def pro_set(key):
-    r = lizenz.check(key)
+    key, r, shop = lizenz.resolve(key)  # Shop-Schlüssel (WordPress) werden einmal online getauscht
     if r["state"] != "active":
         return {"ok": False, "error": r.get("state") if r["state"] == "expired" else (r.get("error") or "invalid"), "pro": pro_state()}
     d = pro_file(); d["key"] = str(key).strip(); d["set"] = dt.datetime.now().astimezone().isoformat(timespec="seconds")
+    if shop:
+        d["shop_key"] = shop
     pro_write(d)
     log("Pro-Lizenz eingetragen, gültig bis", r["until"], "(Bestellung", (r.get("order") or "-") + ")")
     with SRC_LOCK:

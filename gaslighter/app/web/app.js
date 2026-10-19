@@ -3533,7 +3533,7 @@ function proBox() {
       try {
         const j = await (await fetch('pro', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ key }) })).json();
         if (j.ok) { PRO = j.pro; proRefresh(); return; }
-        msg.textContent = '⚠ ' + t('pro_err_' + (['expired', 'signature', 'product', 'format', 'empty'].includes(j.error) ? j.error : 'format'));
+        msg.textContent = '⚠ ' + t('pro_err_' + (['expired', 'signature', 'product', 'format', 'empty', 'offline', 'server', 'disabled', 'zu_oft', 'invalid'].includes(j.error) ? j.error : 'format'));
       } catch (e) { msg.textContent = '⚠ ' + t('saveerr'); }
       go.disabled = false;
     };

@@ -1,5 +1,16 @@
 # Änderungen
 
+## 1.9.0
+
+- Pro mit dem Schlüssel aus dem Shop freischalten (z. B. GJ-XXXXX-XXXXX-XXXXX-XXXXX): GJarvis prüft ihn einmal online bei gsimulations.de und arbeitet danach wieder ganz ohne Internet
+- Sofort-Rückmeldung: Fragst du nach Wetter, Internet, Nachrichten oder etwas, wofür die KI nachdenken muss, sagt Jarvis direkt nach dem Verstehen „Moment, ich schaue nach“ (beim Wetter „Moment, ich schaue nach dem Wetter“) – und sucht währenddessen schon. So weißt du sofort, dass er dich verstanden hat
+- Das gilt jetzt auch, wenn du zuerst nur „Hey Jarvis“ sagst und nach „Ja?“ deine Frage stellst
+- Licht, Timer, Uhrzeit und andere schnelle Befehle bekommen kein „Moment“ mehr; dauert etwas unerwartet länger als 0,9 s, meldet sich Jarvis trotzdem
+- Neue Einstellungen: „Wann sofort zurückmelden“ (slow/always/off), Wartezeit, eigene Wetter-Sätze und eigene Wörter für sofortige Rückmeldung
+- Rückmeldung und Antwort überschneiden sich nie mehr (vorher konnten bei Recherchen zwei Stimmen gleichzeitig sprechen)
+- Bei zufälliger Reihenfolge kommt nie zweimal hintereinander derselbe Satz
+- Jede Antwort etwas schneller: das Ereignis für eigene Automationen wird im Hintergrund gesendet und hält die Antwort nicht mehr auf
+
 ## 1.8.1
 
 - Neues GJarvis-Logo und App-Symbol im GSimulations-Stil (wie GLighter und GReport) – im App-Store, in der Oberfläche und als Browser-Symbol

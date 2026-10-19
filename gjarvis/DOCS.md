@@ -74,6 +74,8 @@ Abschalten: Einstellungen → „Apps aus Home Assistant“.
 
 ## So entscheidet Jarvis
 
+Sobald Jarvis deine Frage verstanden hat und sie länger dauert (Wetter, Internet, Nachrichten, KI), sagt er sofort „Moment, ich schaue nach“ und sucht dabei schon. Schnelle Befehle wie Licht oder Timer bekommen kein „Moment“. Einstellbar unter **Stimme & Lautsprecher → Wann sofort zurückmelden**.
+
 1. **Sofort, ohne KI:** Timer, Erinnerungen, Gedächtnis, Briefing, Danke/Stopp.
 2. **Wetter und Flugwetter:** direkt aus Home Assistant bzw. Open-Meteo, Windy, Paraglidable.
 3. **Home Assistant lokal:** Geräte-Befehle und deine eigenen Satz-Automationen.

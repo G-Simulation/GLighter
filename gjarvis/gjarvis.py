@@ -103,7 +103,7 @@ def fill_options(raw: dict) -> dict:
             return [fill(x) for x in t]
         return t
 
-    for key in ("ack_phrases", "instant_ack_phrases", "progress_phrases", "async_ack", "async_result_prefix", "research_ack", "system_prompt", "persona"):
+    for key in ("ack_phrases", "instant_ack_phrases", "weather_ack_phrases", "progress_phrases", "async_ack", "async_result_prefix", "research_ack", "system_prompt", "persona"):
         if key in o:
             o[key] = fill(o[key])
     return o
@@ -184,6 +184,9 @@ class GJarvis(MovieFeatures, apps.AppFeatures, satellite.SatelliteFeatures):
         self.last_wake = 0.0
         self.ack_index = 0
         self.ack_cache: dict = {}
+        self.speech_lock = asyncio.Lock()  # nie zwei Ausgaben gleichzeitig (Rückmeldung + Antwort)
+        self._ack_began = False
+        self._last_phrase: dict = {}
         self.conversation_id: Optional[str] = None
         self.conversation_ts = 0.0
         self.resume_task: Optional[asyncio.Task] = None
@@ -229,10 +232,13 @@ class GJarvis(MovieFeatures, apps.AppFeatures, satellite.SatelliteFeatures):
         return bool(self.pro_state().get("ok"))
 
     def pro_set(self, key: str) -> dict:
-        r = lizenz.check(key)
+        key, r, shop = lizenz.resolve(key)  # Shop-Schlüssel (WordPress) werden einmal online getauscht
         if r["state"] != "active":
             return {"ok": False, "error": r.get("state") if r["state"] == "expired" else (r.get("error") or "invalid")}
-        PRO_FILE.write_text(json.dumps({"key": key.strip(), "set": time.strftime("%Y-%m-%d %H:%M")}), encoding="utf-8")
+        rec = {"key": key.strip(), "set": time.strftime("%Y-%m-%d %H:%M")}
+        if shop:
+            rec["shop_key"] = shop
+        PRO_FILE.write_text(json.dumps(rec), encoding="utf-8")
         self._pro_cache = None
         _LOGGER.info("Pro-Lizenz eingetragen, gültig bis %s", r["until"])
         return {"ok": True}
@@ -754,7 +760,8 @@ class GJarvis(MovieFeatures, apps.AppFeatures, satellite.SatelliteFeatures):
         was = self.flags.get("spricht")
         self.set_flag("spricht", True)
         try:
-            await self._play_pcm(pcm, rate, width, channels)
+            async with self.speech_lock:
+                await self._play_pcm(pcm, rate, width, channels)
         finally:
             if not was:
                 self.set_flag("spricht", False)
@@ -853,9 +860,11 @@ class GJarvis(MovieFeatures, apps.AppFeatures, satellite.SatelliteFeatures):
         nxt = None
         try:
             if chime:
-                await self._play_pcm(*self.chime_pcm())
+                async with self.speech_lock:
+                    await self._play_pcm(*self.chime_pcm())
             if self.remote_tts:  # Stimme aus Home Assistant (z. B. ElevenLabs) auf dem externen Lautsprecher
-                await self.speak_remote_tts(text)
+                async with self.speech_lock:
+                    await self.speak_remote_tts(text)
                 return
             sentences = self.split_sentences(text)
             nxt = asyncio.create_task(self.synthesize(sentences[0]))
@@ -1427,7 +1436,9 @@ class GJarvis(MovieFeatures, apps.AppFeatures, satellite.SatelliteFeatures):
         return speech, False
 
     def answer(self, text: str) -> Tuple[str, bool]:
-        self.fire_command_event(text)
+        import threading
+
+        threading.Thread(target=self.fire_command_event, args=(text,), daemon=True).start()  # blockiert nicht
         if not self.pro:
             # Free: wie ein normaler Home-Assistant-Sprachsatellit (Uhrzeit/Datum sofort selbst)
             ta = self.time_answer(text)
@@ -1913,20 +1924,28 @@ class GJarvis(MovieFeatures, apps.AppFeatures, satellite.SatelliteFeatures):
         return answer or self.anrede("Dazu habe ich leider keine Antwort gefunden")
 
     # ----------------------------- Rückmeldung ----------------------------- #
-    INSTANT_DEFAULT = ["Moment, ich schaue.", "Sofort.", "Einen Augenblick."]
+    INSTANT_DEFAULT = ["Moment, ich schaue nach.", "Einen Augenblick.", "Ich sehe mal nach."]
+    WEATHER_ACK_DEFAULT = ["Moment, ich schaue nach dem Wetter.", "Ich sehe mir das Wetter an.", "Einen Augenblick, ich schaue nach."]
     PROGRESS_DEFAULT = ["Ich schaue noch.", "Einen Moment noch.", "Ich bin noch dran.", "Gleich habe ich es."]
+    PHRASE_DEFAULTS = {
+        "instant_ack_phrases": INSTANT_DEFAULT,
+        "weather_ack_phrases": WEATHER_ACK_DEFAULT,
+        "progress_phrases": PROGRESS_DEFAULT,
+    }
 
     def next_ack(self, key: str = "ack_phrases") -> Optional[str]:
         raw = self.o.get(key)
-        if raw is None and key == "instant_ack_phrases":
-            raw = self.INSTANT_DEFAULT
-        if raw is None and key == "progress_phrases":
-            raw = self.PROGRESS_DEFAULT
+        if raw is None:
+            raw = self.PHRASE_DEFAULTS.get(key)
         phrases = [p for p in (raw or []) if p.strip()]
         if not phrases:
             return None
         if self.o.get("ack_order") == "random":
-            return random.choice(phrases)
+            # zufällig, aber nie zweimal hintereinander derselbe Satz
+            last = self._last_phrase.get(key)
+            pick = random.choice([p for p in phrases if p != last] or phrases)
+            self._last_phrase[key] = pick
+            return pick
         if key == "ack_phrases":
             idx = self.ack_index
             self.ack_index += 1
@@ -1985,8 +2004,78 @@ class GJarvis(MovieFeatures, apps.AppFeatures, satellite.SatelliteFeatures):
                 self.last_wake = time.monotonic()
                 self.set_state("idle")
 
+    # ------------------- Sofort-Rückmeldung ("Moment, ich schaue nach") ------------------- #
+    SLOW_HINTS = (
+        "recherch", "such ", "suche ", "google", "im internet", "nachrichten", "rezept", "essensplan",
+        "erklär", "erzähl", "warum ", "wieso ", "weshalb ", "wer ist", "wer war", "was ist ein", "was bedeutet",
+        "wie funktioniert", "wie viel kostet", "wann ist", "wann kommt", "wann spielt", "brauche ich", "schirm",
+    )
+
+    def is_slow(self, text: str) -> bool:
+        """Dauert die Antwort voraussichtlich länger (Internet, Wetter, KI)? Dann sagt Jarvis sofort
+        "Moment, ich schaue nach" – bei Licht, Timer, Uhrzeit nicht."""
+        t = " " + text.lower().strip(" .!?") + " "
+        try:
+            if self.wants_weather(text) or self.wants_flight(text) or self.wants_research(text):
+                return True
+            if hasattr(self, "wants_briefing") and self.wants_briefing(text):
+                return True
+        except Exception:  # noqa: BLE001
+            pass
+        extra = [x.lower() for x in (self.o.get("ack_slow_triggers") or []) if x.strip()]
+        return any(h in t for h in self.SLOW_HINTS) or any(x in t for x in extra)
+
+    def ack_key_for(self, text: str) -> str:
+        try:
+            if self.wants_weather(text) or self.wants_flight(text):
+                return "weather_ack_phrases"
+        except Exception:  # noqa: BLE001
+            pass
+        return "instant_ack_phrases"
+
+    def start_ack(self, text: str) -> Optional["asyncio.Task"]:
+        """Rückmeldung planen: bei langsamen Fragen sofort, sonst erst, wenn die Antwort nach
+        ack_delay_ms noch nicht fertig ist. settle_ack() bricht sie ab, wenn die Antwort schneller war."""
+        mode = self.o.get("ack_mode", "slow")
+        if mode == "off" or not self.pro:
+            return None
+        slow = mode == "always" or self.is_slow(text)
+        delay = 0.0 if slow else max(0.0, float(self.o.get("ack_delay_ms", 900)) / 1000.0)
+        if not slow and delay <= 0:
+            return None
+        key = self.ack_key_for(text)
+        self._ack_began = False
+        _LOGGER.info("Rückmeldung %s", "sofort" if slow else f"nach {delay:.1f} s, falls nötig")
+
+        async def run() -> bool:
+            if delay:
+                await asyncio.sleep(delay)
+            self._ack_began = True
+            await self.play_ack(key)
+            return True
+
+        return asyncio.create_task(run())
+
+    async def settle_ack(self, task: Optional["asyncio.Task"]) -> bool:
+        """Vor der eigentlichen Antwort: noch nicht begonnene Rückmeldung abbrechen, laufende zu Ende
+        sprechen lassen. True = es wurde eine Rückmeldung gesprochen."""
+        if task is None:
+            return False
+        if not task.done() and not self._ack_began:
+            task.cancel()
+            try:
+                await task
+            except (asyncio.CancelledError, Exception):  # noqa: BLE001
+                pass
+            return False
+        try:
+            return bool(await task)
+        except (asyncio.CancelledError, Exception):  # noqa: BLE001
+            return self._ack_began
+
     async def preload_acks(self) -> None:
         for p in (list(self.o.get("ack_phrases", [])) + list(self.o.get("instant_ack_phrases", self.INSTANT_DEFAULT))
+                  + list(self.o.get("weather_ack_phrases", self.WEATHER_ACK_DEFAULT))
                   + list(self.o.get("progress_phrases", self.PROGRESS_DEFAULT))):
             try:
                 self.ack_cache[p] = await self.synthesize(p)
@@ -2002,7 +2091,8 @@ class GJarvis(MovieFeatures, apps.AppFeatures, satellite.SatelliteFeatures):
         self.remote_stop = False
         try:
             if self.remote_tts:
-                await self.speak_remote_tts(phrase)
+                async with self.speech_lock:
+                    await self.speak_remote_tts(phrase)
                 return
             if phrase not in self.ack_cache:
                 self.ack_cache[phrase] = await self.synthesize(phrase)
@@ -2238,12 +2328,7 @@ class GJarvis(MovieFeatures, apps.AppFeatures, satellite.SatelliteFeatures):
                     break
                 self.set_state("processing")
                 t = time.monotonic()
-                instant = None
-                said_instant = one_breath
-                if one_breath:
-                    # "Moment, ich schaue." sprechen, während im Hintergrund schon erkannt und erledigt wird
-                    instant = asyncio.create_task(self.play_ack("instant_ack_phrases"))
-                    one_breath = False
+                one_breath = False
                 try:
                     text = (await asyncio.wait_for(self.transcribe(audio), timeout=60)).strip()
                     text = re.sub(r"^\W*((hey|hi|hallo|ok|okay|he|ey)\W+)?\w{0,4}(vis|wis|ves|wiss|weis|fis)\b\W*", "", text, flags=re.I).strip() or text
@@ -2258,17 +2343,20 @@ class GJarvis(MovieFeatures, apps.AppFeatures, satellite.SatelliteFeatures):
                 self.publish("gjarvis/last_command", text)
                 self.last_command = text
                 t = time.monotonic()
-                quick = await asyncio.wait_for(asyncio.to_thread(self.quick_answer, text), timeout=30) if pro else None
+                # Sofort zeigen, dass er verstanden hat: "Moment, ich schaue nach" – läuft parallel zur Arbeit
+                instant = self.start_ack(text)
+                quick = None
+                if pro:
+                    try:
+                        quick = await asyncio.wait_for(asyncio.to_thread(self.quick_answer, text), timeout=30)
+                    except asyncio.TimeoutError:
+                        _LOGGER.warning("Schnelle Antwort dauerte zu lange")
                 if quick is not None:
                     speech, mode = quick
                     self.last_answer = speech
                     _LOGGER.info("Direkt (%.1f s): %r", time.monotonic() - t, speech)
-                    if instant:
-                        await instant
-                        instant = None
-                    if instant:
-                        await instant
-                        instant = None
+                    await self.settle_ack(instant)
+                    instant = None
                     if speech:
                         self.set_state("responding")
                         await self.speak(speech)
@@ -2278,7 +2366,9 @@ class GJarvis(MovieFeatures, apps.AppFeatures, satellite.SatelliteFeatures):
                 elif self.wants_research(text):
                     # Größere Aufgabe: im Hintergrund erledigen, Jarvis bleibt ansprechbar
                     task = asyncio.create_task(self.run_research(text))
-                    if self.o.get("research_ack"):
+                    said = await self.settle_ack(instant)
+                    instant = None
+                    if self.o.get("research_ack") and not said:
                         await self.speak(self.o["research_ack"])
                     self.start_background(task, text)
                     break
@@ -2293,7 +2383,9 @@ class GJarvis(MovieFeatures, apps.AppFeatures, satellite.SatelliteFeatures):
                     if not done:
                         # Dauert länger -> "Moment, ich melde mich" und später nachliefern
                         _LOGGER.info("Antwort dauert länger – läuft im Hintergrund weiter")
-                        if self.o.get("async_ack") and not said_instant:
+                        said = await self.settle_ack(instant)
+                        instant = None
+                        if self.o.get("async_ack") and not said:
                             await self.speak(self.o["async_ack"])
                         self.start_background(task, text, unpack=True)
                         break
@@ -2301,9 +2393,8 @@ class GJarvis(MovieFeatures, apps.AppFeatures, satellite.SatelliteFeatures):
                     self.last_answer = speech
                     self.publish("gjarvis/last_answer", speech or "")
                     _LOGGER.info("Antwort (%.1f s): %r", time.monotonic() - t, speech)
-                    if instant:
-                        await instant
-                        instant = None
+                    await self.settle_ack(instant)
+                    instant = None
                     if speech:
                         self.set_state("responding")
                         await self.speak(speech)
@@ -2592,7 +2683,7 @@ class GJarvis(MovieFeatures, apps.AppFeatures, satellite.SatelliteFeatures):
         self.o.clear()
         self.o.update(fill_options(self.raw))
         self.o.update(keep)
-        if {"ack_phrases", "progress_phrases", "tts_voice", "assistant_name", "user_name"} & set(changes):
+        if {"ack_phrases", "instant_ack_phrases", "weather_ack_phrases", "progress_phrases", "tts_voice", "assistant_name", "user_name"} & set(changes):
             self.ack_cache.clear()
         if "research_llm_model" in changes and old_model and old_model != changes["research_llm_model"]:
             # altes Modell aus dem Speicher werfen, neues sofort laden
