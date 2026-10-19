@@ -40,10 +40,10 @@ Jede App läuft für sich. Du kannst eine, zwei oder alle drei installieren. Upd
 Misst Lärm rund um die Uhr und protokolliert Störungen manipulationssicher – **ohne Tonaufnahme, ohne Cloud**.
 
 <p align="center">
-<img src="docs/images/glighter/01_live.png" width="24%" alt="Live">
-<img src="docs/images/glighter/02_protokolle.png" width="24%" alt="Protokolle">
-<img src="docs/images/glighter/03_ereignisse_notizen.png" width="24%" alt="Störungen und Notizen">
-<img src="docs/images/glighter/08_laermprotokoll_druck.png" width="24%" alt="Lärmprotokoll">
+<img src="docs/images/glighter/01_GLighter_Live_v5.png" width="24%" alt="Live">
+<img src="docs/images/glighter/03_GLighter_Protokolle_v5.png" width="24%" alt="Protokolle">
+<img src="docs/images/glighter/03b_GLighter_Ereignisse_v5.png" width="24%" alt="Störungen und Notizen">
+<img src="docs/images/glighter/08_GLighter_Laermprotokoll_v5.png" width="24%" alt="Lärmprotokoll">
 </p>
 
 - **Misst rund um die Uhr** mit einem USB-Mikrofon am Home-Assistant-Rechner und erkennt Störungen automatisch – mit Uhrzeit, Dauer und Spitzenpegel.
@@ -109,7 +109,7 @@ Hält Störungen als Notiz fest – schnell, mit Uhrzeit, Zeuge und Zeitraum. **
 
 ## <img src="docs/images/logos/GJarvis.png" width="32" alt=""> GJarvis – Sprachassistent
 
-Deutscher Sprachassistent für Home Assistant – „wie im Film“: **„Hey Jarvis“ → „Ja?“ → Befehl.**.
+Deutscher Sprachassistent für Home Assistant – „wie im Film“: **„Hey Jarvis“ → „Ja?“ → Befehl.** Eigenständige App.
 
 <p align="center">
 <img src="docs/images/gjarvis/01_GJarvis_Dashboard_v5.png" width="32%" alt="Übersicht">
