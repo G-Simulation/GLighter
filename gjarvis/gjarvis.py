@@ -1783,6 +1783,12 @@ class GJarvis(MovieFeatures, apps.AppFeatures, satellite.SatelliteFeatures):
         "Was läuft heute im Kino?",
     ]
 
+    def same_llm_url(self, url: str) -> bool:
+        """Ist url die eingetragene research_llm_url (ohne / am Ende, mit oder ohne /v1)?"""
+        norm = lambda u: re.sub(r"/v1$", "", str(u or "").strip().rstrip("/")).rstrip("/").lower()
+        conf = norm(self.o.get("research_llm_url"))
+        return bool(conf) and norm(url) == conf
+
     def llm_models(self, kind: Optional[str] = None, url: Optional[str] = None, key: Optional[str] = None) -> List[dict]:
         kind = kind or self.o.get("research_llm_type", "ollama")
         url = (url if url is not None else (self.o.get("research_llm_url") or "")).rstrip("/")
@@ -1794,7 +1800,9 @@ class GJarvis(MovieFeatures, apps.AppFeatures, satellite.SatelliteFeatures):
             return []
         if kind == "openai":
             u = url if url.endswith("/v1") else url + "/v1"
-            key = key if key is not None else self.o.get("research_llm_api_key")
+            if key is None and self.same_llm_url(url):
+                # gespeicherten Schlüssel NUR an die eingetragene Adresse schicken – nie an eine fremde URL
+                key = self.o.get("research_llm_api_key")
             r = requests.get(f"{u}/models", timeout=10, headers={"Authorization": f"Bearer {key}"} if key else {})
             r.raise_for_status()
             return sorted([{"name": m["id"], "size_gb": None, "params": ""} for m in r.json().get("data", [])],
@@ -2660,8 +2668,18 @@ class GJarvis(MovieFeatures, apps.AppFeatures, satellite.SatelliteFeatures):
         changed = [k for k in new if new.get(k) != opt.get(k)]
         if not changed:
             return "Whisper ist schon passend eingestellt."
-        self.sup("POST", f"/addons/{slug}/options", json={"options": new})
-        self.sup("POST", f"/addons/{slug}/restart")
+        try:
+            self.sup("POST", f"/addons/{slug}/options", json={"options": new})
+            self.sup("POST", f"/addons/{slug}/restart")
+        except requests.HTTPError as e:
+            if e.response is None or e.response.status_code not in (401, 403):
+                raise
+            # GJarvis darf andere Apps nicht mehr selbst umstellen (hassio_role: default) – Werte zum Abtippen nennen
+            hint = ", ".join(f"{k} = {new[k]!r}" for k in changed if k != "initial_prompt")
+            if "initial_prompt" in changed:
+                _LOGGER.info("Whisper-Beispielsätze (initial_prompt) zum Kopieren: %s", new.get("initial_prompt", ""))
+                hint += (", " if hint else "") + "initial_prompt = Beispielsätze aus dem Protokoll"
+            raise RuntimeError(f"Bitte von Hand setzen (Einstellungen → Apps → {slug} → Konfiguration): {hint}") from None
         _LOGGER.info("Whisper eingerichtet (%s): %s", slug, ", ".join(changed))
         return "Whisper eingerichtet (" + ", ".join(changed) + ") und neu gestartet. Beim ersten Mal kann es ein paar Minuten dauern."
 

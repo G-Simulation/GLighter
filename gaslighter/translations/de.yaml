@@ -72,5 +72,8 @@ configuration:
   mic_port:
     name: "Eingang (Buchse) der Soundkarte"
     description: "Leer = automatisch. Z. B. analog-input-mic für den Mikrofon-Eingang."
+  share_update:
+    name: Updates aus /share annehmen
+    description: "Aus = sicher (Standard). An = neue Fassungen aus /share/gaslighter_update werden übernommen, aber nur mit gültiger Signatur von G-Simulation (manifest.txt + manifest.sig)."
 network:
   8443/tcp: "Handys als Mikrofon (HTTPS)"

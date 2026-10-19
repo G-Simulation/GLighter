@@ -66,6 +66,7 @@ options:
   video_width: 640
   video_fps: 5
   video_crf: 30
+  share_update: false
 schema:
   device: str
   mic_volume: int(0,400)?
@@ -98,6 +99,7 @@ schema:
   video_width: int(0,3840)?
   video_fps: int(1,30)?
   video_crf: int(18,40)?
+  share_update: bool?
   baseline_minutes: int(1,60)?
   fast_drop: bool?
   drop_window_s: int(10,300)?

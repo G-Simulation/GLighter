@@ -15,7 +15,7 @@ boot: auto
 audio: true
 homeassistant_api: true
 hassio_api: true
-hassio_role: manager
+hassio_role: default
 ingress: true
 ingress_port: 8099
 panel_icon: mdi:robot-happy
@@ -24,7 +24,6 @@ watchdog: "tcp://[HOST]:[PORT:8099]"
 services:
   - mqtt:want
 map:
-  - share:rw
   - media:rw
 options:
   wake_word_url: "https://github.com/dscripka/openWakeWord/releases/download/v0.5.1/hey_jarvis_v0.1.onnx"

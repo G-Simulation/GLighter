@@ -9,7 +9,6 @@ import time
 from collections import deque
 from pathlib import Path
 
-import requests
 import yaml
 from aiohttp import web
 
@@ -63,6 +62,24 @@ GROUPS = [
         "calibration_sentences", "calibration_wake_voice", "feature_models_url", "debug",
     ]),
 ]
+# Nur Home Assistant (Ingress-Proxy) darf zugreifen – wie bei GLighter/GReport. Zum Testen mit GJARVIS_ALLOW_ALL=1 abschaltbar.
+ALLOWED = {"172.30.32.2", "127.0.0.1", "::1"}
+RESTRICT = bool(os.environ.get("SUPERVISOR_TOKEN")) and os.environ.get("GJARVIS_ALLOW_ALL") != "1"
+
+
+def client_ip(a) -> str:
+    """IPv4 über IPv6-Socket kommt als „::ffff:172.30.32.2“ an."""
+    a = str(a or "")
+    return a[7:] if a.startswith("::ffff:") else a
+
+
+@web.middleware
+async def only_ingress(request, handler):
+    if RESTRICT and client_ip(request.remote) not in ALLOWED:
+        return web.Response(status=403, text="forbidden")
+    return await handler(request)
+
+
 # Diese Werte brauchen einen Neustart von GJarvis
 RESTART_KEYS = {
     "wake_word_url", "feature_models_url", "debug", "mic_watchdog_seconds",
@@ -130,7 +147,7 @@ def field_meta() -> dict:
 
 def make_app(gj) -> web.Application:
     meta = field_meta()
-    app = web.Application()
+    app = web.Application(middlewares=[only_ingress])
 
     async def index(request):
         return web.FileResponse(WEB_DIR / "index.html", headers={"Cache-Control": "no-cache"})

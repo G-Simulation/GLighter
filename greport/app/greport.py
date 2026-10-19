@@ -78,8 +78,12 @@ def now_iso():
 
 
 def ms_of(iso):
+    """ISO-Zeit -> ms. Mit Offset (so schickt es die Oberfläche, z. B. „2026-10-25T02:30:00+01:00“) genau dieser Zeitpunkt –
+    auch in der doppelten Stunde bei der Zeitumstellung. Ohne Offset (ältere Daten, Import): Ortszeit des Add-ons, bei
+    doppelter Stunde die erste (Sommerzeit), wie im Browser."""
     try:
-        d = dt.datetime.fromisoformat(str(iso))
+        s_ = str(iso).strip()
+        d = dt.datetime.fromisoformat(s_[:-1] + "+00:00" if s_.endswith(("Z", "z")) else s_)
         if d.tzinfo is None:
             d = d.astimezone()
         return int(d.timestamp() * 1000)
@@ -571,6 +575,8 @@ def notes_list(t_from=None, t_to=None, q="", limit=500):
                 continue
             out.append(p)
     out.sort(key=lambda p: -p["a"])
+    if limit is None:                                  # alle (Tagebuch, Export) – nie still abschneiden
+        return out
     return out[:max(1, min(5000, int(limit or 500)))]
 
 
@@ -788,7 +794,7 @@ def diary_write():
         DIARY["error"] = "path"; return False
     with DIARY["lock"]:
         try:
-            notes = notes_list(limit=10 ** 6); pf = prefs(); files = []
+            notes = notes_list(limit=None); pf = prefs(); files = []
             if c["monthly"]:
                 base, ext = os.path.splitext(path); by = {}
                 for p in notes:
@@ -830,7 +836,7 @@ def export_file(d):
 def export_text(fmt):
     if fmt == "json":
         return json.dumps({"app": BRAND, "v": VERSION, "notes": notes_all()["free"]}, ensure_ascii=False, indent=1)
-    return diary_render(notes_list(limit=10 ** 6), fmt)
+    return diary_render(notes_list(limit=None), fmt)
 
 
 # ---------- Import ----------
@@ -1044,7 +1050,7 @@ def export_csv():
     """Tabelle: Datum und Uhrzeit wie in der Anzeige eingestellt, dazu die genaue Zeit (ISO) für den Abgleich."""
     out = io.StringIO(); w = csv.writer(out, delimiter=";"); pf = prefs()
     w.writerow(["datum", "von", "bis", "schnellwahl", "text", "zeuge", "von_iso", "bis_iso", "geschrieben", "kennung"])
-    for p in sorted(notes_list(limit=5000), key=lambda p: p["a"]):
+    for p in sorted(notes_list(limit=None), key=lambda p: p["a"]):
         a = dt.datetime.fromtimestamp(p["a"] / 1000).astimezone(); b = dt.datetime.fromtimestamp(p["b"] / 1000).astimezone() if p.get("to") else None
         w.writerow([fmt_date(a, pf), fmt_time(a, pf), fmt_time(b, pf) if b else "", ", ".join(p["tagl"]), p.get("text"), p.get("witness"),
                     p.get("from"), p.get("to"), p.get("ts"), p.get("id")])
@@ -1152,7 +1158,7 @@ def notes_summary():
     today = dt.datetime.now().astimezone().replace(hour=0, minute=0, second=0, microsecond=0)
     t0 = int(today.timestamp() * 1000)
     last = notes_list(limit=LAST_N)
-    n_today = len(notes_list(t_from=t0, limit=5000))
+    n_today = len(notes_list(t_from=t0, limit=None))
     p = prefs(); items = []
     for x in last:
         d = dt.datetime.fromtimestamp(x["a"] / 1000.0)

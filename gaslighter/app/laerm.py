@@ -206,6 +206,20 @@ def load_settings():
         persist(cfg)
         if migrated and not ok:
             log("Hinweis: migrierte Werte gelten, erscheinen aber erst nach dem Speichern in der Oberflaeche im Reiter Konfiguration")
+    return pro_defaults(cfg)
+
+
+def pro_defaults(cfg):
+    """Ohne Pro gelten für die erweiterten Werte der Erkennung die Standardwerte – auch wenn sie im Reiter Konfiguration
+    (Home Assistant) oder in settings.json anders stehen. Gespeichert bleibt alles; mit gültiger Lizenz (pro_set) gilt es wieder."""
+    if pro_ok():
+        CFG_META.pop("pro_hold", None)
+        return cfg
+    hold = {k: cfg[k] for k in PRO_KEYS if k in cfg and cfg[k] != DEFAULTS[k]}
+    if hold:
+        CFG_META["pro_hold"] = hold
+        cfg.update({k: DEFAULTS[k] for k in hold})
+        log("Ohne Pro gelten Standardwerte für:", ", ".join(sorted(hold)))
     return cfg
 
 
@@ -1080,6 +1094,10 @@ def pro_set(key):
         d["shop_key"] = shop
     pro_write(d)
     log("Pro-Lizenz eingetragen, gültig bis", r["until"], "(Bestellung", (r.get("order") or "-") + ")")
+    hold = CFG_META.pop("pro_hold", None)              # beim Start zurückgehaltene Werte aus der Konfiguration wieder anwenden
+    if hold:
+        with CFG_LOCK:
+            CFG.update(hold)
     with SRC_LOCK:
         for x in RUNNERS.values():
             if x.src["type"] != "local":
@@ -1115,6 +1133,19 @@ def pro_strip(cfg):
         for k in PRO_KEYS:
             cfg.pop(k, None)
     return cfg
+
+
+def pro_strip_source(s_, cur=None):
+    """Gerät aus einer Sicherung ohne Pro: erweiterte Werte (auch in den Zeitprofilen des Geräts) nicht übernehmen,
+    die bisherigen des Geräts hier (cur) bleiben – wie beim Speichern in der Oberfläche."""
+    if pro_ok() or not isinstance(s_, dict):
+        return s_
+    s_ = dict(s_); cur = cur if isinstance(cur, dict) else {}
+    keep = {k: v for k, v in (cur.get("cfg") or {}).items() if k in PRO_KEYS}
+    s_["cfg"] = dict(pro_strip(dict(s_["cfg"])) if isinstance(s_.get("cfg"), dict) else {}, **keep)
+    if "sched" in s_ or "sched" in cur:                # Zeitprofile bestehen nur aus Pro-Werten (SLOT_KEYS)
+        s_["sched"] = list(cur.get("sched") or [])
+    return s_
 
 
 def src_runs(src):
@@ -6903,11 +6934,13 @@ def protocol_html(q):
         if chs:
             o.append('<h2>Tagesaufzeichnung und Datenkette</h2><div class="small mut">Ab Version 1.40 hat eine Störung keine eigene Datei mehr: ihre Messwerte stehen in der '
                      'durchgehenden Tagesaufzeichnung je Gerät (Pegel je 125 ms, Terzbänder, kein Ton). Jede geschriebene Minute bekommt eine SHA-256-Prüfsumme, die auf der '
-                     'vorherigen aufbaut. Wird nachträglich ein Wert geändert oder eine Minute entfernt, passt die Kette ab dieser Stelle nicht mehr. Die letzte Summe wird '
+                     'vorherigen aufbaut; seit der Umstellung auf HMAC-SHA256 zusätzlich mit einem geheimen Schlüssel dieser Installation, der nicht bei den Daten liegt '
+                     '(„alte Kette nur SHA-256“ = Tage davor). Wird nachträglich ein Wert geändert oder eine Minute entfernt, passt die Kette ab dieser Stelle nicht mehr. Die letzte Summe wird '
                      'zusätzlich stündlich an Home Assistant gemeldet und dort unabhängig gespeichert.</div>'
                      '<table><tr><th style="width:90px">Tag</th><th style="width:150px">Gerät</th><th style="width:170px">Prüfung</th><th>letzte Prüfsumme</th></tr>')
             for c in chs:
-                res_ = ("vollständig und unverändert (" + str(c["n"]) + " Minuten)") if c.get("ok") else ("keine Prüfsummen (vor 1.40)" if c.get("ok") is None or c.get("none")
+                mac_ = {"hmac": ", HMAC", "alt": ", alte Kette nur SHA-256", "gemischt": ", teils alte Kette nur SHA-256"}.get(c.get("mac"), "")
+                res_ = ("vollständig und unverändert (" + str(c["n"]) + " Minuten" + mac_ + (", Schlüssel aus Sicherung" if c.get("fremd") else "") + ")") if c.get("ok") else ("keine Prüfsummen (vor 1.40)" if c.get("ok") is None or c.get("none")
                         else "ABWEICHUNG ab " + (dt.datetime.fromtimestamp(c["bad"] / 1000.0).strftime("%H:%M") if c.get("bad") else "?"))
                 o.append(f'<tr><td>{h(dmy(c["day"]))}</td><td>{h(c["name"])}</td><td>{h(res_)}</td><td class="mono">{h(c.get("head") or "–")}</td></tr>')
             o.append('</table>')
@@ -8450,6 +8483,76 @@ def chain_spec_bytes(ts_list, bands_list):
     return b"".join(int(t).to_bytes(8, "little") + bytes(b) for t, b in zip(ts_list, bands_list))
 
 
+# Geheimer Schlüssel der Kette (HMAC-SHA256): liegt in /data (nicht in /share), wird beim ersten Start erzeugt.
+# Wer nur /share (Samba) ändern kann, kann so keine passende Kette mehr neu berechnen. Zeilen mit „H“ in der .chk-Datei
+# sind mit HMAC gesichert, Zeilen ohne „H“ (vor der Umstellung) weiter mit reinem SHA-256 – sie werden als „alt“ ausgewiesen.
+# Ab dem Zeitpunkt „since“ muss jede neue Minute HMAC haben, sonst gilt die Kette als abweichend (kein Zurückstufen auf SHA-256).
+CHAIN_KEY_LOCK = threading.Lock()
+CHAIN_KEYS = {}                                          # Pfad -> {"own", "since", "known"}
+
+
+def chain_key_path():
+    return os.path.join(DATA_DIR, "kette_schluessel.json")
+
+
+def chain_keys():
+    """{"own": hex, "since": ms, "known": [hex, …]} oder None, wenn der Schlüssel nicht gespeichert werden kann (dann reines SHA-256)."""
+    p = chain_key_path()
+    with CHAIN_KEY_LOCK:
+        if p in CHAIN_KEYS:
+            return CHAIN_KEYS[p]
+        k = None
+        try:
+            with open(p, encoding="utf-8") as f:
+                k = json.load(f)
+            if not (isinstance(k, dict) and HEX64.fullmatch(str(k.get("own", ""))) and isinstance(k.get("since"), int)):
+                raise ValueError("Inhalt")
+            k["known"] = [x for x in k.get("known") or [] if HEX64.fullmatch(str(x)) and x != k["own"]]
+        except FileNotFoundError:
+            k = {"own": secrets.token_hex(32), "since": int(time.time() * 1000), "known": []}
+            try:
+                fd = os.open(p + ".tmp", os.O_WRONLY | os.O_CREAT | os.O_TRUNC, 0o600)
+                with os.fdopen(fd, "w", encoding="utf-8") as f:
+                    json.dump(k, f); f.flush(); os.fsync(f.fileno())
+                os.replace(p + ".tmp", p)
+                log("Datenkette: neuer geheimer Schlüssel angelegt (HMAC-SHA256)")
+            except OSError as e:
+                log("Datenkette: Schlüssel nicht speicherbar, weiter nur SHA-256:", e)
+                k = None
+        except (OSError, ValueError) as e:              # beschädigt: nicht überschreiben (alte Tage blieben sonst unprüfbar)
+            log("Datenkette: Schlüsseldatei unlesbar, weiter nur SHA-256:", e)
+            k = None
+        CHAIN_KEYS[p] = k
+        return k
+
+
+def chain_keys_merge(inc):
+    """Schlüssel aus einer Sicherung (anderer Rechner) zusätzlich zum Prüfen übernehmen; der eigene bleibt."""
+    k = chain_keys()
+    if not k or not isinstance(inc, dict):
+        return 0
+    new = [x for x in [inc.get("own")] + list(inc.get("known") or []) if HEX64.fullmatch(str(x or "")) and x != k["own"] and x not in k["known"]]
+    if new:
+        with CHAIN_KEY_LOCK:
+            k["known"] = k["known"] + new
+            fd = os.open(chain_key_path() + ".tmp", os.O_WRONLY | os.O_CREAT | os.O_TRUNC, 0o600)
+            with os.fdopen(fd, "w", encoding="utf-8") as f:
+                json.dump(k, f); f.flush(); os.fsync(f.fileno())
+            os.replace(chain_key_path() + ".tmp", chain_key_path())
+        CHAIN_CK.clear()
+    return len(new)
+
+
+def chain_keys_tag():
+    """Kurzer Fingerabdruck der Schlüssel (ändert den Zwischenspeicher der Prüfung, wenn Schlüssel dazukommen)."""
+    k = chain_keys()
+    return "k2:" + (hashlib.sha256("|".join([k["own"]] + k["known"]).encode()).hexdigest()[:12] if k else "-")
+
+
+def chain_mac(key_hex, prev, line, spec):
+    return hmac.new(bytes.fromhex(key_hex), prev.encode() + line.encode() + spec, hashlib.sha256).hexdigest()
+
+
 HEX64 = re.compile(r"[0-9a-f]{64}")
 
 
@@ -8472,9 +8575,14 @@ def chain_add(sid, day, m, line, spec_frames):
                         prev = pts[1]; break
             except OSError:
                 pass
-        h = hashlib.sha256(prev.encode() + line.encode() + chain_spec_bytes([f[0] for f in spec_frames], [f[7] for f in spec_frames])).hexdigest()
+        spec = chain_spec_bytes([f[0] for f in spec_frames], [f[7] for f in spec_frames])
+        k = chain_keys()
+        if k:                                           # HMAC mit dem geheimen Schlüssel aus /data, Zeile mit „H“ markiert
+            h = chain_mac(k["own"], prev, line, spec); flag = " H"
+        else:
+            h = hashlib.sha256(prev.encode() + line.encode() + spec).hexdigest(); flag = ""
         with open(cf, "a") as fh:
-            fh.write(("\n" if need_nl else "") + f"{m} {h}\n")
+            fh.write(("\n" if need_nl else "") + f"{m} {h}{flag}\n")
             fh.flush()
             try:
                 os.fsync(fh.fileno())
@@ -8538,7 +8646,7 @@ def chain_check(sid, day):
     v = None
     if SIDX is not None:                                # Inhalt aller Dateien des Tages unveraendert: Ergebnis aus dem Suchverzeichnis
         fs_all = fs + sorted(glob.glob(os.path.join(day_dir(), f"{day}_{glob.escape(sid)}_[0-9][0-9].ltp")))
-        h = _sx.SuchIndex.files_hash(fs_all)
+        h = _sx.SuchIndex.files_hash(fs_all) + "|" + chain_keys_tag()
         v = SIDX.chain_get(sid, day, h)
     if v is None:
         v = chain_check_full(sid, day)
@@ -8551,7 +8659,8 @@ def chain_check(sid, day):
 
 
 def chain_check_full(sid, day):
-    """Kette eines Tages pruefen: {"ok", "n" (Minuten), "bad" (erste abweichende Minute, ms), "head" (letzte Summe), "none" (keine Kette)}."""
+    """Kette eines Tages pruefen: {"ok", "n" (Minuten), "bad" (erste abweichende Minute, ms), "head" (letzte Summe), "none" (keine Kette),
+    "mac": "hmac" | "alt" (nur SHA-256, vor der Umstellung) | "gemischt", "fremd" (mit dem Schlüssel einer eingespielten Sicherung)}."""
     cf, dp = chain_file(sid, day), day_path(sid, day)
     if not os.path.exists(dp):
         return {"ok": True, "n": 0, "bad": None, "head": "", "none": True}
@@ -8575,14 +8684,16 @@ def chain_check_full(sid, day):
     if k0 is None:
         return {"ok": False if links else None, "n": 0, "bad": first_m, "head": links[-1][1] if links else "", "none": not links}
     prev = chain_seed(sid, day)
+    keys = chain_keys(); since = keys["since"] if keys else None
+    seg_key = None; n_mac = n_old = 0; foreign = False; seg_r = False
     n = 0; li = k0; segs = 1; first_miss = None; miss = 0; miss_list = []
     lm = []                                            # Minute je Zeile (fuer den Beginn eines Abschnitts)
     for l_ in lines:
         mm_ = re.match(r'\{"m":(-?\d+),', l_); lm.append(int(mm_.group(1)) if mm_ else None)
     for i, lk in enumerate(links):
         m_s, h_s = lk[0], lk[1]
-        if i and len(lk) > 2 and lk[2] == "R":         # eingespielter Abschnitt: eigene Kette ab dem Startwert
-            prev = chain_seed(sid, day); segs += 1
+        if i and "R" in lk[2:]:                        # eingespielter Abschnitt: eigene Kette ab dem Startwert
+            prev = chain_seed(sid, day); segs += 1; seg_key = None; seg_r = True
             j = next((x for x in range(li, len(lines)) if lm[x] == int(m_s)), None)
             if j is None:
                 return {"ok": False, "n": n, "bad": int(m_s), "head": links[-1][1], "none": False, "missing": True, "segs": segs}
@@ -8607,14 +8718,26 @@ def chain_check_full(sid, day):
             miss_list.append(int(m_s))
             prev = h_s; miss += 1
             continue
-        h = hashlib.sha256(prev.encode() + line.encode() + spec).hexdigest()
-        if h != h_s or m != int(m_s):
+        need_mac = since is not None and int(m_s) >= since and not seg_r   # nach der Umstellung: nur HMAC zählt (kein Zurückstufen auf SHA-256);
+        if "H" in lk[2:] or need_mac:                   # ohne „H“ nur, wenn die Markierung beim Stromausfall abgeschnitten wurde
+            cand = [seg_key] if seg_key else ([keys["own"]] + keys["known"] if keys else [])
+            h = next((x for x in (chain_mac(c_, prev, line, spec) for c_ in cand) if hmac.compare_digest(x, h_s)), None)
+            if h is not None and seg_key is None:
+                seg_key = next(c_ for c_ in cand if chain_mac(c_, prev, line, spec) == h)
+                foreign = foreign or seg_key != keys["own"]
+            n_mac += 1
+        else:
+            h = hashlib.sha256(prev.encode() + line.encode() + spec).hexdigest()
+            n_old += 1
+        if h is None or h != h_s or m != int(m_s):
             return {"ok": False, "n": n, "bad": int(m_s), "head": links[-1][1], "none": False, "segs": segs}
         prev = h; n += 1; li += 1
+    mac = "hmac" if n_mac and not n_old else "alt" if not n_mac else "gemischt"
     if first_miss is not None:
-        return {"ok": False, "n": n, "bad": first_miss, "head": prev, "none": False, "missing": True, "lost": miss, "miss_list": miss_list, "segs": segs}
+        return {"ok": False, "n": n, "bad": first_miss, "head": prev, "none": False, "missing": True, "lost": miss, "miss_list": miss_list, "segs": segs,
+                "mac": mac, "fremd": foreign}
     extra = len(lines) - k0 - n
-    return {"ok": True, "n": n, "bad": None, "head": prev, "none": False, "extra": max(0, extra), "segs": segs}
+    return {"ok": True, "n": n, "bad": None, "head": prev, "none": False, "extra": max(0, extra), "segs": segs, "mac": mac, "fremd": foreign}
 
 
 def _day_parse(text_lines):
@@ -9350,6 +9473,8 @@ def backup_write(stream):
     man = {"fmt": BACKUP_FMT, "v": 1, "app": VERSION, "created": dt.datetime.now().astimezone().isoformat(timespec="seconds"), "files": len(items)}
     zf.writestr("manifest.json", json.dumps(man, ensure_ascii=False, indent=1))
     zf.writestr("data/settings.json", json.dumps(public_settings(), ensure_ascii=False, indent=1))
+    if os.path.isfile(chain_key_path()):               # Schlüssel der Datenkette nur in die heruntergeladene ZIP (zum Prüfen nach einem Umzug),
+        zf.write(chain_key_path(), "data/kette_schluessel.json")   # nie in die tägliche Sicherung auf Netzlaufwerk/NAS
     for arc, f in items:
         if f is None:
             continue
@@ -9716,7 +9841,7 @@ def day_merge(sid, day, inc):
             ch_have = []
         ch_new = [l for l in (inc.get(".chk") or b"").decode("utf-8", "replace").splitlines() if l.strip()]
         if ch_have and ch_new:                       # vorhandener Teil: neuer Abschnitt der Kette
-            p_ = ch_have[0].split(); ch_have[0] = " ".join(p_[:2] + ["R"])
+            p_ = ch_have[0].split(); ch_have[0] = " ".join(p_[:2] + ["R"] + [x for x in p_[2:] if x != "R"])   # „H“ (HMAC) bleibt
         def wr(path, data):
             with open(path + ".tmp", "wb") as fh:
                 fh.write(data); fh.flush(); os.fsync(fh.fileno())
@@ -9836,6 +9961,7 @@ def restore_sources(raw, idmap, pick=None, off=None):
         s_ = dict(s_)
         if off and sid in off:
             s_["enabled"] = False; s_["check"] = True
+        s_ = pro_strip_source(s_, out[pos[sid]] if sid in pos else None)   # kostenloser Import: keine Pro-Werte
         if sid in pos:
             out[pos[sid]] = s_
         elif len(out) < 9:
@@ -9890,8 +10016,10 @@ def restore_run(path, with_settings, pick=None, off=None):
                         s.pop("device", None); s.pop("mic_port", None)
                     update_settings(s)
                 sc = rd("data/schedule.json")
-                if isinstance(sc, dict):
+                if isinstance(sc, dict) and pro_ok():       # Zeitprofile bestehen nur aus Pro-Werten: ohne Pro bleiben die bisherigen
                     save_sched(sc.get("slots"))
+                elif isinstance(sc, dict) and sc.get("slots"):
+                    st["sched_kept"] = True
                 ha = rd("data/ha_rules.json")
                 if isinstance(ha, dict):
                     save_ha_rules(ha.get("rules"))
@@ -9917,6 +10045,12 @@ def restore_run(path, with_settings, pick=None, off=None):
                 BK_STATE["done"] += 1
                 a = i.filename
                 parts = a.split("/")
+                if a == "data/kette_schluessel.json":       # Schlüssel der Datenkette des anderen Rechners: nur zum Prüfen dazunehmen
+                    try:
+                        st["chain_keys"] = chain_keys_merge(json.loads(zf.read(i)))
+                    except (ValueError, OSError):
+                        pass
+                    continue
                 if a == "data/laufzeit.jsonl":              # Laufzeit-Protokoll: fehlende Zeilen anhaengen
                     try:
                         lf = os.path.join(DATA_DIR, "laufzeit.jsonl")

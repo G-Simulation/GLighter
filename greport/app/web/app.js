@@ -8,6 +8,12 @@ const el = (tag, props) => { const e = document.createElement(tag); Object.assig
 const option = (sel, v, label) => { const o = el('option', { value: String(v), textContent: label }); sel.appendChild(o); return o; };
 const isoDay = d => d.getFullYear() + '-' + pad(d.getMonth() + 1) + '-' + pad(d.getDate());
 const dtl = d => isoDay(d) + 'T' + pad(d.getHours()) + ':' + pad(d.getMinutes()) + ':' + pad(d.getSeconds());
+// Zeit fürs Speichern immer mit Offset des Browsers (z. B. +01:00), damit der Zeitpunkt eindeutig ist – auch in der doppelten Stunde
+// bei der Zeitumstellung und wenn Home Assistant in einer anderen Zeitzone läuft.
+const tzo = d => { const m = -d.getTimezoneOffset(), a = Math.abs(m); return (m < 0 ? '-' : '+') + pad(Math.floor(a / 60)) + ':' + pad(a % 60); };
+const dto = d => dtl(d) + tzo(d);
+// Eingabefeld (Ortszeit ohne Offset) -> ISO mit Offset; unverändertes Feld behält den gespeicherten Zeitpunkt (orig)
+const inIso = (v, orig) => !v ? '' : orig && dtl(new Date(orig)) === v ? orig : isNaN(new Date(v).getTime()) ? v : dto(new Date(v));
 const nowMs = () => Date.now();
 const post = (url, body) => fetch(url, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body || {}) }).then(r => r.json());
 let lang = (navigator.language || 'de').toLowerCase().startsWith('de') ? 'de' : 'en';
@@ -193,7 +199,7 @@ function timeEdit(open) {
 }
 async function fnpSave() {
   const fixed = FNP.fixed && $('fnpfromi').value, tv = $('fnptoi').value, run = $('fnprun').checked, ed = FNP.edit;
-  const body = { action: ed ? 'edit' : 'add', id: ed ? ed.id : '', from: fixed ? $('fnpfromi').value : ed ? ed.from : dtl(new Date(nowMs())), to: tv || (run ? dtl(new Date(nowMs())) : ''),
+  const body = { action: ed ? 'edit' : 'add', id: ed ? ed.id : '', from: fixed ? inIso($('fnpfromi').value, ed && ed.from) : ed ? ed.from : dto(new Date(nowMs())), to: tv ? inIso(tv, ed && ed.to) : run ? dto(new Date(nowMs())) : '',
     src: ed ? (ed.src || 'all') : 'all', text: autoText($('fnptext').value, FNP.tags), typed: !!$('fnptext').value.trim(), tags: [...FNP.tags], witness: $('fnpwit').value };
   const msg = $('fnpmsg'); msg.className = 'msg';
   try {
