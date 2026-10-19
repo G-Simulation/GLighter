@@ -1,3 +1,5 @@
+<p align="center"><img src="docs/images/logos/GSimulations.png" width="160" alt="GSimulations"></p>
+
 <h1 align="center">GSimulations für Home Assistant</h1>
 
 <p align="center">Drei eigenständige Apps von <a href="https://www.gsimulations.de/">G-Simulation</a> für Home Assistant – jede einzeln installierbar.<br>
@@ -7,9 +9,9 @@
 
 <table align="center">
 <tr>
-<td align="center" valign="top" width="200"><a href="#glighter"><img src="gaslighter/icon.png" width="110" alt="GLighter"></a><br><b><a href="#glighter">GLighter</a></b><br>Lärmprotokoll</td>
-<td align="center" valign="top" width="200"><a href="#greport"><img src="greport/icon.png" width="110" alt="GReport"></a><br><b><a href="#greport">GReport</a></b><br>Notizen</td>
-<td align="center" valign="top" width="200"><a href="#gjarvis"><img src="gjarvis/icon.png" width="110" alt="GJarvis"></a><br><b><a href="#gjarvis">GJarvis</a></b><br>Sprachassistent</td>
+<td align="center" valign="top" width="200"><a href="#glighter"><img src="docs/images/logos/GLighter.png" width="110" alt="GLighter"></a><br><b><a href="#glighter">GLighter</a></b><br>Lärmprotokoll</td>
+<td align="center" valign="top" width="200"><a href="#greport"><img src="docs/images/logos/GReport.png" width="110" alt="GReport"></a><br><b><a href="#greport">GReport</a></b><br>Notizen</td>
+<td align="center" valign="top" width="200"><a href="#gjarvis"><img src="docs/images/logos/GJarvis.png" width="110" alt="GJarvis"></a><br><b><a href="#gjarvis">GJarvis</a></b><br>Sprachassistent</td>
 </tr>
 </table>
 
@@ -33,7 +35,7 @@ Jede App läuft für sich. Du kannst eine, zwei oder alle drei installieren. Upd
 
 <a id="glighter"></a>
 
-## <img src="gaslighter/icon.png" width="32" alt=""> GLighter – Lärmprotokoll
+## <img src="docs/images/logos/GLighter.png" width="32" alt=""> GLighter – Lärmprotokoll
 
 Misst Lärm rund um die Uhr und protokolliert Störungen manipulationssicher – **ohne Tonaufnahme, ohne Cloud**.
 
@@ -68,7 +70,7 @@ Misst Lärm rund um die Uhr und protokolliert Störungen manipulationssicher –
 
 <a id="greport"></a>
 
-## <img src="greport/icon.png" width="32" alt=""> GReport – Notizen zu Störungen
+## <img src="docs/images/logos/GReport.png" width="32" alt=""> GReport – Notizen zu Störungen
 
 Hält Störungen als Notiz fest – schnell, mit Uhrzeit, Zeuge und Zeitraum. **Eigenständige App**, braucht kein GLighter.
 
@@ -79,7 +81,18 @@ Hält Störungen als Notiz fest – schnell, mit Uhrzeit, Zeuge und Zeitraum. **
 - **Home Assistant:** jede Notiz im Logbuch, Sensoren „Letzte Notiz“ und „Notizen heute“ (MQTT/Mosquitto).
 - Ist zusätzlich GLighter installiert, erscheinen die Notizen mit GLighter Pro automatisch auch dort.
 
-**Pro** (ein GLighter-Pro-Schlüssel gilt auch): Tagebuch als Textdatei, Export/Import, mehr eigene Tasten, tägliche Sicherung, mehrere Zeugen – [gsimulations.de/greport](https://www.gsimulations.de/greport/)
+| | Kostenlos | GReport Pro |
+|---|:---:|:---:|
+| Notiz jetzt, Schnellwahl, Zeitraum, Liste, Suche | ✔ | ✔ |
+| Dashboard-Karte „GReport“, Bereich „GReport“, Logbuch, Sensoren | ✔ | ✔ |
+| Sicherung als ZIP herunterladen | ✔ | ✔ |
+| Eigene Tasten in der Schnellwahl | 5 | bis 200 |
+| Mehrere Zeugen pro Notiz | – | ✔ |
+| Tagebuch als Textdatei (Text/CSV, auf Wunsch pro Monat) | – | ✔ |
+| Export und Import (Text, CSV, JSON) | – | ✔ |
+| Tägliche Sicherung (14 Tage) | – | ✔ |
+
+**GReport Pro:** Jahreslizenz, **kein Abo** – ein GLighter-Pro-Schlüssel gilt auch. [gsimulations.de/greport](https://www.gsimulations.de/greport/)
 
 [Mehr zu GReport](greport/README.md) · [Änderungen](greport/CHANGELOG.md)
 
@@ -87,19 +100,25 @@ Hält Störungen als Notiz fest – schnell, mit Uhrzeit, Zeuge und Zeitraum. **
 
 <a id="gjarvis"></a>
 
-## <img src="gjarvis/icon.png" width="32" alt=""> GJarvis – Sprachassistent
+## <img src="docs/images/logos/GJarvis.png" width="32" alt=""> GJarvis – Sprachassistent
 
 Deutscher Sprachassistent für Home Assistant – „wie im Film“: **„Hey Jarvis“ → „Ja?“ → Befehl.** Eigenständige App.
 
-- **Kostenlos:** alles, was dein Home-Assistant-Agent kann (Licht, Geräte, Listen, Satz-Automationen, deine KI), Oberfläche in der Seitenleiste, Kalibrierung, Lautstärke, Stimme.
-- **GJarvis Pro** (Jahreslizenz, kein Abo):
-  - Nachfragen ohne Weckwort und Unterbrechen mit „Hey Jarvis“
-  - Timer, Erinnerungen, Wecker und Gedächtnis
-  - Morgen-Briefing mit Wetter, Kalender und Nachrichten
-  - Ansagen aus Automationen mit Gong und Ruhezeit
-  - Internet-Recherche und eigenes KI-Modell (Ollama oder OpenAI-kompatibel)
+| | Kostenlos | GJarvis Pro |
+|---|:---:|:---:|
+| „Hey Jarvis“ und alles, was dein Home-Assistant-Agent kann (Licht, Geräte, Listen, Satz-Automationen, deine KI) | ✔ | ✔ |
+| Oberfläche in der Seitenleiste, Kalibrierung, Lautstärke, Stimme | ✔ | ✔ |
+| Entitäten „hört“ / „spricht“, Ereignis `gjarvis_command` | ✔ | ✔ |
+| Nachfragen ohne Weckwort, Unterbrechen mit „Hey Jarvis“ | – | ✔ |
+| Timer, Erinnerungen, Wecker, Gedächtnis | – | ✔ |
+| Morgen-Briefing (Wetter, Kalender, Erinnerungen, Nachrichten) | – | ✔ |
+| Ansagen aus Automationen mit Gong und Ruhezeit | – | ✔ |
+| Wetter und Flugwetter, Internet-Recherche | – | ✔ |
+| Eigenes KI-Modell (Ollama oder OpenAI-kompatibel) mit eigener Persönlichkeit | – | ✔ |
 
-Voraussetzungen: die Apps **Whisper**, **Piper** und **Mosquitto**. – [gsimulations.de/gjarvis](https://www.gsimulations.de/gjarvis/#buypro)
+**GJarvis Pro:** Jahreslizenz, **kein Abo** – [gsimulations.de/gjarvis](https://www.gsimulations.de/gjarvis/#buypro)
+
+Voraussetzungen: die Apps **Whisper**, **Piper** und **Mosquitto**.
 
 [Mehr zu GJarvis](gjarvis/README.md) · [Änderungen](gjarvis/CHANGELOG.md)
 
@@ -124,9 +143,9 @@ or manually: **Settings → Apps → App store → ⋮ → Repositories** → `h
 
 | App | What it does |
 |---|---|
-| <img src="gaslighter/icon.png" width="24" alt=""> **GLighter** | Noise log – measures noise 24/7 and logs disturbances tamper-evident. No audio recording, no cloud. Printable noise report. [Manual](docs/en/README.md) |
-| <img src="greport/icon.png" width="24" alt=""> **GReport** | Disturbance notes – note, quick select, witness, time span. Own dashboard card "GReport" for all users. Works on its own. |
-| <img src="gjarvis/icon.png" width="24" alt=""> **GJarvis** | German voice assistant "Hey Jarvis". Pro: timers, reminders, memory, briefing, weather, web search. Needs Whisper, Piper and Mosquitto. |
+| <img src="docs/images/logos/GLighter.png" width="24" alt=""> **GLighter** | Noise log – measures noise 24/7 and logs disturbances tamper-evident. No audio recording, no cloud. Printable noise report. [Manual](docs/en/README.md) |
+| <img src="docs/images/logos/GReport.png" width="24" alt=""> **GReport** | Disturbance notes – note, quick select, witness, time span. Own dashboard card "GReport" for all users. Works on its own. |
+| <img src="docs/images/logos/GJarvis.png" width="24" alt=""> **GJarvis** | German voice assistant "Hey Jarvis". Pro: timers, reminders, memory, briefing, weather, web search. Needs Whisper, Piper and Mosquitto. |
 
 All data stays on your Home Assistant computer. [Privacy](PRIVACY.md) · [Issues](https://github.com/G-Simulation/GSimulations-HomeAssistant/issues/new/choose) · [gsimulations.de](https://www.gsimulations.de/)
 
