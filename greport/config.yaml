@@ -1,5 +1,5 @@
 name: "GReport"
-version: "1.6.1"
+version: "1.6.2"
 slug: greport
 description: "Notizen zu Störungen festhalten – mit Schnellwahl, Zeugen und Logbuch in Home Assistant; arbeitet mit GLighter zusammen / Record notes about disturbances – quick select, witnesses, Home Assistant logbook; works with GLighter"
 url: "https://www.gsimulations.de/greport/"
@@ -17,6 +17,7 @@ services:
   - mqtt:want
 map:
   - share:rw
+  - homeassistant_config:rw
 options:
   language: "auto"
   mqtt: true

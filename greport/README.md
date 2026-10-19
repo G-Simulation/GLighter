@@ -1,6 +1,6 @@
 # GReport
 
-Notizen zu Störungen festhalten – der Notiz-Teil von [GLighter](../gaslighter) als eigene App für Home Assistant.
+Notizen zu Störungen festhalten – der Notiz-Teil von [GLighter](https://github.com/G-Simulation/GLighter) als eigene App für Home Assistant.
 
 - **Notiz jetzt:** einfach lostippen oder eine Taste der Schnellwahl antippen, Zeuge und Zeitraum dazu, Enter speichert.
 - **Schnellwahl anpassen:** eigene Tasten anlegen, eingebaute ausblenden; GReport schlägt oft getippte Wörter als neue Taste vor.

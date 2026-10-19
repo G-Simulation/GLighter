@@ -1,0 +1,562 @@
+<!doctype html>
+<html lang="de">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>GJarvis</title>
+<link rel="icon" type="image/png" href="data:image/png;base64,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">
+<style>
+:root{--bg:#f2f4f7;--card:#fff;--tx:#1b1f24;--mut:#6b7280;--bd:#e3e6ea;--grid:#eef0f3;--acc:#1c7ed6;--onacc:#fff;--thr:#e8590c;--red:#e03131;--ok:#2b8a3e;--warn:#b35c00;--pv:#7048e8;--sel:#e7f0fb;--onpill:#fff;color-scheme:light}
+@media(prefers-color-scheme:dark){:root{--bg:#10141a;--card:#1a2029;--tx:#e6e8eb;--mut:#98a2ad;--bd:#2a313b;--grid:#232a33;--acc:#4dabf7;--onacc:#0b1a2b;--thr:#ff922b;--red:#ff6b6b;--ok:#51cf66;--warn:#fcc419;--pv:#b197fc;--sel:#1d2b3b;--onpill:#0b1a12;color-scheme:dark}}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--tx);font:15px/1.45 system-ui,"Segoe UI",Roboto,sans-serif}
+a{color:var(--acc)}
+.wrap{max-width:1100px;margin:0 auto;padding:16px 16px 48px}
+header{display:flex;flex-wrap:wrap;align-items:center;gap:8px 10px;margin-bottom:12px}
+h1{font-size:22px;margin:0;flex:1;min-width:180px;display:flex;align-items:center;gap:10px}
+.logo{width:34px;height:34px;border-radius:8px;flex:none}
+.ver{font-size:12px;color:var(--mut);font-weight:400}
+.pill{padding:5px 14px;border-radius:99px;font-weight:600;background:#5c636a;color:var(--onpill);font-size:13px;white-space:nowrap}
+.pill.idle{background:var(--ok)}.pill.listening{background:var(--acc);color:var(--onacc);animation:blink 1s infinite}
+.pill.processing{background:var(--pv)}.pill.responding{background:var(--thr)}.pill.calibrating{background:var(--pv);animation:blink 1s infinite}
+.pill.off{background:var(--red)}
+@keyframes blink{50%{opacity:.6}}
+.actions{display:flex;flex-wrap:wrap;gap:6px}
+nav.tabs{display:flex;gap:2px;border-bottom:1px solid var(--bd);margin-bottom:16px;overflow-x:auto;scrollbar-width:none;-webkit-mask-image:linear-gradient(90deg,#000 85%,transparent);mask-image:linear-gradient(90deg,#000 85%,transparent)}
+@media(min-width:760px){nav.tabs{-webkit-mask-image:none;mask-image:none}}
+nav.tabs::-webkit-scrollbar{display:none}
+nav.tabs button{border:0;border-bottom:2px solid transparent;border-radius:0;background:none;padding:10px 14px;color:var(--mut);font-weight:600;white-space:nowrap}
+nav.tabs button:hover{color:var(--tx);border-color:var(--bd)}
+nav.tabs button.on{color:var(--acc);border-bottom-color:var(--acc)}
+section.tab{display:none}section.tab.on{display:block}
+.card,.stat{background:var(--card);border:1px solid var(--bd);border-radius:14px;padding:16px}
+.card{margin-bottom:16px}
+.card h2{font-size:12px;margin:0 0 10px;color:var(--mut);font-weight:600;text-transform:uppercase;letter-spacing:.06em;display:flex;align-items:center;gap:8px}
+.stats{display:grid;grid-template-columns:repeat(auto-fit,minmax(170px,1fr));gap:12px;margin-bottom:16px}
+.stat span{color:var(--mut);font-size:12px;text-transform:uppercase;letter-spacing:.06em}
+.stat b{display:block;font-size:28px;font-variant-numeric:tabular-nums;line-height:1.2;white-space:nowrap}
+.stat small{color:var(--mut)}
+.stat.wide{grid-column:span 2}.stat.wide b{font-size:16px;white-space:normal;font-weight:600;margin-top:4px;min-height:1.4em;overflow-wrap:anywhere}
+@media(max-width:600px){.stat.wide{grid-column:span 1}}
+button,select,input,textarea{font:inherit;font-size:14px;color:var(--tx);background:var(--card);border:1px solid var(--bd);border-radius:8px;padding:6px 12px}
+button{cursor:pointer;display:inline-flex;align-items:center;gap:6px}button:hover{border-color:var(--acc)}
+button.pri{background:var(--acc);color:var(--onacc);border-color:var(--acc)}
+button:disabled{opacity:.5;cursor:default}
+input:focus,select:focus,textarea:focus,button:focus-visible{outline:2px solid var(--acc);outline-offset:1px}
+.bar{position:relative;height:8px;border-radius:4px;background:var(--grid);margin-top:8px;overflow:hidden}
+.bar i{position:absolute;left:0;top:0;bottom:0;background:var(--acc);border-radius:4px;transition:width .2s}
+.bar em{position:absolute;top:-2px;bottom:-2px;width:2px;background:var(--mut)}
+.bar.score i{background:var(--ok)}.bar.score em{background:var(--thr)}
+.row{display:flex;gap:8px;flex-wrap:wrap;align-items:center}
+.row input[type=text]{flex:1;min-width:200px}
+.row select{min-width:0;max-width:100%}
+.ans{margin-top:10px;padding:10px 12px;border-radius:10px;background:var(--grid);display:none;overflow-wrap:anywhere}
+.src{display:flex;align-items:center;gap:10px;padding:8px 0;border-bottom:1px solid var(--bd)}
+.src:last-child{border-bottom:0}
+.src b{min-width:170px;font-weight:600}.src span{flex:1;color:var(--mut);font-size:13px;overflow-wrap:anywhere}
+@media(max-width:600px){.src{flex-wrap:wrap}.src b{min-width:0}}
+.dot{display:inline-block;width:10px;height:10px;border-radius:50%;background:#868e96;flex:none}
+.dot.ok{background:var(--ok)}.dot.err{background:var(--red)}.dot.wait{background:var(--warn);animation:blink 1s infinite}
+.dot.yel{background:var(--warn)}
+.note{font-size:12px;color:var(--mut);margin-top:6px}
+.badge{font-size:11px;font-weight:700;padding:1px 7px;border-radius:99px;background:var(--pv);color:#fff;letter-spacing:0;text-transform:none}
+.badge.re{background:var(--warn);color:#000}
+details summary{cursor:pointer;font-weight:600}
+pre{white-space:pre-wrap;font-size:12px;margin:0;max-height:65vh;overflow:auto;background:var(--grid);padding:10px;border-radius:10px}
+.cal{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:8px}
+.cal div{background:var(--grid);border-radius:10px;padding:8px 10px}.cal div span{display:block;font-size:11px;color:var(--mut);text-transform:uppercase}
+table.help{border-collapse:collapse;width:100%;font-size:14px}.help th{text-align:left;color:var(--mut);font-weight:600;padding:7px 12px 7px 0;white-space:nowrap;vertical-align:top}.help td{padding:7px 0;border-top:1px solid var(--bd)}.help th{border-top:1px solid var(--bd)}
+@media(max-width:600px){.help th{white-space:normal}}
+.led{display:inline-block;width:14px;height:14px;border-radius:50%;vertical-align:middle;margin-right:6px}
+/* Einstellungen */
+.set{display:grid;grid-template-columns:220px 1fr;gap:16px;align-items:start}
+.setnav{position:sticky;top:8px;display:flex;flex-direction:column;gap:2px}
+.setnav button{justify-content:space-between;border:0;background:none;text-align:left;padding:8px 10px;border-radius:8px;color:var(--tx)}
+.setnav button.on{background:var(--sel);color:var(--acc);font-weight:600}
+.setnav button small{color:var(--mut);font-size:11px}
+.setsearch{display:flex;gap:8px;align-items:center;margin-bottom:12px}.setsearch input{flex:1;max-width:340px}
+.setsel{display:none;width:100%;margin-bottom:10px}
+@media(max-width:760px){.set{grid-template-columns:1fr}.setnav{display:none}.setsel{display:block}}
+.f{display:grid;grid-template-columns:1fr minmax(220px,300px);gap:2px 16px;align-items:center;padding:10px 0;border-bottom:1px solid var(--bd)}
+.f:last-child{border-bottom:0}
+.f label{font-weight:500;display:flex;gap:6px;align-items:center;flex-wrap:wrap}
+.f small{grid-column:1;color:var(--mut);font-size:12px}
+.f .ctl{display:flex;gap:6px;align-items:center;justify-content:flex-end;grid-row:span 2}
+.f .ctl>*{width:100%}.f .ctl input[type=range]{padding:0;flex:1;min-width:0}.f .ctl input.rnum{width:76px;flex:none;text-align:right;font-variant-numeric:tabular-nums;padding:6px 8px}
+.f .ctl button.clr{width:auto;flex:none;font-size:12px;padding:4px 8px}
+.f .ctl input[type=checkbox]{width:22px;height:22px;flex:none}
+.f textarea{min-height:76px;resize:vertical}
+.f.dirty label::after{content:"geändert";font-size:11px;font-weight:600;color:var(--warn)}
+@media(max-width:600px){.f{grid-template-columns:1fr}.f .ctl{justify-content:flex-start;grid-row:auto}}
+.savebar{position:sticky;bottom:0;display:flex;gap:8px;align-items:center;justify-content:flex-end;padding:10px 16px;margin:0 -16px -16px;background:var(--card);border-top:1px solid var(--bd);border-radius:0 0 14px 14px}
+.savebar span{flex:1;font-size:13px;color:var(--mut)}
+@media(max-width:600px){.savebar{flex-wrap:wrap}.savebar span{flex-basis:100%;font-size:12px}}
+.banner{display:none;padding:10px 14px;border-radius:10px;margin-bottom:12px;background:var(--sel);align-items:center;gap:10px}
+.banner.show{display:flex}.banner span{flex:1}
+.grp-desc{color:var(--mut);font-size:13px;margin:-4px 0 6px}
+.empty{color:var(--mut);padding:20px 0;text-align:center}
+</style>
+</head>
+<body>
+<div class="wrap">
+<header>
+  <h1><img class="logo" src="data:image/png;base64,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" alt="">GJarvis <span class="ver" id="ver"></span></h1>
+  <span class="pill" id="pill">…</span>
+  <span class="pill" id="edition" style="background:var(--mut)">Free</span>
+  <div class="actions">
+    <button id="bCal" title="Jarvis spricht Testsätze und hört sich selbst zu">🎛 Kalibrieren</button>
+    <button id="bSay" title="Jarvis sagt einen Testsatz">🔊 Test-Ansage</button>
+    <button id="bBrief" title="Uhrzeit, Wetter, Kalender, Erinnerungen, Nachrichten">☀ Briefing</button>
+    <button id="bStop" title="Sprachausgabe sofort beenden">■ Stopp</button>
+  </div>
+</header>
+
+<nav class="tabs" role="tablist">
+  <button data-tab="uebersicht" class="on">Übersicht</button>
+  <button data-tab="einstellungen">Einstellungen</button>
+  <button data-tab="ki">KI &amp; Sprache</button>
+  <button data-tab="pro">Pro</button>
+  <button data-tab="hilfe">Hilfe</button>
+  <button data-tab="protokoll">Protokoll</button>
+</nav>
+
+<!-- ============================ Übersicht ============================ -->
+<section class="tab on" id="t_uebersicht">
+  <div class="stats">
+    <div class="stat"><span>Mikrofon</span><b id="sLevel">–</b><small>dBFS</small><div class="bar"><i id="lvBar"></i><em id="nfMark"></em></div></div>
+    <div class="stat"><span>Grundrauschen</span><b id="sNoise">–</b><small>dBFS</small></div>
+    <div class="stat"><span>Weckwort</span><b id="sWake">–</b><small id="sThr"></small><div class="bar score"><i id="wkBar"></i><em id="thMark"></em></div></div>
+    <div class="stat"><span>Hintergrund</span><b id="sBg">0</b><small>offene Aufgaben</small></div>
+    <div class="stat wide"><span>Letzter Befehl</span><b id="sCmd">–</b></div>
+    <div class="stat wide"><span>Letzte Antwort</span><b id="sAns">–</b></div>
+  </div>
+
+  <div class="card">
+    <h2>Audio</h2>
+    <div class="src"><i class="dot" id="aInDot"></i><b>Hört über</b><span id="aIn">–</span><button data-goto="satellit">Ändern</button></div>
+    <div class="src"><i class="dot ok" id="aOutDot"></i><b>Spricht über</b><span id="aOut">–</span><button data-goto="stimme">Ändern</button></div>
+    <div class="src" id="aLedRow" style="display:none"><i class="led" id="aLed"></i><b>LED am Satelliten</b><span id="aLedTxt">–</span></div>
+  </div>
+
+  <div class="card">
+    <h2>Frage eintippen</h2>
+    <div class="row">
+      <input type="text" id="q" placeholder="z. B. Wie wird das Wetter morgen?" aria-label="Frage">
+      <label class="note" style="margin:0;display:flex;gap:6px;align-items:center"><input type="checkbox" id="qSpeak"> vorlesen</label>
+      <button class="pri" id="bAsk">Fragen</button>
+    </div>
+    <div class="ans" id="ans"></div>
+  </div>
+
+  <div class="card" id="remCard" style="display:none">
+    <h2>Erinnerungen &amp; Timer</h2>
+    <div id="rems"></div>
+  </div>
+
+  <div class="card" id="calCard" style="display:none">
+    <h2>Letzte Kalibrierung</h2>
+    <div class="cal" id="cal"></div>
+    <div class="note" id="calTips"></div>
+  </div>
+
+  <div class="card">
+    <h2>Verbindungen</h2>
+    <div id="srcs"></div>
+  </div>
+</section>
+
+<!-- ============================ Einstellungen ============================ -->
+<section class="tab" id="t_einstellungen">
+  <div class="banner" id="rsBanner"><span>Einige Änderungen wirken erst nach einem Neustart von GJarvis.</span><button class="pri" id="bRestart">Jetzt neu starten</button></div>
+  <div class="setsearch"><input type="search" id="fSearch" placeholder="Einstellung suchen …" aria-label="Einstellung suchen"></div>
+  <div class="set">
+    <div class="setnav" id="setNav"></div>
+    <div class="card" style="margin:0">
+      <select class="setsel" id="setSel" aria-label="Bereich"></select>
+      <h2 id="grpTitle"></h2>
+      <div class="grp-desc" id="grpDesc"></div>
+      <div id="form"></div>
+      <div class="savebar"><span id="fMsg">Gleiche Einstellungen wie im Reiter „Konfiguration“ der App.</span>
+        <button id="bReset">Verwerfen</button><button class="pri" id="bSave" disabled>Speichern</button></div>
+    </div>
+  </div>
+</section>
+
+<!-- ============================ KI & Spracherkennung ============================ -->
+<section class="tab" id="t_ki">
+  <div class="card" id="llmCard">
+    <h2>KI-Modell</h2>
+    <div class="note" style="margin:0 0 8px">Jarvis nutzt deine eigene KI. Am einfachsten ist die KI, die du in Home Assistant eingerichtet hast. Ein eigener Ollama-Server ist am schnellsten.</div>
+    <div class="row">
+      <select id="llmType" style="flex:1" aria-label="KI-Verbindung">
+        <option value="ha_agent">KI aus Home Assistant (OpenAI, Google, Anthropic, Ollama …)</option>
+        <option value="ollama">Eigener Ollama-Server</option>
+        <option value="openai">OpenAI-kompatibel (LM Studio, LocalAI, vLLM, OpenRouter, Groq …)</option>
+      </select>
+    </div>
+    <div class="row" id="llmUrlRow" style="margin-top:8px">
+      <input type="text" id="llmUrl" placeholder="http://192.168.1.20:11434" style="flex:2" aria-label="Server-Adresse">
+      <input type="password" id="llmKey" placeholder="API-Schlüssel (falls nötig)" style="flex:1" aria-label="API-Schlüssel" autocomplete="off">
+      <button id="bFind" title="Im Netz und in Home Assistant nach KI-Servern suchen">Suchen</button>
+    </div>
+    <div class="row" style="margin-top:8px">
+      <select id="llmSel" style="flex:1" aria-label="Modell"></select>
+      <button id="bLlmLoad" title="Modelle neu laden">↻</button>
+      <button id="bLlmTest">Testen</button>
+      <button class="pri" id="bLlm">Übernehmen</button>
+      <button id="bBench" title="Alle Modelle mit denselben Fragen testen">Vergleichen</button>
+    </div>
+    <div class="note" id="llmMsg"></div>
+    <div id="bench"></div>
+  </div>
+
+  <div class="card">
+    <h2>Spracherkennung (Whisper)</h2>
+    <div id="micWarn" class="note" style="display:none;color:var(--thr);margin:0 0 8px"></div>
+    <div id="wsp" class="note" style="margin:0">Whisper wird geprüft …</div>
+    <div class="row" style="margin-top:8px"><button id="bWsp">Whisper für GJarvis einrichten</button><span class="note" id="wspMsg" style="margin:0"></span></div>
+  </div>
+</section>
+
+<!-- ============================ Pro ============================ -->
+<section class="tab" id="t_pro">
+  <div class="card" id="proCard">
+    <h2>GJarvis Pro</h2>
+    <div id="proInfo" class="note" style="margin:0 0 10px;font-size:14px;color:var(--tx)"></div>
+    <div class="row" id="proForm">
+      <input type="text" id="proKey" placeholder="GJ1-XXXXX-XXXXX-…" spellcheck="false" autocomplete="off" style="font-family:ui-monospace,monospace" aria-label="Pro-Schlüssel">
+      <button class="pri" id="bPro">Freischalten</button>
+    </div>
+    <div class="note" id="proMsg"></div>
+  </div>
+</section>
+
+<!-- ============================ Hilfe ============================ -->
+<section class="tab" id="t_hilfe">
+  <div class="card">
+    <h2>Was du sagen kannst</h2>
+    <table class="help">
+      <tr><th>Free</th><td>„Hey Jarvis“ → „Ja, Moses?“ → alles, was dein Home-Assistant-Agent kann: Licht, Geräte, Listen, Satz-Automationen, Fragen an deinen KI-Agenten</td></tr>
+      <tr><th>Pro: Timer</th><td>„Stell einen Timer auf 5 Minuten“ · „Wie lange läuft der Timer noch?“ · „Lösche den Timer“</td></tr>
+      <tr><th>Pro: Erinnern</th><td>„Erinnere mich in 20 Minuten an die Wäsche“ · „Erinnere mich morgen um halb acht, dass ich zum Arzt muss“ · „Weck mich um 7“</td></tr>
+      <tr><th>Pro: Gedächtnis</th><td>„Merk dir, dass mein Auto in Garage 3 steht“ · „Was weißt du über mich?“ · „Vergiss das mit dem Auto“</td></tr>
+      <tr><th>Pro: Briefing</th><td>„Guten Morgen“ · „Briefing“ – Uhrzeit, Wetter, Kalender, Erinnerungen, Nachrichten</td></tr>
+      <tr><th>Pro: Wissen</th><td>„Wie wird das Wetter morgen?“ · „Wie ist das Flugwetter?“ · „Was läuft heute im Kino?“ · „Schau in Wikipedia …“ · „Erzähl mir einen Witz“</td></tr>
+      <tr><th>Pro: Gespräch</th><td>Nach der Antwort ohne Weckwort nachfragen · „Hey Jarvis“ unterbricht ihn · „Danke“ / „Stopp“ beendet</td></tr>
+    </table>
+  </div>
+  <div class="card">
+    <h2>LED am Satelliten</h2>
+    <table class="help">
+      <tr><th><i class="led" style="background:#2b8a3e;opacity:.5"></i>grün, gedimmt</th><td>Alles in Ordnung, wartet auf „Hey Jarvis“</td></tr>
+      <tr><th><i class="led" style="background:#40c057"></i>grün, hell</th><td>Hört zu</td></tr>
+      <tr><th><i class="led" style="background:#f59f00;animation:blink 1s infinite"></i>gelb, pulsierend</th><td>Denkt nach</td></tr>
+      <tr><th><i class="led" style="background:#f59f00"></i>gelb</th><td>Spricht</td></tr>
+      <tr><th><i class="led" style="background:#e03131;animation:blink .6s infinite"></i>rot blinkend</th><td>Fehler – Anzahl der Blinker = Code: 1 Whisper · 2 Home Assistant/KI · 3 Lautsprecher · 4 Sprachausgabe · 9 sonstiger Fehler</td></tr>
+      <tr><th><i class="led" style="background:var(--grid);border:1px solid var(--bd)"></i>aus</th><td>Keine Verbindung zu GJarvis</td></tr>
+    </table>
+  </div>
+  <div class="note">Ausführlich im Reiter „Dokumentation“ der App.</div>
+</section>
+
+<!-- ============================ Protokoll ============================ -->
+<section class="tab" id="t_protokoll">
+  <div class="card">
+    <h2>Protokoll</h2>
+    <div class="row" style="margin-bottom:8px"><input type="text" id="logFilter" placeholder="Filtern, z. B. Fehler oder Satellit" aria-label="Protokoll filtern"><button id="bLogCopy">Kopieren</button></div>
+    <pre id="log"></pre>
+  </div>
+</section>
+</div>
+
+<script>
+const $=id=>document.getElementById(id);
+let META=null, VALS={}, DIRTY={}, CUR='allgemein', llmInit=false, isPro=false;
+const esc=s=>String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+const api=(p,o)=>fetch('api/'+p,o).then(r=>r.json());
+const post=(p,b)=>api(p,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(b||{})});
+const STATES={idle:'Bereit',listening:'Hört zu',processing:'Denkt nach',responding:'Spricht',calibrating:'Kalibriert',start:'Startet'};
+const pct=db=>Math.max(0,Math.min(100,(db+90)/80*100));
+const num=(v,d=1)=>Number(v).toFixed(d).replace('.',',');
+const fmt=v=>(v>0?'+':'')+num(v);
+
+// ---------------------------------------------------------------- Reiter
+function showTab(name){
+  if(!$('t_'+name)) name='uebersicht';
+  document.querySelectorAll('nav.tabs button').forEach(b=>b.classList.toggle('on',b.dataset.tab===name));
+  document.querySelectorAll('section.tab').forEach(s=>s.classList.toggle('on',s.id==='t_'+name));
+  if(location.hash!=='#'+name) history.replaceState(null,'','#'+name);
+  if(name==='protokoll') logs();
+  if(name==='ki'){const go=()=>{llmInit=false; llm();}; META?loadForm(true).then(go,go):go();}
+}
+document.querySelectorAll('nav.tabs button').forEach(b=>b.onclick=()=>showTab(b.dataset.tab));
+document.querySelectorAll('[data-goto]').forEach(b=>b.onclick=()=>{showTab('einstellungen');$('fSearch').value='';selectGroup(b.dataset.goto)});
+window.addEventListener('hashchange',()=>showTab(location.hash.slice(1)));
+
+// ---------------------------------------------------------------- Status
+const ERRS={1:'Whisper antwortet nicht',2:'Home Assistant / KI antwortet nicht',3:'Lautsprecher-Ausgabe fehlgeschlagen',4:'Sprachausgabe fehlgeschlagen',9:'Unerwarteter Fehler – siehe Protokoll'};
+const LED={idle:['#2b8a3e','grün gedimmt – bereit',.5],listening:['#40c057','grün – hört zu',1],processing:['#f59f00','gelb pulsierend – denkt nach',1],responding:['#f59f00','gelb – spricht',1]};
+function showAudio(s){
+  const sat=s.audio_source==='satellite';
+  $('aIn').textContent=sat?`Satellit ${s.satellite_host||'(keine Adresse)'} – ${s.satellite_connected?'verbunden':'nicht verbunden'}`:'Mikrofon am Server';
+  $('aInDot').className='dot '+(sat?(s.satellite_connected?'ok':'err'):'ok');
+  $('aOut').textContent=s.output&&s.output!=='local'?`${s.output} · Stimme ${s.output_tts&&s.output_tts!=='piper'?s.output_tts:'Piper ('+(s.voice||'')+')'}`:`Lautsprecher am Server · Stimme Piper (${s.voice||''})`;
+  $('aLedRow').style.display=sat?'':'none';
+  if(sat){
+    const led=$('aLed'),t=$('aLedTxt');
+    if(!s.satellite_connected){led.style.background='var(--grid)';led.style.opacity=1;led.style.animation='';t.textContent='aus – keine Verbindung';}
+    else if(s.satellite_error){led.style.background='#e03131';led.style.opacity=1;led.style.animation='blink .6s infinite';t.textContent=`rot, ${s.satellite_error}× blinkend – ${ERRS[s.satellite_error]||'Fehler'}`;}
+    else{const l=LED[s.state]||LED.idle;led.style.background=l[0];led.style.opacity=l[2];led.style.animation=s.state==='processing'?'blink 1s infinite':'';t.textContent=l[1];}
+  }
+}
+async function tick(){
+  try{
+    const s=await api('status');
+    const p=$('pill'); p.textContent=STATES[s.state]||s.state; p.className='pill '+s.state;
+    $('sLevel').textContent=fmt(s.level_db); $('sNoise').textContent=fmt(s.noise_db);
+    $('lvBar').style.width=pct(s.level_db)+'%'; $('nfMark').style.left=pct(s.noise_db)+'%';
+    $('sWake').textContent=num(s.wake_score,2); $('sThr').textContent='Schwelle '+num(s.wake_threshold,2)+(s.wake_gain>1.05?' · Verstärkung x'+num(s.wake_gain):'');
+    $('wkBar').style.width=Math.min(100,s.wake_score*100)+'%'; $('thMark').style.left=(s.wake_threshold*100)+'%';
+    $('sBg').textContent=s.background;
+    $('sCmd').textContent=s.last_command||'–'; $('sAns').textContent=s.last_answer||'–';
+    showPro(s.pro||{}); showAudio(s);
+    const mw=$('micWarn');
+    if(s.last_peak_db!=null && s.last_peak_db<-26){mw.style.display='';mw.textContent=`Dein Mikrofon ist sehr leise (letzte Aufnahme ${num(s.last_peak_db)} dBFS). GJarvis verstärkt das, aber Whisper versteht dann schlechter. Stell den Aufnahmepegel höher (Ziel: etwa −15 dBFS).`}
+    else mw.style.display='none';
+    const rs=s.reminders||[]; $('remCard').style.display=rs.length?'':'none';
+    const key=JSON.stringify(rs);
+    if($('rems').dataset.k!==key){$('rems').dataset.k=key;
+      $('rems').innerHTML=rs.map(r=>`<div class="src"><i class="dot ok"></i><b>${esc(r.zeit)}</b><span>${r.art==='timer'?'Timer':r.art==='wecker'?'Wecker':'Erinnerung'}${r.text&&r.text!==r.art?' – '+esc(r.text):''}</span><button data-r="${esc(r.id)}">Löschen</button></div>`).join('');}
+    const c=s.calibration||{};
+    if(c.zusammenfassung){
+      $('calCard').style.display='';
+      $('cal').innerHTML=[['Rauschabstand',c.rauschabstand_db+' dB'],['Stimme',c.stimme_dbfs+' dBFS'],['Raum',c.rauschen_dbfs+' dBFS'],
+        ['Whisper',c.whisper_genauigkeit_prozent+' %'],['Weckwort',c.weckwort_wert],['Zeit',c.zeit]].map(([k,v])=>`<div><span>${k}</span>${esc(v)}</div>`).join('');
+      $('calTips').textContent=(c.empfehlungen||[]).length?'Empfehlung: '+c.empfehlungen.join(' · '):'Keine Empfehlungen – alles im grünen Bereich.';
+    }
+  }catch(e){const p=$('pill');p.textContent='Keine Verbindung';p.className='pill off'}
+}
+setInterval(tick,700); tick();
+
+// ---------------------------------------------------------------- Aktionen
+async function ask(){
+  const t=$('q').value.trim(); if(!t) return;
+  const a=$('ans'); a.style.display='block'; a.textContent='…'; $('bAsk').disabled=true;
+  try{const r=await post('ask',{text:t,speak:$('qSpeak').checked}); a.textContent=(r.answer||r.error||'–')+'  ('+num((r.ms||0)/1000)+' s)';}
+  catch(e){a.textContent='Fehler: '+e}
+  $('bAsk').disabled=false;
+}
+$('bAsk').onclick=ask; $('q').onkeydown=e=>{if(e.key==='Enter')ask()};
+$('bSay').onclick=()=>post('say',{});
+$('bStop').onclick=()=>post('stop');
+$('bBrief').onclick=()=>post('briefing').then(r=>{if(r.error==='pro')alert('Das Briefing gibt es in GJarvis Pro.')});
+$('bCal').onclick=()=>{if(confirm('Kalibrierung starten? Bitte danach ca. 20 Sekunden ruhig sein.'))post('calibrate')};
+$('rems').onclick=e=>{const id=e.target.dataset.r; if(id) post('reminder/'+encodeURIComponent(id)+'/delete').then(tick)};
+
+const SRCS=[['whisper','Whisper (Spracherkennung)'],['piper','Piper (Stimme)'],['ha','Home Assistant'],['agent','KI-Agent (HA)'],['llm','KI-Modell direkt'],['mqtt','MQTT']];
+$('srcs').innerHTML=SRCS.map(([k,n])=>`<div class="src"><i class="dot" id="d_${k}"></i><b>${n}</b><span id="m_${k}">nicht getestet</span><button data-t="${k}">Testen</button></div>`).join('');
+async function test(k){
+  $('d_'+k).className='dot wait'; $('m_'+k).textContent='teste …';
+  try{const r=await post('test/'+k); $('d_'+k).className='dot '+(r.ok?'ok':'err'); $('m_'+k).textContent=r.msg+' · '+r.ms+' ms';}
+  catch(e){$('d_'+k).className='dot err'; $('m_'+k).textContent=String(e)}
+}
+document.querySelectorAll('[data-t]').forEach(b=>b.onclick=()=>test(b.dataset.t));
+['whisper','piper','ha','mqtt'].forEach(test);
+
+// ---------------------------------------------------------------- KI & Whisper
+async function wsp(){
+  const el=$('wsp');
+  try{
+    const r=await api('whisper');
+    if(!r.ok){el.textContent='Whisper: '+(r.error||'nicht erreichbar'); return}
+    el.innerHTML=`Whisper ${esc(r.version||'')} · Modell <b>${esc(r.model||'?')}</b> · Sprache ${esc(r.language||'?')} · Beispielsätze ${r.prompt?'✓':'fehlen'}`+
+      ((r.tipps||[]).length?'<br>Empfehlung: '+r.tipps.map(esc).join(' · '):'<br>Passt – nichts zu tun.');
+  }catch(e){el.textContent='Whisper: nicht erreichbar'}
+}
+wsp();
+$('bWsp').onclick=async()=>{ if(!confirm('Whisper-Einstellungen für GJarvis anpassen und Whisper neu starten?')) return;
+  $('wspMsg').textContent='…'; const r=await post('whisper/setup'); $('wspMsg').textContent=r.ok?r.msg:('Fehler: '+r.error); setTimeout(wsp,3000)};
+function llmUrlVis(){ $('llmUrlRow').style.display=$('llmType').value==='ha_agent'?'none':''; }
+async function llm(useForm){
+  const fresh=!llmInit;
+  if(fresh&&META){ $('llmType').value=VALS.research_llm_type||'ha_agent'; $('llmUrl').value=VALS.research_llm_url||''; llmInit=true; llmUrlVis(); }
+  const q=useForm?`?type=${encodeURIComponent($('llmType').value)}&url=${encodeURIComponent($('llmUrl').value)}&key=${encodeURIComponent($('llmKey').value)}`:'';
+  let r; try{r=await api('llm/models'+q)}catch(e){$('llmMsg').textContent='Nicht erreichbar';return}
+  const sel=$('llmSel');
+  if(fresh){ $('llmType').value=r.type||'ha_agent'; $('llmUrl').value=r.url||''; llmInit=true; llmUrlVis(); }
+  if(!r.ok){$('llmMsg').textContent='Nicht erreichbar: '+(r.error||''); sel.innerHTML=''; $('bLlm').disabled=true; return}
+  const auto=$('llmType').value!=='ha_agent'?'<option value="">automatisch (kleinstes Modell)</option>':'';
+  $('bLlm').disabled=false;
+  sel.innerHTML=auto+r.models.map(m=>`<option value="${esc(m.name)}" ${m.name===r.current?'selected':''}>${esc(m.name)}${m.params?' · '+esc(m.params):''}${m.size_gb?' · '+num(m.size_gb)+' GB':''}</option>`).join('');
+  $('llmMsg').textContent=r.models.length?(r.models.length+' gefunden. Kleinere Modelle antworten schneller, größere schlauer.'):'Keine Modelle gefunden.';
+}
+llm();
+$('llmType').onchange=()=>{llmUrlVis(); llm(true)};
+$('bLlmLoad').onclick=()=>llm(true);
+$('bFind').onclick=async()=>{$('llmMsg').textContent='Suche …'; const r=await api('llm/discover');
+  if(!r.found.length){$('llmMsg').textContent='Nichts gefunden – Adresse bitte selbst eintragen.';return}
+  const f=r.found[0]; $('llmType').value=f.type; $('llmUrl').value=f.url; llmUrlVis(); await llm(true);
+  $('llmMsg').textContent='Gefunden: '+r.found.map(x=>`${x.label} (${x.url}, ${x.models} Modelle)`).join(' · ');};
+$('bLlm').onclick=async()=>{const t=$('llmType').value, m=$('llmSel').value;
+  if(t==='ha_agent'&&!m){$('llmMsg').textContent='Bitte zuerst einen KI-Agenten auswählen.';return}
+  const v={research_llm_type:t}; if(t==='ha_agent'){v.llm_agent_id=m}else{v.research_llm_url=$('llmUrl').value; v.research_llm_model=m; if($('llmKey').value)v.research_llm_api_key=$('llmKey').value}
+  const r=await post('settings',{values:v});
+  $('llmMsg').textContent=r.ok?'Übernommen und in der App-Konfiguration gespeichert.':(r.error||'Fehler beim Speichern');
+  if(r.ok){Object.keys(v).forEach(k=>delete DIRTY[k]); $('llmKey').value='';} loadForm(true);};
+$('bLlmTest').onclick=async()=>{$('llmMsg').textContent='Teste die gespeicherte Einstellung …'; const r=await post('llm/test');
+  $('llmMsg').textContent=(r.ok?'✓ ':'✗ ')+r.msg+' · '+num((r.ms||0)/1000)+' s';};
+let benchTimer=null;
+function showBench(b){
+  const rows=(b.results||[]).map(r=>`<tr><td><b>${esc(r.model)}</b></td><td>${r.error?'Fehler: '+esc(r.error):(num(r.avg_s)+' s')}</td><td>${r.load_s!=null?num(r.load_s)+' s':''}</td><td>${(r.answers||[]).map(a=>`<div class="note" style="margin:2px 0"><i>${esc(a.frage)}</i> → ${esc(a.aktion)}: ${esc(a.text)}</div>`).join('')}</td></tr>`).join('');
+  $('bench').innerHTML=(rows?`<table class="help" style="margin-top:10px"><tr><th>Modell</th><th>Antwort Ø</th><th>Laden</th><th>Antworten</th></tr>${rows}</table>`:'')+(b.running?`<div class="note">Teste ${esc(b.current||'…')} – das dauert pro Modell etwa eine Minute.</div>`:'');
+}
+async function benchPoll(){try{const b=await api('llm/benchmark'); showBench(b); if(b.running) benchTimer=setTimeout(benchPoll,3000);}catch(e){}}
+$('bBench').onclick=async()=>{const models=[...$('llmSel').options].map(o=>o.value).filter(Boolean); if(!confirm('Alle '+models.length+' Modelle testen? Jarvis antwortet währenddessen langsamer.'))return;
+  const r=await post('llm/benchmark',{models}); if(!r.ok){$('llmMsg').textContent=r.error;return} benchPoll()};
+benchPoll();
+
+// ---------------------------------------------------------------- Pro
+const PROERR={invalid:'Der Schlüssel ist ungültig.',signature:'Der Schlüssel ist ungültig.',format:'Der Schlüssel ist unvollständig.',product:'Das ist ein Schlüssel für ein anderes Produkt (z. B. GasLighter).',expired:'Der Schlüssel ist abgelaufen.',empty:'Bitte Schlüssel eintragen.'};
+let proKey='';
+const dmy=d=>esc(String(d||'').split('-').reverse().join('.'));
+function showPro(p){
+  const k=JSON.stringify(p); if(k===proKey) return; proKey=k; isPro=!!p.ok;
+  const e=$('edition'); e.textContent=p.ok?'Pro':'Free'; e.style.background=p.ok?'var(--pv)':'var(--mut)';
+  const buy=/^https:\/\//.test(p.buy||'')?` <a href="${esc(p.buy)}" target="_blank" rel="noopener">Pro kaufen</a>`:'';
+  if(p.ok){$('proInfo').innerHTML=`Pro ist aktiv – gültig bis ${dmy(p.until)} (noch ${esc(p.days_left)} Tage)${p.key_hint?' · '+esc(p.key_hint):''}. <a href="#" id="proDel">Schlüssel entfernen</a>`;$('proForm').style.display='none';
+    $('proDel').onclick=ev=>{ev.preventDefault(); if(confirm('Pro-Schlüssel entfernen?')) post('pro',{remove:true}).then(()=>{proKey='';tick()})};}
+  else{$('proInfo').innerHTML=(p.state==='expired'?`Deine Pro-Lizenz ist am ${dmy(p.until)} abgelaufen. `:'Du nutzt GJarvis Free: „Hey Jarvis“ und alles, was dein Home-Assistant-Agent kann. ')+'Pro schaltet Timer, Erinnerungen, Gedächtnis, Briefing, Ansagen, Wetter, Internet-Suche, Nachfragen ohne Weckwort und Unterbrechen frei. Jahreslizenz, kein Abo.'+buy;$('proForm').style.display='';}
+  if(META) renderNav();
+}
+$('bPro').onclick=async()=>{const r=await post('pro',{key:$('proKey').value}); $('proMsg').textContent=r.ok?'Pro ist freigeschaltet.':(PROERR[r.error]||'Der Schlüssel wurde nicht angenommen.'); if(r.ok){$('proKey').value='';proKey='';tick()}};
+
+// ---------------------------------------------------------------- Einstellungen
+const MASK='••••••';
+const LONG=new Set(['persona','system_prompt','mqtt_pause_payload','async_ack','research_ack']);
+function ctl(k,f,v){
+  const id=`f_${k}`;
+  if(f.type==='bool') return `<input type="checkbox" id="${id}" ${v?'checked':''}>`;
+  if(f.type==='select') return `<select id="${id}">${f.options.map(o=>`<option value="${esc(o)}" ${o==v?'selected':''}>${esc(o)}</option>`).join('')}</select>`;
+  if(f.type==='list') return `<textarea id="${id}" title="eine Zeile pro Eintrag">${esc((v||[]).join('\n'))}</textarea>`;
+  const mm=(f.min!=null?` min="${f.min}"`:'')+(f.max!=null?` max="${f.max}"`:'');
+  if((f.type==='float'||f.type==='int')&&f.min!=null&&f.max!=null&&f.max-f.min<=100){
+    const st=f.type==='int'?1:(f.max-f.min<=1?0.01:0.1);
+    return `<input type="range" id="${id}"${mm} step="${st}" value="${esc(v)}" aria-label="${esc(f.label)}"><input class="rnum" type="number" data-for="${id}"${mm} step="${st}" value="${esc(v)}" aria-label="${esc(f.label)} Wert">`;
+  }
+  if(f.type==='float'||f.type==='int') return `<input type="number" id="${id}"${mm} value="${esc(v??'')}" step="any">`;
+  if(f.type==='password'){
+    const ph=k in DIRTY?(DIRTY[k]===''?'wird beim Speichern gelöscht':'neuer Wert eingegeben'):(v===MASK?'gesetzt – leer lassen = behalten':'nicht gesetzt');
+    return `<input type="password" id="${id}" value="${k in DIRTY&&DIRTY[k]!==''?esc(DIRTY[k]):''}" placeholder="${ph}" autocomplete="new-password">`+(VALS[k]===MASK?`<button type="button" class="clr" data-clear="${k}" title="Gespeicherten Wert entfernen">Löschen</button>`:'');
+  }
+  if(LONG.has(k)) return `<textarea id="${id}">${esc(v??'')}</textarea>`;
+  return `<input type="text" id="${id}" value="${esc(v??'')}">`;
+}
+function readCtl(k,f){
+  const el=$('f_'+k); if(!el) return undefined;
+  if(f.type==='bool') return el.checked;
+  if(f.type==='list') return el.value.split('\n').map(x=>x.trim()).filter(Boolean);
+  if(f.type==='password') return el.value===''?(DIRTY[k]===''?'':VALS[k]):el.value;
+  const n=document.querySelector(`.rnum[data-for="f_${k}"]`); if(n) return n.value;  // Zahlenfeld neben Schieberegler ist genauer
+  return el.value;
+}
+const same=(a,b)=>JSON.stringify(a)===JSON.stringify(b)||String(a)===String(b);
+function fieldHtml(k){
+  const f=META.fields[k], v=k in DIRTY?DIRTY[k]:VALS[k];
+  const tags=(f.restart?'<span class="badge re" title="Wirkt nach einem Neustart">Neustart</span>':'');
+  return `<div class="f${k in DIRTY?' dirty':''}" data-k="${k}"><label for="f_${k}">${esc(f.label)} ${tags}</label><div class="ctl">${ctl(k,f,v)}</div>${f.help?`<small>${esc(f.help)}</small>`:''}</div>`;
+}
+function renderNav(){
+  // Knöpfe nur einmal anlegen und danach nur aktualisieren – sonst verschwindet der Knopf unter der Maus,
+  // wenn beim Verlassen eines Feldes (change) neu gezeichnet wird.
+  const q=$('fSearch').value.trim(), nav=$('setNav');
+  META.groups.forEach(g=>{
+    let b=nav.querySelector(`button[data-g="${g.id}"]`);
+    if(!b){b=document.createElement('button'); b.type='button'; b.dataset.g=g.id;
+      b.innerHTML=`<span>${esc(g.title)} <span class="badge" style="display:none">Pro</span></span><small></small>`;
+      b.onclick=()=>{$('fSearch').value='';selectGroup(g.id)}; nav.appendChild(b);}
+    b.classList.toggle('on',!q&&g.id===CUR);
+    b.querySelector('.badge').style.display=g.pro&&!isPro?'':'none';
+    const n=Object.keys(DIRTY).filter(k=>g.keys.includes(k)).length;
+    b.querySelector('small').textContent=n?n+' geändert':'';
+  });
+  const sel=$('setSel');
+  if(sel.options.length!==META.groups.length) sel.innerHTML=META.groups.map(g=>`<option value="${g.id}">${esc(g.title)}</option>`).join('');
+  sel.value=CUR;
+}
+function renderForm(){
+  const q=$('fSearch').value.trim().toLowerCase();
+  let keys,title,desc;
+  if(q){
+    keys=Object.keys(META.fields).filter(k=>{const f=META.fields[k];return (f.label+' '+f.help+' '+k).toLowerCase().includes(q)});
+    title=`Suche: „${q}“`; desc=keys.length+' Treffer';
+  }else{
+    const g=META.groups.find(x=>x.id===CUR)||META.groups[0]; CUR=g.id;
+    keys=g.keys; title=g.title; desc=g.desc+(g.pro&&!isPro?' – diese Funktionen wirken nur mit GJarvis Pro.':'');
+  }
+  $('grpTitle').textContent=title; $('grpDesc').textContent=desc;
+  $('form').innerHTML=keys.length?keys.map(fieldHtml).join(''):'<div class="empty">Nichts gefunden.</div>';
+  $('form').querySelectorAll('input,select,textarea').forEach(el=>{el.addEventListener('input',onEdit);el.addEventListener('change',onEdit)});
+  $('form').querySelectorAll('[data-clear]').forEach(b=>b.onclick=()=>{DIRTY[b.dataset.clear]=''; renderForm(); updateSaveBar();});
+  renderNav();
+}
+function selectGroup(id){CUR=id; renderForm(); window.scrollTo({top:0});}
+function onEdit(e){
+  const row=e.target.closest('.f'); if(!row) return; const k=row.dataset.k, f=META.fields[k];
+  if(e.target.classList.contains('rnum')){$(e.target.dataset.for).value=e.target.value;}
+  else if(e.target.type==='range'){e.target.nextElementSibling.value=e.target.value;}
+  const v=readCtl(k,f);
+  if(f.type==='password'?(v===VALS[k]):same(v,VALS[k])) delete DIRTY[k]; else DIRTY[k]=v;
+  row.classList.toggle('dirty',k in DIRTY); updateSaveBar(); renderNav();
+}
+function updateSaveBar(){
+  const n=Object.keys(DIRTY).length; $('bSave').disabled=!n;
+  $('fMsg').textContent=n?`${n} ungespeicherte Änderung${n>1?'en':''}`:'Gleiche Einstellungen wie im Reiter „Konfiguration“ der App.';
+}
+async function loadForm(keepDirty){
+  const r=await api('settings'); META=r; VALS=r.values;
+  if(!keepDirty) DIRTY={}; else for(const k of Object.keys(DIRTY)) if(same(DIRTY[k],VALS[k])) delete DIRTY[k];
+  $('rsBanner').classList.toggle('show',!!r.restart_pending);
+  $('ver').textContent='v'+r.version; renderForm(); updateSaveBar();
+}
+const groupOf=k=>(META.groups.find(g=>g.keys.includes(k))||{}).id;
+$('fSearch').oninput=renderForm;
+$('setSel').onchange=e=>{$('fSearch').value='';selectGroup(e.target.value)};
+$('bReset').onclick=()=>{DIRTY={}; renderForm(); updateSaveBar();};
+$('bSave').onclick=async()=>{
+  $('bSave').disabled=true; $('fMsg').textContent='Speichere …';
+  const sent={...DIRTY};
+  let r; try{r=await post('settings',{values:sent})}catch(e){r={ok:false,error:String(e)}}
+  if(r.ok){
+    for(const k of Object.keys(sent)) if(same(DIRTY[k],sent[k])) delete DIRTY[k];  // während des Speicherns Geändertes bleibt
+    await loadForm(true);
+    $('fMsg').textContent=!r.changed.length?'Keine Änderungen.':r.restart?`Gespeichert (${r.changed.length}) – einige Werte wirken erst nach einem Neustart.`:`Gespeichert (${r.changed.length}) – sofort aktiv und in der App-Konfiguration übernommen.`;
+  }else{
+    $('fMsg').textContent=r.error||'Fehler beim Speichern'; $('bSave').disabled=false;
+    if(r.key){$('fSearch').value='';selectGroup(groupOf(r.key)||CUR);const el=$('f_'+r.key); if(el){el.focus();el.closest('.f').scrollIntoView({block:'center'})}}
+  }
+};
+$('bRestart').onclick=async()=>{ if(!confirm('GJarvis jetzt neu starten? Das dauert etwa 20 Sekunden.'))return;
+  $('rsBanner').classList.remove('show'); try{await post('restart')}catch(e){} $('fMsg').textContent='GJarvis startet neu …';
+  const t0=Date.now(); await new Promise(r=>setTimeout(r,4000));
+  while(Date.now()-t0<120000){try{await api('status'); await loadForm(true); $('fMsg').textContent='GJarvis wurde neu gestartet.'; return}catch(e){await new Promise(r=>setTimeout(r,2000))}}
+  $('fMsg').textContent='GJarvis antwortet noch nicht – bitte Seite neu laden.';};
+window.addEventListener('beforeunload',e=>{if(Object.keys(DIRTY).length){e.preventDefault();e.returnValue='';}});
+loadForm();
+
+// ---------------------------------------------------------------- Protokoll
+async function logs(){
+  if(!$('t_protokoll').classList.contains('on')) return;
+  try{
+    const r=await api('log'); const el=$('log'); const f=$('logFilter').value.trim().toLowerCase();
+    const atEnd=el.scrollTop+el.clientHeight>=el.scrollHeight-20;
+    el.textContent=(f?r.lines.filter(l=>l.toLowerCase().includes(f)):r.lines).join('\n');
+    if(atEnd) el.scrollTop=el.scrollHeight;
+  }catch(e){}
+}
+setInterval(logs,2000); $('logFilter').oninput=logs;
+$('bLogCopy').onclick=()=>navigator.clipboard&&navigator.clipboard.writeText($('log').textContent).then(()=>{$('bLogCopy').textContent='Kopiert';setTimeout(()=>$('bLogCopy').textContent='Kopieren',1500)});
+
+showTab(location.hash.slice(1)||'uebersicht');
+</script>
+</body>
+</html>

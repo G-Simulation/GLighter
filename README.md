@@ -56,9 +56,15 @@ Voraussetzung: Home Assistant OS oder Supervised (mit App-Store) und ein USB-Mik
 
 Updates erscheinen automatisch in Home Assistant. Änderungen: [CHANGELOG](gaslighter/CHANGELOG.md).
 
-### GReport (Notizen-App)
+### Alle Apps in diesem Repository
 
-Ebenfalls im Repository: **GReport** – der Notiz-Teil von GLighter als eigene App (Notiz jetzt, Schnellwahl, Zeuge, Zeitraum). Jede Notiz kommt ins Logbuch von Home Assistant, dazu gibt es die Auswahlliste „Schnellwahl“ und den Knopf „Hinzufügen“. GReport läuft auch allein; ist GLighter installiert, erscheinen die Notizen mit GLighter Pro automatisch dort. Siehe [greport/README.md](greport/README.md).
+Wer dieses Repository hinzufügt, bekommt im App-Store alle drei G-Simulation-Apps:
+
+| App | Wofür |
+|---|---|
+| **GLighter** | Lärmprotokoll – misst rund um die Uhr und protokolliert Störungen manipulationssicher. |
+| **GReport** | Notizen zu Störungen – Notiz, Schnellwahl, Zeuge, Zeitraum. Mit eigener Dashboard-Karte „GReport“ und Bereich „GReport“. Läuft allein oder zusammen mit GLighter. [greport/README.md](greport/README.md) |
+| **GJarvis** | Deutscher Sprachassistent „Hey Jarvis“ für Home Assistant – Free, Pro mit Timern, Erinnerungen, Gedächtnis, Briefing, Wetter und Internet-Suche. Braucht Whisper, Piper und Mosquitto. [gjarvis/README.md](gjarvis/README.md) |
 
 ### Datenschutz und Recht
 
@@ -111,6 +117,10 @@ Requirements: Home Assistant OS or Supervised (with app store) and a USB microph
    or manually: **Settings → Apps → App store → ⋮ → Repositories** → `https://github.com/G-Simulation/GLighter`
 2. Open **GLighter** in the app store → **Install** → **Start**. Optionally enable "Start on boot" and "Watchdog".
 3. Open **GLighter** in the sidebar. The [quick start](docs/en/01-schnellstart.md) guides you through the first five minutes.
+
+### All apps in this repository
+
+Adding this repository gives you all three G-Simulation apps in the app store: **GLighter** (noise log), **GReport** (disturbance notes, with its own dashboard card "GReport") and **GJarvis** (German voice assistant "Hey Jarvis"; needs Whisper, Piper and Mosquitto).
 
 ### Privacy and legal
 

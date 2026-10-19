@@ -1,0 +1,263 @@
+name: GJarvis
+version: "1.8.1"
+slug: gjarvis
+description: Deutscher Sprachassistent "Jarvis" – Free mit "Hey Jarvis" für Home Assistant, Pro wie im Film mit Timern, Erinnerungen, Gedächtnis, Briefing, Wetter und Internet-Suche.
+url: https://www.gsimulations.de/gjarvis/
+arch:
+  - amd64
+  - aarch64
+# Fertige Images (GitHub Actions, .github/workflows/builder.yaml, ein Multi-Arch-Image für amd64 + aarch64). Erst einschalten, wenn der erste Build
+# erfolgreich war und das Paket auf ghcr.io öffentlich ist – sonst kann Home Assistant die App nicht installieren.
+# image: "ghcr.io/g-simulation/gjarvis"
+init: false
+startup: application
+boot: auto
+audio: true
+homeassistant_api: true
+hassio_api: true
+hassio_role: manager
+ingress: true
+ingress_port: 8099
+panel_icon: mdi:robot-happy
+panel_title: GJarvis
+watchdog: "tcp://[HOST]:[PORT:8099]"
+services:
+  - mqtt:want
+map:
+  - share:rw
+  - media:rw
+options:
+  wake_word_url: "https://github.com/dscripka/openWakeWord/releases/download/v0.5.1/hey_jarvis_v0.1.onnx"
+  feature_models_url: "https://github.com/dscripka/openWakeWord/releases/download/v0.5.1"
+  wake_threshold: 0.5
+  wake_refractory_seconds: 2
+  wake_auto_gain: false
+  wake_max_gain: 8
+  assistant_name: Jarvis
+  user_name: ""
+  ack_phrases:
+    - "Ja, {user}?"
+    - "Ich höre, {user}."
+    - "Zu Diensten, {user}."
+  ack_order: rotate
+  instant_ack_phrases:
+    - "Moment, ich schaue."
+    - "Sofort, {user}."
+    - "Einen Augenblick."
+  one_breath_seconds: 0.6
+  local_agent_id: conversation.home_assistant
+  agent_id: conversation.home_assistant
+  language: de
+  no_speech_timeout_seconds: 5
+  end_of_speech_silence_seconds: 1.2
+  speech_threshold: 0.4
+  preroll_ms: 2000
+  vad_mode: 1
+  speech_start_ms: 150
+  speech_energy_factor: 4.0
+  max_command_seconds: 15
+  follow_up: true
+  follow_up_seconds: 6
+  barge_in: true
+  barge_in_threshold: 0.7
+  memory_enabled: true
+  briefing_triggers:
+    - "guten morgen"
+    - "briefing"
+    - "lagebericht"
+    - "was steht heute an"
+    - "tagesüberblick"
+  briefing_news: true
+  briefing_flight: false
+  briefing_calendars: ""
+  quiet_hours: "22:00-07:00"
+  async_after_seconds: 4
+  async_ack: "Moment, ich melde mich gleich, {user}."
+  apps_enabled: true
+  mealie_config_entry_id: ""
+  progress_enabled: true
+  progress_interval_seconds: 8
+  progress_max: 4
+  progress_phrases:
+    - "Ich schaue noch, {user}."
+    - "Einen Moment noch."
+    - "Ich bin noch dran."
+    - "Gleich habe ich es."
+  async_result_prefix: "{user},"
+  weather_entity: ""
+  weather_triggers:
+    - "wetter"
+    - "regnet"
+    - "regen"
+    - "schnee"
+    - "temperatur"
+    - "wie warm"
+    - "wie kalt"
+    - "sonne"
+  flight_enabled: true
+  flight_triggers:
+    - "flugwetter"
+    - "fliegen"
+    - "fliegbar"
+    - "gleitschirm"
+    - "paraglid"
+    - "thermik"
+    - "windy"
+    - "startplatz"
+  flight_site_name: ""
+  flight_lat: 0
+  flight_lon: 0
+  paraglidable_api_key: ""
+  windy_api_key: ""
+  master_router: true
+  research_enabled: true
+  research_triggers:
+    - "im internet"
+    - "im netz"
+    - "google"
+    - "wikipedia"
+    - "recherchier"
+    - "such mal"
+    - "suche nach"
+    - "schau nach"
+    - "schau mal nach"
+  research_ack: "Moment, ich recherchiere und melde mich, {user}."
+  research_llm_type: ha_agent
+  research_llm_url: ""
+  research_llm_model: ""
+  research_llm_api_key: ""
+  llm_agent_id: ""
+  searxng_url: ""
+  home_city: ""
+  wikipedia_lang: de
+  persona: "Dein Stil: wie J.A.R.V.I.S. aus den Iron-Man-Filmen – höflich, souverän, trocken-humorvoll, loyal und knapp. Sprich {user} mit Namen an, nie mit Sir. Keine Floskeln wie 'Als KI…'. Antworte ausschließlich auf Deutsch."
+  system_prompt: "Du bist {name}, der persönliche Assistent von {user}. Antworte immer auf Deutsch, in höchstens drei kurzen Sätzen, ohne Aufzählungen, ohne Markdown und ohne Links, so dass es sich gut vorlesen lässt. Wenn die Suchergebnisse die Frage nicht beantworten, sag das ehrlich."
+  stt_host: core-whisper
+  stt_port: 10300
+  tts_host: core-piper
+  tts_port: 10200
+  tts_voice: de_DE-thorsten-medium
+  volume: 80
+  mic_gain: 1.0
+  stt_max_gain: 30
+  mic_watchdog_seconds: 3
+  audio_source: local
+  satellite_host: ""
+  satellite_port: 6053
+  satellite_key: ""
+  satellite_led: true
+  output_media_player: ""
+  output_tts_entity: ""
+  output_latency_seconds: 1.5
+  mqtt_pause_enabled: false
+  mqtt_pause_topic: laerm_logger/pause/set
+  mqtt_pause_payload: '{"minutes": 2, "reason": "Jarvis"}'
+  mqtt_resume_payload: "0"
+  mqtt_resume_delay_seconds: 5
+  mqtt_state_topic: gjarvis/state
+  calibration_sentences:
+    - "Wie spät ist es?"
+    - "Schalte das Licht im Wohnzimmer ein."
+    - "Wie wird das Wetter morgen?"
+  calibration_wake_voice: "en_US-lessac-medium"
+  debug: false
+schema:
+  wake_word_url: str
+  feature_models_url: str
+  wake_threshold: float(0.05,0.99)
+  wake_refractory_seconds: float(0,30)
+  wake_auto_gain: bool
+  wake_max_gain: float(1,20)
+  assistant_name: str
+  user_name: str?
+  ack_phrases:
+    - str
+  ack_order: list(rotate|random)
+  instant_ack_phrases:
+    - str
+  one_breath_seconds: float(0.2,2)
+  local_agent_id: str?
+  agent_id: str
+  language: str
+  no_speech_timeout_seconds: float(1,30)
+  end_of_speech_silence_seconds: float(0.3,3)
+  speech_threshold: float(0.1,0.95)
+  preroll_ms: int(300,5000)
+  vad_mode: int(0,3)
+  speech_start_ms: int(30,1000)
+  speech_energy_factor: float(1.2,20)
+  max_command_seconds: float(3,60)
+  follow_up: bool
+  follow_up_seconds: float(0,30)
+  barge_in: bool
+  barge_in_threshold: float(0.3,0.99)
+  memory_enabled: bool
+  briefing_triggers:
+    - str
+  briefing_news: bool
+  briefing_flight: bool
+  briefing_calendars: str?
+  quiet_hours: str?
+  async_after_seconds: float(1,60)
+  async_ack: str
+  apps_enabled: bool
+  mealie_config_entry_id: str?
+  progress_enabled: bool
+  progress_interval_seconds: float(3,60)
+  progress_max: int(0,20)
+  progress_phrases:
+    - str
+  async_result_prefix: str?
+  weather_entity: str?
+  weather_triggers:
+    - str
+  flight_enabled: bool
+  flight_triggers:
+    - str
+  flight_site_name: str?
+  flight_lat: float
+  flight_lon: float
+  paraglidable_api_key: password?
+  windy_api_key: password?
+  master_router: bool
+  research_enabled: bool
+  research_triggers:
+    - str
+  research_ack: str
+  research_llm_type: list(ollama|openai|ha_agent)
+  llm_agent_id: str?
+  research_llm_url: str?
+  research_llm_model: str?
+  research_llm_api_key: password?
+  searxng_url: str?
+  home_city: str?
+  wikipedia_lang: str
+  persona: str?
+  system_prompt: str
+  stt_host: str
+  stt_port: port
+  tts_host: str
+  tts_port: port
+  tts_voice: list(de_DE-thorsten-medium|de_DE-thorsten-high|de_DE-thorsten-low|de_DE-thorsten_emotional-medium|de_DE-kerstin-low|de_DE-ramona-low|de_DE-eva_k-x_low|de_DE-karlsson-low|de_DE-pavoque-low|de_DE-mls-medium)
+  volume: int(0,100)
+  mic_gain: float(0.1,10)
+  stt_max_gain: float(1,100)
+  mic_watchdog_seconds: float(1,30)
+  audio_source: list(local|satellite)
+  satellite_host: str?
+  satellite_port: port
+  satellite_key: password?
+  satellite_led: bool
+  output_media_player: str?
+  output_tts_entity: str?
+  output_latency_seconds: float(0,10)
+  mqtt_pause_enabled: bool
+  mqtt_pause_topic: str
+  mqtt_pause_payload: str
+  mqtt_resume_payload: str
+  mqtt_resume_delay_seconds: float(0,600)
+  mqtt_state_topic: str
+  calibration_sentences:
+    - str
+  calibration_wake_voice: str?
+  debug: bool

@@ -1,0 +1,251 @@
+configuration:
+  wake_word_url:
+    name: Weckwort-Modell (URL oder Pfad)
+    description: openWakeWord-Modell als .onnx, z. B. eine GitHub-URL oder /share/gjarvis/jarvis.onnx
+  feature_models_url:
+    name: Basis-URL der Merkmal-Modelle
+    description: Ordner mit melspectrogram.onnx und embedding_model.onnx (normalerweise nicht ändern)
+  wake_threshold:
+    name: Weckwort-Schwelle
+    description: 0–1, niedriger = empfindlicher (Standard 0,5)
+  wake_refractory_seconds:
+    name: Sperrzeit nach Weckwort (s)
+  wake_auto_gain:
+    name: Automatische Verstärkung fürs Weckwort
+    description: Hebt leise Mikrofone nur für die Weckwort-Erkennung an (Mikrofon und GasLighter bleiben unverändert)
+  wake_max_gain:
+    name: Maximale Weckwort-Verstärkung
+  assistant_name:
+    name: Name des Assistenten
+    description: z. B. Jarvis – wird überall für {name} eingesetzt (das Weckwort selbst kommt vom Modell)
+  user_name:
+    name: Dein Name
+    description: z. B. Moses – wird überall für {user} eingesetzt
+  ack_phrases:
+    name: Rückmeldungen
+    description: Was GJarvis nach dem Weckwort sagt, z. B. "Ja, Moses?"
+  instant_ack_phrases:
+    name: Rückmeldung bei Befehl in einem Atemzug
+    description: Sagst du "Hey Jarvis, wie spät ist es" ohne Pause, kommt kein "Ja, Moses?", sondern sofort eine dieser Antworten, während Jarvis es schon erledigt
+  one_breath_seconds:
+    name: Atemzug-Erkennung (s)
+    description: So lange hört Jarvis nach dem Weckwort hin, ob du gleich weitersprichst (Standard 0,6)
+  ack_order:
+    name: Reihenfolge der Rückmeldungen
+    description: rotate = der Reihe nach, random = zufällig
+  local_agent_id:
+    name: Lokaler HA-Agent (zuerst)
+    description: Erledigt Geräte-Befehle und deine eigenen Satz-Automationen sofort ohne KI. Leer = aus
+  agent_id:
+    name: Konversationsagent
+    description: z. B. conversation.ki_zuhause
+  language:
+    name: Sprache
+  no_speech_timeout_seconds:
+    name: Abbruch bei Stille (s)
+    description: Wenn nach der Rückmeldung so lange nichts gesagt wird, ist GJarvis sofort wieder bereit
+  end_of_speech_silence_seconds:
+    name: Satzende nach Stille (s) – Wortpausen
+    description: So lange Pause bedeutet "Satz fertig". Kürzere Pausen zwischen Wörtern werden toleriert (Standard 1,2 s)
+  speech_threshold:
+    name: Sprach-Schwelle (Silero)
+    description: 0–1, niedriger = erkennt leisere Stimmen (Standard 0,4)
+  preroll_ms:
+    name: Vorlauf (ms)
+    description: So viel Ton vor dem erkannten Sprachbeginn wird mitgeschickt, damit dein Satzanfang nicht fehlt
+  vad_mode:
+    name: Strenge webrtcvad (nur Ersatz)
+    description: Nur genutzt, wenn Silero nicht geladen werden kann
+  speech_start_ms:
+    name: Mindest-Sprechdauer (ms)
+    description: So lange muss gesprochen werden, bevor es als Befehl zählt
+  speech_energy_factor:
+    name: Lautstärke-Faktor über Grundrauschen
+    description: Ab wie viel lauter als das Raumrauschen etwas als Sprache zählt (niedriger = empfindlicher)
+  max_command_seconds:
+    name: Maximale Befehlslänge (s)
+  follow_up:
+    name: Nachfragen ohne Weckwort
+    description: Nach jeder Antwort kurz weiter zuhören, damit du ohne "Hey Jarvis" nachfragen kannst
+  follow_up_seconds:
+    name: Nachfrage-Zeit (s)
+    description: So lange hört Jarvis nach einer Antwort ohne Weckwort zu (0 = aus)
+  barge_in:
+    name: Unterbrechen mit "Hey Jarvis"
+    description: Während Jarvis spricht, verstummt er bei "Hey Jarvis" und hört sofort zu
+  barge_in_threshold:
+    name: Schwelle fürs Unterbrechen
+    description: Höher = er lässt sich seltener versehentlich von der eigenen Stimme unterbrechen
+  memory_enabled:
+    name: Gedächtnis
+    description: '"Merk dir …", "Vergiss …", "Was weißt du über mich?" – wird in /data/memory.json gespeichert, Passwörter nie'
+  briefing_triggers:
+    name: Wörter für das Briefing
+    description: Bei diesen Wörtern kommt das Tages-Briefing (Uhrzeit, Wetter, Kalender, Erinnerungen, Nachrichten)
+  briefing_news:
+    name: Nachrichten im Briefing
+    description: Drei Schlagzeilen der Tagesschau vorlesen
+  briefing_flight:
+    name: Flugwetter im Briefing
+  briefing_calendars:
+    name: Kalender fürs Briefing
+    description: Kommagetrennte Kalender-Entitäten (leer = alle)
+  quiet_hours:
+    name: Ruhezeit
+    description: z. B. 22:00-07:00 – in dieser Zeit werden normale Ansagen über MQTT nicht gesprochen (Erinnerungen, Timer und Priorität "hoch" schon)
+  async_after_seconds:
+    name: Sekunden bis „Moment, ich melde mich“
+    description: Dauert eine Antwort länger, sagt Jarvis nach dieser Zeit „Moment, ich melde mich gleich“ und liefert die Antwort später nach (Standard 4 s)
+  async_ack:
+    name: Satz bei längeren Antworten
+    description: z. B. „Moment, ich melde mich gleich, {user}.“
+  apps_enabled:
+    name: Apps aus Home Assistant (Pro)
+    description: Mealie (Essensplan, Rezepte suchen, Rezept aus dem Internet holen, Kochen Schritt für Schritt) und Einkaufs-/To-do-Listen aller Apps vorlesen (Bring!, Grocy, Todoist …)
+  mealie_config_entry_id:
+    name: Mealie Config-Entry-ID
+    description: Leer = automatisch erkennen. Nur nötig, wenn du mehrere Mealie-Server eingebunden hast
+  progress_enabled:
+    name: Zwischenmeldungen
+    description: Dauert eine Antwort länger, sagt Jarvis regelmäßig „Ich schaue noch“, damit du weißt, dass er dran ist
+  progress_interval_seconds:
+    name: Abstand der Zwischenmeldungen (s)
+    description: Alle wie viele Sekunden Jarvis sich meldet, solange er noch sucht (Standard 8 s)
+  progress_max:
+    name: Höchstens so viele Zwischenmeldungen
+    description: Danach wartet Jarvis still auf das Ergebnis (Standard 4, 0 = aus)
+  progress_phrases:
+    name: Sätze für Zwischenmeldungen
+    description: z. B. „Ich schaue noch, {user}.“ – werden der Reihe nach (oder zufällig) gesprochen
+  async_result_prefix:
+    name: Einleitung bei nachgelieferten Antworten
+  weather_entity:
+    name: Wetter-Entität (optional)
+    description: z. B. weather.forecast_home – leer = erste gefundene
+  weather_triggers:
+    name: Wetter-Wörter
+  flight_enabled:
+    name: Flugwetter (Gleitschirm) aktiv
+  flight_triggers:
+    name: Flugwetter-Wörter
+  flight_site_name:
+    name: Name des Startplatzes (optional)
+    description: z. B. Tegelberg – wird in der Ansage genannt
+  flight_lat:
+    name: Breitengrad Startplatz
+    description: 0 = Position aus Home Assistant
+  flight_lon:
+    name: Längengrad Startplatz
+    description: 0 = Position aus Home Assistant
+  paraglidable_api_key:
+    name: Paraglidable-API-Schlüssel
+    description: Kostenlos auf paraglidable.com anfordern (kommt per E-Mail). Leer = ohne Paraglidable
+  windy_api_key:
+    name: Windy-API-Schlüssel (optional)
+    description: Point-Forecast-API von Windy. Leer = Open-Meteo (kostenlos, ohne Schlüssel)
+  master_router:
+    name: KI-Verteiler (Master-KI)
+    description: Was Home Assistant nicht direkt erledigt, ordnet die KI selbst ein – Internetsuche, Haus steuern oder antworten
+  research_enabled:
+    name: Recherche aktiv
+    description: Bei Suchwörtern (Internet, Wikipedia, Google ...) wird recherchiert und von der KI zusammengefasst
+  research_triggers:
+    name: Suchwörter
+    description: Enthält dein Satz eines dieser Wörter, wird recherchiert
+  research_ack:
+    name: Ansage bei Recherche
+  research_llm_type:
+    name: KI – Art der Verbindung
+    description: "ha_agent = die KI, die du in Home Assistant eingerichtet hast (OpenAI, Google, Anthropic, Ollama …) – ohne weitere Einrichtung. ollama = eigener Ollama-Server (am schnellsten). openai = jeder OpenAI-kompatible Dienst (LM Studio, LocalAI, vLLM, Open WebUI, OpenRouter, Groq, OpenAI)."
+  llm_agent_id:
+    name: KI-Agent in Home Assistant
+    description: Nur bei ha_agent – z. B. conversation.openai_conversation (leer = KI-Agent oben)
+  research_llm_url:
+    name: KI-Server-Adresse
+    description: Nur bei ollama/openai – z. B. http://192.168.1.20:11434 (Ollama) oder https://api.groq.com/openai
+  research_llm_model:
+    name: KI-Modell
+    description: Leer = das kleinste installierte Modell. Auswahl bequem in der Oberfläche (Karte „KI-Modell“)
+  research_llm_api_key:
+    name: API-Schlüssel (optional)
+    description: Nur für Dienste, die einen Schlüssel verlangen
+  searxng_url:
+    name: SearXNG-URL (optional)
+    description: Optional eigene Suchmaschine. Leer = eingebaute Internetsuche (DuckDuckGo u. a., ohne Schlüssel)
+  home_city:
+    name: Wohnort
+    description: Für Ortsfragen wie Kino, Öffnungszeiten, Veranstaltungen (z. B. Kempten)
+  wikipedia_lang:
+    name: Wikipedia-Sprache
+  persona:
+    name: Persönlichkeit
+    description: Wie Jarvis spricht (Stil, Ton). {name} und {user} werden ersetzt
+  system_prompt:
+    name: Anweisung an die KI
+  stt_host:
+    name: Whisper-Host
+  stt_port:
+    name: Whisper-Port
+  tts_host:
+    name: Piper-Host
+  tts_port:
+    name: Piper-Port
+  tts_voice:
+    name: Piper-Stimme
+    description: Startstimme – im Betrieb über "GJarvis Stimme" in Home Assistant umstellbar (Piper lädt neue Stimmen beim ersten Mal selbst herunter)
+  volume:
+    name: Start-Lautstärke (%)
+    description: Danach in Home Assistant über den Regler "GJarvis Lautstärke" einstellbar
+  mic_gain:
+    name: Mikrofon-Verstärkung
+  stt_max_gain:
+    name: Max. Verstärkung für Whisper
+    description: Leise Aufnahmen werden vor Whisper automatisch bis zu diesem Faktor lauter gemacht
+  mic_watchdog_seconds:
+    name: Mikrofon-Wächter (s)
+    description: Kommt so lange nur Stille oder gar nichts vom Mikrofon, wird es automatisch neu geöffnet
+  audio_source:
+    name: Audio-Quelle
+    description: "local = Mikrofon am Server, satellite = ESPHome-Satellit (z. B. M5Stack Atom Echo) im Netzwerk"
+  satellite_host:
+    name: Satellit – Adresse
+    description: IP-Adresse oder Name des ESPHome-Satelliten, z. B. 192.168.178.48 oder jarvis-atom.local
+  satellite_port:
+    name: Satellit – Port
+    description: ESPHome-API-Port (Standard 6053)
+  satellite_key:
+    name: Satellit – Verschlüsselungsschlüssel
+    description: "Der Wert hinter api: encryption: key: in der ESPHome-Konfiguration des Satelliten"
+  satellite_led:
+    name: Satellit – LED zeigt den Zustand
+    description: "Grün = bereit, gelb = denkt/spricht, rot blinkend = Fehler (Anzahl = Code, siehe Dokumentation)"
+  output_media_player:
+    name: Ausgabe über Lautsprecher
+    description: media_player aus Home Assistant, z. B. media_player.wohnzimmer_sonos (leer = Lautsprecher am Server)
+  output_tts_entity:
+    name: Stimme aus Home Assistant
+    description: TTS-Entität für den Lautsprecher, z. B. tts.elevenlabs_text_zu_sprache (leer = Piper-Stimme von GJarvis)
+  output_latency_seconds:
+    name: Lautsprecher-Verzögerung (s)
+    description: So lange bleibt das Mikrofon nach der Ansage zusätzlich stumm (Netzwerk-Lautsprecher starten verzögert)
+  mqtt_pause_enabled:
+    name: Lärmprotokoll aktiv pausieren (alt)
+    description: Normalerweise aus – GasLighter fragt stattdessen "GJarvis hört" / "GJarvis spricht" ab und läuft durchgehend weiter
+  mqtt_pause_topic:
+    name: MQTT-Topic Pause
+  mqtt_pause_payload:
+    name: Payload Pause
+  mqtt_resume_payload:
+    name: Payload Fortsetzen
+  mqtt_resume_delay_seconds:
+    name: Fortsetzen nach (s)
+  mqtt_state_topic:
+    name: MQTT-Topic Zustand
+  calibration_sentences:
+    name: Kalibrier-Sätze
+    description: Diese Sätze spricht Jarvis bei der Kalibrierung und prüft, ob Whisper sie versteht
+  calibration_wake_voice:
+    name: Stimme für Weckwort-Test
+    description: Englische Piper-Stimme, damit "Hey Jarvis" richtig ausgesprochen wird (leer = normale Stimme)
+  debug:
+    name: Debug-Log

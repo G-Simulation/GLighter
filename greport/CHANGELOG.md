@@ -1,5 +1,10 @@
 # Changelog
 
+## 1.6.2
+- **Eigene Karte „GReport“:** GReport bringt jetzt eine fertige Dashboard-Karte mit. Sie wird beim Start automatisch eingerichtet und steht danach unter „Karte hinzufügen“ → „Nach Karte“ → **GReport**. Darin: Notiz, alle Auswahllisten (Woher, Was, Wie stark …), Zeuge und „Speichern“, dazu „Notizen heute“ und „Letzte Notiz“. Funktioniert für alle Benutzer, auch ohne Administratorrechte – ohne Adresse und ohne Bastelei.
+- **Eigener Bereich „GReport“:** Bei einer neuen Installation legt Home Assistant das Gerät gleich im Bereich „GReport“ an. In „Zum Dashboard hinzufügen“ → „Nach Entität“ stehen alle GReport-Felder damit unter **GReport**. (Bei bestehenden Installationen den Bereich einmal von Hand zuweisen: Einstellungen → Geräte → GReport → Bereich.)
+- Dafür braucht GReport jetzt Schreibzugriff auf den Home-Assistant-Ordner `www/greport` (nur für die Kartendatei).
+
 ## 1.6.1
 - Neues GReport-Logo und App-Symbol (im App-Store, in der App und als Browser-Symbol).
 

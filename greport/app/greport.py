@@ -33,7 +33,7 @@ WEB = os.path.join(HERE, "web")
 sys.path.insert(0, HERE)
 import lizenz  # noqa: E402
 
-VERSION = "1.6.1"
+VERSION = "1.6.2"
 BRAND = "GReport"
 OPTIONS = os.environ.get("GR_OPTIONS", "/data/options.json")
 PRIV = os.environ.get("GR_PRIVATE", "/data")                    # nur für GReport (Pro-Schlüssel)
@@ -1183,7 +1183,8 @@ def mqtt_announce(client=None, *_):
     if c is None:
         return
     de = lang() == "de"
-    dev = {"identifiers": [HAID], "name": BRAND, "manufacturer": "G-Simulation", "model": "GReport", "sw_version": VERSION}
+    dev = {"identifiers": [HAID], "name": BRAND, "manufacturer": "G-Simulation", "model": "GReport", "sw_version": VERSION,
+           "suggested_area": BRAND}                     # neues Gerät landet gleich im Bereich „GReport“
     avail = {"availability_topic": f"{TOPIC}/status", "device": dev}
 
     def cfg(kind, oid, d):
@@ -1501,6 +1502,92 @@ class Srv(socketserver.ThreadingMixIn, http.server.HTTPServer):
     address_family = __import__("socket").AF_INET6
 
 
+# =====================================================================
+# Dashboard-Karte „GReport“: nach /config/www/greport kopieren und als Ressource eintragen
+# =====================================================================
+CARD_SRC = os.path.join(os.path.dirname(os.path.abspath(__file__)), "card", "greport-card.js")
+CARD_DIR = os.environ.get("GR_WWW_DIR", "/homeassistant/www/greport")
+CARD_URL = "/local/greport/greport-card.js"
+
+
+def card_copy():
+    """Karte nach /config/www/greport/ legen (nur wenn sie sich geändert hat). Gibt True zurück, wenn die Datei da ist."""
+    try:
+        if not os.path.isdir(os.path.dirname(os.path.dirname(CARD_DIR))):   # /homeassistant (= /config) eingebunden?
+            log("Karte: /config ist nicht eingebunden – Karte wird nicht installiert")
+            return False
+        with open(CARD_SRC, "rb") as f:
+            data = f.read()
+        os.makedirs(CARD_DIR, exist_ok=True)
+        dst = os.path.join(CARD_DIR, "greport-card.js")
+        try:
+            with open(dst, "rb") as f:
+                if f.read() == data:
+                    return True
+        except OSError:
+            pass
+        with open(dst + ".tmp", "wb") as f:
+            f.write(data)
+        os.replace(dst + ".tmp", dst)
+        return True
+    except Exception as e:
+        log("Karte kopieren:", e)
+        return False
+
+
+def card_register():
+    """Karte als Dashboard-Ressource eintragen bzw. auf die aktuelle Version umstellen (über die Home-Assistant-Websocket-API)."""
+    tok = os.environ.get("SUPERVISOR_TOKEN")
+    if not tok:
+        return
+    try:
+        import websocket  # py3-websocket-client
+    except ImportError:
+        log("Karte: websocket-client fehlt – Ressource bitte von Hand eintragen:", CARD_URL)
+        return
+    url = f"{CARD_URL}?v={VERSION}"
+    ws = None
+    try:
+        ws = websocket.create_connection(os.environ.get("GR_HA_WS", "ws://supervisor/core/websocket"), timeout=15)
+        json.loads(ws.recv())                                    # auth_required
+        ws.send(json.dumps({"type": "auth", "access_token": tok}))
+        if json.loads(ws.recv()).get("type") != "auth_ok":
+            raise RuntimeError("Anmeldung abgelehnt")
+        seq = [0]
+
+        def call(**msg):
+            seq[0] += 1
+            msg["id"] = seq[0]
+            ws.send(json.dumps(msg))
+            while True:
+                r = json.loads(ws.recv())
+                if r.get("id") == seq[0]:
+                    if not r.get("success"):
+                        raise RuntimeError((r.get("error") or {}).get("message") or r)
+                    return r.get("result")
+
+        mine = [r for r in call(type="lovelace/resources") if str(r.get("url", "")).split("?")[0] == CARD_URL]
+        if not mine:
+            call(type="lovelace/resources/create", res_type="module", url=url)
+            log("Karte „GReport“ als Dashboard-Ressource eingetragen")
+        elif mine[0].get("url") != url:
+            call(type="lovelace/resources/update", resource_id=mine[0]["id"], res_type="module", url=url)
+            log("Karte „GReport“ auf", VERSION, "aktualisiert")
+    except Exception as e:                                       # z. B. Dashboards im YAML-Modus
+        log("Karte als Ressource eintragen:", e, "– bitte von Hand:", url)
+    finally:
+        if ws is not None:
+            try:
+                ws.close()
+            except Exception:
+                pass
+
+
+def card_install():
+    if card_copy():
+        card_register()
+
+
 def main():
     if not lock_dir():
         log("Datenordner wird schon von einem anderen GReport benutzt:", DIR)
@@ -1508,6 +1595,7 @@ def main():
     log(f"{BRAND} {VERSION} – Daten in {DIR}")
     notes_all(); qt_all()
     mqtt_start()
+    threading.Thread(target=card_install, daemon=True).start()
     threading.Thread(target=bg_loop, daemon=True).start()
     try:
         srv = Srv(("::", PORT), H)
