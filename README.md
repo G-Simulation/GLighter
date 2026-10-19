@@ -7,9 +7,9 @@
 
 <table align="center">
 <tr>
-<td align="center" width="33%"><img src="gaslighter/icon.png" width="96" alt="GLighter"><br><b><a href="#glighter">GLighter</a></b><br>Lärmprotokoll<br><i>Noise log</i></td>
-<td align="center" width="33%"><img src="greport/icon.png" width="96" alt="GReport"><br><b><a href="#greport">GReport</a></b><br>Notizen zu Störungen<br><i>Disturbance notes</i></td>
-<td align="center" width="33%"><img src="gjarvis/icon.png" width="96" alt="GJarvis"><br><b><a href="#gjarvis">GJarvis</a></b><br>Sprachassistent<br><i>Voice assistant</i></td>
+<td align="center" valign="top" width="200"><a href="#glighter"><img src="gaslighter/icon.png" width="110" alt="GLighter"></a><br><b><a href="#glighter">GLighter</a></b><br>Lärmprotokoll</td>
+<td align="center" valign="top" width="200"><a href="#greport"><img src="greport/icon.png" width="110" alt="GReport"></a><br><b><a href="#greport">GReport</a></b><br>Notizen</td>
+<td align="center" valign="top" width="200"><a href="#gjarvis"><img src="gjarvis/icon.png" width="110" alt="GJarvis"></a><br><b><a href="#gjarvis">GJarvis</a></b><br>Sprachassistent</td>
 </tr>
 </table>
 
