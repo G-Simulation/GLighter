@@ -109,7 +109,7 @@ Hält Störungen als Notiz fest – schnell, mit Uhrzeit, Zeuge und Zeitraum. **
 
 ## <img src="docs/images/logos/GJarvis.png" width="32" alt=""> GJarvis – Sprachassistent
 
-Deutscher Sprachassistent für Home Assistant – „wie im Film“: **„Hey Jarvis“ → „Ja?“ → Befehl.** Eigenständige App.
+Deutscher Sprachassistent für Home Assistant – „wie im Film“: **„Hey Jarvis“ → „Ja?“ → Befehl.**.
 
 <p align="center">
 <img src="docs/images/gjarvis/01_GJarvis_Dashboard_v5.png" width="32%" alt="Übersicht">
