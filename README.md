@@ -1,9 +1,41 @@
-<p align="center"><img src="docs/images/logo.png" alt="GLighter" width="220"></p>
+<h1 align="center">GSimulations für Home Assistant</h1>
 
-<p align="center"><b>Lärmprotokoll für Home Assistant</b> – misst Lärm rund um die Uhr und protokolliert Störungen manipulationssicher. Ohne Tonaufnahme, ohne Cloud.<br>
-<i>Noise log for Home Assistant – measures noise 24/7 and logs disturbances tamper-evident. No audio recording, no cloud.</i></p>
+<p align="center">Drei eigenständige Apps von <a href="https://www.gsimulations.de/">G-Simulation</a> für Home Assistant – jede einzeln installierbar.<br>
+<i>Three independent Home Assistant apps by G-Simulation – install each one on its own.</i></p>
 
-<p align="center"><a href="#english">🇬🇧 English</a> · <a href="#deutsch">🇩🇪 Deutsch</a> · <a href="docs/de/README.md">Handbuch</a> · <a href="docs/en/README.md">Manual</a> · <a href="https://www.gsimulations.de/gaslighter/">gsimulations.de/gaslighter</a></p>
+<p align="center"><a href="#deutsch">🇩🇪 Deutsch</a> · <a href="#english">🇬🇧 English</a></p>
+
+<table align="center">
+<tr>
+<td align="center" width="33%"><img src="gaslighter/icon.png" width="96" alt="GLighter"><br><b><a href="#glighter">GLighter</a></b><br>Lärmprotokoll<br><i>Noise log</i></td>
+<td align="center" width="33%"><img src="greport/icon.png" width="96" alt="GReport"><br><b><a href="#greport">GReport</a></b><br>Notizen zu Störungen<br><i>Disturbance notes</i></td>
+<td align="center" width="33%"><img src="gjarvis/icon.png" width="96" alt="GJarvis"><br><b><a href="#gjarvis">GJarvis</a></b><br>Sprachassistent<br><i>Voice assistant</i></td>
+</tr>
+</table>
+
+---
+
+<a id="deutsch"></a>
+
+## Installation
+
+Voraussetzung: Home Assistant OS oder Supervised (mit App-Store).
+
+1. Repository hinzufügen – per Klick:<br>
+   [![Repository zu Home Assistant hinzufügen](https://my.home-assistant.io/badges/supervisor_add_addon_repository.svg)](https://my.home-assistant.io/redirect/supervisor_add_addon_repository/?repository_url=https%3A%2F%2Fgithub.com%2FG-Simulation%2FGSimulations-HomeAssistant)<br>
+   oder von Hand: **Einstellungen → Apps → App-Store → ⋮ → Repositories** → `https://github.com/G-Simulation/GSimulations-HomeAssistant`
+2. Im App-Store erscheinen unter **GSimulations** alle drei Apps. Die gewünschte App öffnen → **Installieren** → **Starten**.
+3. Die App in der Seitenleiste öffnen.
+
+Jede App läuft für sich. Du kannst eine, zwei oder alle drei installieren. Updates erscheinen automatisch in Home Assistant.
+
+---
+
+<a id="glighter"></a>
+
+## <img src="gaslighter/icon.png" width="32" alt=""> GLighter – Lärmprotokoll
+
+Misst Lärm rund um die Uhr und protokolliert Störungen manipulationssicher – **ohne Tonaufnahme, ohne Cloud**.
 
 <p align="center">
 <img src="docs/images/01_live.png" width="24%" alt="Live">
@@ -12,69 +44,72 @@
 <img src="docs/images/08_laermprotokoll_druck.png" width="24%" alt="Lärmprotokoll">
 </p>
 
----
-
-<a id="deutsch"></a>
-
-## Deutsch
-
-### Was GLighter macht
-
-- **Misst rund um die Uhr** mit einem Mikrofon am Home-Assistant-Rechner und erkennt Störungen automatisch – mit Uhrzeit, Dauer und Spitzenpegel. Die Schwelle passt sich dem normalen Hintergrund der Wohnung an.
-- **Speichert keinen Ton**, sondern nur Messwerte (Pegel, Frequenzbild, Zeitpunkte). Sprache wird nie in Text umgewandelt.
-- **Notizen** per Schlagwort („oben“, „Schritte“, „Musik/Bass“) oder Freitext, mit Zeugen und Maßnahmen.
+- **Misst rund um die Uhr** mit einem USB-Mikrofon am Home-Assistant-Rechner und erkennt Störungen automatisch – mit Uhrzeit, Dauer und Spitzenpegel.
+- **Speichert keinen Ton**, nur Messwerte. Sprache wird nie in Text umgewandelt.
 - **Protokolle** für Tag, Woche, Monat oder frei gewählten Zeitraum, mit Tagesverlauf, Ruhezeiten und Statistik.
 - **Lärmprotokoll zum Drucken oder als PDF** – für Vermieter, Hausverwaltung oder Anwalt.
-- **Prüfkette**: Jede Minute der Aufzeichnung bekommt eine SHA-256-Prüfsumme, die auf der vorherigen aufbaut. Nachträgliche Änderungen fallen auf; die letzte Summe wird zusätzlich in Home Assistant gespeichert.
-- **Lokale Geräusch-Erkennung (KI)**, eigene Tonprofile, Regeln mit Home Assistant (z. B. eigener Fernseher an), Unterbrechungen werden dokumentiert.
-- **Sprache:** Oberfläche, Handbuch und Lärmprotokoll auf Deutsch oder Englisch (automatisch nach Browser oder fest einstellbar).
-- **Handbuch** in der App (Deutsch/Englisch, mit Suche) – auch [hier auf GitHub](docs/de/README.md).
-
-### Kostenlos und Pro
+- **Prüfkette:** Jede Minute bekommt eine SHA-256-Prüfsumme, nachträgliche Änderungen fallen auf.
+- **Lokale Geräusch-Erkennung (KI)**, eigene Tonprofile, Regeln mit Home Assistant.
 
 | | Kostenlos | GLighter Pro |
 |---|:---:|:---:|
 | Aufzeichnung, Live, Protokolle, Notizen | ✔ | ✔ |
-| Lärmprotokoll, Druck, Export (`log.csv`), Sicherung erstellen | ✔ | ✔ |
+| Lärmprotokoll, Druck, Export, Sicherung erstellen | ✔ | ✔ |
 | Import einer Sicherung | einmal (Umzug) | ✔ |
-| Erweiterte Einstellungen der Erkennung, 🎯 Schwelle automatisch einstellen | ansehen | ✔ |
-| 📊 Eigene Statistiken selbst einstellen | Vorlagen | ✔ |
-| Tägliche Sicherung auf Netzlaufwerk/NAS/USB, Platz sparen | ZIP von Hand | ✔ |
+| Erweiterte Einstellungen, eigene Statistiken | ansehen / Vorlagen | ✔ |
+| Tägliche Sicherung auf NAS/USB | ZIP von Hand | ✔ |
 | Externe Geräte (Handy, Stream, IP-Kamera) | – | ✔ |
 
-**GLighter Pro** ist eine Jahreslizenz für 1 Home-Assistant-Installation, **kein Abo**. Der Schlüssel wird in der App ohne Internet geprüft. [Mehr und kaufen](https://www.gsimulations.de/gaslighter/#buypro) · [Handbuch: GLighter Pro](docs/de/14-pro.md)
+**GLighter Pro:** Jahreslizenz für 1 Home-Assistant-Installation, **kein Abo** – [gsimulations.de/gaslighter](https://www.gsimulations.de/gaslighter/#buypro)
 
-### Installation
+[Handbuch](docs/de/README.md) · [Schnellstart](docs/de/01-schnellstart.md) · [Fehlerbehebung](docs/de/13-fehlerbehebung.md) · [Rechtliches](docs/de/12-rechtliches.md) · [Änderungen](gaslighter/CHANGELOG.md)
 
-Voraussetzung: Home Assistant OS oder Supervised (mit App-Store) und ein USB-Mikrofon am Home-Assistant-Rechner.
+---
 
-1. Repository hinzufügen – per Klick:<br>
-   [![Repository zu Home Assistant hinzufügen](https://my.home-assistant.io/badges/supervisor_add_addon_repository.svg)](https://my.home-assistant.io/redirect/supervisor_add_addon_repository/?repository_url=https%3A%2F%2Fgithub.com%2FG-Simulation%2FGLighter)<br>
-   oder von Hand: **Einstellungen → Apps → App-Store → ⋮ → Repositories** → `https://github.com/G-Simulation/GLighter`
-2. **GLighter** im App-Store öffnen → **Installieren** → **Starten**. Optional „Beim Start starten“ und „Watchdog“ einschalten.
-3. **GLighter** in der Seitenleiste öffnen. Der [Schnellstart](docs/de/01-schnellstart.md) führt durch die ersten fünf Minuten.
+<a id="greport"></a>
 
-Updates erscheinen automatisch in Home Assistant. Änderungen: [CHANGELOG](gaslighter/CHANGELOG.md).
+## <img src="greport/icon.png" width="32" alt=""> GReport – Notizen zu Störungen
 
-### Alle Apps in diesem Repository
+Hält Störungen als Notiz fest – schnell, mit Uhrzeit, Zeuge und Zeitraum. **Eigenständige App**, braucht kein GLighter.
 
-Wer dieses Repository hinzufügt, bekommt im App-Store alle drei G-Simulation-Apps:
+- **Notiz jetzt:** einfach lostippen oder eine Taste der Schnellwahl antippen, Zeuge und Zeitraum dazu, Enter speichert.
+- **Schnellwahl anpassen:** eigene Tasten anlegen, eingebaute ausblenden, Gruppen mit Farben und Pflicht-Gruppen.
+- **Eigene Dashboard-Karte „GReport“:** wird automatisch eingerichtet und steht unter „Karte hinzufügen“ – Notiz, Woher, Was, Wie stark, Folgen, Maßnahmen, Zeuge und Speichern in einer Karte. Funktioniert für alle Benutzer, auch ohne Administratorrechte.
+- **Bereich „GReport“:** Alle GReport-Felder stehen in Home Assistant gesammelt unter einem eigenen Bereich.
+- **Home Assistant:** jede Notiz im Logbuch, Sensoren „Letzte Notiz“ und „Notizen heute“ (MQTT/Mosquitto).
+- Ist zusätzlich GLighter installiert, erscheinen die Notizen mit GLighter Pro automatisch auch dort.
 
-| App | Wofür |
-|---|---|
-| **GLighter** | Lärmprotokoll – misst rund um die Uhr und protokolliert Störungen manipulationssicher. |
-| **GReport** | Notizen zu Störungen – Notiz, Schnellwahl, Zeuge, Zeitraum. Mit eigener Dashboard-Karte „GReport“ und Bereich „GReport“. Läuft allein oder zusammen mit GLighter. [greport/README.md](greport/README.md) |
-| **GJarvis** | Deutscher Sprachassistent „Hey Jarvis“ für Home Assistant – Free, Pro mit Timern, Erinnerungen, Gedächtnis, Briefing, Wetter und Internet-Suche. Braucht Whisper, Piper und Mosquitto. [gjarvis/README.md](gjarvis/README.md) |
+**Pro** (ein GLighter-Pro-Schlüssel gilt auch): Tagebuch als Textdatei, Export/Import, mehr eigene Tasten, tägliche Sicherung, mehrere Zeugen – [gsimulations.de/greport](https://www.gsimulations.de/greport/)
 
-### Datenschutz und Recht
+[Mehr zu GReport](greport/README.md) · [Änderungen](greport/CHANGELOG.md)
 
-Alle Daten bleiben auf deinem Home-Assistant-Rechner; GLighter sendet nichts an G-Simulation oder Dritte. Details: [PRIVACY.md](PRIVACY.md). GLighter ersetzt keine Rechtsberatung – ob ein Lärmprotokoll in deinem Fall ausreicht, klärst du am besten mit Mieterverein oder Anwalt. Siehe auch das Kapitel [Rechtliches](docs/de/12-rechtliches.md).
+---
 
-### Hilfe
+<a id="gjarvis"></a>
 
-- [Handbuch](docs/de/README.md) und [Fehlerbehebung](docs/de/13-fehlerbehebung.md)
-- Fehler melden oder Idee vorschlagen: [Issues](https://github.com/G-Simulation/GLighter/issues/new/choose)
-- Kontakt: [gsimulations.de/gaslighter](https://www.gsimulations.de/gaslighter/#getInTouch-gl)
+## <img src="gjarvis/icon.png" width="32" alt=""> GJarvis – Sprachassistent
+
+Deutscher Sprachassistent für Home Assistant – „wie im Film“: **„Hey Jarvis“ → „Ja?“ → Befehl.** Eigenständige App.
+
+- **Kostenlos:** alles, was dein Home-Assistant-Agent kann (Licht, Geräte, Listen, Satz-Automationen, deine KI), Oberfläche in der Seitenleiste, Kalibrierung, Lautstärke, Stimme.
+- **GJarvis Pro** (Jahreslizenz, kein Abo):
+  - Nachfragen ohne Weckwort und Unterbrechen mit „Hey Jarvis“
+  - Timer, Erinnerungen, Wecker und Gedächtnis
+  - Morgen-Briefing mit Wetter, Kalender und Nachrichten
+  - Ansagen aus Automationen mit Gong und Ruhezeit
+  - Internet-Recherche und eigenes KI-Modell (Ollama oder OpenAI-kompatibel)
+
+Voraussetzungen: die Apps **Whisper**, **Piper** und **Mosquitto**. – [gsimulations.de/gjarvis](https://www.gsimulations.de/gjarvis/#buypro)
+
+[Mehr zu GJarvis](gjarvis/README.md) · [Änderungen](gjarvis/CHANGELOG.md)
+
+---
+
+## Datenschutz und Hilfe
+
+Alle Daten bleiben auf deinem Home-Assistant-Rechner; keine der Apps sendet etwas an G-Simulation oder Dritte. Details: [PRIVACY.md](PRIVACY.md).
+
+Fehler melden oder Idee vorschlagen: [Issues](https://github.com/G-Simulation/GSimulations-HomeAssistant/issues/new/choose) · Kontakt: [gsimulations.de](https://www.gsimulations.de/)
 
 ---
 
@@ -82,53 +117,18 @@ Alle Daten bleiben auf deinem Home-Assistant-Rechner; GLighter sendet nichts an 
 
 ## English
 
-### What GLighter does
+Three independent Home Assistant apps by G-Simulation. Add the repository once and install any of them:
 
-- **Measures 24/7** with a microphone on the Home Assistant computer and detects disturbances automatically – with time, duration and peak level. The threshold adapts to the normal background of your home.
-- **Stores no audio**, only measurements (level, frequency picture, timestamps). Speech is never converted to text.
-- **Notes** with tags ("upstairs", "footsteps", "music/bass") or free text, with witnesses and actions taken.
-- **Reports** for a day, week, month or any period, with daily chart, quiet hours and statistics.
-- **Printable noise report / PDF** – for landlord, property management or lawyer.
-- **Checksum chain**: every minute of recording gets a SHA-256 checksum built on the previous one. Later changes become visible; the latest checksum is also stored in Home Assistant.
-- **Local sound recognition (AI)**, your own sound profiles, Home Assistant rules (e.g. your own TV on), interruptions are documented.
-- **Language:** interface, manual and noise report in English or German (automatic from the browser or set in Settings → General → Language).
-- **Manual** in the app (German/English, searchable) – also [here on GitHub](docs/en/README.md).
+[![Add repository to Home Assistant](https://my.home-assistant.io/badges/supervisor_add_addon_repository.svg)](https://my.home-assistant.io/redirect/supervisor_add_addon_repository/?repository_url=https%3A%2F%2Fgithub.com%2FG-Simulation%2FGSimulations-HomeAssistant)<br>
+or manually: **Settings → Apps → App store → ⋮ → Repositories** → `https://github.com/G-Simulation/GSimulations-HomeAssistant`
 
-### Free and Pro
+| App | What it does |
+|---|---|
+| <img src="gaslighter/icon.png" width="24" alt=""> **GLighter** | Noise log – measures noise 24/7 and logs disturbances tamper-evident. No audio recording, no cloud. Printable noise report. [Manual](docs/en/README.md) |
+| <img src="greport/icon.png" width="24" alt=""> **GReport** | Disturbance notes – note, quick select, witness, time span. Own dashboard card "GReport" for all users. Works on its own. |
+| <img src="gjarvis/icon.png" width="24" alt=""> **GJarvis** | German voice assistant "Hey Jarvis". Pro: timers, reminders, memory, briefing, weather, web search. Needs Whisper, Piper and Mosquitto. |
 
-| | Free | GLighter Pro |
-|---|:---:|:---:|
-| Recording, live view, reports, notes | ✔ | ✔ |
-| Noise report, printing, export (`log.csv`), creating backups | ✔ | ✔ |
-| Import a backup | once (moving) | ✔ |
-| Advanced detection settings, 🎯 set threshold automatically | view | ✔ |
-| 📊 Configure your own statistics | templates | ✔ |
-| Daily backup to network drive/NAS/USB, save space | ZIP by hand | ✔ |
-| External devices (phone, stream, IP camera) | – | ✔ |
-
-**GLighter Pro** is a yearly licence for 1 Home Assistant installation, **no subscription**. The key is checked in the app without internet. [Learn more and buy](https://www.gsimulations.de/gaslighter/#buypro) · [Manual: GLighter Pro](docs/en/14-pro.md)
-
-### Installation
-
-Requirements: Home Assistant OS or Supervised (with app store) and a USB microphone on the Home Assistant computer.
-
-1. Add the repository – one click:<br>
-   [![Add repository to Home Assistant](https://my.home-assistant.io/badges/supervisor_add_addon_repository.svg)](https://my.home-assistant.io/redirect/supervisor_add_addon_repository/?repository_url=https%3A%2F%2Fgithub.com%2FG-Simulation%2FGLighter)<br>
-   or manually: **Settings → Apps → App store → ⋮ → Repositories** → `https://github.com/G-Simulation/GLighter`
-2. Open **GLighter** in the app store → **Install** → **Start**. Optionally enable "Start on boot" and "Watchdog".
-3. Open **GLighter** in the sidebar. The [quick start](docs/en/01-schnellstart.md) guides you through the first five minutes.
-
-### All apps in this repository
-
-Adding this repository gives you all three G-Simulation apps in the app store: **GLighter** (noise log), **GReport** (disturbance notes, with its own dashboard card "GReport") and **GJarvis** (German voice assistant "Hey Jarvis"; needs Whisper, Piper and Mosquitto).
-
-### Privacy and legal
-
-All data stays on your Home Assistant computer; GLighter sends nothing to G-Simulation or third parties. Details: [PRIVACY.md](PRIVACY.md). GLighter is not legal advice.
-
-### Help
-
-[Manual](docs/en/README.md) · [Troubleshooting](docs/en/13-fehlerbehebung.md) · [Issues](https://github.com/G-Simulation/GLighter/issues/new/choose) · [Contact](https://www.gsimulations.de/gaslighter/#getInTouch-gl)
+All data stays on your Home Assistant computer. [Privacy](PRIVACY.md) · [Issues](https://github.com/G-Simulation/GSimulations-HomeAssistant/issues/new/choose) · [gsimulations.de](https://www.gsimulations.de/)
 
 ---
 

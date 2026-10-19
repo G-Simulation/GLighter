@@ -23,7 +23,7 @@ RUN chmod a+x /run.sh
 LABEL \
     org.opencontainers.image.title="Home Assistant App: GJarvis" \
     org.opencontainers.image.description="Deutscher Sprachassistent Jarvis für Home Assistant" \
-    org.opencontainers.image.source="https://github.com/G-Simulation/GJarvis" \
+    org.opencontainers.image.source="https://github.com/G-Simulation/GSimulations-HomeAssistant" \
     org.opencontainers.image.vendor="G-Simulation"
 
 CMD [ "/run.sh" ]
