@@ -3211,6 +3211,7 @@ async function bkPoll(msg, done) {
   if ((s.days_skipped || []).length) rep.push('⚠ ' + t('bk_r_skipped', { l: s.days_skipped.map(x => dd(x[0]) + ' ' + nm(x[1])).join(', ') }));
   if (s.devices) rep.push('✔ ' + t('bk_r_devs', { n: s.devices.length }) + (s.devices_off && s.devices_off.length ? ' · ' + t('bk_r_off', { n: s.devices_off.length }) : ''));
   if (s.mic_kept) rep.push('⚠ ' + t('bk_r_mic', { d: s.mic_kept }));
+  if (s.sched_kept) rep.push('ⓘ ' + t('bk_r_sched'));
   let box = $('bkrep'); if (!box) { box = el('div', { id: 'bkrep', className: 'bkrep' }); msg.parentNode.after(box); }
   box.innerHTML = rep.map(x => `<div>${esc(x)}</div>`).join(''); box.hidden = !rep.length;
   if (r.restart) { msg.textContent += ' ' + t('bk_reload'); setTimeout(() => location.reload(), rep.length ? 8000 : 2500); return; }

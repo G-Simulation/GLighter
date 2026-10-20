@@ -600,6 +600,8 @@ Jede geschriebene Minute der Tagesaufzeichnung bekommt eine SHA-256-Prüfsumme, 
 
 ### Updates
 
+> **Neu (Sicherheit):** Updates aus `share` werden nur übernommen, wenn in der Konfiguration **„Updates aus /share annehmen“ (`share_update`)** eingeschaltet ist **und** der Ordner eine gültige Signatur von G-Simulation enthält (`manifest.txt` + `manifest.sig`). Unsignierte oder veränderte Ordner werden abgelehnt (Hinweis im Protokoll). Gestartet wird eine geprüfte Kopie unter `/data/update_run`.
+
 **Ohne Aufnahmelücke:** den Ordner `gaslighter` aus der Update-Zip per Samba nach `\\homeassistant\share\gaslighter_update\` kopieren (vorhandene Dateien überschreiben). Nach 10–20 s startet nur das Programm neu; die Aufnahme läuft weiter und wird nachgeliefert. Startet die neue Fassung nicht, nimmt das Add-on automatisch wieder die vorige.
 
 **Volle Installation** (nur wenn eine Version es verlangt, z. B. neuer Name oder Watchdog): den Ordner aus der vollen Zip nach `\\homeassistant\addons\` kopieren und das Add-on in Home Assistant neu erstellen. Das gibt eine kurze Lücke.
@@ -1421,6 +1423,8 @@ Every written minute of the day recording gets a SHA-256 checksum built on the p
 - Days completed from a backup have their own section in the chain, see Backup.
 
 ### Updates
+
+> **New (security):** updates from `share` are only used if **“Accept updates from /share” (`share_update`)** is switched on in the configuration **and** the folder contains a valid G-Simulation signature (`manifest.txt` + `manifest.sig`). Unsigned or modified folders are rejected (note in the log). A verified copy under `/data/update_run` is started.
 
 **Without a recording gap:** copy the folder `gaslighter` from the update zip via Samba to `\\homeassistant\share\gaslighter_update\` (overwrite existing files). After 10–20 s only the program restarts; recording continues and is delivered afterwards. If the new version does not start, the add-on automatically goes back to the previous one.
 

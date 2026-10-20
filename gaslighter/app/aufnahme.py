@@ -3,13 +3,14 @@
 
 Läuft die ganze Zeit des Add-ons und ist bewusst klein (ändert sich selten):
 - startet das eigentliche Programm (laerm.py) und startet es neu, wenn dessen Dateien aktualisiert wurden
-  (neue Fassung einfach nach /share/gaslighter_update/ kopieren, ohne das Add-on neu zu erstellen);
+  (neue, signierte Fassung nach /share/gaslighter_update/ kopieren, ohne das Add-on neu zu erstellen; nur mit Option share_update);
 - hält die Aufnahme des Server-Mikrofons und der Stream-Quellen offen, auch während laerm.py neu startet.
   Der Ton liegt dabei nur im Arbeitsspeicher (höchstens 5 Minuten) und wird danach an laerm.py nachgeliefert.
   Er wird nie gespeichert.
 - schreibt Start, Stopp, Update und Unterbrechungen mit Uhrzeit und Version in /data/laufzeit.jsonl.
 """
 import collections
+import hashlib
 import json
 import os
 import re
@@ -19,6 +20,7 @@ import socket
 import struct
 import subprocess
 import sys
+import shutil
 import threading
 import time
 
@@ -32,6 +34,11 @@ ALIVE = os.path.join(DATA_DIR, "alive")
 KEEP_S = 300                 # so lange wird Ton gepuffert, wenn laerm.py nicht abholt
 RELAY_VERSION = 2
 SENT_KEEP_S = 30             # bereits geschickter Ton: so lange aufheben, falls laerm.py ihn beim Neustart nicht mehr verarbeitet hat
+OPTIONS_FILE = os.environ.get("LAERM_OPTIONS", "/data/options.json")
+RUN_DIR = os.path.join(DATA_DIR, "update_run")   # geprüfte Kopien der Update-Fassungen (privat, nicht in /share)
+MANIFEST, MANIFEST_SIG = "manifest.txt", "manifest.sig"
+SIG_CONTEXT = b"GSIM-UPDATE-1\n"                # Domänentrennung: eine Update-Signatur ist nie eine gültige Lizenz und umgekehrt
+KEEP_RUN_DIRS = 3
 
 
 def log(*a):
@@ -260,13 +267,146 @@ def vstr(v):
     return ".".join(map(str, v)) if v else "?"
 
 
+def share_update_enabled():
+    """Updates aus /share nur, wenn in der Konfiguration eingeschaltet (Option share_update, Standard: aus).
+    Für Tests: LAERM_SHARE_UPDATE=1/0 hat Vorrang."""
+    env = os.environ.get("LAERM_SHARE_UPDATE")
+    if env is not None:
+        return env == "1"
+    try:
+        with open(OPTIONS_FILE, encoding="utf-8") as f:
+            return json.load(f).get("share_update") is True
+    except (OSError, ValueError, AttributeError):
+        return False
+
+
+def update_pubkey():
+    """Öffentlicher Schlüssel für Update-Signaturen: derselbe wie für Lizenzen (lizenz.py der eingebauten Fassung)."""
+    import lizenz                                # immer das eingebaute /app/lizenz.py, nie eines aus /share
+    return bytes.fromhex(lizenz.PUBLIC_KEY_HEX), lizenz.ed25519_verify
+
+
+def parse_manifest(data):
+    """manifest.txt: je Zeile „<sha256-hex>  <relativer/pfad>“ (wie sha256sum). Liefert {pfad: hash} oder wirft ValueError."""
+    out = {}
+    for ln in data.decode("utf-8").splitlines():
+        if not ln.strip():
+            continue
+        m = re.fullmatch(r"([0-9a-f]{64})  ([A-Za-z0-9_][A-Za-z0-9_./-]*)", ln)
+        if not m or ".." in m.group(2).split("/") or m.group(2) in (MANIFEST, MANIFEST_SIG) or m.group(2) in out:
+            raise ValueError("Zeile ungültig: " + ln[:80])
+        out[m.group(2)] = m.group(1)
+    if "laerm.py" not in out:
+        raise ValueError("laerm.py fehlt im Manifest")
+    return out
+
+
+def check_signature(manifest, sig_txt):
+    """Ed25519-Signatur (hex, 64 Byte) über SIG_CONTEXT + manifest.txt prüfen."""
+    try:
+        sig = bytes.fromhex(sig_txt.decode("ascii").strip())
+    except (ValueError, UnicodeDecodeError):
+        return False
+    pub, verify = update_pubkey()
+    return len(sig) == 64 and verify(pub, SIG_CONTEXT + manifest, sig)
+
+
+def tree_files(d):
+    out = set()
+    for root, dirs, files in os.walk(d):
+        dirs[:] = [x for x in dirs if x != "__pycache__"]
+        for fn in files:
+            out.add(os.path.relpath(os.path.join(root, fn), d).replace(os.sep, "/"))
+    return out
+
+
+REJECTED = {}                                    # Quelle -> letzter Grund (nur einmal protokollieren)
+VERIFIED = {}                                    # (Quelle, Stand) -> geprüfte Kopie
+
+
+def _reject(d, why):
+    if REJECTED.get(d) != why:
+        REJECTED[d] = why
+        log(f"Update in {d} abgelehnt: {why}")
+    return None
+
+
+def verified_copy(d):
+    """Update-Fassung nur mit gültiger Signatur übernehmen: Manifest prüfen, alle Dateien nach /data/update_run/<hash>
+    kopieren und die Kopie gegen das Manifest prüfen. Gestartet wird nur die Kopie – spätere Änderungen in /share wirken nicht."""
+    try:
+        stamp = tuple(sorted((f, os.stat(os.path.join(d, f)).st_size, int(os.stat(os.path.join(d, f)).st_mtime)) for f in tree_files(d)))
+    except OSError:
+        return None
+    if (d, stamp) in VERIFIED and os.path.isdir(VERIFIED[(d, stamp)]):
+        return VERIFIED[(d, stamp)]
+    try:
+        with open(os.path.join(d, MANIFEST), "rb") as f:
+            man = f.read()
+        with open(os.path.join(d, MANIFEST_SIG), "rb") as f:
+            sig = f.read()
+    except OSError:
+        return _reject(d, "manifest.txt/manifest.sig fehlen (nur signierte Updates werden angenommen)")
+    if not check_signature(man, sig):
+        return _reject(d, "Signatur ungültig")
+    try:
+        entries = parse_manifest(man)
+    except (ValueError, UnicodeDecodeError) as e:
+        return _reject(d, f"Manifest fehlerhaft ({e})")
+    extra = sorted(tree_files(d) - set(entries) - {MANIFEST, MANIFEST_SIG})
+    if extra:
+        return _reject(d, "nicht signierte Dateien: " + ", ".join(extra[:5]))
+    dst = os.path.join(RUN_DIR, hashlib.sha256(man).hexdigest()[:16])
+    if not os.path.isdir(dst):
+        tmp = dst + ".tmp"
+        shutil.rmtree(tmp, ignore_errors=True)
+        try:
+            for rel, h in entries.items():
+                with open(os.path.join(d, rel), "rb") as f:
+                    data = f.read()
+                if hashlib.sha256(data).hexdigest() != h:   # Prüfsumme über genau die Bytes, die kopiert werden
+                    shutil.rmtree(tmp, ignore_errors=True)
+                    return _reject(d, f"Prüfsumme passt nicht: {rel}")
+                os.makedirs(os.path.dirname(os.path.join(tmp, rel)), exist_ok=True)
+                with open(os.path.join(tmp, rel), "wb") as f:
+                    f.write(data)
+            with open(os.path.join(tmp, MANIFEST), "wb") as f:
+                f.write(man)
+            os.replace(tmp, dst)
+        except OSError as e:
+            shutil.rmtree(tmp, ignore_errors=True)
+            return _reject(d, f"Kopieren fehlgeschlagen ({e})")
+        log(f"Signiertes Update aus {d} geprüft und nach {dst} übernommen")
+        prune_run_dirs(keep=dst)
+    REJECTED.pop(d, None)
+    VERIFIED[(d, stamp)] = dst
+    return dst
+
+
+def prune_run_dirs(keep):
+    """Nur die neuesten geprüften Kopien behalten (die laufende bzw. gerade übernommene bleibt immer)."""
+    try:
+        ds = sorted((os.path.join(RUN_DIR, x) for x in os.listdir(RUN_DIR) if not x.endswith(".tmp")), key=os.path.getmtime, reverse=True)
+    except OSError:
+        return
+    for x in ds[KEEP_RUN_DIRS:]:
+        if x != keep and x != getattr(prune_run_dirs, "running", None):
+            shutil.rmtree(x, ignore_errors=True)
+
+
 def app_dirs():
-    """Mögliche Fassungen: eingebaut (/app) und Kopien unter /share/gaslighter_update bzw. /share/laerm_update (…/gaslighter/app, …/laerm_logger/app oder …/app)."""
+    """Mögliche Fassungen: eingebaut (/app) und – nur wenn share_update eingeschaltet ist – signierte Fassungen unter
+    /share/gaslighter_update bzw. /share/laerm_update (…/gaslighter/app, …/laerm_logger/app oder …/app).
+    Gestartet wird nie direkt aus /share, sondern aus der geprüften Kopie unter /data/update_run."""
     out = [HERE]
+    if not share_update_enabled():
+        return out
     for u in UPDATE_DIRS:
         for d in (os.path.join(u, "gaslighter", "app"), os.path.join(u, "laerm_logger", "app"), os.path.join(u, "app")):
             if os.path.isfile(os.path.join(d, "laerm.py")) and os.path.realpath(d) != os.path.realpath(HERE):
-                out.append(d)
+                v = verified_copy(d)
+                if v:
+                    out.append(v)
     return out
 
 
@@ -356,6 +496,7 @@ class Main:
             env["LAERM_MODEL_DIR"] = os.path.join(HERE, "model")      # Kopie ohne KI-Modell: das eingebaute nehmen
         self.p = subprocess.Popen([sys.executable, "-u", os.path.join(d, "laerm.py")], env=env, cwd=d)
         self.dir, self.ver, self.sig, self.t = d, v, sig_of(d), time.time()
+        prune_run_dirs.running = d                   # laufende Fassung nie aufräumen
         log(f"Programm {vstr(v)} gestartet aus {d} ({reason})")
 
     def stop(self, timeout=20):

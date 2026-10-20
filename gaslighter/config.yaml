@@ -1,5 +1,5 @@
 name: "GLighter"
-version: "1.75.0"
+version: "1.76.0"
 slug: gaslighter
 description: "Lärmprotokoll: misst Lärm rund um die Uhr und protokolliert Störungen manipulationssicher – ohne Tonaufnahme / Noise log: measures noise 24/7 and logs disturbances tamper-evident – no audio recording"
 url: "https://www.gsimulations.de/gaslighter/"
@@ -66,6 +66,7 @@ options:
   video_width: 640
   video_fps: 5
   video_crf: 30
+  share_update: false
 schema:
   device: str
   mic_volume: int(0,400)?
@@ -98,6 +99,7 @@ schema:
   video_width: int(0,3840)?
   video_fps: int(1,30)?
   video_crf: int(18,40)?
+  share_update: bool?
   baseline_minutes: int(1,60)?
   fast_drop: bool?
   drop_window_s: int(10,300)?

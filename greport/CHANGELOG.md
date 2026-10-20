@@ -1,5 +1,10 @@
 # Changelog
 
+## 1.7.0
+- **Behoben:** Tagebuch und Exporte enthalten wieder alle Notizen. Bisher waren es höchstens 5000, die ältesten fielen still weg.
+- **Behoben:** Notizen während der Zeitumstellung (z. B. 25.10.2026 zwischen 2 und 3 Uhr) werden mit der richtigen Uhrzeit gespeichert. Die Oberfläche speichert jetzt immer mit Zeitzone, und beim Bearbeiten bleibt ein unverändertes Zeitfeld exakt erhalten.
+- Freischaltung mit dem Schlüssel aus dem Shop unverändert.
+
 ## 1.6.3
 - **Pro mit dem Schlüssel aus dem Shop:** Der Schlüssel aus der Kauf-E-Mail (GReport oder GLighter) funktioniert jetzt direkt. GReport prüft ihn beim Eintragen einmal online bei gsimulations.de und arbeitet danach wieder ohne Internet.
 

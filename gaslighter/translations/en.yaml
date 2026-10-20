@@ -72,5 +72,8 @@ configuration:
   mic_port:
     name: "Sound card input (jack)"
     description: "Empty = automatic. E.g. analog-input-mic for the microphone input."
+  share_update:
+    name: Accept updates from /share
+    description: "Off = safe (default). On = new versions from /share/gaslighter_update are taken over, but only with a valid G-Simulation signature (manifest.txt + manifest.sig)."
 network:
   8443/tcp: "Phones as microphones (HTTPS)"

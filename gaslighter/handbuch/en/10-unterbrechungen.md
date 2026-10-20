@@ -35,6 +35,8 @@ Every written minute of the day recording gets a SHA-256 checksum built on the p
 
 ## Updates {#updates}
 
+> **New (security):** updates from `share` are only used if **“Accept updates from /share” (`share_update`)** is switched on in the configuration **and** the folder contains a valid G-Simulation signature (`manifest.txt` + `manifest.sig`). Unsigned or modified folders are rejected (note in the log). A verified copy under `/data/update_run` is started.
+
 **Without a recording gap:** copy the folder `gaslighter` from the update zip via Samba to `\\homeassistant\share\gaslighter_update\` (overwrite existing files). After 10–20 s only the program restarts; recording continues and is delivered afterwards. If the new version does not start, the add-on automatically goes back to the previous one.
 
 **Full installation** (only when a version requires it, e.g. new name or watchdog): copy the folder from the full zip to `\\homeassistant\addons\` and rebuild the add-on in Home Assistant. This causes a short gap.

@@ -45,6 +45,8 @@ Jede geschriebene Minute der Tagesaufzeichnung bekommt eine SHA-256-Prüfsumme, 
 
 ## Updates
 
+> **Neu (Sicherheit):** Updates aus `share` werden nur übernommen, wenn in der Konfiguration **„Updates aus /share annehmen“ (`share_update`)** eingeschaltet ist **und** der Ordner eine gültige Signatur von G-Simulation enthält (`manifest.txt` + `manifest.sig`). Unsignierte oder veränderte Ordner werden abgelehnt (Hinweis im Protokoll). Gestartet wird eine geprüfte Kopie unter `/data/update_run`.
+
 **Ohne Aufnahmelücke:** den Ordner `gaslighter` aus der Update-Zip per Samba nach `\\homeassistant\share\gaslighter_update\` kopieren (vorhandene Dateien überschreiben). Nach 10–20 s startet nur das Programm neu; die Aufnahme läuft weiter und wird nachgeliefert. Startet die neue Fassung nicht, nimmt das Add-on automatisch wieder die vorige.
 
 **Volle Installation** (nur wenn eine Version es verlangt, z. B. neuer Name oder Watchdog): den Ordner aus der vollen Zip nach `\\homeassistant\addons\` kopieren und das Add-on in Home Assistant neu erstellen. Das gibt eine kurze Lücke.
