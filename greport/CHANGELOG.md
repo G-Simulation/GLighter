@@ -1,5 +1,9 @@
 # Changelog
 
+## 1.7.1
+- **Neu: Weitergabe an GLighter einstellbar.** Unter ⋯ → **GLighter** lässt sich „Notizen an GLighter weitergeben“ ein- und ausschalten (Standard: an). Aus: GLighter zeigt keine Notizen aus GReport mehr – an den Störungen, im Verlauf und im Lärmprotokoll. Die Notizen bleiben in GReport unverändert. Die Änderung gilt sofort. Das 🔗 oben zeigt, wenn die Weitergabe aus ist.
+- Braucht GLighter ab 1.76.3. Ältere GLighter zeigen die Notizen weiterhin.
+
 ## 1.7.0
 - **Behoben:** Tagebuch und Exporte enthalten wieder alle Notizen. Bisher waren es höchstens 5000, die ältesten fielen still weg.
 - **Behoben:** Notizen während der Zeitumstellung (z. B. 25.10.2026 zwischen 2 und 3 Uhr) werden mit der richtigen Uhrzeit gespeichert. Die Oberfläche speichert jetzt immer mit Zeitzone, und beim Bearbeiten bleibt ein unverändertes Zeitfeld exakt erhalten.

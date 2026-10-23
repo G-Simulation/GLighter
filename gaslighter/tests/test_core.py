@@ -689,3 +689,11 @@ class GReportEinbinden(unittest.TestCase):
         self.assertEqual(len(n), 1); self.assertEqual(n[0]["tags"], ["klopfen", "g:Waschmaschine"])
         self.assertEqual(laerm.tag_label("g:Waschmaschine"), "Waschmaschine")
         self.assertTrue(laerm.gr_status()["linked"])
+
+    def test_weitergabe_in_greport_aus(self):
+        laerm.pro_ok = lambda: True
+        json.dump({"app": "GReport", "v": "1.7.1", "t": time.time(), "share": False}, open(os.path.join(self.d, "greport.json"), "w"))
+        self.assertEqual(laerm.gr_notes(), [])                             # in GReport abgeschaltet: keine Notizen
+        st = laerm.gr_status(); self.assertTrue(st["found"]); self.assertFalse(st["shared"]); self.assertFalse(st["linked"])
+        json.dump({"app": "GReport", "v": "1.7.1", "t": time.time(), "share": True}, open(os.path.join(self.d, "greport.json"), "w"))
+        self.assertEqual(len(laerm.gr_notes()), 1)                         # wieder an: sofort wieder da

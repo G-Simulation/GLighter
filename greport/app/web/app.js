@@ -84,7 +84,8 @@ function stShow() {
   const b = $('grstat'); if (!b) return; b.innerHTML = '';
   const dot = (txt, on, tip) => { const c = el('span', { textContent: txt, className: on ? 'on' : '' }); c.title = tip; c.setAttribute('aria-label', tip); b.appendChild(c); };
   const g = ST.glighter || {};
-  if (g.linked) dot('🔗', true, t('gr_gl_linked') + ' – ' + t('gr_gl_linked_tip'));
+  if (g.found && ST.prefs && ST.prefs.gl === false) dot('🔗', false, t('gr_gl_off'));
+  else if (g.linked) dot('🔗', true, t('gr_gl_linked') + ' – ' + t('gr_gl_linked_tip'));
   else if (g.found) dot('🔗', false, 'GLighter ' + t('gr_gl_found') + ' – ' + t('gr_gl_found_tip'));
   if (ST.mqtt) dot('🏠', true, t('gr_ha_ok_tip'));
   else if (ST.ha && ST.ha.api) dot('🏠', false, t('gr_ha_log_tip'));
@@ -498,7 +499,7 @@ function menu() {
   const m = document.getElementById('grmenul');
   if (!m.hidden) { m.hidden = true; return; }
   const lock = PRO() ? '' : '🔒 Pro';
-  const items = [['✎', t('qt_title'), () => qtOpen()], ['🕒', t('gr_prefs'), prefOpen], null,
+  const items = [['✎', t('qt_title'), () => qtOpen()], ['🕒', t('gr_prefs'), prefOpen], ['🔗', t('gr_gl_title'), glOpen], null,
     ['⤓', t('gr_backup'), () => { location.href = 'backup'; }],
     ['📄', t('gr_txt_title'), txtOpen, lock],
     ['👤', t('gr_persons'), () => PRO() ? perOpen() : proOpen(), lock], null,
@@ -519,6 +520,13 @@ function proOpen() {
   document.getElementById('prodel').hidden = !(p.ok || p.state === 'expired'); document.getElementById('promsg').textContent = '';
   document.getElementById('prodlg').showModal();
 }
+/* GLighter: Notizen weitergeben (an/aus) */
+function glOpen() {
+  const g = ST.glighter || {}, on = !(ST.prefs && ST.prefs.gl === false);
+  document.getElementById('glshare').checked = on;
+  document.getElementById('glst').textContent = !g.found ? t('gr_gl_none') : g.linked ? t('gr_gl_linked') : 'GLighter ' + t('gr_gl_found') + ' – ' + t('gr_gl_found_tip');
+  document.getElementById('gldlg').showModal();
+}
 function perOpen() { document.getElementById('perlist').value = (ST.persons || []).join('\n'); document.getElementById('perdlg').showModal(); }
 function initDialogs() {
   document.querySelectorAll('dialog .dlgx').forEach(b => b.onclick = () => b.closest('dialog').close());
@@ -536,7 +544,11 @@ function initDialogs() {
   };
   document.getElementById('pfsave').onclick = async () => {
     const j = await post('prefs', prefRead()).catch(() => ({ ok: false }));
-    if (j.ok) { PF = { date: j.date, time: j.time, rel: j.rel, wd: j.wd }; document.getElementById('prefdlg').close(); fnpShow(); listDraw(); } else alert(t('saveerr'));
+    if (j.ok) { PF = { date: j.date, time: j.time, rel: j.rel, wd: j.wd, gl: j.gl }; document.getElementById('prefdlg').close(); fnpShow(); listDraw(); } else alert(t('saveerr'));
+  };
+  document.getElementById('glsave').onclick = async () => {
+    const j = await post('prefs', { gl: document.getElementById('glshare').checked }).catch(() => ({ ok: false }));
+    if (j.ok) { ST.prefs = Object.assign(ST.prefs || {}, { gl: j.gl }); PF = Object.assign(PF || {}, { gl: j.gl }); stShow(); document.getElementById('gldlg').close(); toast(t(j.gl ? 'gr_gl_on_ok' : 'gr_gl_off_ok')); } else alert(t('saveerr'));
   };
   document.getElementById('grimpf').onchange = async e => {
     const f = e.target.files[0]; e.target.value = ''; if (!f) return;

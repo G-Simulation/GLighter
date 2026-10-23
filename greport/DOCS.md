@@ -32,6 +32,8 @@ Diese Wörter stehen auch in Home Assistant in der Auswahlliste „Schnellwahl�
 ## Mit GLighter
 Ist GLighter installiert, findet es GReport selbst (über `/share/greport`). Mit GLighter Pro erscheinen die Notizen dort an den Störungen, im Verlauf und im Lärmprotokoll; geändert werden sie in GReport.
 
+Menü ⋯ → **GLighter**: „Notizen an GLighter weitergeben“ ein- oder ausschalten (Standard: an). Ausgeschaltet zeigt GLighter (ab 1.76.3) keine Notizen aus GReport mehr; die Notizen bleiben in GReport.
+
 ## Sicherung
 Menü ⋯ → **Sicherung herunterladen (ZIP)** ist immer frei. Mit Pro zusätzlich eine tägliche Sicherung nach `/share/greport/sicherung` (14 Tage).
 

@@ -3519,6 +3519,7 @@ function grBox() {
     st.innerHTML = '';
     if (!j.found) st.textContent = t('gr_nf');
     else if (!j.pro) { st.append(proLockTag(), document.createTextNode(' ' + t('gr_found_nopro'))); }
+    else if (j.shared === false) st.textContent = t('gr_unshared');
     else st.textContent = '✓ ' + t('gr_linked', { n: j.n || 0, v: j.v || '' }) + (j.running ? '' : ' · ' + t('gr_not_running'));
   })();
   return fs;

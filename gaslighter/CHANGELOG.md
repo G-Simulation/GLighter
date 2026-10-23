@@ -1,5 +1,8 @@
 # Changelog
 
+## 1.76.3
+- **GReport-Notizen nur, wenn GReport sie freigibt:** In GReport (ab 1.7.1) lässt sich unter ⋯ → GLighter „Notizen an GLighter weitergeben“ abschalten. Dann zeigt GLighter keine Notizen aus GReport mehr, und unter Einstellungen → GReport steht, dass die Weitergabe dort ausgeschaltet ist. Eigene Notizen in GLighter sind davon nicht betroffen.
+
 ## 1.76.2
 - **Live-Grafik beim Zoomen:** Sind mehr Messwerte im Bild als Bildpunkte, zeigt die Pegelspur je Bildpunkt-Spalte den leisesten und den lautesten Wert, fest an der Uhrzeit ausgerichtet. Dadurch sieht die Kurve live, angehalten und beim Hinein- und Herauszoomen gleich aus und flimmert nicht mehr, während sie weiterläuft. Keine Spitze geht dabei verloren.
 

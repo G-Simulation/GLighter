@@ -32,7 +32,7 @@ HERE = os.path.dirname(os.path.abspath(__file__))
 WEB = os.path.join(HERE, "web")
 OPTIONS_FILE = os.environ.get("LAERM_OPTIONS", "/data/options.json")
 SETTINGS_FILE = os.environ.get("LAERM_SETTINGS", "/data/settings.json")
-VERSION = "1.76.2"
+VERSION = "1.76.3"
 
 # =====================================================================
 # Einstellungen
@@ -5940,17 +5940,28 @@ GR_DIR = os.environ.get("LAERM_GREPORT_DIR", "/share/greport")
 GR_CACHE = {"key": None, "rows": [], "tags": {}}
 
 
-def gr_status():
+def gr_hb():
     hb = read_json(os.path.join(GR_DIR, "greport.json")) if os.path.exists(os.path.join(GR_DIR, "greport.json")) else {}
-    hb = hb if isinstance(hb, dict) else {}
+    return hb if isinstance(hb, dict) else {}
+
+
+def gr_shared(hb=None):
+    """In GReport einstellbar („Notizen an GLighter weitergeben“). Ältere GReport ohne die Einstellung: weitergeben."""
+    hb = gr_hb() if hb is None else hb
+    return hb.get("share") is not False
+
+
+def gr_status():
+    hb = gr_hb()
     found = bool(hb)
+    shared = gr_shared(hb)
     return {"found": found, "running": found and time.time() - float(hb.get("t") or 0) < 300, "v": hb.get("v"), "pro": pro_ok(),
-            "linked": found and pro_ok(), "n": len(gr_notes()) if found and pro_ok() else None}
+            "shared": shared, "linked": found and pro_ok() and shared, "n": len(gr_notes()) if found and pro_ok() and shared else None}
 
 
 def gr_notes():
     """Notizen aus GReport (nur mit Pro), im Format der freien Notizen. Eigene Tasten aus GReport werden zu „g:Beschriftung“."""
-    if not pro_ok():
+    if not pro_ok() or not gr_shared():
         return []
     f = os.path.join(GR_DIR, "notizen.json")
     try:

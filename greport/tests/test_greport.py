@@ -171,6 +171,15 @@ class Notizen(unittest.TestCase):
         G.txt_set({"monthly": True}); G.diary_write()
         self.assertTrue(os.path.exists(os.path.join(G.DIR, "tagebuch_2026-10.txt")))
 
+    def test_weitergabe_an_glighter(self):
+        G.heartbeat()
+        self.assertTrue(json.load(open(os.path.join(G.DIR, "greport.json")))["share"])      # Standard: weitergeben
+        self.assertFalse(G.prefs_set({"gl": False})["gl"])
+        self.assertFalse(json.load(open(os.path.join(G.DIR, "greport.json")))["share"])     # sofort im Herzschlag
+        self.assertEqual(G.prefs()["date"], "dmy4")                                          # andere Einstellungen bleiben
+        G.prefs_set({"date": "iso"}); self.assertFalse(G.prefs()["gl"])                      # Datum ändern lässt die Weitergabe aus
+        G.prefs_set({"gl": True}); self.assertTrue(json.load(open(os.path.join(G.DIR, "greport.json")))["share"])
+
     def test_ingress_ueber_ipv6(self):
         self.assertIn(G.client_ip("::ffff:172.30.32.2"), G.ALLOWED)
         self.assertNotIn(G.client_ip("::ffff:192.168.1.5"), G.ALLOWED)

@@ -33,7 +33,7 @@ WEB = os.path.join(HERE, "web")
 sys.path.insert(0, HERE)
 import lizenz  # noqa: E402
 
-VERSION = "1.7.0"
+VERSION = "1.7.1"
 BRAND = "GReport"
 OPTIONS = os.environ.get("GR_OPTIONS", "/data/options.json")
 PRIV = os.environ.get("GR_PRIVATE", "/data")                    # nur für GReport (Pro-Schlüssel)
@@ -442,7 +442,7 @@ def qt_groups():
 # =====================================================================
 # Anzeige: Datum und Uhrzeit (gilt in der App und im Export)
 # =====================================================================
-PREF_DEF = {"date": "dmy4", "time": "hms", "rel": True, "wd": False}
+PREF_DEF = {"date": "dmy4", "time": "hms", "rel": True, "wd": False, "gl": True}   # gl: Notizen an GLighter weitergeben
 DATE_FMTS = ("dmy4", "dmy2", "wdm", "iso", "long")
 TIME_FMTS = ("hms", "hm", "h12")
 
@@ -454,7 +454,7 @@ def prefs():
         out["date"] = d["date"]
     if d.get("time") in TIME_FMTS:
         out["time"] = d["time"]
-    for k in ("rel", "wd"):
+    for k in ("rel", "wd", "gl"):
         if isinstance(d.get(k), bool):
             out[k] = d[k]
     return out
@@ -466,12 +466,15 @@ def prefs_set(d):
         cur["date"] = d["date"]
     if d.get("time") in TIME_FMTS:
         cur["time"] = d["time"]
-    for k in ("rel", "wd"):
+    for k in ("rel", "wd", "gl"):
         if isinstance(d.get(k), bool):
             cur[k] = d[k]
     allp = read_json(os.path.join(DIR, "einstellungen.json"), {}) or {}
     allp.update(cur)                                     # andere Einstellungen (z. B. Textdatei) bleiben
     write_json(os.path.join(DIR, "einstellungen.json"), allp)
+    if "gl" in d:
+        heartbeat()                                      # GLighter erfährt sofort, ob es die Notizen zeigen darf
+        log("Notizen an GLighter:", "weitergeben" if cur["gl"] else "nicht weitergeben")
     diary_soon()                                         # Tagebuch im neuen Datumsformat
     return dict(cur, ok=True)
 
@@ -1337,7 +1340,9 @@ def glighter():
 
 
 def heartbeat():
-    write_json(os.path.join(DIR, "greport.json"), {"app": BRAND, "v": VERSION, "t": time.time(), "notes": "notizen.json", "tags": "schnellwahl.json"})
+    # share: Einstellung „Notizen an GLighter weitergeben“ – GLighter zeigt die Notizen nur, wenn sie an ist
+    write_json(os.path.join(DIR, "greport.json"), {"app": BRAND, "v": VERSION, "t": time.time(), "notes": "notizen.json", "tags": "schnellwahl.json",
+                                                   "share": bool(prefs().get("gl", True))})
 
 
 def bg_loop():
