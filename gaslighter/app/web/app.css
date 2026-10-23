@@ -763,6 +763,17 @@ body.marking #main,body.marking #spec,body.marking #ldcv,body.marking .ndcvm{tou
 .ldspin span{background:var(--card);padding:3px 8px;border-radius:6px}
 .loading .ldspin{opacity:1;visibility:visible;transition-delay:.25s}
 .loading .ndcvw canvas{opacity:.55;transition:opacity .2s .25s}
+/* Ladehinweis über ganzen Bereichen: Ansicht schaltet sofort um, alte Werte werden gedimmt, bis die neuen da sind */
+.bzwrap{position:relative}
+.bzwrap.loading{min-height:84px}
+.bzwrap.loading>:not(.bz){opacity:.4;transition:opacity .15s .1s;pointer-events:none}
+.ldspin.bz{align-items:flex-start;padding-top:26px;z-index:6}
+.loading>.ldspin.bz{transition-delay:.1s}
+.bzwrap.loading .ldspin:not(.bz){visibility:hidden}
+#nweek>.ldspin.bz{display:none}
+.gload{display:inline-flex;align-items:center;gap:6px;font-size:12px;color:var(--mut);white-space:nowrap}
+.gload[hidden]{display:none}
+.gload i{width:14px;height:14px;border-radius:50%;border:2px solid var(--bd);border-top-color:var(--acc);animation:ldspin .8s linear infinite}
 @keyframes ldspin{to{transform:rotate(360deg)}}
 @media(prefers-reduced-motion:reduce){.ldspin i{animation-duration:2s}}
 

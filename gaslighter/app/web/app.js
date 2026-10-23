@@ -1489,9 +1489,13 @@ let EVN = (() => { try { const v = localStorage.getItem('laerm_evn'); return v =
 async function loadEvents() {
   if (!NV.open) return;                             // Ereignisliste gibt es nur im Reiter Protokolle
   const q = perQuery(); if (q == null) return;
-  const want = q + '&n=' + EVN;
-  try { const j = await (await fetch('events?' + want, { cache: 'no-store' })).json(); if (want !== perQuery() + '&n=' + EVN) return; EV = j; renderEvents(); loadArtStatus(); } catch (e) { }
+  const want = q + '&n=' + EVN, fresh = want !== EVQ;
+  if (fresh) busy(EV_AREAS, true);
+  if (EVWAIT) { EVWAIT = false; busy(EV_AREAS, false); }   // ab hier zählt die Abfrage der Liste selbst
+  try { const j = await (await fetch('events?' + want, { cache: 'no-store' })).json(); if (want !== perQuery() + '&n=' + EVN) return; EV = j; EVQ = want; renderEvents(); loadArtStatus(); } catch (e) { }
+  finally { if (fresh) busy(EV_AREAS, false); }
 }
+var EVQ = '', EVWAIT = false;                         // EVQ: Abfrage der gezeigten Liste; EVWAIT: Liste wartet noch auf die Kopfdaten
 function renderEvents() {
   if (!EV) return;
   const mxh = Math.max(1, ...EV.hours);
@@ -4158,11 +4162,15 @@ function perSet(p, quiet) {
   else if (p === 'yest') { const d = new Date(); d.setDate(d.getDate() - 1); NV.date = isoDay(d); }
   else NV.date = today;
   if (p === 'free' && !NV.from) { const d = new Date(); d.setDate(d.getDate() - 6); NV.from = isoDay(d); NV.to = today; }
+  document.querySelectorAll('#nper button').forEach(b => b.classList.toggle('on', b.dataset.p === NV.per));   // sofort umschalten, nicht erst nach dem Laden
+  $('ndate').hidden = NV.per === 'free'; $('nfree').hidden = NV.per !== 'free';
   if (!quiet) loadNight();
 }
 async function loadNight() {
   const ds = NV.date, src = NV.src, rg = perRange(), key = JSON.stringify([ds, src, rg, NV.per, PV.cur, NV.art]);
   const fq = '&src=' + encodeURIComponent(src) + '&list=' + encodeURIComponent(PV.cur || '') + '&art=' + encodeURIComponent(NV.art || '') + (rg ? '&from=' + rg[0] + '&to=' + rg[1] : '');
+  const fresh = key !== NV.dkey;                     // anderer Zeitraum/Filter: sofort Ladehinweis über allen Bereichen
+  if (fresh) { busy(PROT_AREAS, true); busy(EV_AREAS, true); EVWAIT = true; }
   try {
     const [n, w] = await Promise.all([
       fetch('night?date=' + ds + fq, { cache: 'no-store' }).then(r => r.json()),
@@ -4173,6 +4181,7 @@ async function loadNight() {
     DT.src = src;
     NV.data = n; NV.dkey = key; NV.week = w.nights; renderNight(); dtLoad(DT, true); EVSIG = ''; loadEvents(); loadRun();
   } catch (e) { }
+  finally { if (fresh) { busy(PROT_AREAS, false); if (EVWAIT) { EVWAIT = false; busy(EV_AREAS, false); } } }
   clearTimeout(NV.timer);
   if (NV.open && NV.data && new Date(NV.data.end) > new Date()) NV.timer = setTimeout(loadNight, 60000);   // laufende Nacht aktualisieren
 }
@@ -5041,6 +5050,28 @@ function dtRows(have) {
 }
 function dtRowsSave(rows) { try { localStorage.setItem('laerm_dtrows', JSON.stringify(rows)); } catch (e) { } }
 /* Ladesymbol über den Grafik-Zeilen, solange Daten geladen werden (erscheint erst nach kurzer Zeit, damit es bei schnellen Antworten nicht flackert) */
+/* Ladehinweis für ganze Bereiche: busy(Bereich, true) beim Start einer Abfrage, busy(Bereich, false) wenn sie fertig ist.
+   Gezählt wird je Bereich, damit sich überlappende Abfragen nicht gegenseitig den Hinweis wegnehmen. Oben im Kopf steht
+   zusätzlich „Daten werden geladen …“, solange irgendein Bereich lädt. */
+const BUSY = new Map();
+function busy(area, on) {
+  const els = typeof area === 'string' ? [...document.querySelectorAll(area)] : [area].filter(Boolean);
+  for (const b of els) {
+    const n = Math.max(0, (BUSY.get(b) || 0) + (on ? 1 : -1));
+    if (n) BUSY.set(b, n); else BUSY.delete(b);
+    b.classList.add('bzwrap');
+    let sp = [...b.children].find(c => c.classList.contains('bz'));
+    if (n && !sp) { sp = spinEl(); sp.classList.add('bz'); b.appendChild(sp); }
+    b.classList.toggle('loading', !!n);
+    if (!n && sp) sp.remove();
+  }
+  const g = $('gload'); if (g) g.hidden = !BUSY.size;
+  clearTimeout(busy.slowT);
+  if (BUSY.size) busy.slowT = setTimeout(() => { if (BUSY.size) document.querySelectorAll('.ldspin.bz span, #gload span').forEach(x => { x.textContent = t('loading_slow'); }); }, 4000);
+  else document.querySelectorAll('#gload span').forEach(x => { x.textContent = t('loading'); });
+}
+const PROT_AREAS = '#nweek, #nightview .nsum, #ndaybox';
+const EV_AREAS = '#nightview .pevcard, #hours, #days';     // Liste und die Karten „Stunden“/„Tage“ (auch im Dashboard)
 function spinEl() { const d = el('div', { className: 'ldspin' }); d.innerHTML = '<i></i><span>' + esc(t('loading')) + '</span>'; return d; }
 function dtBusy(S, on) {
   clearTimeout(S._slowT); if (on) S._slowT = setTimeout(() => document.querySelectorAll('.ldspin span').forEach(x => { x.textContent = t('loading_slow'); }), 4000); else document.querySelectorAll('.ldspin span').forEach(x => { x.textContent = t('loading'); });
@@ -5744,9 +5775,14 @@ async function statDraw(d) {
   const box = document.querySelector(`.statcard[data-sid="${CSS.escape(d.id)}"]`); if (!box) return;
   if (d.view === 'prot' && !NV.open && box.dataset.drawn) return;           // Reiter nicht sichtbar: später
   const [a, b] = statRange(d), id = (STATS.req[d.id] || 0) + 1; STATS.req[d.id] = id;
+  const sk = JSON.stringify([d, Math.round(a / 60000), Math.round(b / 60000)]), fresh = box.dataset.sk !== sk;   // anderer Zeitraum: Ladehinweis
+  if (fresh) busy(box, true);
+  try { await statDraw1(d, box, a, b, id, sk); } finally { if (fresh) busy(box, false); }
+}
+async function statDraw1(d, box, a, b, id, sk) {
   let j = null; try { j = await (await fetch('stat_data', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ def: d, from: Math.round(a), to: Math.round(b) }) })).json(); } catch (e) { }
   if (STATS.req[d.id] !== id) return;
-  box.dataset.drawn = '1';
+  box.dataset.drawn = '1'; box.dataset.sk = sk;
   box.innerHTML = statHtml(d, j, d.view) ;
   statBind(box, d);
 }
