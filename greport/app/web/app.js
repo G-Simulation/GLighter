@@ -748,12 +748,28 @@ const NARROW = () => matchMedia('(max-width:600px)').matches;
 const COLS = 'day time text tags witness'.split(' ');
 /* eigene Felder als Spalten: alle nicht gelöschten, gelöschte nur, wenn eine Notiz einen Wert hat */
 const fbCols = () => FB.defs.filter(b => !b.del || LST.all.some(n => n.fields && b.id in n.fields));
-const colsAll = () => COLS.concat(fbCols().map(b => b.id));
+const colsAll = () => (GRID && GRID.getColumn('kind') ? 'day time kind text tags witness'.split(' ') : COLS).concat(fbCols().map(b => b.id));
+/* Tabelle einstellen (ab 1.11): Reihenfolge, gezeigte Spalten, Breiten – gespeichert in GReport (je breit/schmal), Browser als Rückfall */
+const tblV = () => NARROW() ? 'n' : 'w';
+const tblSt = () => ((PF && PF.tbl) || {})[tblV()] || {};
+function tblPut(patch) {
+  const all = JSON.parse(JSON.stringify((PF && PF.tbl) || {})), v = tblV(); all[v] = Object.assign(all[v] || {}, patch);
+  if (PF) PF.tbl = all;
+  clearTimeout(tblPut.tm); tblPut.tm = setTimeout(() => post('prefs', { tbl: all }).then(j => { if (j && j.ok) { delete j.ok; PF = j; } }).catch(() => { }), 500);
+}
+function tblOrderApply() {
+  if (!GRID) return; const o = tblSt().order; if (!o || !o.length) return;
+  const have = GRID.getColumns().map(c => c.getColId()).filter(c => c !== 'act'), ord = o.filter(c => have.includes(c)).concat(have.filter(c => !o.includes(c)));
+  GRID.applyColumnState({ state: ord.map(colId => ({ colId })), applyOrder: true });
+  const wd = tblSt().wd || {}; const ws = Object.entries(wd).filter(([c]) => GRID.getColumn(c)).map(([key, newWidth]) => ({ key, newWidth })); if (ws.length) GRID.setColumnWidths(ws, true);
+}
+const tblOrderNow = () => GRID ? GRID.getAllGridColumns().map(c => c.getColId()).filter(c => c !== 'act') : [];
 const colKey = () => 'gr_cols' + (NARROW() ? '_n' : '');
 function colVisible() {
-  const v = NARROW() ? { day: true, time: false, text: true, tags: false, witness: false } : { day: true, time: true, text: true, tags: true, witness: true };
+  const v = NARROW() ? { day: true, time: false, kind: false, text: true, tags: false, witness: false } : { day: true, time: true, kind: true, text: true, tags: true, witness: true };
   for (const b of fbCols()) v[b.id] = !NARROW() && (!b.hide || LST.all.some(n => n.fields && b.id in n.fields));   // ausgeblendet, aber mit Werten: Spalte zeigen
   try { Object.assign(v, JSON.parse(localStorage.getItem(colKey()) || '{}')); } catch (e) { }
+  Object.assign(v, tblSt().vis || {});                 // in GReport gespeichert: geht vor
   return v;
 }
 function colApply() {
@@ -915,7 +931,7 @@ function gridCols() {
       { colId: 'witness', field: 'witness', headerName: t('gr_c_witness'), flex: 1.2, minWidth: 100, wrapText: true, autoHeight: true, filter: 'agTextColumnFilter', filterParams: tf,
         valueFormatter: p => p.data.witness ? witTxt(p.data) : '' },
       ...fbCols().map(b => fbColDef(b, tf)),
-      { colId: 'act', headerName: t('gr_c_act'), headerValueGetter: () => NARROW() ? '' : t('gr_c_act'), headerTooltip: t('gr_act_tip'), width: NARROW() ? 80 : 104, minWidth: 80, maxWidth: 104, sortable: false, resizable: false, floatingFilter: false, cellClass: 'actc', cellRenderer: actCell,
+      { colId: 'act', lockPosition: 'right', suppressMovable: true, headerName: t('gr_c_act'), headerValueGetter: () => NARROW() ? '' : t('gr_c_act'), headerTooltip: t('gr_act_tip'), width: NARROW() ? 80 : 104, minWidth: 80, maxWidth: 104, sortable: false, resizable: false, floatingFilter: false, cellClass: 'actc', cellRenderer: actCell,
         suppressKeyboardEvent: p => !!(p.event.target && p.event.target.closest && p.event.target.closest('.acts button')) }
   ];
 }
@@ -929,14 +945,16 @@ function gridOpts() {
     tooltipShowDelay: 400, suppressCellFocus: false, animateRows: false, enableCellTextSelection: true, ensureDomOrder: true,
     onCellKeyDown: p => { if (p.column.getColId() === 'act' && (p.event.key === 'Enter' || p.event.key === 'F2') && !p.event.target.closest('.acts button')) { const c = p.event.target.querySelector && p.event.target.querySelector('.acts button'); if (c) { p.event.preventDefault(); c.focus(); } } },
     onFilterChanged: tblCount, onModelUpdated: tblCount,
+    onColumnMoved: p => { if (p.finished && p.source === 'uiColumnMoved') tblPut({ order: tblOrderNow() }); },
+    onColumnResized: p => { if (p.finished && p.source === 'uiColumnResized' && p.column) { const wd = Object.assign({}, tblSt().wd || {}); wd[p.column.getColId()] = Math.round(p.column.getActualWidth()); tblPut({ wd }); } },
     onCellClicked: p => { const b = p.event && p.event.target && p.event.target.closest && p.event.target.closest('.attb'); if (b) attOpen(p.data.id); },
     overlayNoRowsTemplate: `<span class="empty">${esc(t('gr_none_q'))}</span>`
   };
 }
 function tblCount() { if (GRID) countShow(GRID.getDisplayedRowCount(), LST.all.length, GRID.isAnyFilterPresent() || !!LST.q.trim()); }
 function tblDraw() {
-  if (!GRID) { GRID = agGrid.createGrid(document.getElementById('grgrid'), gridOpts()); GRID_COLS = JSON.stringify([fbCols(), FB.kinds, LST.all.some(n => n.kind)]); colApply(); }
-  const ck = JSON.stringify([fbCols(), FB.kinds, LST.all.some(n => n.kind)]); if (ck !== GRID_COLS) { GRID_COLS = ck; GRID.setGridOption('columnDefs', gridCols()); colApply(); }   // eigene Felder geändert
+  if (!GRID) { GRID = agGrid.createGrid(document.getElementById('grgrid'), gridOpts()); GRID_COLS = JSON.stringify([fbCols(), FB.kinds, LST.all.some(n => n.kind)]); colApply(); tblOrderApply(); }
+  const ck = JSON.stringify([fbCols(), FB.kinds, LST.all.some(n => n.kind)]); if (ck !== GRID_COLS) { GRID_COLS = ck; GRID.setGridOption('columnDefs', gridCols()); colApply(); tblOrderApply(); }   // eigene Felder geändert
   const fk = JSON.stringify([PF, lang, NTS.ren, NTS.own, NTS.grp, FB.defs]);
   GRID.setGridOption('rowData', LST.notes);
   if (fk !== GRID_FMT) { GRID_FMT = fk; GRID.refreshCells({ force: true }); }
@@ -948,10 +966,20 @@ function colMenu() {
   const m = document.getElementById('grcolm'), b = document.getElementById('grcols');
   if (!m.hidden) { colMenuClose(); return; }
   const v = colVisible();
-  m.innerHTML = `<b class="colttl">${esc(t('gr_cols'))}</b>` + colsAll().map(c => `<label class="check"><input type="checkbox" data-c="${c}"${v[c] ? ' checked' : ''}> ${esc(Felder.isId(c) ? (Felder.byId(c) || {}).l || c : t('gr_c_' + c))}</label>`).join('');
+  const cl = GRID ? tblOrderNow().filter(c => colsAll().includes(c)).concat(colsAll().filter(c => !tblOrderNow().includes(c))) : colsAll();   // in der aktuellen Reihenfolge
+  m.innerHTML = `<b class="colttl">${esc(t('gr_cols'))}</b>` + cl.map(c => `<label class="check"><input type="checkbox" data-c="${c}"${v[c] ? ' checked' : ''}> ${esc(Felder.isId(c) ? (Felder.byId(c) || {}).l || c : t('gr_c_' + c))}</label>`).join('');
   const boxes = [...m.querySelectorAll('input')];
   const lock = () => { const on = boxes.filter(x => x.checked); boxes.forEach(x => { x.disabled = on.length === 1 && x.checked; }); };   // mindestens eine Spalte bleibt
-  boxes.forEach(x => x.onchange = () => { const nv = colVisible(); nv[x.dataset.c] = x.checked; try { localStorage.setItem(colKey(), JSON.stringify(nv)); } catch (e) { } colApply(); lock(); });
+  boxes.forEach(x => x.onchange = () => { const nv = colVisible(); nv[x.dataset.c] = x.checked; try { localStorage.setItem(colKey(), JSON.stringify(nv)); } catch (e) { } tblPut({ vis: nv }); colApply(); lock(); });
+  m.querySelectorAll('label.check').forEach(l => {                       // Reihenfolge: ← → je Spalte (auch per Tastatur); Ziehen im Tabellenkopf geht ebenso
+    const c = l.querySelector('input').dataset.c, mv = d => { const o = tblOrderNow(), i = o.indexOf(c), j = i + d; if (i < 0 || j < 0 || j >= o.length) return; o.splice(j, 0, o.splice(i, 1)[0]); tblPut({ order: o }); tblOrderApply(); colMenuClose(); colMenu(); const f = document.querySelector(`#grcolm .colmv[data-c="${c}"][data-d="${d}"]`); if (f) f.focus(); const lv = document.getElementById('grcollive'); if (lv) lv.textContent = t('gr_col_moved', { c: l.textContent.trim(), i: j + 1, n: o.length }); };
+    const w = el('span', { className: 'colmvw' });
+    for (const [d, s_, k] of [[-1, '←', 'gr_col_left'], [1, '→', 'gr_col_right']]) { const bt = el('button', { type: 'button', className: 'colmv', textContent: s_ }); bt.dataset.c = c; bt.dataset.d = d; bt.setAttribute('aria-label', t(k, { c: l.textContent.trim() })); bt.onclick = e => { e.preventDefault(); e.stopPropagation(); mv(d); }; w.appendChild(bt); }
+    l.after(w); const row = el('div', { className: 'colrow' }); l.before(row); row.append(l, w);
+  });
+  const rs = el('button', { type: 'button', className: 'btn colrst', textContent: t('gr_col_reset') });
+  rs.onclick = e => { e.stopPropagation(); try { localStorage.removeItem(colKey()); } catch (e) { } const all = JSON.parse(JSON.stringify((PF && PF.tbl) || {})); delete all[tblV()]; if (PF) PF.tbl = all; post('prefs', { tbl: Object.keys(all).length ? all : null }).then(j => { if (j && j.ok) { delete j.ok; PF = j; } }).catch(() => { }); GRID.setGridOption('columnDefs', gridCols()); GRID.resetColumnState(); colApply(); colMenuClose(); document.getElementById('grcols').focus(); };
+  m.append(rs, el('span', { className: 'sr', id: 'grcollive' })); m.querySelector('#grcollive').setAttribute('aria-live', 'polite');
   lock(); m.hidden = false; b.setAttribute('aria-expanded', 'true'); boxes[0].focus();
   m.onkeydown = e => { if (e.key === 'Escape') { e.preventDefault(); colMenuClose(); b.focus(); } };
 }

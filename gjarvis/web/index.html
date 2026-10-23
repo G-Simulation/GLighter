@@ -600,6 +600,12 @@ const AGDE={filterOoo:'Filtern …',equals:'ist gleich',notEqual:'ist nicht glei
   sortDescending:'Absteigend sortieren',sortUnSort:'Sortierung aufheben',to:'bis',of:'von',page:'Seite',firstPage:'Erste Seite',previousPage:'Vorige Seite',nextPage:'Nächste Seite',
   lastPage:'Letzte Seite',pageSizeSelectorLabel:'Zeilen pro Seite',ariaPageSizeSelectorLabel:'Zeilen pro Seite',thousandSeparator:'.',decimalSeparator:',',number:'Zahl'};
 const agText=p=>{let s=AGDE[p.key]; if(s==null) return p.defaultValue; for(const v of p.variableValues||[]) s=s.replace('${variable}',v); return s;};
+/* Spalten (ab 1.12.1): Reihenfolge per Ziehen im Tabellenkopf und Breiten bleiben in diesem Browser gemerkt */
+function colKeep(g,key){
+  try{const st=JSON.parse(localStorage.getItem(key)||'null'); if(Array.isArray(st)&&st.length) g.applyColumnState({state:st,applyOrder:true});}catch(e){}
+  const save=p=>{ if(p.finished===false) return; try{localStorage.setItem(key,JSON.stringify(g.getColumnState().map(c=>({colId:c.colId,width:c.width}))));}catch(e){} };
+  g.addEventListener('columnMoved',p=>{ if(p.finished) save(p); }); g.addEventListener('columnResized',p=>{ if(p.finished&&p.source==='uiColumnResized') save(p); });
+}
 const agTheme=()=>agGrid.themeQuartz.withParams({backgroundColor:'var(--card)',foregroundColor:'var(--tx)',textColor:'var(--tx)',subtleTextColor:'var(--mut)',
   chromeBackgroundColor:'var(--grid)',headerBackgroundColor:'var(--grid)',headerTextColor:'var(--tx)',headerFontWeight:600,borderColor:'var(--bd)',rowBorder:{color:'var(--bd)'},
   accentColor:'var(--acc)',rangeSelectionBorderColor:'var(--acc)',rowHoverColor:'color-mix(in srgb, var(--acc) 7%, transparent)',inputBackgroundColor:'var(--card)',
@@ -624,12 +630,12 @@ function remDraw(rs){
   const box=$('rems');
   if(!window.agGrid){box.innerHTML=rs.map(r=>`<div class="src"><b>${esc(r.zeit)}</b><span>${esc(ART[r.art]||'Erinnerung')}${r.text&&r.text!==r.art?' – '+esc(r.text):''}</span><button type="button" data-r="${esc(r.id)}">Löschen</button></div>`).join('');
     box.querySelectorAll('[data-r]').forEach(b=>b.onclick=()=>remDel(b.dataset.r)); return;}
-  if(!REMG) REMG=agGrid.createGrid(box,{theme:agTheme(),getLocaleText:agText,domLayout:'autoHeight',rowData:[],getRowId:p=>String(p.data.id),
+  if(!REMG){ REMG=agGrid.createGrid(box,{theme:agTheme(),getLocaleText:agText,domLayout:'autoHeight',rowData:[],getRowId:p=>String(p.data.id),
     defaultColDef:{sortable:false,resizable:false,suppressHeaderMenuButton:true},
     columnDefs:[{colId:'zeit',field:'zeit',headerName:'Zeit',width:110,minWidth:96,cellClass:'num'},
       {colId:'text',headerName:'Text',flex:1,minWidth:80,wrapText:true,autoHeight:true,valueGetter:p=>(ART[p.data.art]||'Erinnerung')+(p.data.text&&p.data.text!==p.data.art?' – '+p.data.text:'')},
       {colId:'del',headerName:'Löschen',width:84,minWidth:60,maxWidth:84,cellRenderer:p=>btnCell(p,'Löschen: '+(p.data.text||p.data.zeit),'✕',r=>remDel(r.id)),suppressKeyboardEvent:btnKey}],
-    onCellKeyDown:btnEnter,tabToNextCell:()=>false,ensureDomOrder:true,enableCellTextSelection:true,animateRows:false,suppressCellFocus:false});
+    onCellKeyDown:btnEnter,tabToNextCell:()=>false,ensureDomOrder:true,enableCellTextSelection:true,animateRows:false,suppressCellFocus:false}); colKeep(REMG,'gj_remcols'); }
   REMG.setGridOption('rowData',rs);
 }
 
@@ -658,7 +664,7 @@ function logGrid(){
     isExternalFilterPresent:()=>LOG.lv.size<4,doesExternalFilterPass:n=>LOG.lv.has(lvOf(n.data.lvl)[0]),
     tabToNextCell:()=>false,enableCellTextSelection:true,ensureDomOrder:true,animateRows:false,
     onModelUpdated:logCount,overlayNoRowsTemplate:'<span class="empty">Keine Einträge.</span>'});
-  logCols(); return LOG.grid;
+  logCols(); colKeep(LOG.grid,'gj_logcols'); return LOG.grid;
 }
 function logCols(){ if(!LOG.grid) return; LOG.grid.setColumnsVisible(['name'],!narrow()); }
 matchMedia('(max-width:600px)').addEventListener('change',logCols);

@@ -35,7 +35,7 @@ sys.path.insert(0, HERE)
 import lizenz  # noqa: E402
 import felder  # noqa: E402
 
-VERSION = "1.11.0"
+VERSION = "1.11.1"
 BRAND = "GReport"
 OPTIONS = os.environ.get("GR_OPTIONS", "/data/options.json")
 PRIV = os.environ.get("GR_PRIVATE", "/data")                    # nur für GReport (Pro-Schlüssel)
@@ -752,6 +752,9 @@ def prefs():
             out[k] = cap_keys(d[k])
     if isinstance(d.get("pop"), dict):
         out["pop"] = pop_clean(d["pop"])
+    t_ = tbl_clean(d.get("tbl"))
+    if t_:
+        out["tbl"] = t_
     for k, n in CAP_MAX.items():
         if isinstance(d.get(k), str) and cap_clean(d[k], n):
             out[k] = cap_clean(d[k], n)
@@ -760,6 +763,28 @@ def prefs():
         if o:
             out["cap_order"] = o + [x for x in CAP_SECS if x not in o]
     return out
+
+
+def tbl_clean(v):
+    """Tabelle (ab 1.11): Reihenfolge, gezeigte Spalten und Breiten – je Ansicht (breit „w“ / schmal „n“)."""
+    if not isinstance(v, dict):
+        return None
+    cid = re.compile(r"^(?:[a-z]{2,12}|b_[0-9a-f]{6})$")
+    out = {}
+    for k in ("w", "n"):
+        x = v.get(k)
+        if not isinstance(x, dict):
+            continue
+        o = {}
+        if isinstance(x.get("order"), list):
+            o["order"] = [c for c in dict.fromkeys(str(c) for c in x["order"][:80]) if cid.match(c)]
+        if isinstance(x.get("vis"), dict):
+            o["vis"] = {str(c): bool(b) for c, b in list(x["vis"].items())[:80] if cid.match(str(c)) and isinstance(b, bool)}
+        if isinstance(x.get("wd"), dict):
+            o["wd"] = {str(c): int(n) for c, n in list(x["wd"].items())[:80] if cid.match(str(c)) and isinstance(n, (int, float)) and 40 <= n <= 1200}
+        if o:
+            out[k] = o
+    return out or None
 
 
 def prefs_set(d):
@@ -784,6 +809,12 @@ def prefs_set(d):
                 cur[k] = cap_keys(d[k])
             else:                                        # null: sechide_pop folgt wieder der angedockten Ansicht
                 cur.pop(k, None); drop.append(k)
+    if "tbl" in d:                                       # Tabelle: Reihenfolge/Spalten/Breiten (null = zurücksetzen)
+        t_ = tbl_clean(d["tbl"])
+        if t_:
+            cur["tbl"] = t_
+        else:
+            cur.pop("tbl", None); drop.append("tbl")
     if "pop" in d:                                       # eigene abgedockte Ansicht (dict) oder wie angedockt (null)
         p = pop_clean(d["pop"])
         if p is None:

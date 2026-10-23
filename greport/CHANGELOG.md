@@ -1,5 +1,8 @@
 # Changelog
 
+## 1.11.1
+- **Tabelle: Spalten umsortieren.** Im Menü ⚙ „Spalten“ je Spalte ← → (auch per Tastatur, wird angesagt), oder im Tabellenkopf ziehen. Reihenfolge, gezeigte Spalten und Breiten werden in GReport gespeichert (für breite und schmale Ansicht getrennt), „Spalten zurücksetzen“ stellt den Standard wieder her. Die Spalte „Art“ ist jetzt auch im Menü.
+
 ## 1.11.0
 - **Eigene Notiz-Arten** wie „Erinnerung“, „Termin“ oder „Idee“: unter ▦ Layout anpassen → „Notiz-Arten“ anlegen, mit Name, Farbe und Symbol. Je Art einstellbar: „ohne Zeitpunkt“ (wählen setzt dann auch „ohne Zeitpunkt“, außer die Zeit wurde von Hand gesetzt) und „nicht Störungen zuordnen“ (GLighter hängt solche Notizen an keine Störung). Vorgabe beim Erfassen und „zuletzt gewählte Art behalten“ einstellbar. „Erinnerung“ ist schon angelegt.
 - Beim Erfassen als Tasten „Art“ wählbar (auch beim Ändern); im Verlauf als farbiges Schild und als Filter-Taste mit Anzahl, in der Tabelle als Spalte „Art“ mit Filter (mehrere wählbar, auch „ohne Art“). Im CSV-Export die Spalte „notiz_art“ (nur wenn eine Notiz eine Art hat), beim Import wird sie wieder erkannt.

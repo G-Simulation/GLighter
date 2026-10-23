@@ -497,3 +497,10 @@ body.pop.tipshover #secwit.tipanchor,body.pop.tipshover #fnptags > .tipanchor{pa
 .fbkeds{margin-top:14px}
 .fbkchip[aria-pressed="true"]{color:var(--ink)!important}
 .tag.fbkind{min-height:34px;font-weight:600}.tag.fbkind.on{background:color-mix(in srgb,var(--kc) 28%,transparent)}
+/* Spalten umsortieren (1.11) */
+.colmenu{min-width:260px}
+.colmenu .colrow{display:flex;align-items:center;gap:4px}.colmenu .colrow .check{flex:1}
+.colmenu .colmvw{display:inline-flex;gap:2px}
+.colmenu .colmv{min-width:32px;min-height:32px;border:1px solid var(--line);border-radius:8px;background:transparent;color:var(--ink);cursor:pointer;font:inherit}
+.colmenu .colmv:hover{background:var(--soft)}
+.colmenu .colrst{margin-top:6px}

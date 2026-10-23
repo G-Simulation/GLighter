@@ -1,5 +1,8 @@
 # Änderungen
 
+## 1.12.1
+- Tabellen (Protokoll, Erinnerungen): Spalten lassen sich im Tabellenkopf per Ziehen umsortieren; Reihenfolge und Breiten bleiben gemerkt.
+
 ## 1.12.0
 
 - Protokoll als Tabelle: Zeit, Stufe (Fehler, Warnung, Info als farbige Markierung), Bereich und Meldung. Filtern nach Stufe, Suchen und Knopf „Nur Fehler“. Darüber steht, wie viele Einträge angezeigt werden, z. B. „12 von 250 Einträgen (gefiltert)“, mit „Filter löschen“. Neue Zeilen kommen beim automatischen Aktualisieren dazu, ohne dass die Tabelle springt. „Kopieren“ kopiert die angezeigten Zeilen
