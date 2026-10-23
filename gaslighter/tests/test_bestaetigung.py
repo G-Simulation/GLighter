@@ -370,3 +370,30 @@ class Einbindung(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+class Uhr(unittest.TestCase):
+    def test_uhr_weicht_ab_nicht_beurteilbar(self):
+        r = BC.check(T0, "main", sensor(edges=[T0 + 3 * S], clock_from=T0 - 60 * S, clock_off=9))
+        self.assertEqual((r["st"], r["why"], r["clock_off"]), ("nb", "clock", 9))
+        r = BC.check(T0, "main", sensor(edges=[T0 + 3 * S], clock_from=T0 + 60 * S))      # davor: normal geprüft
+        self.assertEqual(r["st"], "ok")
+
+
+class Kalibrieren(unittest.TestCase):
+    def test_verschiebe_test_und_vorschlag(self):
+        t0s = [T0 + i * 3600 * S for i in range(30)]
+        s = sensor(edges=[t + 3 * S for t in t0s] + [T0 + 1800 * S], pre=5, post=10)
+        c = BC.calib(t0s, s)
+        self.assertEqual(c["real"], 30); self.assertLess(c["shift_mean"], 5); self.assertLess(c["p"], 0.1)
+        self.assertEqual(sum(c["hist"]), 30); self.assertEqual(c["sug"], [1, 4])
+        c2 = BC.calib(t0s, sensor(edges=[]))
+        self.assertEqual((c2["real"], c2["sug"]), (0, None))
+
+    def test_tag_nacht_grundrate(self):
+        import time as _t
+        base = int(_t.mktime((2026, 10, 1, 0, 0, 0, 0, 0, -1)) * 1000)
+        ed = [base + d * 86400000 + h * 3600000 for d in range(10) for h in (1, 2, 3, 4, 13)]   # 4 nachts, 1 am Tag
+        s = sensor(edges=ed, since=base)
+        ld, ln = BC.base_rate_split(s, base, base + 10 * 86400000)
+        self.assertGreater(ln, ld * 5)

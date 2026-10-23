@@ -12,6 +12,7 @@ Zufallstreffer: p = 1 − exp(−λ · Fensterbreite), λ = Flanken je Sekunde i
 """
 import bisect
 import math
+import time
 
 TYPES = ("vib", "motion", "door", "cam", "phone_vib", "power", "tilt", "other")
 ROLES = ("ok", "own", "ctx")                       # Bestätigung, eigene Aktivität (Ausschluss), nur Kontext
@@ -100,6 +101,62 @@ def base_rate(s, t_from, t_to):
     return n / (reach / 1000.0), reach / 86400000.0, n
 
 
+def is_night(ms):
+    """Nacht = 22 bis 6 Uhr Ortszeit (für getrennte Grundraten)."""
+    h = time.localtime(ms / 1000.0).tm_hour
+    return h >= 22 or h < 6
+
+
+def base_rate_split(s, t_from, t_to):
+    """Grundrate getrennt für Tag und Nacht (ab 1.84.1). Erreichbare Zeit grob nach Anteil (Nacht 8 h, Tag 16 h).
+    → (λ Tag, λ Nacht) oder (None, None)."""
+    lam, days, n = base_rate(s, t_from, t_to)
+    if lam is None or days < 3:
+        return None, None
+    lo = max(t_from, s.get("since") or t_from)
+    ed = [e for e in s.get("edges") or [] if lo <= e < t_to]
+    nn = sum(1 for e in ed if is_night(e))
+    reach = n / lam if lam else days * 86400.0
+    return (len(ed) - nn) / (reach * 16 / 24), nn / (reach * 8 / 24)
+
+
+def calib(t0s, s, max_s=60, bin_s=5, shift_s=300, n_shift=12):
+    """Kalibrieren eines Sensors (ab 1.84.1): Δt-Verteilung (nächste Flanke zum Störungsbeginn, ±max_s) und Verschiebe-Test:
+    Treffer im eigenen Fenster gegen Treffer, wenn alle Störungen um ±k·shift_s verschoben werden. Wenig Verschiebungen
+    mit gleich vielen oder mehr Treffern = Treffer sind kein Zufall. Nur Anzeige."""
+    edges = sorted(s.get("edges") or [])
+    pre, post = int(s.get("pre", 5)) * 1000, int(s.get("post", 5)) * 1000
+    bins = list(range(-max_s, max_s, bin_s)); hist = [0] * len(bins)
+    def hits(off):
+        h = 0
+        for t0 in t0s:
+            t = t0 + off
+            i0, i1 = bisect.bisect_left(edges, t - pre), bisect.bisect_right(edges, t + post)
+            h += i1 > i0
+        return h
+    dts = []
+    for t0 in t0s:
+        i = bisect.bisect_left(edges, t0 - max_s * 1000)
+        best = None
+        while i < len(edges) and edges[i] <= t0 + max_s * 1000:
+            d = (edges[i] - t0) / 1000.0
+            if best is None or abs(d) < abs(best):
+                best = d
+            i += 1
+        if best is not None:
+            dts.append(best); hist[min(len(bins) - 1, int((best + max_s) // bin_s))] += 1
+    real = hits(0)
+    sh = [k * shift_s * 1000 for k in range(-n_shift, n_shift + 1) if k]
+    shv = [hits(o) for o in sh]
+    p = (1 + sum(1 for v in shv if v >= real)) / (1 + len(shv)) if t0s else None
+    sug = None
+    if len(dts) >= 5:                                  # Vorschlag: Fenster, das 90 % der nahen Treffer enthält (gerundet)
+        d_ = sorted(dts); lo_ = d_[int(0.05 * (len(d_) - 1))]; hi_ = d_[int(0.95 * (len(d_) - 1))]
+        sug = [max(0, int(math.ceil(-min(lo_, 0)))) + 1, max(1, int(math.ceil(max(hi_, 0)))) + 1]
+    return {"n": len(t0s), "bins": bins, "bin_s": bin_s, "hist": hist, "real": real, "shift": shv, "shift_s": shift_s,
+            "shift_mean": round(sum(shv) / len(shv), 1) if shv else None, "p": round(p, 3) if p is not None else None, "sug": sug}
+
+
 def p_chance(lam, width_s):
     if lam is None:
         return None
@@ -123,6 +180,8 @@ def check(t0, src, s, lam=None):
     own = s.get("role") == "own"
     if s.get("since") is None or t0 < s["since"]:
         r.update(st="nb", why="nodata"); return r
+    if s.get("clock_from") is not None and t0 >= s["clock_from"]:      # Uhr weicht über der Schwelle ab (ab 1.84.1): Zeitfenster nicht verlässlich
+        r.update(st="nb", why="clock", clock_off=s.get("clock_off")); return r
     for a, b in s.get("offl") or []:
         if a < w1 and b > w0:
             r.update(st="nb", why="offline", off=[a, b]); return r
@@ -188,10 +247,12 @@ def evaluate(events, sensors, now_ms, rate_days=RATE_DAYS):
     for s in sensors:
         s["edges"] = sorted(s.get("edges") or []); s["on"] = sorted(s.get("on") or []); s["_ona"] = [a for a, _ in s["on"]]
         lam, days, n = base_rate(s, now_ms - rate_days * 86400000, now_ms)
-        rates[s["id"]] = {"lam": lam, "days": round(days, 2), "n": n, "per_h": None if lam is None else round(lam * 3600, 2), "unsure": days < 3}
+        ld, ln = base_rate_split(s, now_ms - rate_days * 86400000, now_ms)
+        rates[s["id"]] = {"lam": lam, "days": round(days, 2), "n": n, "per_h": None if lam is None else round(lam * 3600, 2), "unsure": days < 3,
+                          "lam_d": ld, "lam_n": ln, "per_h_d": None if ld is None else round(ld * 3600, 2), "per_h_n": None if ln is None else round(ln * 3600, 2)}
     out = {}
     for key, t0, src in events:
-        res = [check(t0, src, s, rates[s["id"]]["lam"]) for s in sensors]
+        res = [check(t0, src, s, (rates[s["id"]]["lam_n"] if is_night(t0) else rates[s["id"]]["lam_d"]) if rates[s["id"]]["lam_d"] is not None else rates[s["id"]]["lam"]) for s in sensors]   # Tag/Nacht getrennt
         res = [x for x in res if x]
         if res:
             out[key] = {"sum": combine(res), "res": res}

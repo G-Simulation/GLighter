@@ -1,5 +1,12 @@
 # Changelog
 
+## 1.84.2
+- **Sensor prüfen (Kalibrieren):** In Einstellungen → Regeln → Sensor-Bestätigung je Sensor „📊 Prüfen“: zeigt, wie weit die nächste Auslösung vom Störungsbeginn entfernt war (Verteilung ±60 s, Fenster farbig), und einen Verschiebe-Test (alle Störungen um ±5 … 60 min verschoben: treffen die echten Zeiten deutlich öfter, ist es kein Zufall). Aus den eigenen Daten kommt ein Vorschlag für das Fenster, „Fenster übernehmen“ setzt ihn. Nur Anzeige.
+- **Grundrate getrennt nach Tag und Nacht** (Nacht 22–6 Uhr): Die Wahrscheinlichkeit eines Zufallstreffers richtet sich nach der Tageszeit der Störung; in der Tabelle steht „Tag x/h · Nacht y/h“.
+- **Uhr weicht ab:** Liegt eine Uhr (Home Assistant oder ein Handy) über der Warnschwelle, gelten deren Sensoren ab dem Erkennen als „nicht beurteilbar (Uhr weicht ab)“ statt als bestätigt/nicht bestätigt. Ist die Uhr wieder richtig, wird normal geprüft.
+- **„Notizen in diesem Ereignis“** im Ereignis-Fenster zeigt jetzt die zugeordneten Notizen (Fenster vor/nach, von Hand gewählt) und die zeitlich überlappenden, die keiner anderen Störung gehören.
+- Leere Bereiche (kein Video, keine Sensoren) lassen keine Lücke mehr und kommen an ihren Platz zurück, sobald es Inhalt gibt. Bedienhilfe passt zum frei anzuordnenden Spektrogramm.
+
 ## 1.84.1
 - **Notiz-Arten aus GReport:** Notizen aus GReport zeigen ihre Art (z. B. „⏰ Erinnerung“) als farbiges Schild. Arten mit „nicht Störungen zuordnen“ hängt GLighter an keine Störung; Notizen „ohne Zeitpunkt“ wie bisher nie.
 - Gemeinsame Bausteine (felder) wie in GReport 1.11.0.

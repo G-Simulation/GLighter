@@ -33,7 +33,7 @@ HERE = os.path.dirname(os.path.abspath(__file__))
 WEB = os.path.join(HERE, "web")
 OPTIONS_FILE = os.environ.get("LAERM_OPTIONS", "/data/options.json")
 SETTINGS_FILE = os.environ.get("LAERM_SETTINGS", "/data/settings.json")
-VERSION = "1.84.1"
+VERSION = "1.84.2"
 
 # =====================================================================
 # Einstellungen
@@ -2095,6 +2095,7 @@ def bc_sensors(cfg=None, now_ms=None):
             mot.setdefault(f"m_{m['kind']}_{m['src']}", []).append((m["a"], m["b"]))
     downs = run_downs()
     caps = ha_len_caps()
+    cbad = clock_bad(cfg)
     out = []
     for s in lst:
         s = dict(s)
@@ -2112,12 +2113,16 @@ def bc_sensors(cfg=None, now_ms=None):
             cap = caps.get(s["rid"])
             if cap:                                          # „einmal auslösen“ / Obergrenze: zählt nicht als lange „schon aktiv“
                 on_ = [[a, min(b, a + cap)] for a, b in on_]
+            if "ha" in cbad:
+                s["clock_from"], s["clock_off"] = cbad["ha"]
             s.update(edges=edges, on=on_, offl=(offl.get(s["rid"]) or []) + [list(d) for d in downs], since=seq[0][0] if seq else None)
             if s.get("src") not in (None, "", "all"):
                 s["only_src"] = s["src"]
         else:
             iv = mot.get(s["id"], [])
             s.update(edges=[a for a, _ in iv], on=[[a, b] for a, b in iv], offl=[list(d) for d in downs], since=0, only_dev=s["kind"] == "tilt")
+            if "ph:" + str(s.get("dev") or "") in cbad:
+                s["clock_from"], s["clock_off"] = cbad["ph:" + str(s.get("dev"))]
         out.append(s)
     return out
 
@@ -2190,13 +2195,38 @@ def bc_public():
         sens = {s["id"]: s for s in bc_sensors(cfg)}
         now_ms = int(time.time() * 1000)
         rates = {k: BC.base_rate(s, now_ms - BC.RATE_DAYS * 86400000, now_ms) for k, s in sens.items()}
+        split = {k: BC.base_rate_split(s, now_ms - BC.RATE_DAYS * 86400000, now_ms) for k, s in sens.items()}
     except Exception as e:
-        log("Sensor-Bestätigung: Grundrate nicht berechnet:", e); rates = {}
+        log("Sensor-Bestätigung: Grundrate nicht berechnet:", e); rates = {}; split = {}
+    ph = lambda v: None if v is None else round(v * 3600, 2)
     return {"ok": True, "on": cfg["on"], "lanes": cfg["lanes"], "clock_warn": cfg["clock_warn"], "clock": clock_status(cfg),
             "types": list(BC.TYPES), "roles": list(BC.ROLES), "def": BC.DEF, "version": BC.VERSION,
             "sensors": [dict({k: s[k] for k in ("id", "name", "kind", "type", "pre", "post", "lock", "role", "off", "saved")},
                              rate=(None if rates.get(s["id"], (None,))[0] is None else round(rates[s["id"]][0] * 3600, 2)),
-                             days=round(rates.get(s["id"], (None, 0))[1], 1)) for s in lst]}
+                             days=round(rates.get(s["id"], (None, 0))[1], 1),
+                             rate_d=ph(split.get(s["id"], (None, None))[0]), rate_n=ph(split.get(s["id"], (None, None))[1])) for s in lst]}
+
+
+def bc_calib_public(sid, days=30):
+    """Kalibrieren eines Sensors gegen die Störungen der letzten Tage (Δt-Verteilung, Verschiebe-Test). Nur Anzeige."""
+    cfg = bc_cfg()
+    s = next((x for x in bc_sensors(cfg) if x["id"] == sid), None)
+    if s is None:
+        return {"ok": False, "error": "notfound"}
+    lo = (dt.datetime.now() - dt.timedelta(days=days)).isoformat(timespec="seconds")
+    t0s = []
+    for r in read_log():
+        if (r.get("start") or "")[:19] < lo:
+            continue
+        if s.get("only_src") and (r.get("quelle_id") or "main") != s["only_src"]:
+            continue
+        a = ms_of(r.get("start"))
+        if a is not None:
+            t0s.append(a)
+    t0s = sorted(t0s)[-5000:]
+    out = BC.calib(t0s, s)
+    out.update(ok=True, id=sid, name=s.get("name") or sid, pre=s.get("pre"), post=s.get("post"), days=days)
+    return out
 
 
 # =====================================================================
@@ -2253,6 +2283,28 @@ def clock_phone(r, ct_ms):
     with CLOCK_LOCK:
         q = CLOCK["ph"].setdefault(r.id, collections.deque(maxlen=30))
         q.append((time.time(), v))
+
+
+CLOCK_BAD = {}                                            # Uhr: seit wann über der Schwelle (ms) je Uhr – für „nicht beurteilbar (Uhr)“
+
+
+def clock_bad(cfg=None):
+    """{"ha" | "ph:<Gerät>": (seit ms, Abweichung s)} für Uhren, die jetzt über der Warnschwelle liegen. Seit dem ersten Erkennen
+    (10 min Vorlauf) gelten deren Sensoren als „nicht beurteilbar“; ist die Uhr wieder in Ordnung, endet das."""
+    try:
+        st = clock_status(cfg)
+    except Exception:
+        return {}
+    now = int(time.time() * 1000)
+    cur = {}
+    for x in st.get("items") or []:
+        if x.get("off") is None:
+            continue
+        key = "ha" if x.get("kind") == "ha" else "ph:" + str(x.get("id") or "")
+        if abs(x["off"]) > st.get("warn_s", BC.CLOCK_WARN_S):
+            cur[key] = (CLOCK_BAD.get(key, (now - 600000, 0))[0], x["off"])
+    CLOCK_BAD.clear(); CLOCK_BAD.update(cur)
+    return dict(cur)
 
 
 def clock_status(cfg=None, wait=False):
@@ -6054,6 +6106,34 @@ def has_audio(row):
     return bool(wav_name(row))
 
 
+def ev_fnotes(r, k, rows):
+    """Notizen zu einer Störung (ab 1.84.1): die ihr zugeordneten (Fenster vor/nach, von Hand gewählt) und die zeitlich
+    überlappenden, die keiner anderen Störung gehören. Mit Zuordnung („asg“); Notizen bleiben unverändert."""
+    a, b = row_span(r)
+    if a is None:
+        return []
+    win = 125 * 60000
+    src = r.get("quelle_id") or "main"
+    cand = [n for n in fnotes_in(a - win, b + win, "all") if n.get("src", "all") in ("all", src)]
+    if not cand:
+        return []
+    lo = dt.datetime.fromtimestamp((a - 2 * win) / 1000.0).isoformat(timespec="seconds"); hi = dt.datetime.fromtimestamp((b + 2 * win) / 1000.0).isoformat(timespec="seconds")
+    near = [dict(x, k=kk) for x, kk in zip(rows, row_keys(rows)) if lo <= (x.get("start") or "")[:19] <= hi]
+    try:
+        m = fn_assign(cand, near)
+    except Exception as e:
+        log("Notiz-Zuordnung nicht berechnet:", e); m = {}
+    out = []
+    for n in cand:
+        g = m.get(na_key(n))
+        mine = bool(g and g.get("k") == k)
+        overl = n["a"] <= b and n["b"] >= a and not (g and g.get("k") not in (None, k))
+        if mine or overl:
+            out.append(dict(n, asg=fn_asg_public(n, g)))
+    out.sort(key=lambda p: p["a"])
+    return out
+
+
 def event_detail(key):
     rows = read_log()
     for r, k in zip(rows, row_keys(rows)):
@@ -6068,7 +6148,7 @@ def event_detail(key):
                     "notes": notes_for(stem), "note_tags": NOTE_TAGS,
                     "enote": enotes_for(stem)[0], "snote": enotes_for(stem)[1], "plists": plists_of(stem),
                     "cmp": co_compare(r, g, stem),
-                    "fnotes": (lambda ab: fnotes_in(ab[0], ab[1], r.get("quelle_id") or "main") if ab[0] is not None else [])(row_span(r)),
+                    "fnotes": ev_fnotes(r, k, rows),
                     "ki": {"marks": ki.get("marks") or [], "top": ki.get("top") or [], "emb": bool(ki.get("emb")),
                            "subs": sub_events(ki.get("marks"), g),          # immer aus Markern und Messwerten (schnell, stets aktuell)
                            "kinds": kinds_summary(ki.get("marks"), g)} if ki else None,
@@ -7860,7 +7940,7 @@ def csv_safe(v):
 
 
 BC_ST = {"ok": ("bestaetigt", "confirmed"), "no": ("nicht_bestaetigt", "not_confirmed"), "nb": ("nicht_beurteilbar", "not_assessable"), "own": ("eigene_quelle", "own_source")}
-BC_WHY = {"offline": ("offline", "offline"), "lock": ("Sperrzeit", "lockout"), "active": ("war schon aktiv", "already active"), "nodata": ("noch keine Daten", "no data yet"),
+BC_WHY = {"clock": ("Uhr weicht ab", "clock off"), "offline": ("offline", "offline"), "lock": ("Sperrzeit", "lockout"), "active": ("war schon aktiv", "already active"), "nodata": ("noch keine Daten", "no data yet"),
           "running": ("lief schon", "already running")}
 
 
@@ -13889,6 +13969,8 @@ class Handler(BaseHandler):
                 return self.js(felder_state())
             if name == "bestaetigung":                # Sensor-Bestätigung: an/aus, Sensoren mit Fenster, Sperrzeit, Rolle, Grundrate
                 return self.js(bc_public())
+            if name == "bc_calib":                    # Kalibrieren: Δt-Verteilung und Verschiebe-Test eines Sensors (nur Anzeige)
+                return self.js(bc_calib_public(re.sub(r"[^A-Za-z0-9_:.\-]", "", (q.get("id") or [""])[0])[:80]))
             if name == "sclanes":                     # Sensor-Spuren unter dem Pegelverlauf (nur Anzeige)
                 try:
                     a_, b_ = int(float((q.get("from") or ["0"])[0])), int(float((q.get("to") or ["0"])[0]))

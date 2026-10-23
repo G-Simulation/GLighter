@@ -1663,6 +1663,7 @@ function scWhy(y) {
   if (w === 'lock') return t('sc_w_lock', { s: scSec(y.ago_s), l: y.lock });
   if (w === 'active') return t('sc_w_active', { s: scSec(y.since_s) });
   if (w === 'nodata') return t('sc_w_nodata');
+  if (w === 'clock') return t('sc_w_clock', { s: Math.abs(y.clock_off || 0) });
   if (w === 'running') return t('sc_w_running');
   return '';
 }
@@ -2377,7 +2378,7 @@ function dashMk(v, p, st, lay, gEl, items) {          // ein Bereich als Panel (
   hd.ondblclick = e => { if (!e.target.closest('button')) hd.querySelector('.pcol').click(); };
   if (p.vis) hd.querySelector('.pvis').onclick = () => { st.vis[p.id] = !st.vis[p.id]; dashApply(v); dashSave(v); visChanged(); };
   if (p.auto && p.emp) {                              // Bereich ohne Inhalt (keine Sensoren, kein Video): außerhalb von „Layout anpassen“ ganz ausgeblendet
-    pn.classList.add('phe'); const sync = () => { const e = !!p.emp(); if (e !== pn.classList.contains('pempty')) { pn.classList.toggle('pempty', e); if (!e) dashResized(); } };
+    pn.classList.add('phe'); const sync = () => { const e = !!p.emp(); if (e !== pn.classList.contains('pempty')) { pn.classList.toggle('pempty', e); if (DASH.grids[v]) dashApply(v); if (!e) dashResized(); } };
     new MutationObserver(sync).observe(ns[0], { attributes: true, attributeFilter: ['hidden'], subtree: true }); sync();
   } else if (p.auto) { const n0 = ns[0]; const sync = () => { pn.classList.toggle('pempty', !!n0.hidden || !n0.childElementCount); const q = n0.classList.contains('quiet') && !n0.hidden && !!n0.childElementCount; if (!q) pn.classList.remove('pqopen'); pn.classList.toggle('pquiet', q); pn.querySelector('.pcol').textContent = pn.classList.contains('pcolx') || (q && !pn.classList.contains('pqopen')) ? '▸' : '▾'; }; new MutationObserver(sync).observe(n0, { attributes: true, attributeFilter: ['hidden', 'class'], childList: true }); sync(); }
 }
@@ -2520,9 +2521,10 @@ function dashApply(v) {
     pn.classList.toggle('pcolx', !!st.col[id]); pn.querySelector('.pcol').textContent = st.col[id] || (pn.classList.contains('pquiet') && !pn.classList.contains('pqopen')) ? '▸' : '▾';
     pn.querySelector('.pcol').setAttribute('aria-expanded', st.col[id] ? 'false' : 'true');
     const vb = pn.querySelector('.pvis'); if (vb) { vb.classList.toggle('on', !!st.vis[id]); vb.setAttribute('aria-pressed', st.vis[id] ? 'true' : 'false'); }
-    const off = st.off.includes(id);
-    if (off && it.gridstackNode) { g.removeWidget(it, false, false); it.style.display = 'none'; }
-    else if (!off && !it.gridstackNode) { it.style.display = ''; it.setAttribute('gs-y', '9999'); it.removeAttribute('gs-x'); g.makeWidget(it); }   // wieder eingeblendet: unten anfügen
+    const emp = !DASH.edit && pn.classList.contains('phe') && pn.classList.contains('pempty');   // leer (kein Video, keine Sensoren): ohne Lücke weg, Platz gemerkt
+    const off = st.off.includes(id) || emp;
+    if (off && it.gridstackNode) { if (emp) { it.dataset.ex = it.gridstackNode.x; it.dataset.ey = it.gridstackNode.y; } else { delete it.dataset.ex; delete it.dataset.ey; } g.removeWidget(it, false, false); it.style.display = 'none'; }
+    else if (!off && !it.gridstackNode) { it.style.display = ''; if (it.dataset.ey != null) { it.setAttribute('gs-y', it.dataset.ey); it.setAttribute('gs-x', it.dataset.ex || 0); delete it.dataset.ex; delete it.dataset.ey; } else { it.setAttribute('gs-y', '9999'); it.removeAttribute('gs-x'); } g.makeWidget(it); }   // wieder eingeblendet: unten anfügen (leer gewesene an ihren Platz)
     if (off) it.removeAttribute('tabindex'); else if (DASH.edit) it.tabIndex = 0; else it.removeAttribute('tabindex');
     if (!off) g.resizeToContent(it); });
 }
@@ -3524,12 +3526,13 @@ function scBox() {
     body.innerHTML = `<label class="check"><input type="checkbox" class="sc_on"${D.on ? ' checked' : ''}> ${esc(t('sc_on'))}</label>` +
       `<label class="check"><input type="checkbox" class="sc_lanes"${D.lanes !== false ? ' checked' : ''}> ${esc(t('sl_set'))}</label>` +
       `<label class="scck">${esc(t('ck_set'))} <input type="number" class="sc_ck" min="1" max="600" step="1" inputmode="numeric" value="${esc(String(D.clock_warn || 5))}"> s</label>${clockHTML(D.clock)}` +
-      (D.sensors.length ? `<div class="sctw"><table class="sctab scedit"><caption class="sr">${esc(t('s_sc'))}</caption><thead><tr><th scope="col">${esc(t('sc_t_sens'))}</th><th scope="col">${esc(t('sc_e_type'))}</th><th scope="col">${esc(t('sc_e_role'))}</th><th scope="col">${esc(t('sc_e_pre'))}</th><th scope="col">${esc(t('sc_e_post'))}</th><th scope="col">${esc(t('sc_e_lock'))}</th><th scope="col">${esc(t('sc_e_rate'))}</th></tr></thead><tbody>` +
+      (D.sensors.length ? `<div class="sctw"><table class="sctab scedit"><caption class="sr">${esc(t('s_sc'))}</caption><thead><tr><th scope="col">${esc(t('sc_t_sens'))}</th><th scope="col">${esc(t('sc_e_type'))}</th><th scope="col">${esc(t('sc_e_role'))}</th><th scope="col">${esc(t('sc_e_pre'))}</th><th scope="col">${esc(t('sc_e_post'))}</th><th scope="col">${esc(t('sc_e_lock'))}</th><th scope="col">${esc(t('sc_e_rate'))}</th><th scope="col"><span class="sr">${esc(t('sc_cal'))}</span></th></tr></thead><tbody>` +
         D.sensors.map(x => `<tr data-id="${esc(x.id)}"${x.off ? ' class="off"' : ''}><th scope="row"><label class="check"><input type="checkbox" class="sc_use"${x.off ? '' : ' checked'} aria-label="${esc(t('sc_e_use', { s: x.name }))}"> ${esc(x.name)}</label></th>
           <td><select class="sc_type" aria-label="${esc(t('sc_e_type') + ': ' + x.name)}">${opt(D.types, x.type, v => t('sc_ty_' + v))}</select></td>
           <td><select class="sc_role" aria-label="${esc(t('sc_e_role') + ': ' + x.name)}">${opt(D.roles, x.role, v => t('sc_role_' + v))}</select></td>
           ${['pre', 'post', 'lock'].map(k => `<td><input type="number" class="sc_${k}" min="0" max="${k === 'lock' ? 3600 : 600}" step="1" inputmode="numeric" value="${x[k]}" aria-label="${esc(t('sc_e_' + k) + ': ' + x.name)}"></td>`).join('')}
-          <td>${x.rate != null ? esc(t('sc_rate', { r: numTxt(String(x.rate)), d: numTxt(String(x.days)) })) : '–'}</td></tr>`).join('') + '</tbody></table></div>'
+          <td>${x.rate != null ? esc(t('sc_rate', { r: numTxt(String(x.rate)), d: numTxt(String(x.days)) })) : '–'}${x.rate_d != null ? `<small>${esc(t('sc_rate_dn', { d: numTxt(String(x.rate_d)), n: numTxt(String(x.rate_n)) }))}</small>` : ''}</td>
+          <td><button type="button" class="chip sc_cal" aria-label="${esc(t('sc_cal') + ': ' + x.name)}">📊 ${esc(t('sc_cal'))}</button></td></tr>`).join('') + '</tbody></table></div>'
         : `<p class="hint">${esc(t('sc_none'))}</p>`);
     body.querySelector('.sc_on').onchange = e => save({ on: e.target.checked }, '.sc_on');
     body.querySelector('.sc_lanes').onchange = e => { save({ lanes: e.target.checked }, '.sc_lanes'); for (const c of Object.values(SL.c)) c.at = 0; };
@@ -3541,11 +3544,34 @@ function scBox() {
       q('sc_type').onchange = () => { const df = D.def[q('sc_type').value] || {}; save({ sens: { [id]: Object.assign(cur(), { pre: df.pre, post: df.post, lock: df.lock, role: df.role }) } }, sel('sc_type')); };   // neue Art: deren Voreinstellung
       for (const c of ['sc_role', 'sc_use']) q(c).onchange = () => save({ sens: { [id]: cur() } }, sel(c));
       for (const c of ['sc_pre', 'sc_post', 'sc_lock']) q(c).onchange = () => save({ sens: { [id]: cur() } }, sel(c));
+      q('sc_cal').onclick = () => scCalib(id, x.name, w => save({ sens: { [id]: Object.assign(cur(), { pre: w[0], post: w[1] }) } }, sel('sc_pre')), q('sc_cal'));
     });
     if (focusSel) { const f = body.querySelector(focusSel); if (f) f.focus(); }
   };
   fetch('bestaetigung', { cache: 'no-store' }).then(r => r.json()).then(j => { D = j; draw(); }).catch(() => { body.textContent = t('saveerr'); });
   return fs;
+}
+/* Kalibrieren (1.84.1): Δt-Verteilung (nächste Auslösung zum Störungsbeginn) und Verschiebe-Test – nur Anzeige; Fenster nur auf Knopfdruck übernehmen */
+async function scCalib(id, name, apply, back) {
+  let d = $('scaldlg'); if (!d) { d = el('dialog', { id: 'scaldlg', className: 'evdlg prognd scaldlg' }); d.setAttribute('aria-labelledby', 'scalh'); document.body.appendChild(d); d.addEventListener('close', () => { if (d._back) d._back.focus(); }); }
+  d._back = back;
+  d.innerHTML = `<div class="dh"><h3 id="scalh">📊 ${esc(t('sc_cal_t', { s: name }))}</h3><button type="button" class="scalx" aria-label="${esc(t('a_close'))}">✕</button></div><div class="dbody"><p class="mut">${esc(t('loading'))}</p></div>`;
+  d.querySelector('.scalx').onclick = () => d.close(); d.showModal();
+  let j; try { j = await (await fetch('bc_calib?id=' + encodeURIComponent(id), { cache: 'no-store' })).json(); } catch (e) { j = { ok: false }; }
+  const bd = d.querySelector('.dbody');
+  if (!j.ok) { bd.innerHTML = `<p>${esc(t('saveerr'))}</p>`; return; }
+  const mx = Math.max(1, ...j.hist), W = 100 / j.hist.length, tot = j.hist.reduce((a, b) => a + b, 0);
+  const bars = j.hist.map((v, i) => { const b0 = j.bins[i], inw = b0 + j.bin_s > -j.pre && b0 < j.post; return `<rect x="${(i * W + W * 0.1).toFixed(2)}" y="${(40 - 38 * v / mx).toFixed(2)}" width="${(W * 0.8).toFixed(2)}" height="${(38 * v / mx).toFixed(2)}" class="${inw ? 'in' : 'out'}"><title>${b0} … ${b0 + j.bin_s} s: ${v}</title></rect>`; }).join('');
+  const zx = (j.bins.indexOf(0) * W).toFixed(2);
+  const verdict = j.p == null ? '' : j.p <= 0.05 ? t('sc_cal_p_ok', { p: numTxt(String(Math.round(j.p * 100))) }) : t('sc_cal_p_no', { p: numTxt(String(Math.round(j.p * 100))) });
+  bd.innerHTML = `<p>${esc(t('sc_cal_n', { n: j.n, d: j.days, m: tot }))}</p>
+    <figure class="scalfig"><svg viewBox="0 0 100 44" preserveAspectRatio="none" role="img" aria-label="${esc(t('sc_cal_a', { b: j.hist.map((v, i) => j.bins[i] + ' s: ' + v).filter((x, i) => j.hist[i]).join(', ') || '–' }))}">${bars}<line x1="${zx}" x2="${zx}" y1="0" y2="40" class="zero"/></svg>
+      <figcaption><span>−${j.bins.length ? -j.bins[0] : 60} s</span><span>${esc(t('sc_cal_zero'))}</span><span>+${j.bins.length ? j.bins[j.bins.length - 1] + j.bin_s : 60} s</span></figcaption></figure>
+    <p>${esc(t('sc_cal_win', { a: j.pre, b: j.post, r: j.real, m: numTxt(String(j.shift_mean ?? '–')) }))}</p>
+    ${verdict ? `<p><b>${esc(verdict)}</b></p>` : ''}
+    ${j.sug ? `<p>${esc(t('sc_cal_sug', { a: j.sug[0], b: j.sug[1] }))} <button type="button" class="chip scalok">${esc(t('sc_cal_take'))}</button></p>` : `<p class="mut">${esc(t('sc_cal_few'))}</p>`}
+    <p class="mut">${esc(t('sc_cal_h'))}</p>`;
+  const ok = bd.querySelector('.scalok'); if (ok) ok.onclick = () => { apply(j.sug); d.close(); };
 }
 /* Dashboard-Vorlage für Home Assistant (legt nur auf Knopfdruck etwas an) */
 function hadashBox() {
