@@ -400,7 +400,9 @@ function drawDbGrid(c, ys, L, pw, d, label, gridCol, labCol) {
     if (major && label && text != null) { c.fillStyle = labCol; c.fillText(text, L - 7 * d, yy + 4 * d); }
   }
 }
-const gapBefore = i => i > 0 && recs[i].s !== recs[i - 1].s + 1;
+// Lücke vor Messwert i: fehlende Messnummer ODER Zeitsprung (Aufnahme stand kurz) – wie im Tagesverlauf, damit Live und angehalten gleich aussehen
+const GAP_MS = 400;
+const gapBefore = i => i > 0 && (recs[i].s !== recs[i - 1].s + 1 || recs[i].ts - recs[i - 1].ts > GAP_MS);
 function eventSpans(i0, i1, cb, core) {          // core: nur der Teil ueber der Schwelle (a=2), sonst mit Nachlauf
   let s = -1;
   for (let i = i0; i <= i1 + 1; i++) {

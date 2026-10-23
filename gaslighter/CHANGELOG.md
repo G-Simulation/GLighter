@@ -1,5 +1,9 @@
 # Changelog
 
+## 1.77.2
+- **Live-Bild zeigt Lücken wie der Tagesverlauf:** Stand die Aufnahme kurz (mehr als 0,4 Sekunden ohne Messwert), unterbricht das Live-Bild jetzt die Linie, statt sie gerade darüber zu ziehen. Live, angehalten und im Tagesverlauf sieht die Kurve damit gleich aus – in jeder Zoomstufe.
+- Hinweise unter den Grafiken nennen jetzt „Strg + Mausrad“ zum Zoomen.
+
 ## 1.77.1
 - **Barrierefreiheit, Nachtrag:** Regeln in den Einstellungen lassen sich per Tastatur aufklappen, ohne dass der An/Aus-Schalter im selben Knopf steckt (Screenreader lesen beides getrennt). Schieberegler und Einheiten-Auswahl haben einen Namen, das Hilfe-Symbol der Vergleichspegel steht nicht mehr in der Aufklapp-Zeile, der An/Aus-Schalter der Regeln ist größer.
 
