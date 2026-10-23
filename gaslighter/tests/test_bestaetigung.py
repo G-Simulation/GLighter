@@ -103,6 +103,33 @@ class Modul(unittest.TestCase):
         m2 = BC.assign_notes([("n5", T0 + 9 * 60 * S, None, "all")], incs2, pre, post)
         self.assertEqual(m2["n5"], ("e3", -60 * S, 2))                                 # zwei Kandidaten: der nähere (1 min davor)
 
+    def test_zuordnung_mit_fenster_je_notiz_und_von_hand(self):
+        evs = [("e1", T0, T0 + 10 * S, "main"), ("e2", T0 + 20 * 60 * S, T0 + 21 * 60 * S, "main"), ("e3", T0 + 25 * 60 * S, T0 + 25 * 60 * S, "p2")]
+        gl, gr = (2 * 60000, 15 * 60000), (10 * 60000, 30 * 60000)
+        notes = [("f:a", T0 + 5 * 60 * S, None, "all", *gl), ("f:b", T0 - 8 * 60 * S, None, "all", *gl), ("g:b", T0 - 8 * 60 * S, None, "all", *gr),
+                 ("g:c", T0 + 16 * 60 * S, None, "all", *gr), ("f:d", T0 + 2 * 3600 * S, None, "all", *gl)]
+        m = BC.assign(notes, evs)
+        self.assertEqual((m["f:a"]["k"], m["f:a"]["d"], m["f:a"]["man"]), ("e1", 5 * 60 * S, False))
+        self.assertNotIn("f:b", m)                                                      # GLighter: 8 min davor liegt außerhalb −2 min
+        self.assertEqual(m["g:b"]["k"], "e1")                                           # GReport: −10 min reicht
+        self.assertEqual([c[0] for c in m["g:c"]["cand"]], ["e2", "e3", "e1"])          # alle passenden, die nächste zuerst
+        self.assertNotIn("f:d", m)
+        m2 = BC.assign(notes, evs, {"g:c": "e3", "f:a": None, "f:d": "weg"})           # von Hand: neu zuordnen, lösen; unbekannte Störung: automatisch
+        self.assertEqual((m2["g:c"]["k"], m2["g:c"]["man"], m2["g:c"]["d"]), ("e3", True, -9 * 60 * S))
+        self.assertEqual((m2["f:a"]["k"], m2["f:a"]["man"]), (None, True))
+        self.assertNotIn("f:d", m2)
+        self.assertEqual(BC.assign([("x", T0, None, "p9", *gl)], evs), {})               # anderes Gerät
+
+    def test_uhrabgleich(self):
+        st = BC.clock_eval([{"kind": "ha", "name": "Home Assistant", "off": 0.4}, {"kind": "phone", "name": "Handy Küche", "off": -1.6}])
+        self.assertEqual(([x["off"] for x in st["items"]], st["max"], st["warn"]), ([0, -2], 2, False))
+        self.assertEqual(BC.clock_text(st), "Uhrabgleich: Abweichung Home Assistant 0 s, Handy Küche 2 s")
+        st = BC.clock_eval([{"kind": "ha", "name": "Home Assistant", "off": 7.2}, {"kind": "phone", "name": "Handy", "off": None}], 5)
+        self.assertTrue(st["warn"]); self.assertIn("mehr als 5 s", BC.clock_text(st))
+        self.assertEqual(BC.clock_text(BC.clock_eval([]), de=False), "Clock check: no reference clock available")
+        c = BC.clean_cfg({"clock_warn": 9999, "lanes": False}); self.assertEqual((c["clock_warn"], c["lanes"]), (600, False))
+        self.assertEqual((BC.clean_cfg({})["clock_warn"], BC.clean_cfg({})["lanes"]), (5, True))
+
 
 class Einbindung(unittest.TestCase):
     """laerm.py: Störungen aus log.csv, Sensor aus ha_zustand.csv – Anzeige und Export, gespeicherte Dateien bleiben gleich."""
@@ -110,7 +137,8 @@ class Einbindung(unittest.TestCase):
         import laerm
         self.L = laerm
         self.tmp = tempfile.mkdtemp(); out = os.path.join(self.tmp, "out"); os.makedirs(out)
-        self.keep = (laerm.paths, laerm.BC_FILE, list(laerm.HA_RULES), dict(laerm.CFG), laerm.run_downs, laerm.GR_DIR)
+        self.keep = (laerm.paths, laerm.BC_FILE, list(laerm.HA_RULES), dict(laerm.CFG), laerm.run_downs, laerm.GR_DIR, laerm.NA_FILE)
+        laerm.NA_FILE = os.path.join(self.tmp, "notiz_zuordnung.json")
         laerm.paths = lambda: (out, out + "/clips", out + "/log.csv")
         laerm.BC_FILE = os.path.join(self.tmp, "bestaetigung.json")
         laerm.run_downs = lambda: []
@@ -147,7 +175,7 @@ class Einbindung(unittest.TestCase):
 
     def tearDown(self):
         L = self.L
-        L.paths, L.BC_FILE, rules, cfg, L.run_downs, L.GR_DIR = self.keep
+        L.paths, L.BC_FILE, rules, cfg, L.run_downs, L.GR_DIR, L.NA_FILE = self.keep
         L.HA_RULES[:] = rules; L.CFG.clear(); L.CFG.update(cfg); L.HA_HIST.update(key=None, rows=[]); L.HA_AVAIL.update(cur=None, key=None, rows=[])
         L.NOTES["data"] = None
 
@@ -212,6 +240,115 @@ class Einbindung(unittest.TestCase):
         L.CFG.update(fn_post_min=3)
         self.assertIsNone(L.fnote_target(at))
         j = L.events_summary("all", 50); self.assertEqual((j["fn_pre_min"], j["fn_post_min"]), (2, 3))
+
+    def note(self, t, text="Bass", **k):
+        r = self.L.fnote_change("add", dict({"text": text, "from": t.strftime("%Y-%m-%dT%H:%M:%S")}, **k)); self.assertTrue(r["ok"]); return r["note"]
+
+    def test_notiz_zuordnung_export_und_von_hand(self):
+        L = self.L
+        def csvh(b):
+            return list(csv.reader(io.StringIO(b.decode("utf-8").lstrip("\ufeff")), delimiter=";"))
+        h0 = csvh(L.export_csv({}))[0]; nh0 = next(csv.reader(io.StringIO(L.notes_csv({}).decode("utf-8").lstrip("\ufeff"))))
+        self.assertNotIn("notizen_zugeordnet", h0); self.assertNotIn("stoerung_zugeordnet", nh0)      # ohne Notizen: wie bisher
+        html0 = L.protocol_html({"all": ["1"]}); html0 = html0.decode() if isinstance(html0, bytes) else html0
+        self.assertNotIn("Notiz zugeordnet", html0)
+        n = self.note(self.t1 + dt.timedelta(minutes=5))
+        notes_before = json.dumps(L.notes_all()["free"], sort_keys=True)
+        j = L.events_summary("all", 50)
+        a = [x for x in j["fnotes"] if x["id"] == n["id"]][0]["asg"]
+        e1 = [e for e in j["events"] if e["start"][:19] == self.t1.isoformat()[:19]][0]
+        self.assertEqual((a["k"], a["d"], a["man"], a["n"], a["pre"], a["post"]), (e1["k"], 300000, False, 1, 2, 15))
+        rows = csvh(L.export_csv({})); h = rows[0]
+        self.assertEqual(h[-1], "notizen_zugeordnet")
+        body = {r[0][:19]: dict(zip(h, r)) for r in rows[1:] if r and not r[0].startswith("#")}
+        self.assertEqual(body[self.t1.isoformat()[:19]]["notizen_zugeordnet"], "5 min danach, automatisch: Bass")
+        self.assertEqual(body[self.t2.isoformat()[:19]]["notizen_zugeordnet"], "")
+        nr = list(csv.reader(io.StringIO(L.notes_csv({}).decode("utf-8").lstrip("\ufeff"))))
+        nd = dict(zip(nr[0], nr[1])); self.assertEqual(nd["zuordnung"], "5 min danach, automatisch"); self.assertEqual(nd["stoerung_zugeordnet"][:19], self.t1.isoformat()[:19])
+        html = L.protocol_html({"all": ["1"]}); html = html.decode() if isinstance(html, bytes) else html
+        self.assertIn("Notiz zugeordnet (5 min danach, automatisch", html)
+        # von Hand: neu zuordnen nur auf eine passende Störung, lösen, zurück auf automatisch
+        L.NA_FILE = os.path.join(self.tmp, "notiz_zuordnung.json")
+        det = L.fn_asg_detail("f:" + n["id"]); self.assertTrue(det["ok"]); self.assertEqual(det["cur"]["k"], e1["k"]); self.assertEqual(det["cand"], [])
+        e2 = [e for e in j["events"] if e["start"][:19] == self.t2.isoformat()[:19]][0]
+        self.assertFalse(L.fn_asg_change({"id": "f:" + n["id"], "action": "set", "k": e2["k"]})["ok"])   # liegt nicht im Fenster
+        r = L.fn_asg_change({"id": "f:" + n["id"], "action": "detach"}); self.assertTrue(r["detached"] and r["man"])
+        a = [x for x in L.events_summary("all", 50)["fnotes"] if x["id"] == n["id"]][0]["asg"]; self.assertEqual((a["k"], a["man"]), (None, True))
+        self.assertNotIn("notizen_zugeordnet", csvh(L.export_csv({}))[0])
+        L.CFG.update(fn_pre_min=120)                                                     # größeres Fenster: zweite Störung passt auch
+        det = L.fn_asg_detail("f:" + n["id"]); self.assertEqual([c["k"] for c in det["cand"]], [e1["k"], e2["k"]])
+        r = L.fn_asg_change({"id": "f:" + n["id"], "action": "set", "k": e2["k"]}); self.assertTrue(r["man"]); self.assertEqual(r["cur"]["k"], e2["k"])
+        rows = csvh(L.export_csv({})); body = {r_[0][:19]: dict(zip(rows[0], r_)) for r_ in rows[1:] if r_ and not r_[0].startswith("#")}
+        self.assertEqual(body[self.t2.isoformat()[:19]]["notizen_zugeordnet"], "55 min davor, von Hand: Bass")
+        r = L.fn_asg_change({"id": "f:" + n["id"], "action": "auto"}); self.assertFalse(r["man"]); self.assertEqual(r["cur"]["k"], e1["k"])
+        self.assertEqual(json.dumps(L.notes_all()["free"], sort_keys=True), notes_before)        # Notiz und Zeiten unverändert
+        self.unchanged()
+
+    def test_greport_notiz_eigenes_fenster(self):
+        L = self.L
+        L.CFG.update(fn_gr_pre_min=10, fn_gr_post_min=30)
+        n = {"id": "r_1", "a": int(self.t1.timestamp() * 1000) - 8 * 60000, "b": None, "src": "all", "gr": True}
+        g = {"id": "x_1", "a": n["a"], "b": None, "src": "all"}
+        m = L.fn_assign([n, g])
+        self.assertIn("g:r_1", m); self.assertNotIn("f:x_1", m)                           # GReport −10 min, GLighter nur −2 min
+        self.assertEqual(L.fn_win(n), (600000, 1800000)); self.assertEqual(L.fn_win(g), (120000, 900000))
+
+    def test_sensor_spuren_und_uhr(self):
+        L = self.L
+        a = int(self.t1.timestamp() * 1000) - 3600000; b = int(self.t2.timestamp() * 1000) + 3600000
+        j = L.sc_lanes(a, b)
+        self.assertTrue(j["on"]); ln = {x["name"]: x for x in j["lanes"]}
+        self.assertEqual(ln["Decke"]["edges"], [int(self.t1.timestamp() * 1000) + 3000]); self.assertEqual((ln["Decke"]["pre"], ln["Decke"]["post"]), (5, 10))
+        self.assertEqual(len(ln["Flur"]["off"]), 1)                                       # offline schraffiert
+        k = L.events_summary("all", 50)["events"][-1]["k"]
+        self.assertIsNotNone(L.sc_lanes(a, b, k)["sel"])
+        L.bc_save({"lanes": False}); self.assertEqual(L.sc_lanes(a, b)["lanes"], []); self.assertFalse(L.bc_public()["lanes"])
+        L.bc_save({"lanes": True, "clock_warn": 3}); self.assertEqual(L.bc_public()["clock_warn"], 3)
+        keep = L.clock_status
+        L.clock_status = lambda cfg=None, wait=False: BC.clock_eval([{"kind": "ha", "name": "Home Assistant", "off": 0.2}, {"kind": "phone", "name": "Handy", "off": 4.4}], 3)
+        try:
+            rows = list(csv.reader(io.StringIO(L.export_csv({}).decode("utf-8").lstrip("\ufeff")), delimiter=";"))
+            self.assertIn("Uhrabgleich: Abweichung Home Assistant 0 s, Handy 4 s – mehr als 3 s", rows[-1][1])
+            html = L.protocol_html({"all": ["1"]}); html = html.decode() if isinstance(html, bytes) else html
+            self.assertIn("Uhrabgleich: Abweichung Home Assistant 0 s, Handy 4 s", html)
+            d = L.bc_detail(dict(L.events_summary("all", 50)["events"][0])); self.assertTrue(d["clock"]["warn"])
+        finally:
+            L.clock_status = keep
+        self.unchanged()
+
+    def test_uhr_home_assistant_ueber_date_kopf(self):
+        L = self.L
+        import email.utils, threading, time as tm
+        from http.server import BaseHTTPRequestHandler, HTTPServer
+
+        class H(BaseHTTPRequestHandler):
+            def do_GET(self):
+                self.send_response(200); self.send_header("Content-Type", "application/json"); self.end_headers(); self.wfile.write(b'{"message":"API running."}')
+
+            def date_time_string(self, timestamp=None):
+                return email.utils.formatdate(tm.time() + 7, usegmt=True)     # HA geht 7 s vor
+
+            def log_message(self, *a):
+                pass
+        srv = HTTPServer(("127.0.0.1", 0), H); th = threading.Thread(target=srv.serve_forever, daemon=True); th.start()
+        keep = os.environ.get("LAERM_HA_URL")
+        os.environ["LAERM_HA_URL"] = f"http://127.0.0.1:{srv.server_address[1]}/api"
+        try:
+            off, err = L.clock_ha_check()
+            self.assertEqual(err, ""); self.assertTrue(6 <= off <= 8.5, off)
+            L.CLOCK.update(ha_at=0.0, busy=False)
+            st = L.clock_status(wait=True)
+            ha = [x for x in st["items"] if x["kind"] == "ha"][0]
+            self.assertIn(ha["off"], (7, 8)); self.assertTrue(st["warn"])              # Standard: Warnung ab 5 s
+            L.bc_save({"clock_warn": 10}); L.CLOCK.update(ha_at=0.0, busy=False)
+            self.assertFalse(L.clock_status(wait=True)["warn"])
+        finally:
+            srv.shutdown()
+            if keep is None:
+                os.environ.pop("LAERM_HA_URL", None)
+            else:
+                os.environ["LAERM_HA_URL"] = keep
+            L.CLOCK.update(ha=None, ha_at=0.0, busy=False, ha_err="")
 
 
 if __name__ == "__main__":

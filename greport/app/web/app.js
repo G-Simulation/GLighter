@@ -563,7 +563,7 @@ function tplFirst() {
 }
 async function fbTpl(name, ask) {
   if (ask && !confirm(t('fb_tpl_q', { n: t('fb_tpl_' + name) }))) return false;
-  const j = await post('felder', { action: 'tpl', tpl: name }).catch(() => ({ ok: false }));
+  const j = await post('felder', { action: 'tpl', tpl: name, lang }).catch(() => ({ ok: false }));
   if (!j.ok) { toast(t('saveerr')); return false; }
   Felder.load(j); ntsApply(j.qt); if (j.prefs) PF = j.prefs;
   if (LAY.on) layClose();

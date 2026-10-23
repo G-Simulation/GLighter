@@ -1,5 +1,9 @@
 # Changelog
 
+## 1.10.1
+- Der Name des Zählers aus der Vorlage „Zähler“ (und „Stichworte“ bei „Allgemein“) folgt jetzt der Sprache der Oberfläche, nicht mehr der Spracheinstellung des Servers.
+- Passend zu GLighter 1.83: GReport-Notizen werden dort mit einem eigenen Fenster (Standard −10 / +30 min) den Störungen zugeordnet; die Zuordnung von Hand liegt in GLighter, die Notizen in GReport bleiben unverändert.
+
 ## 1.10.0
 - **Für jedes Thema:** Die Notiz-Erfassung lässt sich jetzt aus Bausteinen zusammenstellen – vom einfachen Strichliste-Zähler („wie oft fällt mir das Feuerzeug runter“) bis zum ausführlichen, nachvollziehbaren Protokoll. Unter ▦ Layout anpassen → „Bereiche und Felder“ → „Hinzufügen“: Pillen-Rubrik (Tasten, auf Wunsch „nur eine Auswahl“), Textfeld, Zähler (＋1, auf Wunsch −1), Zahl (mit Einheit, kleinster und größter Zahl), Ja/Nein, Auswahlliste (eine oder mehrere), Skala (1–5 oder 0–10), Dauer, Datum/Uhrzeit, Ort (mit früheren Eingaben als Vorschlag) und Person/Zeuge (Name, Rolle, Erreichbarkeit).
 - **Jeder Bereich** – auch die eingebauten (Text, Schnellwahl, Zeuge, Weitere Angaben, Zeitraum) – hat einen Namen, einen Hinweis, „Pflichtfeld“ und „zeigen“. Der Zeugen-Bereich ist damit freiwillig und frei benennbar. Pflichtfelder geben einen Hinweis; ein zweites „Speichern“ speichert trotzdem.

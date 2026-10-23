@@ -98,6 +98,15 @@ class Felder(Basis):
         self.assertEqual(json.dumps(laerm.notes_all()["free"][:1]), json.dumps(json.loads(before)))
         self.assertFalse(laerm.cap_tpl("boese")["ok"])
 
+    def test_vorlage_in_sprache_der_oberflaeche(self):
+        keep = laerm.CFG.get("language"); laerm.CFG["language"] = "de"              # Server deutsch, Oberfläche englisch
+        try:
+            laerm.cap_tpl("zaehler", "en")
+            self.assertEqual([b["l"] for b in laerm.cap_defs() if b["type"] == "counter"], ["Counter"])
+            laerm.cap_tpl("allg", "en"); self.assertEqual(laerm.qt_x("gren").get("own"), "Keywords")
+        finally:
+            laerm.CFG["language"] = keep
+
     def test_greport_felder_werden_gelesen(self):
         os.makedirs(laerm.GR_DIR)
         with open(os.path.join(laerm.GR_DIR, "notizen.json"), "w", encoding="utf-8") as f:

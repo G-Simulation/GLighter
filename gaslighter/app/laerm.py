@@ -33,7 +33,7 @@ HERE = os.path.dirname(os.path.abspath(__file__))
 WEB = os.path.join(HERE, "web")
 OPTIONS_FILE = os.environ.get("LAERM_OPTIONS", "/data/options.json")
 SETTINGS_FILE = os.environ.get("LAERM_SETTINGS", "/data/settings.json")
-VERSION = "1.82.0"
+VERSION = "1.83.0"
 
 # =====================================================================
 # Einstellungen
@@ -44,7 +44,7 @@ DEFAULTS = {
     "bg_window": 60, "bg_unit": "s", "bg_stat": "quiet", "rise_s": 300, "fall_s": 10, "min_event_ms": 0,
     "pre_roll_s": 5, "post_roll_s": 5, "max_clip_s": 60, "ctx_s": 30, "save_audio": False, "audio_novoice": True,
     "day_track": True, "day_layers": True, "day_spec": True, "co_record": True, "fp_store": True,
-    "group_pause_s": 120, "fn_assign_min": 5, "fn_pre_min": 2, "fn_post_min": 15,
+    "group_pause_s": 120, "fn_assign_min": 5, "fn_pre_min": 2, "fn_post_min": 15, "fn_gr_pre_min": 10, "fn_gr_post_min": 30,
     "auto_delete": False, "retention_days": 90,
     "active_from": "", "active_to": "", "mqtt": True, "output_dir": "/share/gaslighter_beta" if (os.environ.get("LAERM_CHANNEL") == "beta" or "gaslighter-beta" in os.environ.get("HOSTNAME", "")) else "/share/gaslighter", "language": "auto",
     "mic_port": "", "classify": True, "ki_embed": False,
@@ -60,7 +60,7 @@ SPEC = {
     "bg_window": ("int", 1, 3600), "bg_unit": ("choice", ["s", "min"]), "bg_stat": ("choice", ["median", "quiet", "min", "mean", "max"]),
     "rise_s": ("num", 0.5, 3600, 0.5), "fall_s": ("num", 0.5, 3600, 0.5), "min_event_ms": ("int", 0, 2000),
     "pre_roll_s": ("num", 0, 30, 0.1), "post_roll_s": ("num", 0.1, 60, 0.1), "max_clip_s": ("num", 1, 300, 0.5),
-    "ctx_s": ("int", 0, 120), "day_track": ("bool",), "day_layers": ("bool",), "day_spec": ("bool",), "co_record": ("bool",), "fp_store": ("bool",), "group_pause_s": ("int", 10, 3600), "fn_assign_min": ("int", 0, 60), "fn_pre_min": ("int", 0, 120), "fn_post_min": ("int", 0, 120), "save_audio": ("bool",), "audio_novoice": ("bool",), "auto_delete": ("bool",), "retention_days": ("int", 1, 3650),
+    "ctx_s": ("int", 0, 120), "day_track": ("bool",), "day_layers": ("bool",), "day_spec": ("bool",), "co_record": ("bool",), "fp_store": ("bool",), "group_pause_s": ("int", 10, 3600), "fn_assign_min": ("int", 0, 60), "fn_pre_min": ("int", 0, 120), "fn_post_min": ("int", 0, 120), "fn_gr_pre_min": ("int", 0, 120), "fn_gr_post_min": ("int", 0, 120), "save_audio": ("bool",), "audio_novoice": ("bool",), "auto_delete": ("bool",), "retention_days": ("int", 1, 3650),
     "active_from": ("time",), "active_to": ("time",), "mqtt": ("bool",), "output_dir": ("str",),
     "language": ("choice", ["auto", "de", "en"]), "mic_port": ("optstr",), "classify": ("bool",), "ki_embed": ("bool",),
     "clip_dir": ("optstr",), "video_width": ("int", 0, 3840), "video_fps": ("int", 1, 30), "video_crf": ("int", 18, 40),
@@ -2006,6 +2006,10 @@ def bc_save(d):
         cur = bc_cfg()
         if "on" in d:
             cur["on"] = d.get("on") is not False
+        if "lanes" in d:                                     # Sensor-Spuren unter dem Pegelverlauf (ab 1.83)
+            cur["lanes"] = d.get("lanes") is not False
+        if "clock_warn" in d:                                # Uhrabgleich: Warnschwelle in Sekunden (ab 1.83)
+            cur["clock_warn"] = d.get("clock_warn")
         if isinstance(d.get("sens"), dict):
             for k, v in d["sens"].items():
                 if v is None:
@@ -2156,10 +2160,263 @@ def bc_public():
         rates = {k: BC.base_rate(s, now_ms - BC.RATE_DAYS * 86400000, now_ms) for k, s in sens.items()}
     except Exception as e:
         log("Sensor-Bestätigung: Grundrate nicht berechnet:", e); rates = {}
-    return {"ok": True, "on": cfg["on"], "types": list(BC.TYPES), "roles": list(BC.ROLES), "def": BC.DEF, "version": BC.VERSION,
+    return {"ok": True, "on": cfg["on"], "lanes": cfg["lanes"], "clock_warn": cfg["clock_warn"], "clock": clock_status(cfg),
+            "types": list(BC.TYPES), "roles": list(BC.ROLES), "def": BC.DEF, "version": BC.VERSION,
             "sensors": [dict({k: s[k] for k in ("id", "name", "kind", "type", "pre", "post", "lock", "role", "off", "saved")},
                              rate=(None if rates.get(s["id"], (None,))[0] is None else round(rates[s["id"]][0] * 3600, 2)),
                              days=round(rates.get(s["id"], (None, 0))[1], 1)) for s in lst]}
+
+
+# =====================================================================
+# Uhrabgleich (ab 1.83): grob auf Sekunden, ohne NTP. Home Assistant: Kopfzeile „Date“ einer API-Antwort (1 s Auflösung)
+# gegen die eigene Uhr in der Mitte der Anfrage. Handys: Zeit des Handys beim Senden (Parameter ct) gegen den Eingang;
+# die Übertragungszeit verkleinert die Abweichung nur, deshalb zählt der größte Wert der letzten Pakete.
+# Nur Anzeige und Hinweis im Export – gespeicherte Zeiten werden nie verschoben.
+# =====================================================================
+CLOCK = {"ha": None, "ha_at": 0.0, "ha_err": "", "busy": False, "ph": {}}
+CLOCK_LOCK = threading.Lock()
+CLOCK_TTL = 120                                          # Home Assistant höchstens alle 2 min fragen
+
+
+def clock_ha_check():
+    """Abweichung der Uhr von Home Assistant in Sekunden (positiv = HA geht vor) oder None."""
+    url, tok = ha_api()
+    if not url:
+        return None, "no ha"
+    import email.utils
+    t0 = time.time()
+    req = urllib.request.Request(url + "/", headers={"Authorization": f"Bearer {tok}"})
+    try:
+        with urllib.request.urlopen(req, timeout=4) as r:
+            hdr = r.headers.get("Date"); r.read(256)
+    except Exception as e:
+        return None, str(e)[:80]
+    t1 = time.time()
+    if not hdr or t1 - t0 > 3:                           # zu langsam für eine Aussage auf Sekunden
+        return None, "slow" if hdr else "no date"
+    try:
+        ha_t = email.utils.parsedate_to_datetime(hdr).timestamp() + 0.5     # „Date“ ist auf ganze Sekunden abgeschnitten
+    except (TypeError, ValueError):
+        return None, "bad date"
+    return ha_t - (t0 + t1) / 2.0, ""
+
+
+def clock_ha_refresh():
+    try:
+        off, err = clock_ha_check()
+    except Exception as e:
+        off, err = None, str(e)[:80]
+    with CLOCK_LOCK:
+        CLOCK.update(ha=off, ha_err=err, ha_at=time.time(), busy=False)
+
+
+def clock_phone(r, ct_ms):
+    """Paket eines Handys: Uhrzeit des Handys beim Senden (ms) gegen jetzt. Unplausibles (über 1 Tag) wird verworfen."""
+    try:
+        v = float(ct_ms) / 1000.0 - time.time()
+    except (TypeError, ValueError):
+        return
+    if not math.isfinite(v) or abs(v) > 86400:
+        return
+    with CLOCK_LOCK:
+        q = CLOCK["ph"].setdefault(r.id, collections.deque(maxlen=30))
+        q.append((time.time(), v))
+
+
+def clock_status(cfg=None, wait=False):
+    """Stand des Uhrabgleichs: Home Assistant und Handys mit frischen Paketen (letzte 10 min)."""
+    cfg = cfg or bc_cfg(); de = CFG.get("language") != "en"
+    with CLOCK_LOCK:
+        stale = time.time() - CLOCK["ha_at"] > CLOCK_TTL and not CLOCK["busy"]
+        if stale:
+            CLOCK["busy"] = True
+    if stale:
+        if wait or CLOCK["ha_at"] == 0:
+            th = threading.Thread(target=clock_ha_refresh, daemon=True); th.start(); th.join(2.5 if wait else 1.5)
+        else:
+            threading.Thread(target=clock_ha_refresh, daemon=True).start()
+    items = []
+    with CLOCK_LOCK:
+        if ha_api()[0]:
+            items.append({"kind": "ha", "name": "Home Assistant", "off": CLOCK["ha"], "err": CLOCK["ha_err"], "at": CLOCK["ha_at"]})
+        ph = {k: list(v) for k, v in CLOCK["ph"].items()}
+    with SRC_LOCK:
+        names = {x.id: x.name for x in RUNNERS.values()}
+    now = time.time()
+    for rid, q in ph.items():
+        fresh = [v for t_, v in q if now - t_ < 600]
+        if fresh and rid in names:
+            items.append({"kind": "phone", "id": rid, "name": ("Handy " if de else "Phone ") + names[rid], "off": max(fresh)})
+    return BC.clock_eval(items, cfg.get("clock_warn", BC.CLOCK_WARN_S))
+
+
+# =====================================================================
+# Sensor-Spuren (ab 1.83): je Sensor eine dünne Spur unter dem Pegelverlauf – Auslösungen (steigende Flanken) als Marken,
+# „nicht erreichbar“ schraffiert, Suchfenster einer gewählten Störung als weiches Band. Nur Anzeige (aus den Daten der Sensor-Bestätigung).
+# =====================================================================
+SL_MAX = 3000                                            # höchstens so viele Marken je Spur (darüber: gekürzt, steht in „cut“)
+
+
+def sc_lanes(a_ms, b_ms, k=""):
+    cfg = bc_cfg()
+    out = {"ok": True, "on": cfg["on"] and cfg["lanes"], "from": a_ms, "to": b_ms, "lanes": [], "sel": None}
+    if not out["on"]:
+        return out
+    try:
+        sens = bc_sensors(cfg)
+    except Exception as e:
+        log("Sensor-Spuren:", e); return out
+    for s in sens:
+        e_ = [e for e in s.get("edges") or [] if a_ms <= e <= b_ms]
+        cut = len(e_) > SL_MAX
+        off = [[max(a, a_ms), min(b, b_ms)] for a, b in s.get("offl") or [] if a < b_ms and b > a_ms]
+        on_ = [[max(a, a_ms), min(b, b_ms)] for a, b in s.get("on") or [] if a < b_ms and b > a_ms and b - a >= 2000][:SL_MAX]
+        nod = s.get("since") is None or s["since"] > b_ms
+        out["lanes"].append({"id": s["id"], "name": s.get("name") or s["id"], "type": s.get("type"), "role": s.get("role"),
+                             "pre": s.get("pre"), "post": s.get("post"), "edges": e_[:SL_MAX], "cut": cut, "off": off, "on": on_,
+                             "since": s.get("since"), "nodata": nod})
+    if k:
+        rows = read_log()
+        r = next((dict(x, k=kk) for x, kk in zip(rows, row_keys(rows)) if kk == k), None)
+        if r is not None:
+            t0 = ms_of(r.get("start"))
+            if t0 is not None:
+                d = bc_detail(r) or {}
+                out["sel"] = {"k": k, "t0": t0, "res": [{"id": y["id"], "st": y["st"], "pre": y.get("pre"), "post": y.get("post"), "dt": y.get("dt")} for y in d.get("res") or []]}
+    return out
+
+
+# =====================================================================
+# Zuordnung Notiz → Störung (ab 1.83): automatisch über das Fenster (GLighter-Notizen fn_pre_min/fn_post_min, GReport-Notizen
+# fn_gr_pre_min/fn_gr_post_min), eine Wahl von Hand liegt getrennt in data/notiz_zuordnung.json. Notizen und ihre Zeiten bleiben unverändert.
+# =====================================================================
+NA_FILE = os.path.join(DATA_DIR, "notiz_zuordnung.json")
+NA_LOCK = threading.Lock()
+
+
+def na_key(n):
+    return ("g:" if n.get("gr") else "f:") + str(n.get("id") or "")
+
+
+def na_load():
+    d = read_json(NA_FILE) if os.path.exists(NA_FILE) else {}
+    o = d.get("o") if isinstance(d, dict) and isinstance(d.get("o"), dict) else {}
+    return {str(k): v for k, v in o.items() if isinstance(v, dict) and re.fullmatch(r"[fg]:[\w-]{1,24}", str(k))}
+
+
+def na_ovr():
+    return {k: v.get("k") if isinstance(v.get("k"), str) else None for k, v in na_load().items()}
+
+
+def na_save(key, val):
+    """Wahl von Hand speichern (val: Schlüssel, None = gelöst) oder entfernen (val = "auto")."""
+    with NA_LOCK:
+        o = na_load()
+        if val == "auto":
+            o.pop(key, None)
+        else:
+            o[key] = {"k": val, "ts": dt.datetime.now().astimezone().isoformat(timespec="seconds")}
+        os.makedirs(os.path.dirname(NA_FILE) or ".", exist_ok=True)
+        tmp = NA_FILE + ".tmp"
+        with open(tmp, "w", encoding="utf-8") as f:
+            json.dump({"v": 1, "o": o}, f, ensure_ascii=False, indent=1); f.flush(); os.fsync(f.fileno())
+        os.replace(tmp, NA_FILE)
+
+
+def fn_win(n):
+    """Fenster einer Notiz (ms): GReport-Notizen eigenes (Standard −10 / +30 min), GLighter-Notizen −2 / +15 min."""
+    if n.get("gr"):
+        return int(CFG.get("fn_gr_pre_min", 10) or 0) * 60000, int(CFG.get("fn_gr_post_min", 30) or 0) * 60000
+    return int(CFG.get("fn_pre_min", 2) or 0) * 60000, int(CFG.get("fn_post_min", 15) or 0) * 60000
+
+
+def fn_assign(notes, rows=None):
+    """Zuordnung für freie Notizen (öffentliche Form) gegen Störungen aus log.csv (mit k). → {na_key: Ergebnis aus BC.assign}"""
+    if not notes:
+        return {}
+    if rows is None:
+        allrows = read_log(); rows = [dict(r, k=k) for r, k in zip(allrows, row_keys(allrows))]
+    evs = []
+    for r in rows:
+        a = ms_of(r.get("start"))
+        if a is None:
+            continue
+        evs.append((r["k"], a, a + int((fnum(r.get("dauer_s")) or 0) * 1000) + 100, r.get("quelle_id") or "main"))
+    ns = [(na_key(n), n.get("a"), n.get("b"), n.get("src") or "all", *fn_win(n)) for n in notes]
+    return BC.assign(ns, evs, na_ovr())
+
+
+def fn_asg_txt(x, de=True):
+    """„5 min danach, automatisch“ bzw. „gleichzeitig, von Hand“."""
+    d = x.get("d")
+    if d is None:
+        return ""
+    s = round(abs(d) / 1000.0)
+    v = f"{s} s" if s < 60 else f"{round(s / 60)} min"
+    when = ("gleichzeitig" if de else "at the same time") if s < 5 else (f"{v} danach" if d >= 0 else f"{v} davor") if de else (f"{v} after" if d >= 0 else f"{v} before")
+    return when + ", " + (("von Hand" if x.get("man") else "automatisch") if de else ("by hand" if x.get("man") else "automatic"))
+
+
+def fn_asg_public(n, x, rows_by_k=None):
+    """Für die Oberfläche: {k, d, man, n (Kandidaten), pre, post, start}."""
+    pre, post = fn_win(n)
+    if not x:
+        return {"k": None, "d": None, "man": False, "n": 0, "pre": pre // 60000, "post": post // 60000}
+    out = {"k": x["k"], "d": x["d"], "man": x["man"], "n": len(x["cand"]), "pre": pre // 60000, "post": post // 60000}
+    if rows_by_k is not None and x["k"] in rows_by_k:
+        out["start"] = rows_by_k[x["k"]].get("start")
+    return out
+
+
+def fn_asg_detail(key):
+    """Für den Dialog „Zuordnung“: aktuelle Zuordnung und alle passenden Störungen."""
+    if not re.fullmatch(r"[fg]:[\w-]{1,24}", key or ""):
+        return {"ok": False, "error": "bad id"}
+    gr, nid = key[0] == "g", key[2:]
+    if gr:
+        n = next((x for x in gr_notes() if x.get("id") == nid), None)
+    else:
+        with NOTES_LOCK:
+            x_ = next((x for x in notes_all().get("free") or [] if x.get("id") == nid), None)
+        n = fnote_public(x_) if x_ else None
+    if not n:
+        return {"ok": False, "error": "not found"}
+    allrows = read_log(); rows = [dict(r, k=k) for r, k in zip(allrows, row_keys(allrows))]
+    by = {r["k"]: r for r in rows}
+    x = fn_assign([n], rows).get(key)
+    pre, post = fn_win(n)
+    with SRC_LOCK:
+        nm_ = {r_.id: r_.name for r_ in RUNNERS.values()}
+
+    def ev(k, d):
+        r = by.get(k) or {}
+        return {"k": k, "d": d, "start": r.get("start"), "dauer_s": fnum(r.get("dauer_s")), "src": nm_.get(r.get("quelle_id") or "main") or r.get("quelle") or "",
+                "pk": fnum(r.get("spitze_dbfs")), "art": art_fields(r.get("datei") or "").get("art") or ""}
+    cur = ev(x["k"], x["d"]) if x and x["k"] else None
+    return {"ok": True, "key": key, "gr": gr, "man": bool(x and x["man"]), "detached": bool(x and x["man"] and not x["k"]), "cur": cur,
+            "cand": [ev(k, d) for k, d in (x["cand"] if x else []) if not cur or k != cur["k"]][:20],
+            "pre": pre // 60000, "post": post // 60000}
+
+
+def fn_asg_change(data):
+    """Wahl von Hand: {id: "f:…"/"g:…", action: set (k) | detach | auto}. Schlüssel muss eine passende Störung sein."""
+    key = str(data.get("id") or "")
+    det = fn_asg_detail(key)
+    if not det.get("ok"):
+        return det
+    a = data.get("action")
+    if a == "auto":
+        na_save(key, "auto")
+    elif a == "detach":
+        na_save(key, None)
+    elif a == "set":
+        k = str(data.get("k") or "")
+        if k not in {c["k"] for c in det["cand"]} | ({det["cur"]["k"]} if det["cur"] else set()):
+            return {"ok": False, "error": "not a candidate"}
+        na_save(key, k)
+    else:
+        return {"ok": False, "error": "bad action"}
+    return fn_asg_detail(key)
 
 
 HA_NOTE_LOCK = threading.Lock()
@@ -5758,7 +6015,11 @@ def bc_detail(r):
     for y in x["res"]:
         rt = rates.get(y["id"]) or {}
         y.update(per_h=rt.get("per_h"), days=rt.get("days"), unsure=rt.get("unsure", True))
-    return {"on": True, "res": x["res"], "sum": x["sum"], "version": BC.VERSION}
+    try:
+        ck = clock_status()
+    except Exception as e:
+        log("Uhrabgleich:", e); ck = None
+    return {"on": True, "res": x["res"], "sum": x["sum"], "version": BC.VERSION, "clock": ck}
 
 
 def row_keys(rows):
@@ -7183,12 +7444,22 @@ def notes_csv(q):
     de = CFG.get("language") != "en"
     fc = felder.csv_defs(cap_defs(), [x for x in rows if not x.get("gr")])       # je eigenes Feld eine Spalte „Name (b_…)“
     safe = lambda v: ("'" + v) if isinstance(v, str) and v[:1] in ("=", "+", "-", "@", "\t", "\r") else v
+    fr = [x for x in rows if x.get("free")]                                       # freie Notizen: zugeordnete Störung (ab 1.83, nur wenn es eine gibt)
+    try:
+        fm = fn_assign(fr) if fr else {}
+    except Exception as e:
+        log("Notiz-Zuordnung nicht berechnet:", e); fm = {}
+    fm = {k_: v_ for k_, v_ in fm.items() if v_.get("k")}
+    fstart = {}
+    if fm:
+        allrows = read_log(); fstart = {k_: r_.get("start") for r_, k_ in zip(allrows, row_keys(allrows))}
     w.writerow(["datum", "uhrzeit", "offset_s", "ungefaehr", "ruhezeit", "ereignis_start", "quelle", "datei", "dauer_s", "spitze_dbfs_relativ",
-                "ki_art", "tags", "zeuge", "notiz", "erstellt"] + [safe(felder.csv_head(b, de)) for b in fc])
+                "ki_art", "tags", "zeuge", "notiz", "erstellt"] + [safe(felder.csv_head(b, de)) for b in fc] + (["stoerung_zugeordnet", "zuordnung"] if fm else []))
     for x in rows:
         w.writerow([x["date"], x["clock"], x["off"], "ja" if x.get("approx") else "nein", "ja" if x["rz"] else "nein", x["start"], safe(x["quelle"]),
                     x["datei"], x["dauer_s"], x["spitze_dbfs"], x["art"], " ".join(x.get("tags") or []), safe(x.get("witness", "")),
-                    safe(x.get("text", "")), x.get("ts", "")] + ([safe(v) for v in felder.csv_cells(fc, x, de)] if not x.get("gr") else [""] * len(fc)))
+                    safe(x.get("text", "")), x.get("ts", "")] + ([safe(v) for v in felder.csv_cells(fc, x, de)] if not x.get("gr") else [""] * len(fc))
+                    + (((lambda a_: [fstart.get(a_["k"], ""), fn_asg_txt(a_, de)] if a_ else ["", ""])(fm.get(na_key(x)) if x.get("free") else None)) if fm else []))
     return ("﻿" + buf.getvalue()).encode("utf-8")
 
 
@@ -7418,6 +7689,32 @@ def export_rows(q):
     return out, d0, d1, src
 
 
+def fn_note_txt(n, de=True):
+    """Notiz kurz als Text: Text, Tasten, Zeuge, eigene Felder (für Export und Lärmprotokoll)."""
+    tg = ", ".join(tag_label(t_) for t_ in n.get("tags") or [] if t_ != "zeuge" or not n.get("witness"))
+    fx = fnote_fx(n) if n.get("fields") or n.get("fx") else ""
+    parts = [n.get("text") or "", tg, (("Zeuge: " if de else "Witness: ") + n["witness"]) if n.get("witness") else "", fx]
+    return ("GReport: " if n.get("gr") else "") + " · ".join(p_ for p_ in parts if p_)
+
+
+def fn_for_events(keyed, d0=None, d1=None, src="all"):
+    """Zuordnung der freien Notizen (auch aus GReport) zu den Störungen eines Zeitraums. → ({Störung: [(Notiz, Zuordnung)]}, {Notizschlüssel: Zuordnung})"""
+    pad = 3 * 3600 * 1000
+    fa = int(aware(dt.datetime.combine(d0, dt.time())).timestamp() * 1000) - pad if d0 else 0
+    fb = int(aware(dt.datetime.combine(d1 + dt.timedelta(days=1), dt.time())).timestamp() * 1000) + pad if d1 else 10 ** 15
+    try:
+        fns = fnotes_in(fa, fb, src)
+        m = fn_assign(fns, keyed) if fns else {}
+    except Exception as e:
+        log("Notiz-Zuordnung nicht berechnet:", e); return {}, {}
+    by = {}
+    for n in fns:
+        x = m.get(na_key(n))
+        if x and x["k"]:
+            by.setdefault(x["k"], []).append((n, x))
+    return by, m
+
+
 def export_csv(q):
     """Rohdaten zum Lärmprotokoll als CSV (Semikolon, UTF-8 mit BOM). log.csv bleibt unverändert."""
     rows, _d0, _d1, _src = export_rows(q)
@@ -7430,8 +7727,10 @@ def export_csv(q):
     except Exception as e:
         log("Sensor-Bestätigung nicht berechnet:", e); bcr = {}
     bc_cols = ["sensor_bestaetigung", "sensoren_zeitgleich", "sensoren_einzeln", "zufallstreffer_pct"] if bcr else []
+    fnby, _fnm = fn_for_events([x["r"] for x in rows], _d0, _d1, _src)   # zugeordnete Notizen (ab 1.83): eigene Spalte nur, wenn es welche gibt
+    fn_cols = ["notizen_zugeordnet"] if fnby else []
     w.writerow(["beginn", "dauer_s", "spitze_dbfs", "hintergrund_dbfs", "schwelle_dbfs", "ueber_schwelle_db", "impulse", "geraet", "geraet_id", "stoerung_nr", "fuehrendes_geraet",
-                "art", "art_status", "art_konfidenz_pct", "tonprofil", "hintergrund_profil", "ruhezeit", "nach_muster_ausgefiltert", "datei"] + bc_cols)
+                "art", "art_status", "art_konfidenz_pct", "tonprofil", "hintergrund_profil", "ruhezeit", "nach_muster_ausgefiltert", "datei"] + bc_cols + fn_cols)
     n = 0
     for x in rows:
         r, af = x["r"], x["af"]
@@ -7448,11 +7747,25 @@ def export_csv(q):
                     "" if pk is None or thr is None else round(pk - thr, 1), "" if imp is None else imp, r.get("quelle") or "", r.get("quelle_id") or "",
                     "" if x["inc"] is None else x["inc"] + 1, "ja" if x["lead"] else "nein",
                     art_label(af["art"], de) if af.get("art") else "", st_, "" if af.get("art_c") is None or st_ == "bestaetigt" else round(af["art_c"]),
-                    af.get("prof") or "", "ja" if x["bg"] else "", "ja" if rz else "", ", ".join(x["mf"]), r.get("datei") or ""] + (bc_cells(bcr.get(r["k"]), de) if bc_cols else []))
+                    af.get("prof") or "", "ja" if x["bg"] else "", "ja" if rz else "", ", ".join(x["mf"]), r.get("datei") or ""] + (bc_cells(bcr.get(r["k"]), de) if bc_cols else [])
+                    + ([csv_safe(" | ".join(f"{fn_asg_txt(a_, de)}: {fn_note_txt(n_, de)}" for n_, a_ in fnby.get(r["k"], [])))] if fn_cols else []))
         n += 1
     if bc_cols:
-        w.writerow(["#methode", BC_METHOD[0 if de else 1].format(v=BC.VERSION)])
+        w.writerow(["#methode", BC_METHOD[0 if de else 1].format(v=BC.VERSION) + bc_clock_note(de)])
     return ("﻿" + buf.getvalue()).encode("utf-8")
+
+
+def bc_clock_note(de=True):
+    """Satz für den Methodenhinweis: „ Uhrabgleich: Abweichung Home Assistant 0 s, Handy 1 s.“ (Stand beim Erstellen)."""
+    try:
+        tx = BC.clock_text(clock_status(wait=True), de)
+    except Exception as e:
+        log("Uhrabgleich:", e); return ""
+    return (" " + tx + (" (Stand beim Erstellen)." if de else " (at the time of export).")) if tx else ""
+
+
+def csv_safe(v):
+    return ("'" + v) if isinstance(v, str) and v[:1] in ("=", "+", "-", "@", "\t", "\r") else v
 
 
 BC_ST = {"ok": ("bestaetigt", "confirmed"), "no": ("nicht_bestaetigt", "not_confirmed"), "nb": ("nicht_beurteilbar", "not_assessable"), "own": ("eigene_quelle", "own_source")}
@@ -7959,7 +8272,10 @@ def protocol_html(q):
         o.append('<h2>Zeitgleiche Sensorereignisse</h2><p>' + h(f"{sm_['n']} Störungen: {sm_['ok']} zeitgleich von Sensoren registriert, {sm_['no']} ohne Sensorereignis, "
                  f"{sm_['nb']} nicht prüfbar, {sm_['own']} vermutlich eigene Quelle. Bestätigungsquote {sm_['ok']} von {sm_['chk']} prüfbaren Störungen."
                  + ((" Durch Zufall wären weniger als 0,1 Treffer zu erwarten." if sm_["exp"] < 0.1 else f" Durch Zufall wären etwa {str(sm_['exp']).replace('.', ',')} Treffer zu erwarten.") if sm_.get("exp") is not None and sm_["chk"] else "")) + '</p>'
-                 + '<p class="small">' + h(BC_METHOD[0].format(v=BC.VERSION)) + '</p>')
+                 + '<p class="small">' + h(BC_METHOD[0].format(v=BC.VERSION) + bc_clock_note(True)) + '</p>')
+    fnby_p = {}                                       # zugeordnete Notizen (ab 1.83): unter der Störung (andere Geräte derselben Störung: beim führenden)
+    for k_, lst_ in fn_for_events(allk, d0, d1, src)[0].items():
+        fnby_p.setdefault(lead_of.get(k_, k_), []).extend(lst_)
     o.append('<h2>Chronologische Aufstellung</h2><table><tr><th style="width:92px">Datum</th><th style="width:70px">Uhrzeit</th><th>Notiz / Störung</th><th style="width:30%">Merkmale</th></tr>')
     last_grp = None
     for r, k in evs:
@@ -8010,6 +8326,8 @@ def protocol_html(q):
         if bcr_p.get(k):                                  # Sensoren: zeitgleich (±x s) registriert / ohne Ereignis / nicht beurteilbar
             x_ = bcr_p[k]
             o.append(f'<tr class="en"><td></td><td></td><td colspan="2">Sensoren: {h(bc_text(x_["sum"]))} – {h("; ".join(bc_res_txt(y) for y in x_["res"]))}</td></tr>')
+        for n_, a_ in fnby_p.get(k, []):                  # Notiz zugeordnet (5 min danach, automatisch)
+            o.append(f'<tr class="en"><td></td><td></td><td colspan="2">📝 Notiz zugeordnet ({h(fn_asg_txt(a_))}, {h(n_["clock"])}): {h(fn_note_txt(n_))}</td></tr>')
         if k in ev_graph:                                 # kleine Grafik der Stoerung mit Umfeld
             try:
                 ca_, cb_ = row_core(r)
@@ -10663,7 +10981,7 @@ def backup_items():
     items = []
     for name, f in (("data/settings.json", None), ("data/sources.json", SOURCES_FILE), ("data/schedule.json", SCHED_FILE), ("data/ha_rules.json", HA_FILE),
                     ("data/laufzeit.jsonl", os.path.join(DATA_DIR, "laufzeit.jsonl")), ("data/unterbrechung_notizen.json", run_notes_path()), ("data/ha_notizen.json", ha_notes_path()),
-                    ("data/layout.json", LAYOUT_FILE), ("data/bestaetigung.json", BC_FILE)):
+                    ("data/layout.json", LAYOUT_FILE), ("data/bestaetigung.json", BC_FILE), ("data/notiz_zuordnung.json", NA_FILE)):
         if f and os.path.isfile(f):
             items.append((name, f))
     secret_files = {os.path.realpath(chain_key_path()), os.path.realpath(SOURCES_FILE), os.path.realpath(os.path.join(DATA_DIR, "lizenz.json"))}
@@ -11402,6 +11720,11 @@ def restore_run(path, with_settings, pick=None, off=None, move_pass=None):
                 bc_ = rd("data/bestaetigung.json")          # Sensor-Bestätigung: Fenster, Sperrzeit, Rolle je Sensor (ab 1.82)
                 if isinstance(bc_, dict):
                     bc_save(bc_)
+                na_ = rd("data/notiz_zuordnung.json")       # Zuordnung Notiz → Störung von Hand (ab 1.83)
+                if isinstance(na_, dict) and isinstance(na_.get("o"), dict):
+                    for k_, v_ in na_["o"].items():
+                        if re.fullmatch(r"[fg]:[\w-]{1,24}", str(k_)) and isinstance(v_, dict):
+                            na_save(str(k_), v_.get("k") if isinstance(v_.get("k"), str) else None)
                 lo = rd("data/layout.json")                 # Anordnung der Ansichten und Spaltenbreiten (ab 1.80)
                 if isinstance(lo, dict):
                     layout_restore(lo)
@@ -11732,9 +12055,19 @@ def _fnotes_for(src, rng):
         return []
 
 
+def _fnotes_asg(fnl, rows):
+    """Freie Notizen mit ihrer Zuordnung („asg“: Störung, Abstand, von Hand?, Zahl der passenden Störungen). Die Notizen selbst bleiben unverändert."""
+    try:
+        m = fn_assign(fnl, rows)
+    except Exception as e:
+        log("Notiz-Zuordnung nicht berechnet:", e); return fnl
+    return [dict(n, asg=fn_asg_public(n, m.get(na_key(n)))) for n in fnl]
+
+
 def events_summary(src="all", n=200, plist="", rng=None, art=""):
     allrows = read_log()
     keyed = [dict(r, k=k) for r, k in zip(allrows, row_keys(allrows))]
+    keyed_all = keyed
     if rng:                                          # Zeitraum (Reiter Protokolle)
         a_, b_ = rng[0].strftime("%Y-%m-%dT%H:%M:%S"), rng[1].strftime("%Y-%m-%dT%H:%M:%S")
         keyed = [r for r in keyed if a_ <= (r.get("start") or "")[:19] < b_]
@@ -11812,8 +12145,9 @@ def events_summary(src="all", n=200, plist="", rng=None, art=""):
     return {"total": sum(days.values()), "sc_sum": sc_sum, "rows": len(rows), "bg_n": bg_n, "mf_n": mf_n, "muster": muster_names() if MF else {}, "today": days.get(dt.date.today().isoformat(), 0), "hours": hours,
             "days": sorted(days.items(), reverse=True)[:(62 if rng else 14)], "n": n,
             "events": out_rows, "grps": {str(k): v for k, v in G.items() if k in used_g},
-            "sens": _sens_for(src, rng), "ha_names": ha_rule_names(), "fnotes": _fnotes_for(src, rng), "fn_assign_min": CFG.get("fn_assign_min", 5),
+            "sens": _sens_for(src, rng), "ha_names": ha_rule_names(), "fnotes": _fnotes_asg(_fnotes_for(src, rng), keyed_all), "fn_assign_min": CFG.get("fn_assign_min", 5),
             "fn_pre_min": int(CFG.get("fn_pre_min", 2) or 0), "fn_post_min": int(CFG.get("fn_post_min", 15) or 0),
+            "fn_gr_pre_min": int(CFG.get("fn_gr_pre_min", 10) or 0), "fn_gr_post_min": int(CFG.get("fn_gr_post_min", 30) or 0),
             "fine": classify.fine_meta("en" if CFG.get("language") == "en" else "de") if classify is not None else {}}
 
 
@@ -12294,12 +12628,12 @@ def felder_state():
 TPL_QT_GROUPS = ["src", "kind", "lvl", "eff", "act", "misc"]
 
 
-def cap_tpl(name):
+def cap_tpl(name, ui_lang=None):
     """Vorlage anwenden (wie in GReport): nur Sichtbarkeit, Namen und Reihenfolge – nie Notizen, Tasten oder Felder löschen.
-    Standard bleibt „Lärm und Störungen“."""
+    Standard bleibt „Lärm und Störungen“. Neue Namen (z. B. „Zähler“) in der Sprache der Oberfläche (ui_lang), sonst der Einstellung."""
     if name not in CAP_TPLS:
         return {"ok": False, "error": "bad tpl"}
-    de = CFG.get("language") != "en"
+    de = ui_lang != "en" if ui_lang in ("de", "en") else CFG.get("language") != "en"
     with QT_LOCK, LAYOUT_LOCK:
         d = layout_all(); c = dict(d.get("cap") or {})
         made = dict(c.get("made") or {}); sec = {k: dict(v) for k, v in (c.get("sec") or {}).items()}
@@ -13270,6 +13604,16 @@ class Handler(BaseHandler):
                 return self.js(felder_state())
             if name == "bestaetigung":                # Sensor-Bestätigung: an/aus, Sensoren mit Fenster, Sperrzeit, Rolle, Grundrate
                 return self.js(bc_public())
+            if name == "sclanes":                     # Sensor-Spuren unter dem Pegelverlauf (nur Anzeige)
+                try:
+                    a_, b_ = int(float((q.get("from") or ["0"])[0])), int(float((q.get("to") or ["0"])[0]))
+                except ValueError:
+                    return self.js({"ok": False, "error": "bad range"}, 400)
+                if b_ <= a_ or b_ - a_ > 100 * 86400000:
+                    return self.js({"ok": False, "error": "bad range"}, 400)
+                return self.js(sc_lanes(a_, b_, (q.get("k") or [""])[0][:200]))
+            if name == "fnasg":                       # Zuordnung einer Notiz zu einer Störung (aktuell und weitere mögliche)
+                return self.js(fn_asg_detail((q.get("id") or [""])[0][:30]))
             if name == "methode":                     # Messmethode für Ausdruck und Lärmprotokoll
                 return self.js({"ok": True, "info": method_info((q.get("src") or ["all"])[0], CFG.get("language") != "en")})
             if name == "muster":                      # Musterfilter: Liste, Pro, Regeln und Profile für die Auswahl
@@ -13662,7 +14006,12 @@ class Handler(BaseHandler):
                 data = json.loads(body or b"{}")
                 if not isinstance(data, dict) or data.get("action") != "tpl":
                     return self.js({"ok": False, "error": "bad request"}, 400)
-                return self.js(cap_tpl(data.get("tpl")))
+                return self.js(cap_tpl(data.get("tpl"), data.get("lang")))
+            if name == "fnasg":                         # Zuordnung von Hand (eigene Datei, Notiz bleibt unverändert)
+                data = json.loads(body or b"{}")
+                if not isinstance(data, dict):
+                    return self.js({"ok": False, "error": "bad request"}, 400)
+                return self.js(fn_asg_change(data))
             if name == "fnote":                         # freie Notiz (📝 Notiz jetzt)
                 data = json.loads(body or b"{}")
                 if not isinstance(data, dict) or data.get("action") not in ("add", "edit", "del"):
@@ -13864,6 +14213,8 @@ class PhoneHandler(BaseHandler):
                     return v if math.isfinite(v) and v >= 0 else None
                 except (TypeError, ValueError):
                     return None
+            if res == "ok" and q.get("ct"):                  # Uhrabgleich (ab 1.83): Uhrzeit des Handys beim Senden
+                clock_phone(r, (q.get("ct") or [""])[0])
             if enabled and res in ("ok", "dup"):
                 mv, mcam, mt = qf("mv"), qf("mc"), qf("mt")
                 if mv is not None or mcam is not None or mt is not None:

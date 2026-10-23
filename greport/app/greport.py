@@ -35,7 +35,7 @@ sys.path.insert(0, HERE)
 import lizenz  # noqa: E402
 import felder  # noqa: E402
 
-VERSION = "1.10.0"
+VERSION = "1.10.1"
 BRAND = "GReport"
 OPTIONS = os.environ.get("GR_OPTIONS", "/data/options.json")
 PRIV = os.environ.get("GR_PRIVATE", "/data")                    # nur für GReport (Pro-Schlüssel)
@@ -853,15 +853,16 @@ def fb_change(d):
         if a == "tpl":
             if d.get("tpl") not in TPLS:
                 return {"ok": False, "error": "bad tpl"}
-            tpl_apply(d["tpl"])
+            tpl_apply(d["tpl"], d.get("lang"))
             return dict(fb_state(), qt=qt_state(), prefs=prefs())
     return {"ok": False, "error": "bad action"}
 
 
-def tpl_apply(name):
+def tpl_apply(name, ui_lang=None):
     """Vorlage anwenden: nur Sichtbarkeit, Namen und Reihenfolge – nie Notizen, Tasten, Rubriken oder Felder löschen.
-    Von einer Vorlage angelegte Dinge (made) werden beim Wechsel nur ausgeblendet und beim nächsten Mal wieder benutzt."""
-    de = lang() != "en"
+    Von einer Vorlage angelegte Dinge (made) werden beim Wechsel nur ausgeblendet und beim nächsten Mal wieder benutzt.
+    Neue Namen (z. B. „Zähler“) in der Sprache der Oberfläche (ui_lang, ab 1.10.1), sonst der Einstellung."""
+    de = ui_lang != "en" if ui_lang in ("de", "en") else lang() != "en"
     with QT_LOCK, FB_LOCK:
         q, f = qt_all(), fb_all()
         made, sec = f["made"], f["sec"]

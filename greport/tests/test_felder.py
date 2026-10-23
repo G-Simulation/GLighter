@@ -215,6 +215,16 @@ class Vorlagen(Basis):
         self.assertFalse(G.fb_change({"action": "tpl", "tpl": "boese"})["ok"])
         self.assertTrue(G.proto_verify()["ok"])
 
+    def test_vorlage_in_sprache_der_oberflaeche(self):
+        keep = G.OPT.get("language"); G.OPT["language"] = "de"                       # Server deutsch, Oberfläche englisch
+        try:
+            G.fb_change({"action": "tpl", "tpl": "zaehler", "lang": "en"})
+            self.assertEqual([b["l"] for b in G.fb_defs() if b["type"] == "counter"], ["Counter"])
+            G.fb_change({"action": "tpl", "tpl": "allg", "lang": "en"})
+            self.assertEqual(G.qt_all()["gren"].get("own"), "Keywords")
+        finally:
+            G.OPT["language"] = keep
+
     def test_zaehler_heute(self):
         self.felder([CNT])
         now = dt.datetime.now().astimezone()

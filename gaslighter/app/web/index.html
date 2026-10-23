@@ -98,6 +98,7 @@
     <div class="mkhint" role="status"><span data-i="mk_on"></span><button type="button" class="chip mkend" data-i="mk_end"></button></div>
     <div class="cvwrap">
       <canvas id="main"></canvas>
+      <div id="scmain" class="sclanes" role="img" hidden></div>
       <canvas id="spec"></canvas>
       <div class="cvbtns" id="cvbtns" hidden>
         <button id="classrange" class="playrange cls" type="button">🔎 <span data-i="art_range"></span></button>
@@ -107,6 +108,7 @@
     <div id="ldaybox" class="ldaybox" hidden>
       <div class="ldhd"><b id="ldrange" class="ldrange"></b><button type="button" id="ldlive" class="golive"><span class="gl-dot"></span><span data-i="golive"></span></button></div>
       <div class="ndcvw"><canvas id="ldcv"></canvas><div class="ldspin"><i></i><span data-i="loading"></span></div></div>
+      <div id="scld" class="sclanes" role="img" hidden></div>
       <canvas id="ldsp"></canvas>
       <div class="ndfoot"><span id="ldhover" class="ndhover"></span><small data-i="dt_hint_live"></small></div>
       <div id="ldnone" class="ntnone" data-i="dt_none_live" hidden></div>
@@ -161,6 +163,7 @@
       <div class="mkhint" role="status"><span data-i="mk_on"></span><button type="button" class="chip mkend" data-i="mk_end"></button></div>
       <canvas id="ndcv"></canvas>
       <div id="ndmulti" class="ndmulti" hidden></div>
+      <div id="scnd" class="sclanes" role="img" hidden></div>
       <div id="ndptlist" class="ndptlist" hidden></div>
       <div id="ndbar" class="ndbar" hidden><div id="ndtrack" class="ndtrack"><div id="ndthumb" class="ndthumb"></div></div></div>
       <div class="ndfoot"><span id="ndhover" class="ndhover"></span><details class="hlp"><summary data-i="help_sum"></summary><small id="dthint" data-i="dt_hint"></small><a class="hblink" href="#" data-hb="protokolle/verlauf" data-i="hb_more"></a></details></div>
@@ -214,6 +217,8 @@
     <div id="fntags" class="fntags"></div>
     <textarea id="fntext" class="nttext" rows="3" maxlength="500" data-iph="fn_ph"></textarea>
     <input type="text" id="fnwit" class="fnwit" maxlength="80" data-iph="fn_wit" hidden>
+    <div id="fnfields" class="fnfields" hidden></div>
+    <div id="fnasg" class="fnasgbox" hidden></div>
     <div class="fnact"><small id="fnmsg"></small><button id="fndel" class="danger" type="button" data-i="m_delete" hidden></button><button id="fncancel" type="button" data-i="cancel"></button><button id="fnsave" class="pri" type="button" data-i="save"></button></div>
   </div>
 </dialog>
@@ -263,7 +268,7 @@
     <div class="evcvs"><canvas id="evcv"></canvas><canvas id="evsp"></canvas></div>
     <div id="evcmp" class="ntbox evcmp" hidden></div>
     <div id="evnone" class="evnone"></div>
-    <div class="ntbox scbox" id="evscbox" hidden><h4 class="nthead" id="evschead"></h4><div id="evsclist" class="sctw"></div><p class="hint" id="evscrule"></p></div>
+    <div class="ntbox scbox" id="evscbox" hidden><h4 class="nthead" id="evschead"></h4><div id="evsclist" class="sctw"></div><div id="evscclock"></div><p class="hint" id="evscrule"></p></div>
     <div class="ntbox" id="evfnbox" hidden><h4 class="nthead" id="evfnhead"></h4><div id="evfnlist" class="ntlist"></div></div>
     <div class="ntbox enbox">
       <label class="nthead" for="enote" data-i="en_head"></label>

@@ -1593,12 +1593,16 @@ function evTags(r) { const a = []; for (const id of r.mf || []) a.push('⊘ ' + 
 /* Freie Notizen als eigene Zeilen, automatisch der Störung zugeordnet (ab 1.82): Ereigniszeit der Notiz (nicht die Erfassungszeit)
    im Fenster [Störungsbeginn − Vorlauf, Störungsende + Nachlauf] (Standard −2 / +15 min), bei mehreren die nächste zum Beginn.
    Notizen zählen nie als Sensor-Bestätigung. Rückgabe je Notiz: [Notiz, Störung oder null, Abstand ms (Notiz − Störungsbeginn)] */
-const fnWin = j => { j = j || {}; const post = j.fn_post_min != null ? +j.fn_post_min : j.fn_assign_min != null ? +j.fn_assign_min : 15; return [(j.fn_pre_min != null ? +j.fn_pre_min : 2) * 60000, post * 60000]; };
-function fnLink(notes, evs, j) {
+const fnWin = (j, n) => { j = j || {};                // GReport-Notizen eigenes Fenster (ab 1.83, Standard −10 / +30 min)
+  if (n && n.asg) return [n.asg.pre * 60000, n.asg.post * 60000];
+  if (n && n.gr) return [(j.fn_gr_pre_min != null ? +j.fn_gr_pre_min : 10) * 60000, (j.fn_gr_post_min != null ? +j.fn_gr_post_min : 30) * 60000];
+  const post = j.fn_post_min != null ? +j.fn_post_min : j.fn_assign_min != null ? +j.fn_assign_min : 15; return [(j.fn_pre_min != null ? +j.fn_pre_min : 2) * 60000, post * 60000]; };
+function fnLink(notes, evs, j) {                       // Zuordnung kommt vom Server (n.asg, auch „von Hand“); sonst hier nach dem Fenster
   const span = r => { const a = new Date(r.start).getTime(); return [a, a + (+r.dauer_s || 0) * 1000 + 100]; };
-  const lst = (evs || []).map(r => [r, ...span(r)]), [pre, post] = fnWin(j);
+  const lst = (evs || []).map(r => [r, ...span(r)]);
   return (notes || []).map(n => {
-    const a = n.a, b = Math.max(n.b || a, a);
+    if (n.asg) { const ev = n.asg.k ? (evs || []).find(r => (r.k || '') === n.asg.k) || null : null; return [n, ev, ev ? n.asg.d : null]; }
+    const a = n.a, b = Math.max(n.b || a, a), [pre, post] = fnWin(j, n);
     let best = null, bd = 1e18;
     for (const [r, s0, s1] of lst) {
       if ((r.quelle_id || 'main') !== (n.src || 'all') && (n.src || 'all') !== 'all') continue;
@@ -1608,10 +1612,15 @@ function fnLink(notes, evs, j) {
   });
 }
 /* „Notiz zugeordnet (5 min danach)“ – automatisch, mit Fenster */
-function fnAsgTxt(dms) { const s = Math.round(Math.abs(dms) / 1000), m = Math.round(s / 60), v = s < 60 ? s + ' s' : m + ' min'; return t('fn_asg', { d: s < 5 ? t('fn_asg_same') : t(dms >= 0 ? 'fn_asg_after' : 'fn_asg_before', { v }) }); }
+function fnAsgD(dms) { const s = Math.round(Math.abs(dms) / 1000), m = Math.round(s / 60), v = s < 60 ? s + ' s' : m + ' min'; return s < 5 ? t('fn_asg_same') : t(dms >= 0 ? 'fn_asg_after' : 'fn_asg_before', { v }); }   // „5 min danach“
+function fnAsgTxt(dms) { return t('fn_asg', { d: fnAsgD(dms) }); }
+function fnAsgHow(n, j) {                              // „automatisch (Fenster −2 / +15 min)“ bzw. „von Hand“, dazu „2 weitere möglich“
+  const [pre, post] = fnWin(j, n), a = n.asg || {};
+  return (a.man ? t('fn_asg_man') : t('fn_asg_auto', { a: pre / 60000, b: post / 60000 })) + (a.n > 1 ? ' · ' + t('fn_asg_more', { n: a.n - 1 }) : '');
+}
 function fnAsgHTML(list, j) {
-  if (!list || !list.length) return ''; const [pre, post] = fnWin(j);
-  return list.map(([n, dms]) => `<div class="fnrowt fnon" title="${esc(t('fn_on_ev'))}">📝 <small class="fnasg">${esc(fnAsgTxt(dms))} · ${esc(t('fn_asg_auto', { a: pre / 60000, b: post / 60000 }))}</small> ${fnText(n)}</div>`).join('');
+  if (!list || !list.length) return '';
+  return list.map(([n, dms]) => `<div class="fnrowt fnon" title="${esc(t('fn_on_ev'))}">📝 <small class="fnasg${(n.asg || {}).man ? ' fnman' : ''}">${esc(fnAsgTxt(dms))} · ${esc(fnAsgHow(n, j))}</small> ${fnText(n)}</div>`).join('');
 }
 /* ---------- Sensor-Bestätigung (nur Anzeige, auf dem Server beim Lesen berechnet) ---------- */
 const SC_IC = { ok: '✓', no: '○', nb: '⊘', own: '⌂' }, SC_ST = ['ok', 'no', 'nb', 'own'];
@@ -1661,6 +1670,83 @@ function renderEvSc(sc) {
       <td>${y.role === 'ok' && (y.st === 'ok' || y.st === 'no') ? esc(scPct(y.p)) + (y.per_h != null ? `<small>${esc(t('sc_rate', { r: numTxt(String(y.per_h)), d: numTxt(String(y.days)) }))}${y.unsure ? ' · ' + esc(t('sc_unsure')) : ''}</small>` : '') : '–'}</td>
       <td>${esc([scWhy(y), y.near != null ? t('sc_near', { d: (y.near > 0 ? '+' : '−') + scSec(y.near), w: scWin(y) }) : '', y.same && y.role === 'ok' ? t('sc_same_dev') : ''].filter(Boolean).join(' · '))}</td></tr>`).join('') + '</tbody></table>';
   $('evscrule').textContent = t('sc_rule');
+  const ck = $('evscclock'); if (ck) ck.innerHTML = clockHTML(sc.clock);
+}
+/* Uhrabgleich (ab 1.83): „Uhrabgleich: Abweichung Home Assistant 0 s, Handy 1 s“ – grob auf Sekunden, Warnung über der Schwelle */
+function clockTxt(ck) {
+  if (!ck) return '';
+  const k = (ck.items || []).filter(x => x.off != null);
+  if (!k.length) return t('ck_none');
+  return t('ck_txt', { s: k.map(x => (x.kind === 'ha' ? 'Home Assistant' : t('ck_phone', { n: x.name.replace(/^(Handy|Phone) /, '') })) + ' ' + Math.abs(x.off) + ' s').join(', ') });
+}
+function clockHTML(ck) {
+  if (!ck) return '';
+  return `<p class="scclock${ck.warn ? ' warn' : ''}">${ck.warn ? `<span class="ckbadge" role="img" aria-label="${esc(t('ck_warn_a', { s: ck.warn_s }))}" title="${esc(t('ck_warn_a', { s: ck.warn_s }))}"><span aria-hidden="true">⚠</span> ${esc(t('ck_warn'))}</span> ` : ''}${esc(clockTxt(ck))}${ck.warn ? ' – ' + esc(t('ck_warn_h', { s: ck.warn_s })) : ''}</p>`;
+}
+/* ---------- Sensor-Spuren (ab 1.83): je Sensor eine dünne Spur unter dem Pegelverlauf, live und im Verlauf gleich gezeichnet ----------
+   Auslösungen (steigende Flanken) als Marken, Zeit „an“ als schmaler Balken, „nicht erreichbar“ schraffiert, Suchfenster der gewählten
+   Störung als weiches Band. Gemeinsame Zeitachse: gleiche Ränder (L, R) wie der Graph darüber. Text dazu als aria-label, die Tabelle bleibt die Textfassung. */
+const SL = { sel: null, c: {} }, SL_H = 15, SL_GAP = 3;
+function slSel(k, start) { const t0 = new Date(start).getTime(); SL.sel = k && isFinite(t0) ? { k, t0 } : null; slRedraw(); }
+function slRedraw() { for (const id of ['scmain', 'scld', 'scnd']) { const c = SL.c[id]; if (c && c.last) slPaint(id, ...c.last); } }
+function slGet(id, from, to, maxAge) {             // Daten der Spuren (zwischengespeichert, mit Rand zum Schieben)
+  const c = SL.c[id] || (SL.c[id] = { a: 0, b: 0, at: 0, data: null, busy: false, last: null });
+  const fresh = c.data && from >= c.a && to <= c.b && Date.now() - c.at < maxAge;
+  if (!fresh && !c.busy) {
+    const sp = Math.max(60000, to - from), a = Math.floor(from - sp * 0.5), b = Math.ceil(to + sp * 0.5);
+    c.busy = true;
+    fetch('sclanes?from=' + a + '&to=' + b, { cache: 'no-store' }).then(r => r.json()).then(j => { if (j && j.ok) { c.data = j; c.a = a; c.b = b; c.at = Date.now(); if (c.last) slPaint(id, ...c.last); } })
+      .catch(() => { c.at = Date.now(); }).finally(() => { c.busy = false; });
+  }
+  return c.data;
+}
+function slDraw(id, from, to, L, R, maxAge, ax) {    // von den Graphen aufgerufen (L, R: Ränder in CSS-Pixeln wie im Graphen; ax: eigene Zeitachse, wenn darüber kein Graph steht)
+  const host = $(id); if (!host) return;
+  const c = SL.c[id] || (SL.c[id] = { a: 0, b: 0, at: 0, data: null, busy: false, last: null });
+  c.last = [from, to, L, R, !!ax]; slGet(id, from, to, maxAge || 15000); slPaint(id, from, to, L, R, !!ax);
+}
+function slHide(id) { const h = $(id); if (h) h.hidden = true; const c = SL.c[id]; if (c) c.last = null; }
+function slPaint(id, from, to, L, R, ax) {
+  const host = $(id), c0 = SL.c[id], j = c0 && c0.data; if (!host) return;
+  const lanes = j && j.on ? j.lanes || [] : [];
+  if (!lanes.length) { host.hidden = true; return; }
+  host.hidden = false;
+  let cv = host.querySelector('canvas'), lg = host.querySelector('.sclg');
+  if (!cv) { cv = el('canvas'); cv.setAttribute('aria-hidden', 'true'); lg = el('div', { className: 'sclg' }); lg.setAttribute('aria-hidden', 'true'); host.append(cv, lg); }
+  const own = lanes.some(x => x.role === 'own'), lk = lang + own;                 // Legende (gleich live und im Verlauf)
+  if (lg.dataset.k !== lk) { lg.dataset.k = lk; lg.innerHTML = `<span><i class="sclk ed"></i>${esc(t('sl_edge'))}</span>${own ? `<span><i class="sclk ed own"></i>${esc(t('sl_edge_own'))}</span>` : ''}<span><i class="sclk on"></i>${esc(t('sl_on'))}</span><span><i class="sclk off"></i>${esc(t('sl_off'))}</span><span><i class="sclk win"></i>${esc(t('sl_win'))}</span>`; }
+  const H = lanes.length * (SL_H + SL_GAP) + SL_GAP + (ax ? 16 : 0); cv.style.height = H + 'px'; fit(cv);
+  const d = DPR(), g = cv.getContext('2d'), w = cv.width, pw = w - (L + R) * d, X = t2 => L * d + pw * (t2 - from) / (to - from);
+  g.clearRect(0, 0, w, cv.height); g.font = '600 ' + (10.5 * d) + 'px system-ui'; g.textBaseline = 'middle';
+  const sel = SL.sel && SL.sel.t0 >= from - 3600000 && SL.sel.t0 <= to + 3600000 ? SL.sel : null, say = [];
+  lanes.forEach((ln, i) => {
+    const y = (SL_GAP + i * (SL_H + SL_GAP)) * d, hh = SL_H * d, col = ln.role === 'own' ? C.thr : ln.role === 'ctx' ? C.mut : C.acc;
+    g.save(); g.beginPath(); g.rect(L * d, y, pw, hh); g.clip();
+    g.fillStyle = C.grid; g.fillRect(L * d, y, pw, hh);                                            // Spur
+    for (const [a, b] of ln.off || []) {                                                         // nicht erreichbar: schraffiert
+      const x0 = X(Math.max(a, from)), x1 = X(Math.min(b, to)); if (x1 - x0 < 0.5) continue;
+      g.save(); g.beginPath(); g.rect(x0, y, x1 - x0, hh); g.clip(); g.fillStyle = ca(C.mut, 0.12); g.fillRect(x0, y, x1 - x0, hh);
+      g.strokeStyle = ca(C.mut, 0.55); g.lineWidth = d; g.beginPath(); for (let x = x0 - hh; x < x1; x += 5 * d) { g.moveTo(x, y + hh); g.lineTo(x + hh, y); } g.stroke(); g.restore(); }
+    if (sel) { const a = sel.t0 - (ln.pre || 0) * 1000, b = sel.t0 + (ln.post || 0) * 1000, x0 = X(a), x1 = Math.max(x0 + 2 * d, X(b));   // Suchfenster der gewählten Störung
+      g.fillStyle = ca(C.tx, 0.13); g.fillRect(x0, y, x1 - x0, hh); g.fillStyle = ca(C.tx, 0.6); g.fillRect(X(sel.t0) - 0.5 * d, y, 1 * d, hh); }
+    for (const [a, b] of ln.on || []) { const x0 = X(a), x1 = Math.max(x0 + 1, X(b)); g.fillStyle = ca(col, 0.35); g.fillRect(x0, y + hh * 0.35, x1 - x0, hh * 0.3); }   // Zeit „an“
+    g.fillStyle = col; let lx = -1e9;
+    for (const e of ln.edges || []) { const x = X(e); if (x < L * d - 2 || x > L * d + pw + 2) continue; if (x - lx < 1) continue; g.fillRect(x - 1 * d, y + 1 * d, 2 * d, hh - 2 * d); lx = x; }   // Auslösung
+    const nm = ln.name, tw = g.measureText(nm).width;                                             // Name links in der Spur
+    g.fillStyle = ca(C.card, 0.85); g.fillRect(L * d + 2 * d, y + 1 * d, tw + 8 * d, hh - 2 * d); g.fillStyle = C.tx; g.textAlign = 'left'; g.fillText(nm, L * d + 6 * d, y + hh / 2 + 0.5 * d);
+    g.restore();
+    const ne = (ln.edges || []).filter(e => e >= from && e <= to), no = (ln.off || []).filter(([a, b]) => b > from && a < to);
+    say.push(t('sl_a_lane', { s: nm, n: ne.length + (ln.cut ? '+' : '') }) + (no.length ? ', ' + t('sl_a_off', { r: no.slice(0, 3).map(([a, b]) => hms(Math.max(a, from)).slice(0, 5) + '–' + hms(Math.min(b, to)).slice(0, 5)).join(', ') + (no.length > 3 ? ' …' : '') }) : '')
+      + (sel ? ', ' + t('sl_a_win', { a: ln.pre, b: ln.post, c: hms(sel.t0) }) : ''));
+  });
+  if (ax) {                                          // Zeitachse (nur ohne Graph darüber, z. B. Tag ohne Tagesaufzeichnung)
+    const sp = to - from, st = [1e3, 2e3, 5e3, 1e4, 3e4, 6e4, 12e4, 3e5, 6e5, 9e5, 18e5, 36e5, 72e5, 108e5, 216e5, 432e5, 864e5].find(q => sp / q <= Math.max(3, Math.floor(pw / d / 80))) || 864e5;
+    const tz = new Date(from).getTimezoneOffset() * 60000, y0 = (lanes.length * (SL_H + SL_GAP) + SL_GAP) * d;
+    g.fillStyle = C.mut; g.font = (10.5 * d) + 'px system-ui'; g.textAlign = 'center'; g.textBaseline = 'top';
+    for (let t2 = Math.ceil((from - tz) / st) * st + tz; t2 <= to; t2 += st) { const x = X(t2), dd = new Date(t2); g.fillRect(x - 0.5 * d, y0, 1 * d, 3 * d);
+      g.fillText(st >= 864e5 ? pad(dd.getDate()) + '.' + pad(dd.getMonth() + 1) + '.' : pad(dd.getHours()) + ':' + pad(dd.getMinutes()) + (st < 6e4 ? ':' + pad(dd.getSeconds()) : ''), x, y0 + 4 * d); }
+  }
+  host.setAttribute('aria-label', t('sl_a', { a: hms(from).slice(0, 5), b: hms(to).slice(0, 5) }) + ' ' + say.join('; ') + '.');
 }
 const fnShow = () => !SHIDE.has('_fn') && (!ARTSEL.size || ARTSEL.has('_notes') || ARTSEL.has('_fn'));
 const fnText = n => `${n.gr ? '<span class="art grsrc" title="' + esc(t('gr_from_tip')) + '">GReport</span>' : ''}${(n.tags || []).map(ntTag).join('')}${n.text ? `<span class="ntt">${esc(n.text)}</span>` : ''}${n.witness ? `<span class="ntw">👤 ${esc(n.witness)}</span>` : ''}${fbx(n)}`;
@@ -1724,7 +1810,7 @@ function evGrid(evs, sv, useArt, grpMode) {
       fpass: (v, d) => (d.tags || []).some(x => v.includes(x)),
       html: d => {
         if (d._t === 'sens') return `<span class="art sensc">${sensIcon(d.x.kind)} ${esc(sensLabel(d.x))}</span>${d.x.note ? `<div class="hant">📝 ${esc(d.x.note)}</div>` : ''}`;
-        if (d._t === 'note') return `<span class="art fnc">📝 ${esc(t('fn_row'))}</span>${d.ev ? `<button type="button" class="chip fnlink" tabindex="-1" title="${esc(t('fn_link_tip'))}">🔗 ${esc(t('fn_link', { c: clockOf(d.ev.start) }))}</button>` : ''}<div class="fnrowt">${fnText(d.n)}</div>`;
+        if (d._t === 'note') return `<span class="art fnc">📝 ${esc(t('fn_row'))}</span>${d.ev ? `<button type="button" class="chip fnlink" tabindex="-1" title="${esc(t('fn_link_tip'))}">🔗 ${esc(t('fn_link', { c: clockOf(d.ev.start) }))}</button> <small class="fnasg${(d.n.asg || {}).man ? ' fnman' : ''}">${esc(fnAsgHow(d.n, EV))}</small>` : (d.n.asg && d.n.asg.man ? ` <small class="fnasg fnman">${esc(t('fn_asg_detached'))}</small>` : '')}<div class="fnrowt">${fnText(d.n)}</div>`;
         if (d._t === 'grp') return d.g.prof ? `<span class="art prof">🧩 ${esc(d.g.kind)}</span>` : d.g.kind && d.g.kind !== '?' ? artChip(d.g.kind, null, false) : esc(t('art_pending'));
         const r = d.r; return `${fnAsgHTML(d.fn, EV)}${(r.ha_on || []).filter(n => !SHIDE.has('ha:' + n)).map(n => `<span class="art haon" title="${esc(t('ha_on_tip'))}">📡 ${esc(n)} ${esc(t('ha_on'))}</span>`).join('')}${(r.raise_on || []).map(x => `<span class="art haraisec" title="${esc(t('ha_raise_tip'))}">📈 ${esc(x[0])} +${esc(fmtDb(x[1]))} dB</span>`).join('')}${profChip(r)}${(r.labels || []).map(n => `<span class="art lbl" title="${esc(t('lb_own'))}">🏷 ${esc(n)}</span>`).join('')}${mfChip(r)}${r.art ? artChip(r.art, r.art_c, r.art_man || r.art_ok, CUR && CUR.classify === false ? '' : r.k) : (r.datei && !(r.labels || []).length && !r.prof ? '<span class="noclip" title="' + esc(t('art_pending')) + '">…</span>' : (r.labels || []).length || r.prof ? '' : '<span class="noclip">–</span>')}`; } },
     { f: 'sc', title: t('sc_col'), minW: 140, vis: hasSc, prio: 3, sort: false, cls: 'scol', flt: 'ms', aria: t('sc_col_a'),
@@ -2498,7 +2584,7 @@ async function openEvent(k, seekOff, autoPlay) {
   $('evinfo').innerHTML = [[t('dur'), fmtDur(r.dauer_s)], [t('peak'), fdb(r.spitze_dbfs) + ' dBFS'], [t('thr_col'), fdb(r.schwelle_dbfs) + ' dBFS'],
     [t('bg_col'), fdb(r.hintergrund_dbfs) + ' dBFS'], [t('spur_len'), r.clip_s ? r.clip_s + ' s' : '–']].concat(preInfo(j.graph, parseFloat(r.spitze_dbfs))).concat(haInfo(j.graph)).map(([a, b, tip]) => `<span${tip ? ` title="${esc(tip)}"` : ''}><small>${esc(a)}</small><b>${esc(String(b))}</b></span>`).join('');
   renderEvArt(j); renderEvProf(j);
-  EVV.notes = j.notes || []; if (j.note_tags) NOTE_TAGS = j.note_tags; renderNotes(); renderLabels(); EVV.snote = j.snote || {}; renderSubs(j); enoteShow(j.enote || ''); renderEvLists(j.plists); renderCmp(j); renderEvFn(j.fnotes); renderEvSc(j.sc);
+  EVV.notes = j.notes || []; if (j.note_tags) NOTE_TAGS = j.note_tags; renderNotes(); renderLabels(); EVV.snote = j.snote || {}; renderSubs(j); enoteShow(j.enote || ''); renderEvLists(j.plists); renderCmp(j); renderEvFn(j.fnotes); renderEvSc(j.sc); slSel(r.k || k, r.start);
   $('evnone').textContent = !j.graph ? t('ev_nograph') : j.graph.final === false ? t('ev_partial') : '';
   document.querySelector('.evcvs').style.display = j.graph ? '' : 'none';
   if (EVV.a) { EVV.a.pause(); EVV.a = null; }
@@ -3311,6 +3397,8 @@ function scBox() {
     if (!D) return;
     const opt = (vs, cur, lab) => vs.map(v => `<option value="${v}"${v === cur ? ' selected' : ''}>${esc(lab(v))}</option>`).join('');
     body.innerHTML = `<label class="check"><input type="checkbox" class="sc_on"${D.on ? ' checked' : ''}> ${esc(t('sc_on'))}</label>` +
+      `<label class="check"><input type="checkbox" class="sc_lanes"${D.lanes !== false ? ' checked' : ''}> ${esc(t('sl_set'))}</label>` +
+      `<label class="scck">${esc(t('ck_set'))} <input type="number" class="sc_ck" min="1" max="600" step="1" inputmode="numeric" value="${esc(String(D.clock_warn || 5))}"> s</label>${clockHTML(D.clock)}` +
       (D.sensors.length ? `<div class="sctw"><table class="sctab scedit"><caption class="sr">${esc(t('s_sc'))}</caption><thead><tr><th scope="col">${esc(t('sc_t_sens'))}</th><th scope="col">${esc(t('sc_e_type'))}</th><th scope="col">${esc(t('sc_e_role'))}</th><th scope="col">${esc(t('sc_e_pre'))}</th><th scope="col">${esc(t('sc_e_post'))}</th><th scope="col">${esc(t('sc_e_lock'))}</th><th scope="col">${esc(t('sc_e_rate'))}</th></tr></thead><tbody>` +
         D.sensors.map(x => `<tr data-id="${esc(x.id)}"${x.off ? ' class="off"' : ''}><th scope="row"><label class="check"><input type="checkbox" class="sc_use"${x.off ? '' : ' checked'} aria-label="${esc(t('sc_e_use', { s: x.name }))}"> ${esc(x.name)}</label></th>
           <td><select class="sc_type" aria-label="${esc(t('sc_e_type') + ': ' + x.name)}">${opt(D.types, x.type, v => t('sc_ty_' + v))}</select></td>
@@ -3319,6 +3407,8 @@ function scBox() {
           <td>${x.rate != null ? esc(t('sc_rate', { r: numTxt(String(x.rate)), d: numTxt(String(x.days)) })) : '–'}</td></tr>`).join('') + '</tbody></table></div>'
         : `<p class="hint">${esc(t('sc_none'))}</p>`);
     body.querySelector('.sc_on').onchange = e => save({ on: e.target.checked }, '.sc_on');
+    body.querySelector('.sc_lanes').onchange = e => { save({ lanes: e.target.checked }, '.sc_lanes'); for (const c of Object.values(SL.c)) c.at = 0; };
+    body.querySelector('.sc_ck').onchange = e => save({ clock_warn: +e.target.value }, '.sc_ck');
     body.querySelectorAll('tr[data-id]').forEach(tr => {
       const id = tr.dataset.id, x = D.sensors.find(y => y.id === id), q = c => tr.querySelector('.' + c);
       const cur = () => ({ type: q('sc_type').value, role: q('sc_role').value, pre: +q('sc_pre').value, post: +q('sc_post').value, lock: +q('sc_lock').value, off: !q('sc_use').checked });
@@ -4186,7 +4276,7 @@ const FORM = [
   ['s_keep', [['auto_delete', 'chk'], ['retention_days', 'num', 1, 3650, 1]]],
   ['s_mirror', [['mirror_dir', 'text'], ['mirror_time', 'time'], ['mirror_offload', 'chk']]],
   ['s_misc', [['language', 'sel', ['auto', 'de', 'en'], { auto: 'lauto', de: '#Deutsch', en: '#English' }], ['wheel_zoom', 'sel', ['ctrl', 'always'], { ctrl: 'wz_ctrl', always: 'wz_always' }], ['auto_thr', 'sel', ['thr', 'data'], { thr: 'at_thr', data: 'at_data' }], ['tip_mode', 'sel', ['hover', 'always', 'off'], { hover: 'tm_hover', always: 'tm_always', off: 'tm_off' }]]],
-  ['s_list', [['group_pause_s', 'num', 10, 3600, 10], ['fn_pre_min', 'num', 0, 120, 1], ['fn_post_min', 'num', 0, 120, 1]]],
+  ['s_list', [['group_pause_s', 'num', 10, 3600, 10], ['fn_pre_min', 'num', 0, 120, 1], ['fn_post_min', 'num', 0, 120, 1], ['fn_gr_pre_min', 'num', 0, 120, 1], ['fn_gr_post_min', 'num', 0, 120, 1]]],
 ];
 /* Reihenfolge der Kästen je Reiter (nach dem, was man tun will) */
 const SEC_ORDER = ['srcbox', 's_audio', 's_cal', 's_thr', 's_ki', 's_prof', 's_muster', 's_time', 's_quiet', 's_sched', 's_ha',
@@ -4214,7 +4304,7 @@ function fillPorts(sel, dev, val) {
 /* Pro Geraet einstellbare Werte (wie PER_KEYS im Server) */
 const PER = ['thr_mode', 'offset_db', 'thr_fixed_db', 'min_db', 'thr_max_db', 'bg_window', 'bg_unit', 'bg_stat', 'rise_s', 'fall_s',
   'min_event_ms', 'pre_roll_s', 'post_roll_s', 'max_clip_s', 'active_from', 'active_to', 'save_audio', 'audio_novoice', 'day_track', 'day_layers', 'day_spec', 'fp_store'];
-const GLOBAL_ONLY = ['mirror_dir', 'mirror_time', 'mirror_offload', 'retention_days', 'auto_delete', 'classify', 'ki_embed', 'ctx_s', 'co_record', 'group_pause_s', 'fn_pre_min', 'fn_post_min', 'clip_dir', 'video_width', 'video_fps', 'video_crf', 'quiet_from', 'quiet_to', 'quiet_sunday'];
+const GLOBAL_ONLY = ['mirror_dir', 'mirror_time', 'mirror_offload', 'retention_days', 'auto_delete', 'classify', 'ki_embed', 'ctx_s', 'co_record', 'group_pause_s', 'fn_pre_min', 'fn_post_min', 'fn_gr_pre_min', 'fn_gr_post_min', 'clip_dir', 'video_width', 'video_fps', 'video_crf', 'quiet_from', 'quiet_to', 'quiet_sunday'];
 let DEV = '';                                  // '' = Alle Geraete (Standard), sonst Quellen-ID
 function srcById(id) { return SOURCES.find(s => s.id === id); }
 /* Geräte zum Ansehen: eingerichtete und ehemalige (Daten vorhanden, Gerät nicht mehr eingerichtet, z. B. nach dem Einspielen) */
@@ -4678,10 +4768,12 @@ function frame(now) {
       const pxMs = view.span * 1000 / Math.max(100, $('main').clientWidth - AXL() - 14);
       const seq = recs.length ? recs[recs.length - 1].s : -1;
       if (Math.abs(t1 - lastT1) >= pxMs * 0.5 || seq !== lastSeqDrawn || animating || hoverX != null) dirty = true;
+      if (hist) slHide('scmain');
       if (dirty && !NV.open && !PV.open && !hist) {
         dirty = false; animating = false; lastT1 = t1; lastSeqDrawn = seq;
         if (view.mode === 'level') drawLevel($('main'), t0, t1); else drawWave($('main'), t0, t1);
         drawFnLive($('main'), t0, t1);                // freie Notizen an ihrer Stelle
+        slDraw('scmain', t0, t1, AXL(), 14, 10000);   // Sensor-Spuren (gleiche Zeitachse wie der Graph)
         drawSpec($('spec'), t0, t1);
       }
       if ($('dlg').open && now - lastMeter > 90) { lastMeter = now; drawMeter(); }
@@ -5614,6 +5706,8 @@ function dtDraw(S, hoverX) {
   if (S.drag) { const a = Math.min(S.drag.a, S.drag.b), b = Math.max(S.drag.a, S.drag.b); c.fillStyle = S.drag.del ? 'rgba(224,49,49,0.25)' : ca(NC.acc, S.drag.mk ? 0.28 : 0.2); c.fillRect(a * d, T, (b - a) * d, ph); }
   if (MK.sel && MK.sel.day === S) drawMk(c, X, T, ph, d, false);
   S.geo = { L: L / d, pw: pw / d, T: T / d, ph: ph / d, lo, hi, wave: !!wave, spec: !!specM };
+  if (S === LDT) slDraw('scld', r.from, r.to, 44, 10, 15000);            // Sensor-Spuren: live (lang) und im Verlauf gleich
+  else if (S.parent === DT) slDraw('scnd', r.from, r.to, 44, 10, 60000);
   if (hoverX != null) {
     const tq = r.from + span * clamp((hoverX - S.geo.L) / S.geo.pw, 0, 1); let best = null;
     for (const p of r.pts) if (best == null || Math.abs(p[0] - tq) < Math.abs(best[0] - tq)) best = p;
@@ -5794,6 +5888,7 @@ async function dtLoadAll1(S) {
   } else { S._rsig = sig; S._ssig = ssig; dtRowsRender(S); }
   if (PT.v != null) ptLoadSoon();
   dtBar(S);
+  { const [sa, sb] = dtWin(S); slDraw('scnd', sa, sb, 44, 10, 60000, !(S.subs || []).some(x => x.data)); }   // Sensor-Spuren auch ohne Tagesaufzeichnung im Ausschnitt (dann mit eigener Zeitachse)
   if (have.length) {                                  // Kopfzeile
     S.data = have[0][1]; const r = S.data;
     $('ndrange').textContent = dtRangeTxt(r) + (r.coarse ? ' · ' + t('dt_coarse') : '');
@@ -5859,6 +5954,7 @@ function dtJump(k, tr) {                             // Ereignis in der Tabelle 
   const r = EV && EV.events.find(x => (x.k || '') === k); if (!r) return;
   const t0 = new Date(r.start).getTime(), dur = Math.max(+r.dauer_s || 0, 1) * 1000, span = Math.max(+r.clip_s || 0, +r.dauer_s || 0, 10) * 1000;
   DT.mark = [t0, t0 + dur]; DT.from = t0 - Math.max(60000, span * 0.5); DT.to = t0 + span + 60000;   // Störung markiert, mit Umfeld
+  slSel(k, r.start);                                 // Sensor-Spuren: Suchfenster dieser Störung als Band
   const es = r.quelle_id || 'main';                // nur eine Zeile und anderes Gerät: die Zeile schaltet auf das Gerät der Störung um
   if (DT.rows && DT.rows.length === 1 && DT.rows[0].src !== es) { DT.rows[0].src = es; dtRowsSave(DT.rows); }
   EVCUR = k; if (TBL) TBL.redraw(x => x._t === 'ev');
@@ -5882,6 +5978,7 @@ function dtSetWin(S, f, t2, load) {
   else { f = clamp(f, b0, Math.max(b0, bl - sp)); S.from = f; S.to = f + sp; S.zoom = true; }
   const [wf, wt] = dtWin(S);
   for (const sub of S.subs || []) if (sub.data) { sub.data = Object.assign({}, sub.data, { from: wf, to: wt }); dtDraw(sub); }
+  if (S === DT) slDraw('scnd', wf, wt, 44, 10, 60000, !(S.subs || []).some(x => x.data));
   if (S.data) $('ndrange').textContent = dtRangeTxt({ from: wf, to: wt }); $('ndreset').disabled = $('ndreset').hidden = S.from == null;
   dtBar(S);
   clearTimeout(S._lt); S._lt = setTimeout(() => dtLoad(S, true), load === 'now' ? 0 : 60);   // kurz sammeln; läuft schon eine Abfrage, folgt die nächste direkt danach
@@ -6583,7 +6680,7 @@ function statEdit(d0, isNew) {
   vis(); prev(); if (!dlg.open) dlg.showModal();
 }
 /* ================= Freie Notiz („📝 Notiz jetzt“): einmal gespeichert, mit Zeitraum, an allen Aufzeichnungen dieser Zeit sichtbar ================= */
-const FN = { list: [], edit: null, tags: new Set(), t: 0 };
+const FN = { list: [], edit: null, tags: new Set(), t: 0, fv: {} };
 const dtl = d => isoDay(d) + 'T' + pad(d.getHours()) + ':' + pad(d.getMinutes()) + ':' + pad(d.getSeconds());
 async function fnOpenId(h) {                        // Notiz aus dem Verlauf öffnen (vollständig vom Server holen)
   try { const j = await (await fetch('fnotes?from=' + (h.a - 1000) + '&to=' + (h.b + 1000) + '&src=all', { cache: 'no-store' })).json(); const n = (j.notes || []).find(x => x.id === h.id); if (n) return fnOpen(n); } catch (e) { }
@@ -6644,8 +6741,54 @@ function enterSave(ta, save) {
     e.preventDefault(); save();
   });
 }
+/* Zuordnung Notiz → Störung (ab 1.83): aktuelle (automatisch / von Hand), weitere mögliche Störungen, neu zuordnen oder lösen.
+   Die Wahl von Hand liegt in einer eigenen Datei; Notiz und ihre Zeiten bleiben unverändert. */
+async function fnAsgBox(box, key, changed) {
+  box.hidden = false; box.innerHTML = `<h4>${esc(t('fna_head'))}</h4><p class="mut">${esc(t('loading'))}</p>`;
+  let j; try { j = await (await fetch('fnasg?id=' + encodeURIComponent(key), { cache: 'no-store' })).json(); } catch (e) { j = { ok: false }; }
+  if (!j.ok) { box.innerHTML = `<h4>${esc(t('fna_head'))}</h4><p class="mut">${esc(t('fna_none_win', { a: '?', b: '?' }))}</p>`; return; }
+  const evTx = e => [fmtWhen(e.start), e.src, e.dauer_s != null ? fmtDur(e.dauer_s) : '', e.art ? artName(e.art) : ''].filter(Boolean).join(' · ');
+  const dTx = e => fnAsgD(e.d);
+  const cur = j.cur ? `<span>🔗 ${esc(t('fna_cur', { e: evTx(j.cur) }))} <small class="fnasg${j.man ? ' fnman' : ''}">(${esc(dTx(j.cur))} · ${esc(j.man ? t('fn_asg_man') : t('fn_asg_auto', { a: j.pre, b: j.post }))})</small></span>`
+    : `<span>${esc(j.detached ? t('fna_detached') : t('fna_none_win', { a: j.pre, b: j.post }))}</span>`;
+  const btn = (a, l, k) => `<button type="button" class="chip" data-a="${a}"${k ? ` data-k="${esc(k)}"` : ''}>${esc(l)}</button>`;
+  box.innerHTML = `<h4>${esc(t('fna_head'))}</h4><div class="fnac">${cur}${j.cur ? btn('detach', t('fna_detach')) : ''}${j.man ? btn('auto', t('fna_auto')) : ''}</div>`
+    + (j.cand.length ? `<b class="fnacl" id="fnacl_${esc(key.replace(/\W/g, ''))}">${esc(t('fna_more'))}</b><ul aria-labelledby="fnacl_${esc(key.replace(/\W/g, ''))}">${j.cand.map(e => `<li><span>${esc(evTx(e))} <small class="mut">(${esc(dTx(e))})</small></span>${btn('set', t('fna_set'), e.k)}</li>`).join('')}</ul>` : '')
+    + `<small class="mut">${esc(t('fna_hint'))}</small><span class="sr" aria-live="polite"></span>`;
+  box.querySelectorAll('button[data-a]').forEach(b => b.onclick = async () => {
+    let r; try { r = await (await fetch('fnasg', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ id: key, action: b.dataset.a, k: b.dataset.k || '' }) })).json(); } catch (e) { r = { ok: false }; }
+    if (!r.ok) { toast(t('saveerr')); return; }
+    await fnAsgBox(box, key, changed); const f = box.querySelector('button'); if (f) f.focus();
+    const lv = box.querySelector('[aria-live]'); if (lv) lv.textContent = '✓ ' + t('fna_done');
+    EVSIG = ''; LEV.sig = ''; LEV.key = ''; if (typeof changed === 'function') changed();
+  });
+}
+function fnAsgDlg(n) {                                // Notiz aus GReport: nur ansehen und zuordnen (geändert wird sie in GReport)
+  let d = $('fnadlg'); if (!d) { d = el('dialog', { id: 'fnadlg', className: 'evdlg prognd' }); d.setAttribute('aria-labelledby', 'fnadlgh'); document.body.appendChild(d); }
+  d.innerHTML = `<h3 id="fnadlgh">📝 ${esc(t('fna_gr_title'))}</h3><p><b>${esc(fmtWhen(new Date(n.a).toISOString()))}${n.b > n.a ? '–' + esc(n.clock_to || '') : ''}</b></p><div class="fnrowt">${fnText(n)}</div>
+    <p class="mut">${esc(t('gr_edit_there'))}</p><div class="fnasgbox"></div><div class="ntedbtns"><span style="flex:1"></span><button type="button" class="pri fnadx">${esc(t('a_close'))}</button></div>`;
+  d.querySelector('.fnadx').onclick = () => d.close();
+  fnAsgBox(d.querySelector('.fnasgbox'), 'g:' + n.id, () => loadEvents());
+  d.showModal(); setTimeout(() => d.querySelector('.fnadx').focus(), 50);
+}
+/* Eigene Felder im Dialog „Notiz ändern“ (ab 1.83): gleicher Baustein wie in der Erfassung (felder.js); gespeichert über den bisherigen Weg (fnote edit) */
+function fbReId(box, pre) {                           // Kennungen im Dialog eindeutig (die Erfassung oben nutzt dieselben)
+  const map = {}; box.querySelectorAll('[id]').forEach(x => { map[x.id] = pre + x.id; x.id = pre + x.id; });
+  for (const at of ['for', 'aria-labelledby', 'aria-describedby', 'list']) box.querySelectorAll('[' + at + ']').forEach(x => x.setAttribute(at, x.getAttribute(at).split(' ').map(v => map[v] || v).join(' ')));
+}
+function fnFields() {
+  const box = $('fnfields'); if (!box) return; box.innerHTML = '';
+  const H = { get: id => FN.fv[id], set: (id, v) => { if (v === undefined) delete FN.fv[id]; else FN.fv[id] = v; }, start: () => { },
+    count: (b, dd) => { const n = (+FN.fv[b.id] || 0) + dd; if (n) FN.fv[b.id] = n; else delete FN.fv[b.id]; const c = box.querySelector(`.fbblk[data-b="${b.id}"] .fbcount`); if (c) c.textContent = t('fb_c_note', { n }); } };
+  for (const b of Felder.visible()) {
+    const d = el('div'); box.appendChild(d); Felder.render(d, b, FN.fv[b.id], H);
+    if (b.type === 'counter' && b.mode !== 'add') { const c = d.querySelector('.fbcount'); if (c) c.textContent = t('fb_c_note', { n: FN.fv[b.id] || 0 }); }
+    fbReId(d, 'fe_');
+  }
+  box.hidden = !box.children.length;
+}
 function fnOpen(n) {
-  if (n && n.gr) { toast(t('gr_edit_there')); return; }       // Notiz aus GReport: dort ändern
+  if (n && n.gr) { fnAsgDlg(n); return; }             // Notiz aus GReport: dort ändern, hier nur zuordnen
   FN.fromPanel = false; FN.edit = n && n.id ? n : null; FN.tags = new Set((n && n.tags) || []);
   $('fnfrom').value = n && n.from ? dtl(new Date(n.from)) : dtl(new Date(nowServer()));     // „von“ = Zeitpunkt des Öffnens
   $('fnto').value = n && n.to ? dtl(new Date(n.to)) : '';
@@ -6656,14 +6799,18 @@ function fnOpen(n) {
   NT_AREAS.fntags = () => { $('fntags').innerHTML = ntList(FN.tags).map(tg => ntChip(tg, FN.tags.has(tg))).join('') + ntSugHtml() + ntAddBtn(); ntChipBind($('fntags'), FN.tags, () => { $('fnwit').hidden = !FN.tags.has('zeuge'); }); };
   NT_AREAS.fntags();
   $('fnwit').hidden = !FN.tags.has('zeuge'); $('fndel').hidden = !FN.edit; $('fnmsg').textContent = '';
+  FN.fv = JSON.parse(JSON.stringify((n && n.fields) || {})); fnFields();
+  if (FN.edit) fnAsgBox($('fnasg'), 'f:' + FN.edit.id, () => loadEvents()); else { $('fnasg').hidden = true; $('fnasg').innerHTML = ''; }
   $('fndlg').showModal(); setTimeout(() => $('fntext').focus(), 50);
 }
 async function fnSave(del) {
-  const body = del ? { action: 'del', id: FN.edit.id } : { action: FN.edit ? 'edit' : 'add', id: FN.edit ? FN.edit.id : '', from: $('fnfrom').value, to: $('fnto').value, src: $('fnsrc').value, text: autoText($('fntext').value, FN.tags), typed: !!$('fntext').value.trim(), tags: [...FN.tags], witness: $('fnwit').value };
+  if (!del) { const c = Felder.check(FN.fv, $('fnfields'), Felder.visible().map(b => Object.assign({}, b, { req: false }))); if (c.bad.length) { $('fnmsg').textContent = t('fb_bad', { l: c.bad.join(', ') }); return; } }
+  const fields = {}; for (const [k, v] of Object.entries(FN.fv || {})) if (!Felder.isEmpty(v)) fields[k] = v;
+  const body = del ? { action: 'del', id: FN.edit.id } : { action: FN.edit ? 'edit' : 'add', id: FN.edit ? FN.edit.id : '', from: $('fnfrom').value, to: $('fnto').value, src: $('fnsrc').value, text: autoText($('fntext').value, FN.tags), typed: !!$('fntext').value.trim(), tags: [...FN.tags], witness: $('fnwit').value, fields };
   if (del && !confirm(t('fn_del_q'))) return;
   try {
     const r = await (await fetch('fnote', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) })).json();
-    if (!r.ok) { $('fnmsg').textContent = t(r.error === 'empty' ? 'fn_empty' : r.error === 'to' ? 'fn_bad_to' : 'saveerr'); return; } if (!del) ntsLoad();
+    if (!r.ok) { $('fnmsg').textContent = r.error === 'field' ? t('fb_bad', { l: (r.fields || []).map(x => (Felder.byId(x) || {}).l || x).join(', ') }) : t(r.error === 'empty' ? 'fn_empty' : r.error === 'to' ? 'fn_bad_to' : 'saveerr'); return; } if (!del) { ntsLoad(); if (Object.keys(fields).length) fbLoad(true); }
     try { localStorage.setItem('laerm_fnsrc', $('fnsrc').value); } catch (e) { }
     $('fndlg').close(); fnRefresh(); if (FN.fromPanel && !del) fnpReset(); FN.fromPanel = false;
     if (NV.open) loadNight(); if (histOn()) dtLoad(LDT, true);
@@ -6828,7 +6975,7 @@ async function fbLoad(quiet) {
 Felder.setup({ t, esc, lang: () => lang, fmtDT: ms => { const d = new Date(ms); return pad(d.getDate()) + '.' + pad(d.getMonth() + 1) + '.' + d.getFullYear() + ' ' + pad(d.getHours()) + ':' + pad(d.getMinutes()); }, dtl, dto: d => dtl(d), nowMs: nowServer });
 async function fbTpl(name) {
   if (!confirm(t('fb_tpl_q', { n: t('fb_tpl_' + name) }))) return;
-  let j; try { j = await (await fetch('felder', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ action: 'tpl', tpl: name }) })).json(); } catch (e) { j = { ok: false }; }
+  let j; try { j = await (await fetch('felder', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ action: 'tpl', tpl: name, lang }) })).json(); } catch (e) { j = { ok: false }; }
   if (!j.ok) { toast(t('saveerr')); return; }
   Felder.load(j); ntsApply(j.qt); if (j.layout) { LAYOUT.srv = j.layout; CAP = Object.assign({}, CAP_DEF, j.layout.cap || {}); }
   if (FCL.on) fclClose(); else capApply();

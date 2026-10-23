@@ -63,10 +63,15 @@ def clean_sensor(d, typ_default="other"):
             "off": d.get("off") is True}
 
 
+CLOCK_WARN_S = 5                                    # Uhrabgleich: Warnung ab so vielen Sekunden Abweichung (einstellbar 1–600)
+
+
 def clean_cfg(d):
-    """{"on": bool, "sens": {Kennung: Einstellung}} – Einstellungen je Sensor nur, wenn gespeichert (sonst Voreinstellung)."""
+    """{"on": bool, "lanes": bool, "clock_warn": s, "sens": {Kennung: Einstellung}} – Einstellungen je Sensor nur, wenn gespeichert.
+    lanes: Sensor-Spuren unter dem Pegelverlauf (ab 1.83), clock_warn: Uhrabgleich warnt ab so vielen Sekunden (ab 1.83)."""
     d = d if isinstance(d, dict) else {}
-    out = {"on": d.get("on", True) is not False, "sens": {}}
+    out = {"on": d.get("on", True) is not False, "lanes": d.get("lanes", True) is not False,
+           "clock_warn": _num(d.get("clock_warn"), 1, 600, CLOCK_WARN_S), "sens": {}}
     for k, v in (d.get("sens") if isinstance(d.get("sens"), dict) else {}).items():
         k = str(k)
         if len(k) <= 40 and all(c.isalnum() or c in "_-:" for c in k) and isinstance(v, dict):
@@ -225,3 +230,66 @@ def assign_notes(notes, incs, pre_ms, post_ms):
             cand.sort(key=lambda x: (x[0], x[1]))
             out[nid] = (cand[0][2], a - cand[0][1], len(cand))
     return out
+
+
+def assign(notes, evs, ovr=None):
+    """Notizen den Störungen zuordnen (ab 1.83), je Notiz mit eigenem Fenster (GLighter −2/+15 min, GReport −10/+30 min):
+    Zeitraum der Notiz [a, b] überschneidet [Störungsbeginn − vor, Störungsende + nach]; die nächste zum Beginn gewinnt.
+    Eine Wahl von Hand (ovr: {Notiz: Schlüssel oder None = gelöst}) geht vor; sie liegt in einer eigenen Datei, die Notiz bleibt unverändert.
+    notes: [(id, a, b, Gerät, vor ms, nach ms)], evs: [(Schlüssel, a, b, Gerät)].
+    → {Notiz: {"k": Schlüssel oder None, "d": Abstand ms (Notiz − Beginn) oder None, "man": von Hand?, "cand": [[Schlüssel, Abstand ms], …]}}
+    Notizen ohne passende Störung und ohne Wahl von Hand fehlen. Notizen zählen nie als Sensor-Bestätigung."""
+    ovr = ovr or {}
+    evs = sorted((e for e in evs if e[1] is not None), key=lambda e: e[1])
+    starts = [e[1] for e in evs]
+    by_k = {e[0]: e for e in evs}
+    maxd = max([max(0, (e[2] or e[1]) - e[1]) for e in evs] or [0])
+    out = {}
+    for nid, a, b, src, pre, post in notes:
+        if a is None:
+            continue
+        b = max(b or a, a)
+        i0 = bisect.bisect_left(starts, a - post - maxd); i1 = bisect.bisect_right(starts, b + pre)
+        cand = []
+        for k, ea, eb, dev in evs[i0:i1]:
+            eb = max(eb or ea, ea)
+            if (src in (None, "", "all") or not dev or dev == src) and a <= eb + post and b >= ea - pre:
+                cand.append((abs(a - ea), ea, k))
+        cand.sort(key=lambda x: (x[0], x[1]))
+        cl = [[k, a - ea] for _, ea, k in cand]
+        if nid in ovr:
+            k = ovr[nid]
+            if k is None:
+                out[nid] = {"k": None, "d": None, "man": True, "cand": cl}; continue
+            if k in by_k:
+                out[nid] = {"k": k, "d": a - by_k[k][1], "man": True, "cand": cl}; continue
+        if cl:
+            out[nid] = {"k": cl[0][0], "d": cl[0][1], "man": False, "cand": cl}
+    return out
+
+
+def clock_eval(items, warn_s=CLOCK_WARN_S):
+    """Uhrabgleich (ab 1.83, bewusst grob: ganze Sekunden, kein NTP). items: [{"kind": "ha"|"phone", "name", "off": s oder None}].
+    → {"items": [... off auf ganze Sekunden], "max": größte Abweichung (s) oder None, "warn": über der Schwelle?, "warn_s"}."""
+    out = []
+    for x in items or []:
+        o = x.get("off")
+        out.append(dict(x, off=None if o is None or not math.isfinite(o) else int(round(o))))
+    known = [abs(x["off"]) for x in out if x["off"] is not None]
+    mx = max(known) if known else None
+    return {"items": out, "max": mx, "warn": mx is not None and mx > warn_s, "warn_s": warn_s}
+
+
+def clock_text(st, de=True):
+    """„Uhrabgleich: Abweichung Home Assistant 0 s, Handy Küche 1 s“ (nur prüfbare Uhren; sonst Hinweis)."""
+    if not st:
+        return ""
+    known = [x for x in st.get("items") or [] if x.get("off") is not None]
+    if not known:
+        return "Uhrabgleich: keine Vergleichsuhr verfügbar" if de else "Clock check: no reference clock available"
+    parts = [f"{x['name']} {abs(x['off'])} s" for x in known]
+    s = ("Uhrabgleich: Abweichung " if de else "Clock check: offset ") + ", ".join(parts)
+    if st.get("warn"):
+        s += (f" – mehr als {st['warn_s']} s, Zeitfenster der Sensoren mit Vorsicht lesen" if de
+              else f" – more than {st['warn_s']} s, read the sensor time windows with care")
+    return s
