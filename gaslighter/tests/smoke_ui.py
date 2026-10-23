@@ -115,14 +115,17 @@ def main():
             if not pg.locator("#nightview .statcard .sthd").count():
                 fails.append("Statistik-Vorlage erscheint nicht in Protokolle")
             pg.click("#tab_live"); pg.wait_for_timeout(800)
-            vb = pg.locator("#ldevvis")                                    # Tabelle: nur sichtbarer Bereich (an/aus)
-            if vb.count() != 1 or "on" not in (vb.get_attribute("class") or ""):
-                fails.append("Knopf Nur sichtbarer Bereich fehlt oder ist nicht an")
+            rs = pg.locator("#ldevrng")                                    # Tabelle: Anzeigebereich (Auswahl) und passende Überschrift
+            if rs.count() != 1 or rs.input_value() != "vis" or pg.locator("#ldevh").inner_text().strip() != "Ereignisse im sichtbaren Bereich":
+                fails.append("Anzeigebereich der Tabelle fehlt oder steht nicht auf „sichtbarer Bereich“")
             else:
-                vb.click(); pg.wait_for_timeout(800)
-                if "on" in (vb.get_attribute("class") or "") or pg.locator("#ldevh").inner_text().strip() != "Ereignisse":
-                    fails.append("Nur sichtbarer Bereich lässt sich nicht ausschalten")
-                vb.click(); pg.wait_for_timeout(800)
+                rs.select_option("7d"); pg.wait_for_timeout(800)
+                if pg.locator("#ldevh").inner_text().strip() != "Ereignisse der letzten 7 Tage" or pg.locator("#ldevcus").is_visible():
+                    fails.append("Anzeigebereich „Letzte 7 Tage“ wirkt nicht")
+                rs.select_option("custom"); pg.wait_for_timeout(800)
+                if not pg.locator("#ldevcus").is_visible():
+                    fails.append("Eigener Zeitraum zeigt keine Von/Bis-Felder")
+                rs.select_option("vis"); pg.wait_for_timeout(800)
             if pg.locator("#fnptags .ntadd").count() != 1:                # eigene Schnellwahl im Notiz-Feld
                 fails.append("Knopf ＋ Eigene fehlt in der Schnellwahl")
             else:
