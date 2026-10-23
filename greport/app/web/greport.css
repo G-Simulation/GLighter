@@ -381,7 +381,7 @@ body.tipshover .tipslot{position:relative;display:inline-block;vertical-align:mi
 body.tipshover .tip{display:inline-flex;background:transparent;border:0;padding:0;margin:0;position:relative}
 body.tipshover .tip .tipi{opacity:.45;transition:opacity .15s}
 body.tipshover *:hover > .tipslot .tipi,body.tipshover *:focus-within > .tipslot .tipi,body.tipshover .tip.open .tipi{opacity:1}
-body.tipshover .tip .tipb{display:none;position:absolute;left:0;top:calc(100% + 4px);z-index:30;width:max-content;max-width:min(460px,calc(100vw - 32px));gap:6px 8px;flex-wrap:wrap;align-items:flex-start;
+body.tipshover .tip .tipb{display:none;position:absolute;left:0;top:calc(100% + 4px);z-index:30;width:max-content;max-width:min(460px,calc(100vw - 32px),var(--tipw,460px));gap:6px 8px;flex-wrap:wrap;align-items:flex-start;
   background:var(--card);color:var(--ink);border:1px solid color-mix(in srgb,var(--acc) 35%,var(--line));border-radius:10px;padding:8px 10px;box-shadow:var(--sh);font-size:12.5px}
 body.tipshover .tip .tipb .tipt{min-width:0;flex:1 1 240px}
 @media (hover:hover){body.tipshover .tip:has(.tipi:hover) .tipb,body.tipshover .tip .tipb:hover{display:flex}}
@@ -467,3 +467,23 @@ body.tipshover #fnpbody.tipanchor > .tipdock{right:24px}
 .fbtpl:hover{border-color:var(--acc)}.fbtpl.on{border-color:var(--acc);box-shadow:inset 0 0 0 1px var(--acc)}
 @media(max-width:600px){.fbtplbox.first{margin:4px 14px 8px}.fbplus{min-width:100px}}
 .note .fx{display:inline-block;font-size:13px;color:var(--ink);background:var(--soft);border:1px solid var(--line);border-radius:7px;padding:0 7px;margin:2px 6px 2px 0}
+/* Zwei Ansichten (angedockt / abgedockt) in „Layout anpassen“ und Dichte „kompakt“ */
+.layprof{display:flex;gap:8px 10px;align-items:center;flex-wrap:wrap;padding-bottom:8px;border-bottom:1px solid color-mix(in srgb,var(--acc) 22%,var(--line))}
+.layprof .seg button{min-height:34px;font-weight:600}
+.layps{color:var(--mut);font-size:12.5px;flex:1 1 180px;min-width:0}
+.laywid{gap:8px 14px}
+.layopt{display:inline-flex;align-items:center;gap:8px;flex-wrap:wrap}
+.layopt .seg button{min-height:32px;padding:6px 10px}
+.capture.dn-compact .caphead{padding:10px 14px 4px;gap:10px}.capture.dn-compact .clocknum{font-size:30px}
+.capture.dn-compact .capbody{padding:4px 14px 8px;gap:8px}.capture.dn-compact .groups{gap:5px}
+@media(min-width:601px){.capture.dn-compact .grp{grid-template-columns:84px 1fr;gap:8px}}
+.capture.dn-compact .tag{height:26px;padding:0 10px;font-size:13px}.capture.dn-compact #fnptext{min-height:46px;padding:8px 11px;font-size:15px}
+.capture.dn-compact .savebar{padding:8px 14px}.capture.dn-compact .secb{min-height:28px;padding:3px 10px}
+body.pop .laybar{padding:10px 12px}
+body.pop .layps{flex-basis:100%}
+/* schmal (Handy) und abgedockt: 💡 in einer eigenen Spalte rechts – keine Taste liegt darunter; die 💡 der Zeilen stehen in derselben Spalte */
+@media(max-width:600px){body.tipshover #fnpbody.tipanchor{padding-right:40px}body.tipshover #fnpbody.tipanchor > .tipdock{right:8px}
+  body.tipshover #secwit.tipanchor,body.tipshover #fnptags > .tipanchor{padding-right:0}body.tipshover #secwit.tipanchor > .tipdock,body.tipshover #fnptags > .tipanchor > .tipdock{right:-32px}}
+body.pop.tipshover #fnpbody.tipanchor{padding-right:40px}body.pop.tipshover #fnpbody.tipanchor > .tipdock{right:8px}
+body.pop.tipshover #secwit.tipanchor,body.pop.tipshover #fnptags > .tipanchor{padding-right:0}body.pop.tipshover #secwit.tipanchor > .tipdock,body.pop.tipshover #fnptags > .tipanchor > .tipdock{right:-32px}
+.fbedg [hidden]{display:none!important}

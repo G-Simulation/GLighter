@@ -2,6 +2,10 @@
 /* GReport – Notizen zu Störungen. Bedienung wie der Notiz-Teil von GLighter, eigenes Erscheinungsbild. */
 let FNPOP = null;                                    // Fenster, in das „Notiz jetzt“ abgedockt ist
 const $ = id => document.getElementById(id) || (FNPOP && !FNPOP.closed ? FNPOP.document.getElementById(id) : null);
+const popOn = () => !!(FNPOP && !FNPOP.closed);
+const popDoc = () => popOn() ? FNPOP.document : null;
+/* Fenster, in dem „Notiz jetzt“ gerade steht (Seite oder abgedocktes Fenster): Rückfragen, Animation, Ziehen dort */
+const pwin = () => { const p = $('fnpanel'), w = p && p.ownerDocument.defaultView; return w && w !== window && !(window.documentPictureInPicture && documentPictureInPicture.window === w) ? w : window; };
 const pad = n => String(n).padStart(2, '0');
 const esc = s => String(s == null ? '' : s).replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
 const el = (tag, props) => { const e = document.createElement(tag); Object.assign(e, props || {}); return e; };
@@ -31,7 +35,8 @@ function tr() {
   document.querySelectorAll('[data-iph]').forEach(e => { e.placeholder = t(e.dataset.iph); });
 }
 function toast(msg, ms) {
-  let e = document.getElementById('toast'); if (!e) { e = el('div', { id: 'toast', className: 'toast' }); e.setAttribute('role', 'status'); document.body.appendChild(e); }
+  const doc = popOn() && FNPOP.document.hasFocus() ? FNPOP.document : document;    // abgedockt: Meldung dort, wo getippt wird
+  let e = doc.getElementById('toast'); if (!e) { e = el('div', { id: 'toast', className: 'toast' }); e.setAttribute('role', 'status'); doc.body.appendChild(e); }
   e.textContent = msg; e.classList.add('on'); clearTimeout(e._t); e._t = setTimeout(() => e.classList.remove('on'), ms || 3500);
 }
 /* ---------- Datum und Uhrzeit (einstellbar) ---------- */
@@ -78,7 +83,7 @@ async function stLoad() {
   try { ST = await (await fetch('state', { cache: 'no-store' })).json(); } catch (e) { }
   if (ST.lang === 'de' || ST.lang === 'en') lang = ST.lang;
   if (ST.prefs) PF = ST.prefs;
-  widthApply(); tipModeApply();
+  secMigrate(); widthApply(); viewLight();
   stShow(); witList();
 }
 function stShow() {
@@ -146,9 +151,12 @@ const tagBtn = (tg, on) => `<button type="button" class="tag ${gAttr(ntGroup(tg)
 const tagMk = tg => `<span class="mk ${gAttr(ntGroup(tg))}>${esc(ntLabel(tg))}</span>`;
 /* ---------- Tipps (aus der Rechtsprechung abgeleitet, keine Rechtsberatung): einzeln wegklickbar, global abschaltbar ---------- */
 let TIPX = new Set(); try { TIPX = new Set(JSON.parse(localStorage.getItem('gr_tipx') || '[]')); } catch (e) { }
-const tipMode = () => PF.tipmode || (PF.tips === false ? 'off' : 'hover');
-const tipsOn = () => tipMode() !== 'off';
-function tipModeApply() { document.body.classList.toggle('tipshover', tipMode() === 'hover'); }
+const tipModeOf = p => p.tipmode || (p.tips === false ? 'off' : 'hover');
+const tipMode = () => tipModeOf(PF);                   // angedockt (Einstellungen); abgedockt: eigene Ansicht, siehe viewGet
+const docTipMode = doc => doc && doc !== document ? viewGet('pop').tipmode : tipMode();
+function tipModeApply() {                              // Seite und abgedocktes Fenster, jeweils mit der Tipp-Art ihrer Ansicht
+  for (const doc of [document, popDoc()]) if (doc && doc.body) doc.body.classList.toggle('tipshover', docTipMode(doc) === 'hover');
+}
 /* 💡 immer rechts, senkrecht mittig am zugehörigen Block; mehrere Tipps eines Blocks übereinander */
 function tipDock(sl) {
   if (sl.parentElement && sl.parentElement.classList.contains('tipdock')) return;
@@ -157,15 +165,17 @@ function tipDock(sl) {
   a.classList.add('tipanchor'); d.appendChild(sl);
 }
 function tipsDraw(root) {
-  (root || document).querySelectorAll('.tipslot').forEach(sl => {
+  const roots = root ? [root] : [document, popDoc()].filter(Boolean);              // auch im abgedockten Fenster
+  for (const r of roots) r.querySelectorAll('.tipslot').forEach(sl => {
     tipDock(sl);
     const want = sl.dataset.tips === 'cap' ? (FNP.edit ? ['8'] : ['1', '2', '7']) : sl.dataset.tips.split(',');
-    const n = tipsOn() ? want.find(x => !TIPX.has(x)) : null;
+    const md = docTipMode(sl.ownerDocument), n = md !== 'off' ? want.find(x => !TIPX.has(x)) : null;
     if (sl.dataset.cur === String(n || '') && sl.dataset.lang === lang) return;
     sl.dataset.cur = n || ''; sl.dataset.lang = lang;
     if (!n) { sl.innerHTML = ''; return; }
     sl.innerHTML = `<div class="tip" role="note"><button type="button" class="tipi" aria-expanded="false" aria-label="${esc(t('gr_tip_show'))}" title="${esc(t('gr_tip_' + n))}">💡</button><div class="tipb"><span class="tipt">${esc(t('gr_tip_' + n))}</span><details class="why"><summary>${esc(t('gr_tip_why'))}</summary><small>${esc(t('gr_tip_src', { s: t('gr_tip_' + n + '_s') }))}</small></details><button type="button" class="tipx" aria-label="${esc(t('gr_tip_x'))}" title="${esc(t('gr_tip_x'))}">✕</button></div></div>`;
-    const tb = sl.querySelector('.tipi'); const side = () => { const r = tb.getBoundingClientRect(), tp = tb.closest('.tip'); tp.classList.toggle('r', r.left > innerWidth / 2); tp.classList.toggle('u', r.top > innerHeight * 0.6); }; tb.onmouseenter = side; tb.onfocus = side;
+    const tb = sl.querySelector('.tipi'); const side = () => { const r = tb.getBoundingClientRect(), tp = tb.closest('.tip'), w = tb.ownerDocument.defaultView || window; tp.classList.toggle('r', r.left > w.innerWidth / 2); tp.classList.toggle('u', r.top > w.innerHeight * 0.6);
+      tp.style.setProperty('--tipw', Math.max(180, Math.floor(tp.getBoundingClientRect().right - 12)) + 'px'); };   // Blase rechtsbündig: nie über den linken Rand tb.onmouseenter = side; tb.onfocus = side;
     tb.onclick = () => { side(); const o = tb.closest('.tip').classList.toggle('open'); tb.setAttribute('aria-expanded', String(o)); };
     sl.querySelector('.tipx').onclick = () => { TIPX.add(n); try { localStorage.setItem('gr_tipx', JSON.stringify([...TIPX])); } catch (e) { } tipsDraw(); };
   });
@@ -230,7 +240,7 @@ function holdBind(b, onHold) {
 /* Taste lange drücken: „Layout anpassen“ öffnet sich mit dieser Taste – gleich weiterziehen oder mit den Pfeiltasten verschieben */
 function layOpenAt(k) {
   if (!LAY.on) layOpen();
-  requestAnimationFrame(() => { const c = document.querySelector(`#fnptags .layk[data-k="${CSS.escape(k)}"]`); if (!c) return;
+  pwin().requestAnimationFrame(() => { const c = $('fnptags') && $('fnptags').querySelector(`.layk[data-k="${CSS.escape(k)}"]`); if (!c) return;
     c.classList.add('picked'); setTimeout(() => c.classList.remove('picked'), 2400); const n = c.querySelector('.lkn'); if (n) { n.focus(); c.scrollIntoView({ block: 'nearest' }); }
     laySay(t('gr_lay_picked', { k: n ? n.textContent : k })); });
 }
@@ -245,12 +255,12 @@ function fnpTags() {
     const gi = gInfo(g) || {};
     if (g === 'when') {                                 // Rubrik „Zeitpunkt“: Tasten setzen die Zeit (kein Wort in der Notiz)
       const ws = whenOrdered().filter(k => !WHEN.get(k).hide || FNP.when === k);
-      if (!ws.length || (gi.hide && !FNP.when)) continue;
+      if (!ws.length || (gHid(g) && !FNP.when)) continue;
       h += `<div class="grp" data-g="when"><span>${esc(gLabel(g))}</span><div>${ws.map(k => `<button type="button" class="tag ${gAttr('when').replace('"', FNP.when === k ? ' on"' : '"')} data-w="${esc(k)}" aria-pressed="${FNP.when === k}">${esc(ntLabel(k))}</button>`).join('')}</div></div>`;
       continue;
     }
     const ks = by[g] || []; if (!ks.length && g !== 'own') continue;
-    if (gi.hide && !ks.some(k => FNP.tags.has(k))) continue;        // ausgeblendete Rubrik (gewählte Wörter bleiben sichtbar)
+    if (gHid(g) && !ks.some(k => FNP.tags.has(k))) continue;        // ausgeblendete Rubrik dieser Ansicht (gewählte Wörter bleiben sichtbar)
     const lim = NTS.show > 0 && !FNP.open.has(g) ? NTS.show : 0, shown = lim ? ks.filter((k, i) => i < lim || FNP.tags.has(k)) : ks, hid = ks.length - shown.length;   // Pro: nur die ersten N je Gruppe
     h += `<div class="grp${NTS.req && NTS.req.has(g) ? ' req' : ''}" data-g="${g}"><span>${esc(gLabel(g))}${NTS.req && NTS.req.has(g) ? '<i class="reqm" title="' + esc(t('gr_req_tip')) + '"> *</i>' : ''}${(NTS.ghelp || {})[g] ? `<small class="ghelp">${esc(NTS.ghelp[g])}</small>` : ''}</span><div${NTS.gone && NTS.gone.has(g) ? ` role="group" aria-label="${esc(gLabel(g) + ' – ' + t('fb_g_one'))}"` : ''}>${shown.map(k => tagBtn(k, FNP.tags.has(k))).join('')}${hid > 0 ? `<button type="button" class="tag more" data-g="${g}">${esc(t('gr_more', { n: hid }))}</button>` : FNP.open.has(g) && NTS.show > 0 && ks.length > NTS.show ? `<button type="button" class="tag more less" data-g="${g}">${esc(t('gr_less'))}</button>` : ''}${g === 'own' ? `<button type="button" class="tag add">＋ ${esc(t('qt_add'))}</button>` : ''}</div></div>`;
   }
@@ -262,7 +272,7 @@ function fnpTags() {
   box.querySelectorAll('.tag[data-t]').forEach(b => {
     b.onclick = () => { const k = b.dataset.t, g = ntGroup(k), one = NTS.gone && NTS.gone.has(g) && !FNP.tags.has(k);
       if (one) for (const x of [...FNP.tags]) if (ntGroup(x) === g) { FNP.tags.delete(x); const o = box.querySelector(`.tag[data-t="${CSS.escape(x)}"]`); if (o) { o.classList.remove('on'); o.setAttribute('aria-pressed', 'false'); } }   // nur eine Auswahl in dieser Rubrik
-      FNP.tags.has(k) ? FNP.tags.delete(k) : FNP.tags.add(k); b.classList.toggle('on', FNP.tags.has(k)); b.setAttribute('aria-pressed', FNP.tags.has(k)); fnpStart(); reqCheck(); if (SECHIDE.size) secDraw(); };
+      FNP.tags.has(k) ? FNP.tags.delete(k) : FNP.tags.add(k); b.classList.toggle('on', FNP.tags.has(k)); b.setAttribute('aria-pressed', FNP.tags.has(k)); fnpStart(); reqCheck(); if (secQuick().size) secDraw(); };
     holdBind(b, () => layOpenAt(b.dataset.t));
   });
   box.querySelectorAll('.tag[data-w]').forEach(b => b.onclick = () => whenPick(b.dataset.w));
@@ -342,7 +352,7 @@ function fnpShow() {
   $('fnptimetxt').textContent = FNP.notime ? t('gr_notime') + ' · ' + t('gr_t_change') : (FNP.approx ? '≈ ' : '') + (FNP.fixed || FNP.edit ? t('gr_t_at', { t: fTime(at) }) : t('gr_t_now')) + (to ? ' – ' + fTime(new Date(to).getTime()) : run ? ' – ' + t('gr_t_run') : '') + ' · ' + t('gr_t_change');
 }
 /* Hinweis unter der Überschrift: passt zur Vorlage (ohne Textfeld, mit Zähler: „Taste ＋1 drücken …“) */
-const capWait = () => secHidden('txt') && Felder.visible().some(b => b.type === 'counter') ? t('fb_wait_cnt') : t(matchMedia('(pointer:coarse)').matches ? 'gr_wait_m' : 'gr_wait');
+const capWait = () => viewHid('txt') && viewBlocks().some(b => b.type === 'counter') ? t('fb_wait_cnt') : t(matchMedia('(pointer:coarse)').matches ? 'gr_wait_m' : 'gr_wait');
 function fnpReset() {
   FNP.from = null; FNP.tags = new Set(); FNP.edit = null; FNP.fixed = false; Object.assign(FNP, { notime: false, when: null, approx: false, cap: null, manual: false, pend: null });
   $('fnptext').value = ''; $('fnpwit').value = ''; $('fnpfromi').value = ''; $('fnptoi').value = ''; $('fnprun').checked = false;
@@ -430,30 +440,69 @@ async function fnPop() {
   const vp = doc.createElement('meta'); vp.name = 'viewport'; vp.content = 'width=device-width,initial-scale=1'; doc.head.appendChild(vp);
   for (const l of document.querySelectorAll('link[rel=stylesheet]')) { const n = doc.createElement('link'); n.rel = 'stylesheet'; n.href = l.href; doc.head.appendChild(n); }
   for (const at of document.documentElement.attributes) if (at.name.startsWith('data-')) doc.documentElement.setAttribute(at.name, at.value);
-  doc.body.className = 'pop';
+  doc.documentElement.lang = document.documentElement.lang;
+  doc.body.className = 'pop';                          // Tipp-Art und Dichte setzt viewApply() – für das Fenster aus der Ansicht „abgedockt“
+  if (LAY.on) layClose();                              // „Layout anpassen“ gehört zur Ansicht, in der es geöffnet wurde
   const parent = panel.parentNode, next = panel.nextSibling;
   const ph = el('div', { className: 'popph' }); const pb = el('button', { type: 'button', className: 'btn', textContent: t('pop_back') });
   ph.append(el('span', { textContent: '📝 ' + t('pop_open'), className: 'grow' }), pb); parent.insertBefore(ph, panel);
-  doc.body.appendChild(panel); FNPOP = w; gcolApply();
-  const back = () => { if (FNPOP !== w) return; FNPOP = null; ph.remove(); try { parent.insertBefore(panel, next && next.parentNode === parent ? next : null); } catch (e) { parent.appendChild(panel); } };
+  doc.body.appendChild(panel); FNPOP = w; gcolApply(); applyTheme(); viewApply();
+  const back = () => { if (FNPOP !== w) return; if (LAY.on) layClose(); FNPOP = null; ph.remove(); try { parent.insertBefore(panel, next && next.parentNode === parent ? next : null); } catch (e) { parent.appendChild(panel); } viewApply(); };
   pb.onclick = () => { try { w.close(); } catch (e) { } back(); };
   w.addEventListener('pagehide', back);
   addEventListener('pagehide', () => { try { w.close(); } catch (e) { } });
   setTimeout(() => { const tx = doc.getElementById('fnptext'); if (tx) tx.focus(); }, 100);
 }
-/* Abschnitte von „Notiz jetzt“ ein- und ausblenden (auch abgedockt), gemerkt pro Browser */
-let SECHIDE = new Set(); try { SECHIDE = new Set(JSON.parse(localStorage.getItem('gr_sechide') || '[]')); } catch (e) { }
+/* ---------- Zwei Ansichten: „angedockt“ (in der Seite) und „abgedockt“ (eigenes Fenster) ----------
+   Je Ansicht: Reihenfolge und ausgeblendete Bereiche/Felder, ausgeblendete Rubriken, Tipps und Dichte (Einstellungen „pop“),
+   dazu die Schnell-Schalter ● / ○ (sechide / sechide_pop). Abgedockt folgt der angedockten Ansicht, bis sie selbst geändert wird.
+   Nur Anzeige – Notizen, Felder und Tasten bleiben dieselben. */
+const viewCur = () => LAY.on && LAY.d ? LAY.d.prof : popOn() ? 'pop' : 'dock';
+function viewDock() {                                  // angedockt: wie bisher (Ausblenden in felder.json und schnellwahl.json)
+  return { cap_order: capOrder(null, PF.cap_order || []), hide: Object.keys(SEC_EL).filter(k => secHidden(k)).concat(Felder.active().filter(b => b.hide).map(b => b.id)),
+    ghide: gIds().filter(g => (gInfo(g) || {}).hide), tipmode: tipMode(), dens: PF.dens === 'compact' ? 'compact' : 'normal' };
+}
+function viewGet(v) { const d = viewDock(); if (v !== 'pop' || !PF.pop) return d; const o = Object.assign(d, PF.pop); o.cap_order = capOrder(null, o.cap_order); return o; }
+const viewHid = (k, v) => viewGet(v || viewCur()).hide.includes(k);
+const gHid = g => viewGet(viewCur()).ghide.includes(g);
+const viewBlocks = v => { const h = new Set(viewGet(v || viewCur()).hide); return Felder.active().filter(b => !h.has(b.id)); };
+function secQuick(v) { v = v || viewCur(); return new Set(v === 'pop' && Array.isArray(PF.sechide_pop) ? PF.sechide_pop : PF.sechide || []); }
+function viewLight() {                                 // Tipp-Art und Dichte (ohne die Bereiche neu aufzubauen)
+  tipModeApply(); const pn = $('fnpanel');
+  if (pn && !LAY.on) pn.classList.toggle('dn-compact', viewGet(viewCur()).dens === 'compact');
+}
+function viewApply() {                                 // Ansicht gewechselt (ab-/angedockt) oder gespeichert: alles neu zeigen
+  viewLight();
+  if (!LAY.on) { fbMount(); secApply(); secDraw(); fnpTags(); fnpShow(); }
+  tipsDraw();
+}
+/* Schnell-Schalter früherer Versionen (nur dieser Browser, gr_sechide) einmal in die angedockte Ansicht übernehmen */
+function secMigrate() {
+  let old = null; try { old = JSON.parse(localStorage.getItem('gr_sechide') || 'null'); } catch (e) { }
+  if (!Array.isArray(old) || secMigrate.busy) return;
+  const done = () => { try { localStorage.removeItem('gr_sechide'); } catch (e) { } };
+  if (Array.isArray(PF.sechide) || !old.length) { done(); return; }
+  PF.sechide = old; secMigrate.busy = true;
+  post('prefs', { sechide: old }).then(j => { if (j.ok) { delete j.ok; PF = j; done(); } }).catch(() => { }).finally(() => { secMigrate.busy = false; });
+}
+/* Abschnitte von „Notiz jetzt“ schnell ein- und ausblenden – je Ansicht (angedockt / abgedockt), auf dem Server gemerkt */
 function secDraw() {
   const bar = $('secbar'); if (!bar) return; bar.innerHTML = '';
   if (LAY.on) return;
+  const q = secQuick(), v = viewCur();
   for (const k of capOrder()) {
     const blk = Felder.isId(k), e = secEl(k);
-    if (blk ? !e : secHidden(k)) { if (e) e.hidden = true; continue; }            // in „Layout anpassen“ ausgeblendet: ganz weg
-    const off = SECHIDE.has(k), l = secLabel(k); if (e) e.hidden = off;
+    if (blk ? !e : viewHid(k)) { if (e) e.hidden = true; continue; }            // in „Layout anpassen“ ausgeblendet: ganz weg
+    const off = q.has(k), l = secLabel(k); if (e) e.hidden = off;
     const n = off && k === 'tags' && FNP.tags.size ? ' · ' + FNP.tags.size : off && k === 'wit' && $('fnpwit').value.trim() ? ' · 1' : off && blk && !Felder.isEmpty(FNP.fv[k]) ? ' · 1' : '';
     const b = el('button', { type: 'button', className: 'secb' + (off ? '' : ' on'), textContent: l + n });
     b.setAttribute('aria-pressed', String(!off)); b.title = t(off ? 'gr_sec_show' : 'gr_sec_hide', { s: l });
-    b.onclick = () => { off ? SECHIDE.delete(k) : SECHIDE.add(k); try { localStorage.setItem('gr_sechide', JSON.stringify([...SECHIDE])); } catch (x) { } secDraw(); };
+    b.onclick = () => {
+      const h = secQuick(v), key = v === 'pop' ? 'sechide_pop' : 'sechide'; off ? h.delete(k) : h.add(k); PF[key] = [...h]; secDraw();
+      const nb = [...bar.children].find(x => x.dataset.sec === k); if (nb) nb.focus();
+      post('prefs', { [key]: PF[key] }).then(j => { if (j.ok) { delete j.ok; PF = j; } else toast(t('saveerr')); }).catch(() => toast(t('saveerr')));
+    };
+    b.dataset.sec = k;
     bar.appendChild(b);
   }
 }
@@ -489,12 +538,12 @@ function secLabel(k, sec, list) {
   if (Felder.isId(k)) { const b = (list || FB.defs).find(x => x.id === k); return b ? b.l : k; }
   return ((sec || FB.sec)[k] || {}).l || t(SEC_L[k]);
 }
-const FBH = { get: id => FNP.fv[id], set: (id, v) => { if (v === undefined) delete FNP.fv[id]; else FNP.fv[id] = v; if (SECHIDE.size) secDraw(); },
+const FBH = { get: id => FNP.fv[id], set: (id, v) => { if (v === undefined) delete FNP.fv[id]; else FNP.fv[id] = v; if (secQuick().size) secDraw(); },
   start: () => fnpStart(), count: (b, d) => fbCount(b, d) };
 /* Felder in „Notiz jetzt“ einhängen (list/sec: Entwurf aus „Layout anpassen“ als Vorschau) */
 function fbMount(list, sec) {
   const body = $('fnpbody'); if (!body) return;
-  const vis = list ? list.filter(b => !b.del) : Felder.visible(), ids = new Set(vis.map(b => b.id));
+  const vis = list ? list.filter(b => !b.del) : viewBlocks(), ids = new Set(vis.map(b => b.id));
   body.querySelectorAll(':scope > .fbblk').forEach(x => { if (!ids.has(x.dataset.b)) x.remove(); });
   for (const b of vis) {
     let box = $('fb_' + b.id);
@@ -521,9 +570,9 @@ function secMeta(sec) {
 function fbOut() { const o = {}; for (const [k, v] of Object.entries(FNP.fv || {})) if (!Felder.isEmpty(v)) o[k] = v; return o; }
 /* Pflicht: einmal Hinweis, beim zweiten „Speichern“ wird trotzdem gespeichert (wie bei den Pflicht-Rubriken) */
 function fbReqOk() {
-  const c = Felder.check(FNP.fv, $('fnpbody')), msg = $('fnpmsg'), g = k => FB.sec[k] || {};
-  if (!secHidden('txt') && g('txt').req && !$('fnptext').value.trim()) c.miss.unshift(secLabel('txt'));
-  if (!secHidden('wit') && g('wit').req && !$('fnpwit').value.trim()) c.miss.push(secLabel('wit'));
+  const c = Felder.check(FNP.fv, $('fnpbody'), viewBlocks()), msg = $('fnpmsg'), g = k => FB.sec[k] || {};   // Pflicht nur für Bereiche, die diese Ansicht zeigt
+  if (!viewHid('txt') && g('txt').req && !$('fnptext').value.trim()) c.miss.unshift(secLabel('txt'));
+  if (!viewHid('wit') && g('wit').req && !$('fnpwit').value.trim()) c.miss.push(secLabel('wit'));
   if (c.bad.length) { msg.className = 'msg err'; msg.textContent = t('fb_bad', { l: c.bad.join(', ') }); return false; }
   const key = c.miss.join('|');
   if (c.miss.length && FNP.reqWarned !== key) { FNP.reqWarned = key; msg.className = 'msg warn'; msg.textContent = t('fb_req_miss', { l: c.miss.join(', ') }); return false; }
@@ -541,7 +590,7 @@ async function fbCount(b, d) {
 }
 async function fbLoad(quiet) {
   try { Felder.load(await (await fetch('felder', { cache: 'no-store' })).json()); } catch (e) { }
-  if (quiet) { statsDraw(); for (const b of Felder.visible()) if (b.type === 'counter') Felder.countShow($('fnpbody'), b); return; }
+  if (quiet) { statsDraw(); for (const b of viewBlocks()) if (b.type === 'counter') Felder.countShow($('fnpbody'), b); return; }
   fbApply();
 }
 function fbApply() {
@@ -1144,7 +1193,7 @@ function initDialogs() {
   };
   document.getElementById('pfsave').onclick = async () => {
     const j = await post('prefs', prefRead()).catch(() => ({ ok: false }));
-    if (j.ok) { delete j.ok; PF = j; widthApply(); tipModeApply(); tipsDraw(); document.getElementById('prefdlg').close(); fnpShow(); listDraw(); } else alert(t('saveerr'));
+    if (j.ok) { delete j.ok; PF = j; widthApply(); viewLight(); tipsDraw(); document.getElementById('prefdlg').close(); fnpShow(); listDraw(); } else alert(t('saveerr'));
   };
   document.getElementById('glsave').onclick = async () => {
     const j = await post('prefs', { gl: document.getElementById('glshare').checked }).catch(() => ({ ok: false }));
@@ -1164,9 +1213,9 @@ const LAY = { on: false, d: null, focus: null };
 const SEC_EL = { txt: 'fnptext', tags: 'fnptags', wit: 'secwit', more: 'secmore', time: 'sectime' };
 const SEC_L = { txt: 'fnp_p_txt', tags: 'fnp_p_tags', wit: 'fnp_p_wit', more: 'gr_more_p', time: 'gr_p_ext' };
 /* Reihenfolge der Bereiche: eingebaute und eigene Felder (Kennung b_…) gemeinsam */
-function capOrder(list) {
+function capOrder(list, order) {                       // order: Reihenfolge einer Ansicht (ohne: die gerade gezeigte)
   const blocks = (list || Felder.active()).filter(b => !b.del).map(b => b.id), ok = x => SEC_EL[x] || blocks.includes(x);
-  const o = (PF.cap_order || []).filter(ok); return o.concat(Object.keys(SEC_EL).concat(blocks).filter(x => !o.includes(x)));
+  const o = [...new Set((order || viewGet(viewCur()).cap_order || []).filter(ok))]; return o.concat(Object.keys(SEC_EL).concat(blocks).filter(x => !o.includes(x)));
 }
 const secEl = k => Felder.isId(k) ? $('fb_' + k) : $(SEC_EL[k]);
 function secApply(order) {
@@ -1175,7 +1224,7 @@ function secApply(order) {
 }
 const hex6 = () => Array.from(crypto.getRandomValues(new Uint8Array(3)), b => b.toString(16).padStart(2, '0')).join('');
 const layFlat = gs => gs.filter(g => !g.del).flatMap(g => g.keys);
-function layBuild() {
+function layBuild(prof) {
   const groups = gIds().map(g => {
     const gi = gInfo(g) || {}, col = (NTS.gcol || {})[g] || '';
     const rq = !!(NTS.req && NTS.req.has(g)), one = !!(NTS.gone && NTS.gone.has(g)), hp = (NTS.ghelp || {})[g] || '';
@@ -1187,14 +1236,41 @@ function layBuild() {
     const w = WHEN.get(k);
     keys[k] = { k, l: ntLabel(k), l0: ntLabel(k), kind: w ? 'when' : 'tag', own: w ? !!w.own : NTS.own[k] != null, hide: w ? !!w.hide : NTS.hide.has(k), hide0: w ? !!w.hide : NTS.hide.has(k), g0: gr.g, isNew: false, del: false };
   }
-  const secs = capOrder(), fb = JSON.parse(JSON.stringify({ blocks: FB.defs, sec: FB.sec }));
+  const secs = capOrder(null, PF.cap_order || []), fb = JSON.parse(JSON.stringify({ blocks: FB.defs, sec: FB.sec }));
+  const dock = viewDock(), pop = viewGet('pop');
   LAY.d = { groups, keys, order0: layFlat(groups).join(), gorder0: groups.map(g => g.g).join(), secs, secs0: secs.join(), title: PF.cap_title || '', sub: PF.cap_sub || '', width: PF.width || 'wide', width0: PF.width || 'wide',
-    fb, fb0: JSON.stringify(Felder.strip(fb)) };
+    fb, fb0: JSON.stringify(Felder.strip(fb)), prof: 'dock', views: { dock, pop }, dock0: layVKey(dock), pop0: layVKey(pop), popSync: layVKey(pop), popOwn: !!PF.pop, popFollow: false };
+  if (prof === 'pop') layViewPut('pop');
 }
+/* Entwurf je Ansicht: Reihenfolge, Ausblenden der Bereiche/Felder und Rubriken stehen für die gerade bearbeitete Ansicht im
+   Entwurf (d.secs, d.fb, d.groups); beim Umschalten werden sie in d.views getauscht. Tipps und Dichte stehen direkt in d.views. */
+const layVKey = v => JSON.stringify([v.cap_order, [...v.hide].sort(), [...v.ghide].sort(), v.tipmode, v.dens]);
+function layViewTake() {
+  const d = LAY.d, v = d.views[d.prof];
+  v.cap_order = d.secs.filter(k => SEC_EL[k] || d.fb.blocks.some(b => b.id === k && !b.del));
+  v.hide = Object.keys(SEC_EL).filter(k => secHidden(k, d.fb.sec)).concat(d.fb.blocks.filter(b => b.hide && !b.del).map(b => b.id));
+  v.ghide = d.groups.filter(g => g.hide && !g.del).map(g => g.g);
+}
+function layViewPut(p) {
+  const d = LAY.d, v = d.views[p], h = new Set(v.hide), gh = new Set(v.ghide); d.prof = p;
+  d.secs = capOrder(d.fb.blocks, v.cap_order);
+  for (const k of Object.keys(SEC_EL)) { const s = d.fb.sec[k]; if (h.has(k)) (d.fb.sec[k] = s || {}).hide = true; else if (s && s.hide) { delete s.hide; if (!Object.keys(s).length) delete d.fb.sec[k]; } }
+  for (const b of d.fb.blocks) { if (h.has(b.id)) b.hide = true; else delete b.hide; }
+  for (const g of d.groups) g.hide = gh.has(g.g);
+}
+function layProf(p) {                                   // Ansicht im Editor wechseln (Vorschau sofort)
+  const d = LAY.d; if (!d || d.prof === p) return;
+  layViewTake();
+  if (p === 'pop' && layFollows() && layVKey(d.views.pop) === d.popSync) { d.views.pop = JSON.parse(JSON.stringify(d.views.dock)); d.popSync = layVKey(d.views.pop); }   // folgt noch: aktuellen Stand von angedockt zeigen
+  layViewPut(p); layBar(); layDraw(); fbPreview(); layDens();
+  laySay(t('gr_lay_prof_now', { p: t(p === 'pop' ? 'gr_view_pop' : 'gr_view_dock') }));
+}
+const layFollows = () => !LAY.d.popOwn || LAY.d.popFollow;
+function layDens() { const pn = $('fnpanel'), d = LAY.d; if (pn && d) pn.classList.toggle('dn-compact', d.views[d.prof].dens === 'compact'); }
 function laySay(msg) { const e = $('laylive'); if (e) { e.textContent = ''; setTimeout(() => { e.textContent = msg; }, 30); } }
-function layOpen() {
+function layOpen(prof) {
   if (LAY.on) return;
-  LAY.on = true; layBuild();
+  LAY.on = true; layBuild(prof || (popOn() ? 'pop' : 'dock'));   // im abgedockten Fenster: dessen Ansicht
   const pn = $('fnpanel'); pn.classList.add('lay'); $('laybtn').setAttribute('aria-pressed', 'true');
   const ce = 'plaintext-only';
   for (const [id, key, def] of [['capttl', 'title', t('fn_btn')], ['fnpfrom', 'sub', capWait()]]) {
@@ -1203,26 +1279,39 @@ function layOpen() {
     e.setAttribute('role', 'textbox'); e.setAttribute('aria-label', t(id === 'capttl' ? 'gr_lay_title' : 'gr_lay_sub')); e.tabIndex = 0; e.dataset.def = def;
     e.onkeydown = ev => { if (ev.key === 'Enter') { ev.preventDefault(); e.blur(); } };
   }
-  layBar(); fnpTags(); fbPreview(); secDraw(); $('laybar').querySelector('.laysec').focus();
+  layBar(); fnpTags(); fbPreview(); secDraw(); layDens(); $('laybar').querySelector('.laysec').focus();
 }
 function layClose() {
   LAY.on = false; LAY.d = null; widthApply();   // Abbrechen: gespeicherte Breite
   for (const id of ['capttl', 'fnpfrom']) { const e = $(id); e.removeAttribute('contenteditable'); e.removeAttribute('role'); e.removeAttribute('aria-label'); e.removeAttribute('tabindex'); e.onkeydown = null; }
   const pn = $('fnpanel'); pn.classList.remove('lay'); $('laybtn').setAttribute('aria-pressed', 'false'); $('laybar').hidden = true; $('laybar').innerHTML = '';
-  fbMount(); secApply(); secDraw(); fnpTags(); fnpShow(); $('laybtn').focus();
+  viewLight(); fbMount(); secApply(); secDraw(); fnpTags(); fnpShow(); $('laybtn').focus();
 }
 function layBar() {
-  const bar = $('laybar'), d = LAY.d; bar.hidden = false;
-  bar.innerHTML = `<p class="layhint">${esc(t('gr_lay_hint'))}</p>
+  const bar = $('laybar'), d = LAY.d, v = d.views[d.prof], pop = d.prof === 'pop'; bar.hidden = false;
+  const seg = (id, lab, k, vals, cur) => `<span class="layopt"><span class="laysl" id="${id}">${esc(t(lab))}</span><span class="seg" role="group" aria-labelledby="${id}">${vals.map(([x, l]) => `<button type="button" class="layob${cur === x ? ' on' : ''}" data-k="${k}" data-v="${x}" aria-pressed="${cur === x}">${esc(t(l))}</button>`).join('')}</span></span>`;
+  const st = pop ? (d.popFollow || !d.popOwn ? t('gr_lay_pop_follow') : t('gr_lay_pop_own')) : t('gr_lay_dock_s');
+  bar.innerHTML = `<div class="layprof"><span class="laysl" id="laypl">${esc(t('gr_lay_prof'))}</span><span class="seg" role="group" aria-labelledby="laypl">${['dock', 'pop'].map(p => `<button type="button" class="laypb${d.prof === p ? ' on' : ''}" data-p="${p}" aria-pressed="${d.prof === p}">${p === 'pop' ? '⧉' : '▭'} ${esc(t(p === 'pop' ? 'gr_view_pop' : 'gr_view_dock'))}</button>`).join('')}</span>
+      <small class="layps" id="layps">${esc(st)}</small>${pop && d.popOwn && !d.popFollow ? `<button type="button" class="btn" id="laypcopy">${esc(t('gr_lay_pop_copy'))}</button>` : ''}</div>
+    <p class="layhint">${esc(t(pop ? 'gr_lay_hint_pop' : 'gr_lay_hint'))}</p>
     <div class="laysecs"><span class="laysl" id="laysl">${esc(t('gr_lay_secs'))}</span><div class="laysbox" role="group" aria-labelledby="laysl"></div></div>
-    <div class="laywid"><span class="laysl" id="laywl">${esc(t('gr_p_width'))}</span><div class="seg" role="group" aria-labelledby="laywl">${['wide', 'narrow'].map(w => `<button type="button" class="laywb${d.width === w ? ' on' : ''}" data-w="${w}" aria-pressed="${d.width === w}">${esc(t(w === 'wide' ? 'gr_p_wide' : 'gr_p_narrow'))}</button>`).join('')}</div>
+    <div class="laywid">${pop ? '' : seg('laywl', 'gr_p_width', 'width', [['wide', 'gr_p_wide'], ['narrow', 'gr_p_narrow']], d.width)}${seg('laydl', 'gr_lay_dens', 'dens', [['normal', 'gr_lay_dens_n'], ['compact', 'gr_lay_dens_c']], v.dens)}${seg('laytl', 'gr_lay_tips', 'tipmode', [['hover', 'gr_lay_tm_h'], ['always', 'gr_lay_tm_a'], ['off', 'gr_lay_tm_o']], v.tipmode)}
       <span class="grow"></span><button type="button" class="btn" id="laytpl" aria-expanded="false" aria-controls="laytplbox">${esc(t('fb_tpl'))}</button></div>
     <div id="laytplbox" class="fbtplbox" hidden></div>
     <div id="layfb" class="layfb"></div>
     <div class="laybtns"><button type="button" class="btn" id="layreset">${esc(t('gr_reset'))}</button><span class="grow"></span><button type="button" class="btn" id="laycancel">${esc(t('cancel'))}</button><button type="button" class="btn primary" id="laydone">${esc(t('gr_lay_done'))}</button></div>
     <span class="sr" id="laylive" aria-live="polite"></span>`;
   layChips(); layFb();
-  bar.querySelectorAll('.laywb').forEach(b => b.onclick = () => { d.width = b.dataset.w; widthApply(d.width); bar.querySelectorAll('.laywb').forEach(x => { const on = x.dataset.w === d.width; x.classList.toggle('on', on); x.setAttribute('aria-pressed', String(on)); }); });   // Vorschau sofort
+  bar.querySelectorAll('.layob').forEach(b => b.onclick = () => {                 // Breite (nur angedockt), Dichte, Tipps – Vorschau sofort
+    const k = b.dataset.k, x = b.dataset.v;
+    if (k === 'width') { d.width = x; widthApply(x); } else { v[k] = x; if (k === 'dens') layDens(); }
+    bar.querySelectorAll(`.layob[data-k="${k}"]`).forEach(y => { const on = y.dataset.v === x; y.classList.toggle('on', on); y.setAttribute('aria-pressed', String(on)); });
+  });
+  bar.querySelectorAll('.laypb').forEach(b => b.onclick = () => { layProf(b.dataset.p); const f = $('laybar').querySelector(`.laypb[data-p="${b.dataset.p}"]`); if (f) f.focus(); });
+  const cp = $('laypcopy'); if (cp) cp.onclick = () => {                            // abgedockt wieder wie angedockt (folgt danach den Änderungen)
+    layViewTake(); d.views.pop = JSON.parse(JSON.stringify(d.views.dock)); d.popFollow = true; d.popSync = layVKey(d.views.pop); layViewPut('pop'); layBar(); layDraw(); fbPreview(); layDens();
+    laySay(t('gr_lay_pop_copied')); const f = $('laybar').querySelector('.laypb[data-p="pop"]'); if (f) f.focus();
+  };
   $('laytpl').onclick = () => { const box = $('laytplbox'), o = box.hidden; box.hidden = !o; $('laytpl').setAttribute('aria-expanded', String(o)); if (o) { Felder.tplBox(box, FB.tpl, x => fbTpl(x, true)); const f = box.querySelector('button'); if (f) f.focus(); } };
   $('layreset').onclick = layReset; $('laycancel').onclick = layClose; $('laydone').onclick = laySave;
 }
@@ -1287,7 +1376,7 @@ function layDraw() {
     const lo = row.querySelector('.lgo'); if (lo) lo.onchange = e => { gr.one = e.target.checked; };
     row.querySelector('.lgx').oninput = e => { gr.h = e.target.value.trim(); };
     const del = row.querySelector('.lgd'); if (del) del.onclick = () => {
-      if (!confirm(t('gr_lay_gdel_q', { g: gr.l }))) return;
+      if (!pwin().confirm(t('gr_lay_gdel_q', { g: gr.l }))) return;
       const own = d.groups.find(g => g.g === 'own'); own.keys.push(...gr.keys); gr.keys = []; gr.del = true; layDraw(); laySay(t('gr_lay_gdeleted', { g: gr.l }));
     };
     row.querySelector('.hd').onkeydown = e => layMoveGroup(e, gr);
@@ -1304,13 +1393,13 @@ function layDraw() {
   if (LAY.focus) { const f = box.querySelector(LAY.focus); LAY.focus = null; if (f) f.focus(); }
 }
 function layAddGroup() {                              // neue Pillen-Rubrik (auch über „Feld hinzufügen“)
-  const d = LAY.d, l = prompt(t('gr_lay_gname')); if (!l || !l.trim()) return;
+  const d = LAY.d, l = pwin().prompt(t('gr_lay_gname')); if (!l || !l.trim()) return;
   const g = 'g_' + hex6(); d.groups.splice(d.groups.findIndex(x => x.g === 'own'), 0, { g, l: l.trim().slice(0, 30), l0: '', custom: true, hide: false, hide0: false, col: '', col0: '', isNew: true, del: false, req: false, req0: false, one: false, one0: false, h: '', h0: '', keys: [] });
   LAY.focus = `.layg[data-g="${g}"] .lgn`; layDraw(); laySay(t('fb_ed_added', { l: l.trim() }));
 }
 function layKeyX(x) {                                  // eigene Taste löschen, eingebaute ein-/ausblenden
   const d = LAY.d;
-  if (x.own) { if (!confirm(t('qt_del_q', { n: x.l }))) return; x.del = true; const g = layFind(x.k); if (g) g.keys = g.keys.filter(k => k !== x.k); laySay(t('gr_lay_kdeleted', { k: x.l })); }
+  if (x.own) { if (!pwin().confirm(t('qt_del_q', { n: x.l }))) return; x.del = true; const g = layFind(x.k); if (g) g.keys = g.keys.filter(k => k !== x.k); laySay(t('gr_lay_kdeleted', { k: x.l })); }
   else { x.hide = !x.hide; LAY.focus = `.layk[data-k="${x.k}"] .lkx`; laySay(t(x.hide ? 'gr_lay_khidden' : 'gr_lay_kshown', { k: x.l })); }
   layDraw();
 }
@@ -1374,11 +1463,11 @@ function layPointer(e) {                               // Ziehen mit Maus, Stift
   if (!LAY.on || e.button !== 0) return;
   const h = e.target.closest('[data-drag]'); if (!h) return;
   const kind = h.dataset.drag, item = kind === 'key' ? h.closest('.layk') : kind === 'grp' ? h.closest('.layg') : h;
-  const x0 = e.clientX, y0 = e.clientY; let on = false;
+  const x0 = e.clientX, y0 = e.clientY, doc = item.ownerDocument, win = doc.defaultView || window; let on = false;   // auch im abgedockten Fenster
   const move = ev => {
     if (!on) { if (Math.hypot(ev.clientX - x0, ev.clientY - y0) < 6) return; on = true; item.classList.add('dragging'); }
     ev.preventDefault();
-    const u = document.elementFromPoint(ev.clientX, ev.clientY); if (!u) return;
+    const u = doc.elementFromPoint(ev.clientX, ev.clientY); if (!u) return;
     if (kind === 'key') {
       const box = u.closest('.laykeys'); if (!box || box.dataset.kind !== item.parentNode.dataset.kind) return;
       const tg = u.closest('.layk');
@@ -1391,16 +1480,21 @@ function layPointer(e) {                               // Ziehen mit Maus, Stift
     }
   };
   const end = () => {
-    removeEventListener('pointermove', move); removeEventListener('pointerup', end); removeEventListener('pointercancel', end);
+    win.removeEventListener('pointermove', move); win.removeEventListener('pointerup', end); win.removeEventListener('pointercancel', end);
     if (!on) return;
     item.classList.remove('dragging'); layFromDom(); LAY.dragged = true; setTimeout(() => { LAY.dragged = false; }, 0);
     if (kind === 'sec') { secApply(LAY.d.secs); layChips(); layFb(); } else layDraw();
   };
-  addEventListener('pointermove', move, { passive: false }); addEventListener('pointerup', end); addEventListener('pointercancel', end);
+  win.addEventListener('pointermove', move, { passive: false }); win.addEventListener('pointerup', end); win.addEventListener('pointercancel', end);
 }
 async function laySave() {
   const d = LAY.d, ops = [];
-  layFromDom();
+  layFromDom(); layViewTake();
+  const dockV = d.views.dock, popV = d.views.pop, pk = layVKey(popV);
+  if (d.prof !== 'dock') layViewPut('dock');            // Entwurf zurück auf angedockt: Ausblenden dort wie bisher in felder.json/schnellwahl.json
+  let popOut;                                           // undefined = unverändert, null = folgt angedockt, sonst eigene Ansicht
+  if (layFollows() && (pk === d.popSync || pk === layVKey(dockV))) { if (PF.pop) popOut = null; }
+  else if (layFollows() || pk !== d.pop0) popOut = { cap_order: popV.cap_order, hide: popV.hide, ghide: popV.ghide, tipmode: popV.tipmode, dens: popV.dens };
   const where = {}; for (const gr of d.groups) for (const k of gr.keys) where[k] = gr.g;
   for (const gr of d.groups) if (gr.isNew && !gr.del) ops.push({ action: 'gadd', g: gr.g, l: gr.l });
   for (const x of Object.values(d.keys)) {
@@ -1427,6 +1521,9 @@ async function laySave() {
   const secs = d.secs.filter(k => SEC_EL[k] || d.fb.blocks.some(b => b.id === k && !b.del));
   if (secs.join() !== d.secs0) pf.cap_order = secs;
   if (d.width !== d.width0) pf.width = d.width;
+  if (dockV.tipmode !== tipMode()) pf.tipmode = dockV.tipmode;
+  if (dockV.dens !== (PF.dens === 'compact' ? 'compact' : 'normal')) pf.dens = dockV.dens;
+  if (popOut !== undefined) pf.pop = popOut;
   const fbNew = Felder.strip(d.fb);
   try {
     if (JSON.stringify(fbNew) !== d.fb0) {                // eigene Felder zuerst (Reihenfolge darf auf neue Felder zeigen)
@@ -1439,21 +1536,21 @@ async function laySave() {
       if (j.ok) ntsApply(j);
       if (j.errors && j.errors.length) toast(t('gr_lay_errs', { n: j.errors.length }) + (j.errors.some(x => x.error === 'limit_free') ? ' ' + t('gr_qt_limit_free', { n: NTS.max }) : ''), 6000);
     }
-    if (pf.cap_title !== (PF.cap_title || '') || pf.cap_sub !== (PF.cap_sub || '') || pf.cap_order || pf.width) {
+    if (pf.cap_title !== (PF.cap_title || '') || pf.cap_sub !== (PF.cap_sub || '') || pf.cap_order || pf.width || pf.tipmode || pf.dens || 'pop' in pf) {
       const j = await post('prefs', pf); if (j.ok) { delete j.ok; PF = j; }
     }
     toast('✓ ' + t('gr_lay_saved'));
   } catch (x) { toast(t('saveerr')); return; }
-  layClose(); fbApply();
+  layClose(); fbApply(); viewApply();
 }
 async function layReset() {
-  if (!confirm(t('gr_lay_reset_q'))) return;
+  if (!pwin().confirm(t('gr_lay_reset_q'))) return;
   try {
     const j = await post('notetags', { action: 'reset' }); if (j.ok) ntsApply(j);
-    const p = await post('prefs', { cap_title: '', cap_sub: '', cap_order: [], width: 'wide' }); if (p.ok) { delete p.ok; PF = p; }
+    const p = await post('prefs', { cap_title: '', cap_sub: '', cap_order: [], width: 'wide', dens: 'normal', pop: null }); if (p.ok) { delete p.ok; PF = p; }   // abgedockt folgt wieder
     const f = await post('felder', { action: 'set', sec: {} }); if (f.ok) Felder.load(f);      // eigene Felder bleiben, eingebaute Bereiche wie geliefert
   } catch (x) { toast(t('saveerr')); return; }
-  layBuild(); fbPreview(); widthApply();
+  layBuild(LAY.d ? LAY.d.prof : 'dock'); fbPreview(); widthApply(); layDens();
   for (const [id, def] of [['capttl', $('capttl').dataset.def], ['fnpfrom', $('fnpfrom').dataset.def]]) $(id).textContent = def;
   layBar(); layDraw(); laySay(t('gr_lay_reset_done'));
 }

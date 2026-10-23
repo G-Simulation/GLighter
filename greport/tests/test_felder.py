@@ -37,6 +37,22 @@ class Modul(unittest.TestCase):
         s = F.clean_def({"id": "b_aaaaaa", "type": "select", "opts": ["a", "a", "", "b"] + ["x%d" % i for i in range(40)]})
         self.assertEqual(s["opts"][:3], ["a", "b", "x0"]); self.assertEqual(len(s["opts"]), 30)
 
+    def test_text_und_datum_einstellbar(self):
+        d = F.clean_def({"id": "b_111111", "type": "text", "ph": "z. B. Nachbar", "max": "80", "sug": True, "rows": 4})
+        self.assertEqual((d["ph"], d["max"], d.get("sug"), d.get("rows")), ("z. B. Nachbar", 80, True, None))   # Zeilen nur mehrzeilig
+        d = F.clean_def({"id": "b_111111", "type": "text", "ml": True, "rows": 6, "sug": True, "max": 5})
+        self.assertEqual((d["ml"], d["rows"], d.get("sug"), d.get("max")), (True, 6, None, None))               # Vorschläge nur einzeilig, max < 10 fällt weg
+        self.assertEqual(F.clean_value({"type": "text", "max": 10}, "x" * 50), (True, "x" * 10))
+        k = F.clean_def({"id": "b_222222", "type": "datetime", "kind": "time", "def": "now", "nonow": True, "sec": True})
+        self.assertEqual((k["kind"], k["def"], k["nonow"], k["sec"]), ("time", "now", True, True))
+        self.assertNotIn("sec", F.clean_def({"id": "b_222222", "type": "datetime", "kind": "date", "sec": True}))
+        self.assertNotIn("kind", F.clean_def({"id": "b_222222", "type": "datetime", "kind": "quatsch"}))
+        self.assertEqual(F.clean_value({"type": "datetime", "kind": "time"}, "07:30"), (True, "07:30"))
+        self.assertEqual(F.clean_value({"type": "datetime", "kind": "time"}, "25:00"), (False, None))
+        self.assertEqual(F.clean_value({"type": "datetime", "kind": "date"}, "2026-10-24"), (True, "2026-10-24"))
+        self.assertEqual(F.clean_value({"type": "datetime", "kind": "date"}, "2026-02-30"), (False, None))
+        ok, v = F.clean_value({"type": "datetime"}, "2026-10-24T08:15:00+02:00"); self.assertTrue(ok and v.startswith("2026-10-24T08:15"))   # wie bisher
+
     def test_definitionen_gehen_nie_verloren(self):
         old, _ = F.clean_defs([CNT, NUM], [])
         new, errs = F.clean_defs([dict(NUM, l="Gewicht neu")], old)                         # CNT fehlt in der Liste → bleibt

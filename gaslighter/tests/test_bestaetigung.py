@@ -183,6 +183,23 @@ class Einbindung(unittest.TestCase):
         after = {fn: self.digest(fn) for fn in self.before}
         self.assertEqual(after, self.before)
 
+    def test_dauer_einmal_ausloesen_und_obergrenze(self):
+        """„Einmal auslösen“: Meldung nur mit fester Länge ab dem Einschalten; „höchstens“ kürzt; ha_zustand.csv bleibt gleich."""
+        L = self.L
+        a = int((self.t1 + dt.timedelta(seconds=3)).timestamp() * 1000)
+        iv = lambda: [x for x in L.ha_intervals("*", 0, 2**62) if x[3] == "vib1"]
+        self.assertEqual(iv()[0][1] - iv()[0][0], 87000)                       # solange gemeldet (wie bisher)
+        L.HA_RULES[:] = L.clean_rules([{"id": "vib1", "entity": "binary_sensor.decke_vibration", "states": "on", "mode": "event", "label": "Decke", "dur": "pulse", "dur_s": 5}])
+        self.assertEqual((iv()[0][0], iv()[0][1]), (a, a + 5000))
+        self.assertEqual(L.HA_RULES[0]["dur"], "pulse")
+        s = [x for x in L.bc_sensors() if x.get("rid") == "vib1"][0]
+        self.assertEqual(s["on"][0], [a, a + 5000]); self.assertEqual(s["edges"], [a])
+        L.HA_RULES[:] = L.clean_rules([{"id": "vib1", "entity": "binary_sensor.decke_vibration", "states": "on", "mode": "note", "label": "Decke", "cap_min": 1}])
+        self.assertEqual(iv()[0][1] - iv()[0][0], 60000)
+        L.HA_RULES[:] = L.clean_rules([{"id": "vib1", "entity": "x.y", "states": "on", "mode": "note", "dur": "quatsch", "dur_s": "abc", "cap_min": -5}])
+        self.assertEqual((L.HA_RULES[0]["dur"], L.HA_RULES[0]["dur_s"], L.HA_RULES[0]["cap_min"]), ("state", 5.0, 0.0))
+        self.unchanged()
+
     def test_tabelle_detail_export(self):
         L = self.L
         j = L.events_summary("all", 50)

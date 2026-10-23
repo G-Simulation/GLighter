@@ -33,7 +33,7 @@ HERE = os.path.dirname(os.path.abspath(__file__))
 WEB = os.path.join(HERE, "web")
 OPTIONS_FILE = os.environ.get("LAERM_OPTIONS", "/data/options.json")
 SETTINGS_FILE = os.environ.get("LAERM_SETTINGS", "/data/settings.json")
-VERSION = "1.83.1"
+VERSION = "1.83.2"
 
 # =====================================================================
 # Einstellungen
@@ -1324,6 +1324,16 @@ def clean_rules(lst):
                     "src": src, "enabled": d.get("enabled", True) is not False, "label": re.sub(r"[\x00-\x1f]", "", str(d.get("label") or ""))[:60],
                     "big": d.get("big") is True, "pre_s": round(pre, 1) if mode == "quiet" else 0.0,                       # hervorgehoben: doppelt so grosses Faehnchen im Verlauf (nur „als Ereignis“)
                     "color": d.get("color") if re.fullmatch(r"#[0-9a-fA-F]{6}", str(d.get("color") or "")) else ""})   # Farbe im Verlauf (leer = automatisch)
+        if mode in ("note", "event"):                    # Dauer (ab 1.83.2): „pulse“ = einmal auslösen mit fester Länge (z. B. MQTT-Sensoren, die lange „an“ bleiben), „state“ = solange gemeldet (höchstens cap_min, 0 = ohne Grenze)
+            try:
+                ds = max(1.0, min(3600.0, float(d.get("dur_s", 5))))
+            except (TypeError, ValueError):
+                ds = 5.0
+            try:
+                cm = max(0.0, min(1440.0, float(d.get("cap_min", 0) or 0)))
+            except (TypeError, ValueError):
+                cm = 0.0
+            out[-1].update(dur="pulse" if d.get("dur") == "pulse" else "state", dur_s=round(ds, 1), cap_min=round(cm, 1))
         if mode == "raise":                              # Schwelle anheben (z. B. Fernseher/Sonos ausblenden): um raise_db, wahlweise mit der Lautstärke
             try:
                 rdb = max(0.0, min(40.0, float(d.get("raise_db", 10))))
@@ -1904,6 +1914,20 @@ def run_downs():
     return RUN_DOWNS["v"]
 
 
+def ha_len_caps():
+    """Längste Dauer je Regel in ms (nur Anzeige, Auswertung, Export – ha_zustand.csv bleibt unverändert):
+    „einmal auslösen“ = feste Länge ab dem Einschalten, „solange gemeldet“ mit Obergrenze, sonst ohne Grenze (nicht im Ergebnis)."""
+    with HA_LOCK:
+        rules = [dict(r) for r in HA_RULES]
+    out = {}
+    for r in rules:
+        if r.get("dur") == "pulse":
+            out[r["id"]] = int(float(r.get("dur_s") or 5) * 1000)
+        elif float(r.get("cap_min") or 0) > 0:
+            out[r["id"]] = int(float(r["cap_min"]) * 60000)
+    return out
+
+
 def ha_intervals(src_id, t_from, t_to):
     """Zeitraeume „an“ der Festhalte-Regeln fuer ein Geraet: [[von_ms, bis_ms, Name]]."""
     f = ha_hist_path()
@@ -1925,6 +1949,7 @@ def ha_intervals(src_id, t_from, t_to):
     cur, out = {}, []
     now = int(time.time() * 1000)
     notes = ha_note_all()
+    caps = ha_len_caps()
     for t, rid, nm, on, src in HA_HIST["rows"]:
         if src_id != "*" and src not in ("all", src_id):
             continue
@@ -1932,14 +1957,17 @@ def ha_intervals(src_id, t_from, t_to):
             cur[rid] = (t, nm)
         elif not on and rid in cur:
             a, n_ = cur.pop(rid)
-            if t > t_from and a < t_to:
-                out.append([a, max(t, a + 1000), n_, rid, notes.get(f"{rid}|{a}", "")])   # kurze Meldung (Tilt <1 s) bleibt sichtbar
+            b = min(t, a + caps[rid]) if rid in caps else t
+            if b > t_from and a < t_to:
+                out.append([a, max(b, a + 1000), n_, rid, notes.get(f"{rid}|{a}", "")])   # kurze Meldung (Tilt <1 s) bleibt sichtbar
     with HA_LOCK:
         modes = {r["id"]: r.get("mode") for r in HA_RULES}
         live = {r["id"] for r in HA_RULES if r.get("mode") in ("note", "event") and r["enabled"]}
     for rid, (a, n_) in cur.items():                     # noch an (oder Regel inzwischen entfernt: bis zum letzten Eintrag offen lassen)
         if rid in live and a < t_to:
-            out.append([a, min(now, t_to), n_, rid, notes.get(f"{rid}|{a}", "")])
+            b = min(now, t_to, a + caps[rid]) if rid in caps else min(now, t_to)
+            if b > t_from:
+                out.append([a, max(b, a + 1000), n_, rid, notes.get(f"{rid}|{a}", "")])
     for x in out:                                         # nicht durch eine Zeit ohne Aufzeichnung (Strom weg, Neustart) durchziehen: am Beginn der Luecke enden
         for d0, d1 in run_downs():
             if x[0] < d0 < x[1]:
@@ -2066,6 +2094,7 @@ def bc_sensors(cfg=None, now_ms=None):
         for m in motion_rows():
             mot.setdefault(f"m_{m['kind']}_{m['src']}", []).append((m["a"], m["b"]))
     downs = run_downs()
+    caps = ha_len_caps()
     out = []
     for s in lst:
         s = dict(s)
@@ -2080,6 +2109,9 @@ def bc_sensors(cfg=None, now_ms=None):
                 prev = on
             if cur is not None:
                 on_.append([cur, now_ms])
+            cap = caps.get(s["rid"])
+            if cap:                                          # „einmal auslösen“ / Obergrenze: zählt nicht als lange „schon aktiv“
+                on_ = [[a, min(b, a + cap)] for a, b in on_]
             s.update(edges=edges, on=on_, offl=(offl.get(s["rid"]) or []) + [list(d) for d in downs], since=seq[0][0] if seq else None)
             if s.get("src") not in (None, "", "all"):
                 s["only_src"] = s["src"]
@@ -12521,6 +12553,20 @@ def layout_cap_clean(c):
     return out
 
 
+def layout_cap_pop_clean(c):
+    """Ansicht „abgedockt“ der Notiz-Erfassung (ab 1.83.2, nur Anzeige): Reihenfolge, ausgeblendete Bereiche/Felder,
+    ausgeblendete Rubriken, Uhr, Dichte, Tasten-Stil. Kein dict = keine eigene Ansicht (folgt der angedockten)."""
+    if not isinstance(c, dict):
+        return None
+    sec = lambda v: list(dict.fromkeys(x for x in v if isinstance(x, str) and (x in LAYOUT_CAP_SECS or felder.BID.match(x))))[:80] if isinstance(v, list) else []
+    out = {"order": sec(c.get("order")), "hide": sec(c.get("hide")),
+           "ghide": list(dict.fromkeys(x for x in (c.get("ghide") if isinstance(c.get("ghide"), list) else []) if isinstance(x, str) and _LAY_ID.match(x)))[:60]}
+    for k, vs in (("clock", ("big", "small", "off")), ("dense", ("normal", "compact")), ("style", ("outline", "filled"))):
+        if c.get(k) in vs:
+            out[k] = c[k]
+    return out
+
+
 def layout_clean(d):
     d = d if isinstance(d, dict) else {}
     vs = d.get("views") if isinstance(d.get("views"), dict) else {}
@@ -12529,6 +12575,8 @@ def layout_clean(d):
     out["ha_tiles"] = sorted({x for x in ht if isinstance(x, str) and _LAY_ID.match(x)}) if isinstance(ht, list) else []
     if isinstance(d.get("cap"), dict):
         out["cap"] = layout_cap_clean(d["cap"])
+    if isinstance(d.get("cap_pop"), dict):
+        out["cap_pop"] = layout_cap_pop_clean(d["cap_pop"])
     if isinstance(d.get("ts"), str):
         out["ts"] = d["ts"][:40]
     return out
@@ -12538,7 +12586,7 @@ def layout_public():
     with LAYOUT_LOCK:
         d = layout_all()
         return {"ok": True, "exists": layout_exists(), "layout": {"views": json.loads(json.dumps(d["views"])), "cols": json.loads(json.dumps(d["cols"])),
-                                                              "cap": layout_cap_clean(d.get("cap"))}}
+                                                              "cap": layout_cap_clean(d.get("cap")), "cap_pop": layout_cap_pop_clean(d.get("cap_pop"))}}
 
 
 def layout_change(data):
@@ -12555,9 +12603,11 @@ def layout_change(data):
             d["cols"] = {}
         elif rs == "cap":                                  # Standard – eigene Felder (Definitionen) und Vorlage bleiben
             keep = {k_: v for k_, v in (d.get("cap") or {}).items() if k_ in ("blocks", "tpl", "made")}
-            d.pop("cap", None)
+            d.pop("cap", None); d.pop("cap_pop", None)          # abgedockt folgt danach wieder
             if keep:
                 d["cap"] = layout_cap_clean(keep)
+        elif rs == "cap_pop":                              # abgedockt wieder wie angedockt
+            d.pop("cap_pop", None)
         elif rs is not None:
             return {"ok": False, "error": "bad reset"}
         if isinstance(data.get("cap"), dict):                  # Notiz-Erfassung: geänderte Felder übernehmen
@@ -12567,6 +12617,12 @@ def layout_change(data):
             for k_ in ("tpl", "made"):                        # Vorlage nur über cap_tpl()
                 inc.pop(k_, None)
             d["cap"] = layout_cap_clean(dict(d.get("cap") or {}, **inc))
+        if "cap_pop" in data:                                  # eigene abgedockte Ansicht (dict) oder wie angedockt (null)
+            cp = layout_cap_pop_clean(data["cap_pop"])
+            if cp is None:
+                d.pop("cap_pop", None)
+            else:
+                d["cap_pop"] = cp
         vs = data.get("views")
         if isinstance(vs, dict):
             for k in LAYOUT_VIEWS:
@@ -12611,7 +12667,7 @@ def felder_state():
     defs = c.get("blocks") or []
     out = {"ok": True, "tpl": c.get("tpl") or "laerm", "first": False, "blocks": defs, "sec": c.get("sec") or {}, "max": felder.MAX_ACTIVE,
            "tpls": list(CAP_TPLS), "counts": {}, "daily": {}, "sug": {}}
-    want = [b for b in defs if not b.get("del") and b["type"] in ("counter", "place")]
+    want = [b for b in defs if not b.get("del") and (b["type"] in ("counter", "place") or (b["type"] == "text" and b.get("sug")))]
     if want:
         with NOTES_LOCK:
             ns = [fnote_public(x) for x in notes_all().get("free") or []]
@@ -12669,7 +12725,7 @@ def cap_tpl(name, ui_lang=None):
             b.pop("hide", None); b.pop("del", None)
             hide = ["txt", "tags", "wit"]; order = [bid, "time"]
         c.update(blocks=blocks, sec=sec, made=made, tpl=name, hide=hide, order=order)
-        d["cap"] = layout_cap_clean(c)
+        d["cap"] = layout_cap_clean(c); d.pop("cap_pop", None)   # abgedockt folgt der neuen Vorlage
         layout_save()
         qt_save()
     return dict(felder_state(), qt=qt_state(), layout=layout_public()["layout"])
@@ -12685,6 +12741,10 @@ def layout_restore(raw):
         d["views"].update(inc["views"]); d["cols"].update(inc["cols"])
         if inc.get("cap"):
             d["cap"] = inc["cap"]
+            if inc.get("cap_pop"):
+                d["cap_pop"] = inc["cap_pop"]
+            else:
+                d.pop("cap_pop", None)
         layout_save()
     return True
 

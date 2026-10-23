@@ -65,8 +65,33 @@ def clean_def(d, old=None):
     c = str(d.get("col") or "")
     if re.fullmatch(r"#[0-9a-fA-F]{6}", c):
         out["col"] = c.lower()
-    if typ == "text" and d.get("ml") is True:
-        out["ml"] = True
+    if typ in ("text", "place"):
+        ph = _txt(d.get("ph"), 80)
+        if ph:
+            out["ph"] = ph
+    if typ == "text":
+        if d.get("ml") is True:
+            out["ml"] = True
+            try:
+                r = int(d.get("rows") or 2)
+            except (TypeError, ValueError):
+                r = 2
+            if r in (3, 4, 6, 8):
+                out["rows"] = r
+        elif d.get("sug") is True:                     # frühere Eingaben als Vorschläge (nur einzeilig)
+            out["sug"] = True
+        mx = _num(d.get("max"))
+        if mx is not None and mx == int(mx) and 10 <= mx < 500:
+            out["max"] = int(mx)
+    elif typ == "datetime":                            # Art: Datum und Uhrzeit (Standard) / nur Datum / nur Uhrzeit; vorbelegt mit „jetzt“; Jetzt-Taste; Sekunden
+        if d.get("kind") in ("date", "time"):
+            out["kind"] = d["kind"]
+        if d.get("def") == "now":
+            out["def"] = "now"
+        if d.get("nonow") is True:
+            out["nonow"] = True
+        if d.get("sec") is True and d.get("kind") != "date":
+            out["sec"] = True
     elif typ == "counter":
         out["mode"] = "add" if d.get("mode") == "add" else "entry"
         if d.get("minus") is True:
@@ -158,7 +183,7 @@ def clean_value(b, v):
     if v is None or v == "" or v == [] or v == {}:
         return True, None
     if t == "text":
-        s = re.sub(r"[\x00-\x08\x0b\x0c\x0e-\x1f]", "", str(v)).strip()[:500]
+        s = re.sub(r"[\x00-\x08\x0b\x0c\x0e-\x1f]", "", str(v)).strip()[:int(b.get("max") or 500)]
         if not b.get("ml"):
             s = re.sub(r"\s*\n\s*", " ", s)
         return True, s or None
@@ -196,6 +221,16 @@ def clean_value(b, v):
         return True, n
     if t == "datetime":
         s = str(v).strip()[:32]
+        if b.get("kind") == "time" or re.fullmatch(r"\d{2}:\d{2}(:\d{2})?", s):           # nur Uhrzeit: „HH:MM“ (oder mit Sekunden)
+            m = re.fullmatch(r"(\d{2}):(\d{2})(?::(\d{2}))?", s)
+            if not m or int(m.group(1)) > 23 or int(m.group(2)) > 59 or (m.group(3) and int(m.group(3)) > 59):
+                return False, None
+            return True, s
+        if b.get("kind") == "date" or re.fullmatch(r"\d{4}-\d{2}-\d{2}", s):        # nur Datum: „JJJJ-MM-TT“
+            try:
+                return True, dt.date.fromisoformat(s[:10]).isoformat()
+            except ValueError:
+                return False, None
         try:
             d = dt.datetime.fromisoformat(s[:-1] + "+00:00" if s.endswith(("Z", "z")) else s)
         except ValueError:

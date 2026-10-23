@@ -1186,7 +1186,7 @@ button.art.artck:focus-visible{outline:2px solid var(--acc);outline-offset:1px}
 .fnpopbody{margin:0;padding:0;background:var(--bg);overflow-x:hidden}
 .capture.inpop{margin:0;border:0;border-radius:0;min-height:100vh;display:flex;flex-direction:column;max-width:100vw;box-shadow:none}
 .capture.inpop .capbody{flex:1}
-.capture.inpop #fnppop,.capture.inpop #pfopen,.capture.inpop #fnptog,.capture.inpop #caplay{display:none}
+.capture.inpop #fnppop,.capture.inpop #pfopen,.capture.inpop #fnptog{display:none}   /* ▦ bleibt: Ansicht „abgedockt“ im Fenster anpassen */
 .capture.inpop .savebar{position:sticky;bottom:0;z-index:3}
 @media(max-width:600px){
   .capture .caphead{padding:14px 14px 4px;gap:12px}
@@ -1358,3 +1358,12 @@ body.qthover .qtip.u .qtb::before{top:auto;bottom:-8px}
 .fnanone{margin:0;font-size:13px;color:var(--mut)}
 .fnahint{color:var(--mut);font-size:12px}
 @media(max-width:600px){#fnadlg{width:100vw}.fnacur,.fnarow{grid-template-columns:auto minmax(0,1fr)}.fnad{grid-column:2}}
+
+/* Zwei Ansichten (angedockt / abgedockt) in „Layout anpassen“ */
+.layprof{display:flex;gap:8px 10px;align-items:center;flex-wrap:wrap;padding-bottom:8px;border-bottom:1px solid color-mix(in srgb,var(--acc) 22%,var(--line))}
+.layprof .seg button{min-height:34px;font-weight:600}
+.layps{color:var(--mut);font-size:12.5px;flex:1 1 180px;min-width:0}
+.capture.inpop .layps{flex-basis:100%}
+.layprof .seg button{background:transparent;padding:6px 12px;cursor:pointer;color:var(--tx)}
+.layprof .seg button.on{background:var(--acc);color:var(--onacc)}
+.fbedg [hidden]{display:none!important}

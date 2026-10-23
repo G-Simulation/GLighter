@@ -35,7 +35,7 @@ sys.path.insert(0, HERE)
 import lizenz  # noqa: E402
 import felder  # noqa: E402
 
-VERSION = "1.10.1"
+VERSION = "1.10.2"
 BRAND = "GReport"
 OPTIONS = os.environ.get("GR_OPTIONS", "/data/options.json")
 PRIV = os.environ.get("GR_PRIVATE", "/data")                    # nur für GReport (Pro-Schlüssel)
@@ -694,12 +694,37 @@ def mqtt_groups():
 # =====================================================================
 # Anzeige: Datum und Uhrzeit (gilt in der App und im Export)
 # =====================================================================
-PREF_DEF = {"date": "dmy4", "time": "hms", "rel": True, "wd": False, "gl": True, "tips": True, "tipmode": "hover", "width": "wide"}   # tipmode: hover = nur beim Zeigen auf den Bereich, always, off   # width: wide = ganze Breite, narrow = schmale Spalte
+PREF_DEF = {"date": "dmy4", "time": "hms", "rel": True, "wd": False, "gl": True, "tips": True, "tipmode": "hover", "width": "wide", "dens": "normal"}   # tipmode: hover = nur beim Zeigen auf den Bereich, always, off   # width: wide = ganze Breite, narrow = schmale Spalte
 WIDTHS = ("wide", "narrow")   # tips: Hinweise in der App zeigen   # gl: Notizen an GLighter weitergeben
 DATE_FMTS = ("dmy4", "dmy2", "wdm", "iso", "long")
 TIME_FMTS = ("hms", "hm", "h12")
 CAP_SECS = ("txt", "tags", "wit", "more", "time")                # Bereiche von „Notiz jetzt“ (Reihenfolge einstellbar)
 CAP_MAX = {"cap_title": 60, "cap_sub": 160}             # eigene Überschrift und eigener Hinweis (leer = Standardtext)
+TIPMODES = ("hover", "always", "off")
+DENS = ("normal", "compact")                            # Dichte von „Notiz jetzt“
+_GID = re.compile(r"^[A-Za-z0-9_]{1,24}$")
+
+
+def cap_keys(v, full=False):
+    """Bereiche/Felder von „Notiz jetzt“ (eingebaute oder eigene b_…), ohne Doppelte. full: fehlende eingebaute hinten an."""
+    o = [x for x in dict.fromkeys(v if isinstance(v, list) else []) if isinstance(x, str) and (x in CAP_SECS or felder.BID.match(x))][:80]
+    return o + [x for x in CAP_SECS if x not in o] if full and o else o
+
+
+def pop_clean(p):
+    """Ansicht „abgedockt“ (eigenes Fenster): nur Anzeige – Reihenfolge und ausgeblendete Bereiche, ausgeblendete Rubriken,
+    Tipps und Dichte. Fehlende Werte folgen der angedockten Ansicht. Kein dict = keine eigene Ansicht (folgt angedockt)."""
+    if not isinstance(p, dict):
+        return None
+    out = {"cap_order": cap_keys(p.get("cap_order"), True), "hide": cap_keys(p.get("hide")),
+           "ghide": [x for x in dict.fromkeys(p.get("ghide") if isinstance(p.get("ghide"), list) else []) if isinstance(x, str) and _GID.match(x)][:60]}
+    if p.get("tipmode") in TIPMODES:
+        out["tipmode"] = p["tipmode"]
+    if p.get("dens") in DENS:
+        out["dens"] = p["dens"]
+    if not out["cap_order"]:
+        out.pop("cap_order")
+    return out
 
 
 def cap_clean(v, n):
@@ -715,11 +740,18 @@ def prefs():
         out["time"] = d["time"]
     if d.get("width") in WIDTHS:
         out["width"] = d["width"]
-    if d.get("tipmode") in ("hover", "always", "off"):
+    if d.get("tipmode") in TIPMODES:
         out["tipmode"] = d["tipmode"]
+    if d.get("dens") in DENS:
+        out["dens"] = d["dens"]
     for k in ("rel", "wd", "gl", "tips"):
         if isinstance(d.get(k), bool):
             out[k] = d[k]
+    for k in ("sechide", "sechide_pop"):                 # Schnell-Schalter ● / ○ je Ansicht (fehlt sechide_pop: wie angedockt)
+        if isinstance(d.get(k), list):
+            out[k] = cap_keys(d[k])
+    if isinstance(d.get("pop"), dict):
+        out["pop"] = pop_clean(d["pop"])
     for k, n in CAP_MAX.items():
         if isinstance(d.get(k), str) and cap_clean(d[k], n):
             out[k] = cap_clean(d[k], n)
@@ -738,12 +770,26 @@ def prefs_set(d):
         cur["time"] = d["time"]
     if d.get("width") in WIDTHS:
         cur["width"] = d["width"]
-    if d.get("tipmode") in ("hover", "always", "off"):
+    if d.get("tipmode") in TIPMODES:
         cur["tipmode"] = d["tipmode"]; cur["tips"] = d["tipmode"] != "off"
+    if d.get("dens") in DENS:
+        cur["dens"] = d["dens"]
     for k in ("rel", "wd", "gl", "tips"):
         if isinstance(d.get(k), bool):
             cur[k] = d[k]
     drop = []
+    for k in ("sechide", "sechide_pop"):
+        if k in d:
+            if isinstance(d[k], list):
+                cur[k] = cap_keys(d[k])
+            else:                                        # null: sechide_pop folgt wieder der angedockten Ansicht
+                cur.pop(k, None); drop.append(k)
+    if "pop" in d:                                       # eigene abgedockte Ansicht (dict) oder wie angedockt (null)
+        p = pop_clean(d["pop"])
+        if p is None:
+            cur.pop("pop", None); drop.append("pop")
+        else:
+            cur["pop"] = p
     for k, n in CAP_MAX.items():                         # leer = Standardtext
         if k in d:
             v = cap_clean(d[k], n)
@@ -822,7 +868,7 @@ def fb_state():
         f = fb_all()
         out = {"ok": True, "tpl": f["tpl"] or ("laerm" if not fb_first() else None), "first": fb_first(), "blocks": json.loads(json.dumps(f["blocks"])),
                "sec": json.loads(json.dumps(f["sec"])), "max": felder.MAX_ACTIVE, "tpls": list(TPLS), "counts": {}, "daily": {}, "sug": {}}
-    want = [b for b in out["blocks"] if not b.get("del") and b["type"] in ("counter", "place")]
+    want = [b for b in out["blocks"] if not b.get("del") and (b["type"] in ("counter", "place") or (b["type"] == "text" and b.get("sug")))]
     if want:
         ns = notes_list(limit=None)
         t0 = int(dt.datetime.now().astimezone().replace(hour=0, minute=0, second=0, microsecond=0).timestamp() * 1000)
@@ -902,7 +948,7 @@ def tpl_apply(name, ui_lang=None):
         f["sec"] = felder.clean_sec(sec); f["tpl"] = name
         write_json(qt_path(), q)
         write_json(fb_path(), f)
-    prefs_set({"cap_order": order})
+    prefs_set({"cap_order": order, "pop": None})          # abgedockt folgt danach wieder der neuen Vorlage
     mqtt_announce(); diary_soon()
 
 

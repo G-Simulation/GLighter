@@ -1,5 +1,13 @@
 # Changelog
 
+## 1.10.2
+- **Eigene Felder genauer einstellbar:** Textfeld mit Platzhalter, Höchstlänge, Zeilenzahl (mehrzeilig) und „frühere Eingaben vorschlagen“ (einzeilig); Datum/Uhrzeit wahlweise „nur Datum“ oder „nur Uhrzeit“, vorbelegt mit „jetzt“, Taste „Jetzt“/„Heute“ abschaltbar, mit Sekunden; Ort mit Platzhalter. Ältere Werte bleiben gültig.
+- **Abgedockt: Tipps wie eingestellt.** Im abgedockten Fenster „Notiz jetzt“ (⧉) folgen die 💡-Tipps jetzt der Tipp-Einstellung, statt alle offen dazustehen: „beim Zeigen“ zeigt nur ein kleines 💡, der Text erscheint beim Zeigen, mit der Tastatur oder nach Antippen. 💡 sitzt im Fenster (und am Handy) in einer eigenen Spalte rechts, keine Taste liegt mehr darunter, und die Blase bleibt im Fenster. Hell/dunkel, Sprache und Gruppenfarben ziehen mit; Meldungen erscheinen im Fenster.
+- **Zwei Ansichten: angedockt und abgedockt.** ▦ Layout anpassen hat oben den Schalter „Ansicht: Angedockt | Abgedockt“. Je Ansicht einstellbar: Reihenfolge der Bereiche, Zeigen/Ausblenden von Bereichen, Feldern und Rubriken, Dichte (normal/kompakt) und Tipps (beim Zeigen/immer/aus); die Seitenbreite gilt angedockt. Namen, Tasten und Felder sind in beiden Ansichten dieselben. Im abgedockten Fenster öffnet ▦ (oder Taste lange drücken) direkt die abgedockte Ansicht.
+- Abgedockt folgt der angedockten Ansicht, bis du dort etwas änderst; „Wie angedockt übernehmen“ stellt das wieder her. „Auf Standard zurücksetzen“ und eine Vorlage setzen auch die abgedockte Ansicht zurück.
+- Die Schnell-Schalter ● / ○ über „Notiz jetzt“ gelten je Ansicht und werden jetzt in den Einstellungen gespeichert (gleich auf allen Geräten). Die bisher nur im Browser gemerkten Schalter werden einmal in die angedockte Ansicht übernommen – es ändert sich nichts an dem, was du siehst.
+- Gespeichert in einstellungen.json (Schlüssel „pop“, „sechide“, „sechide_pop“, „dens“) und damit in der Sicherung. Ältere Einstellungsdateien bleiben gültig. Nur Anzeige – Notizen und Werte bleiben unverändert.
+
 ## 1.10.1
 - Der Name des Zählers aus der Vorlage „Zähler“ (und „Stichworte“ bei „Allgemein“) folgt jetzt der Sprache der Oberfläche, nicht mehr der Spracheinstellung des Servers.
 - Passend zu GLighter 1.83: GReport-Notizen werden dort mit einem eigenen Fenster (Standard −10 / +30 min) den Störungen zugeordnet; die Zuordnung von Hand liegt in GLighter, die Notizen in GReport bleiben unverändert.

@@ -1,5 +1,14 @@
 # Changelog
 
+## 1.83.2
+- **Sensoren „einmal auslösen“:** Je Regel „nur festhalten“ / „als Ereignis“ die neue Einstellung „Dauer“: „einmal auslösen (feste Länge)“ zeigt und prüft jede Meldung nur so lange wie eingestellt (Standard 5 s) ab dem Einschalten – für Sensoren (oft MQTT), die lange oder dauerhaft „an“ bleiben. „Solange der Sensor meldet“ wie bisher, jetzt mit Obergrenze „höchstens … min“. Gilt für Verlauf, Tabelle, Sensor-Bestätigung und Export; ha_zustand.csv bleibt unverändert.
+- **Notiz zwischen Kacheln und Graph:** Kennzahlen-Kacheln und Live-Graph sind jetzt zwei Bereiche („Kennzahlen“ und „Live“). Unter Layout anpassen lässt sich die Notiz (oder ein anderer Bereich) dazwischen schieben. Eine vorhandene Anordnung bleibt, der Graph steht wie bisher direkt unter den Kacheln.
+- **Eigene Felder genauer einstellbar:** Textfeld mit Platzhalter, Höchstlänge, Zeilenzahl (mehrzeilig) und „frühere Eingaben vorschlagen“ (einzeilig); Datum/Uhrzeit wahlweise „nur Datum“ oder „nur Uhrzeit“, vorbelegt mit „jetzt“, Taste „Jetzt“/„Heute“ abschaltbar, mit Sekunden; Ort mit Platzhalter. Ältere Werte bleiben gültig.
+- **Notiz abdocken (Pro): zwei Ansichten.** ▦ Layout anpassen hat oben den Schalter „Ansicht: Angedockt | Abgedockt“. Je Ansicht einstellbar: Reihenfolge der Bereiche, Zeigen/Ausblenden von Bereichen, Feldern und Rubriken, Uhr, Dichte und Tasten-Stil. Namen, Tasten und Felder sind in beiden Ansichten dieselben. ▦ gibt es jetzt auch im abgedockten Fenster und bearbeitet dort direkt die abgedockte Ansicht.
+- Abgedockt folgt der angedockten Ansicht, bis du dort etwas änderst (auch ein Schnell-Schalter ● / ○ im Fenster gilt nur dort); „Wie angedockt übernehmen“ stellt das wieder her. „Auf Standard zurücksetzen“ und eine Vorlage setzen auch die abgedockte Ansicht zurück.
+- Im abgedockten Fenster ziehen Tipp-Art (💡 beim Zeigen), hell/dunkel und Sprache jetzt auch nach dem Öffnen mit; Rückfragen erscheinen im Zusatzfenster (beim Bild-im-Bild-Fenster weiter in der Seite).
+- Gespeichert in layout.json (Schlüssel „cap_pop“, auch in Sicherung und Wiederherstellung). Ältere layout.json bleibt gültig. Nur Anzeige – Notizen bleiben unverändert.
+
 ## 1.83.1
 - **Fenster „Notiz aus GReport“ aufgeräumt:** Rand rundum, Kopfzeile mit ✕ und Schließen-Leiste unten, die immer sichtbar bleibt (der Inhalt scrollt dazwischen). Klick neben das Fenster schließt es. Die zugeordnete Störung steht als hervorgehobene Karte (Uhrzeit, Art, Dauer, Abstand), weitere mögliche Störungen als ruhige Liste: zuerst nur die 3 nächsten, „Alle zeigen“ klappt den Rest auf, ein Tipp auf die Zeile ordnet zu. Gilt auch im Dialog „Notiz ändern“.
 
