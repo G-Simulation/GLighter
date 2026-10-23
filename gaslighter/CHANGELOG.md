@@ -1,5 +1,8 @@
 # Changelog
 
+## 1.76.2
+- **Live-Grafik beim Zoomen:** Sind mehr Messwerte im Bild als Bildpunkte, zeigt die Pegelspur je Bildpunkt-Spalte den leisesten und den lautesten Wert, fest an der Uhrzeit ausgerichtet. Dadurch sieht die Kurve live, angehalten und beim Hinein- und Herauszoomen gleich aus und flimmert nicht mehr, während sie weiterläuft. Keine Spitze geht dabei verloren.
+
 ## 1.76.1
 - **Sofort umschalten:** Reiter, Zeitraum (Heute, 7 Tage, 30 Tage …), Datum, Gerät, Art und Liste schalten jetzt sofort um. Bis die neuen Daten da sind, werden die alten Werte gedimmt und jeder Bereich zeigt „Daten werden geladen …“ – Übersicht, Verlauf, Stunden, Tage, Liste und Statistik-Kacheln. Oben neben den Reitern steht der Hinweis zusätzlich, solange noch etwas lädt. Dauert es länger als 4 Sekunden, steht dort „Lädt … (Netzlaufwerk wacht evtl. gerade auf)“.
 - Das stille Aktualisieren im Hintergrund (jede Minute) zeigt keinen Hinweis, damit nichts flackert.

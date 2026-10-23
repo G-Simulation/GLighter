@@ -592,8 +592,37 @@ function dayData(r, wave, F) {                       // Verlauf: Abschnitte (Mit
   return [X, P, Bg, Th, Ac];
 }
 const livePal = () => ({ acc: (getComputedStyle(document.documentElement).getPropertyValue('--nacc') || '').trim() || C.acc, bgl: C.bgl, thr: C.thr, red: C.red, warn: C.thr, grid: C.grid, mut: C.mut });
-function liveLvlData() {                             // Live-Pegelspur: Zeit, Pegel, Hintergrund, Schwelle (Lücken unterbrechen die Linie)
+function liveLvlData(bw) {                           // Live-Pegelspur: Zeit, Pegel, Hintergrund, Schwelle (Lücken unterbrechen die Linie)
   const n = recs.length, X = [], P = [], Bg = [], Th = [];
+  /* Mehr Messwerte als Bildpunkte: je Bildpunkt-Spalte (feste Zeitraster, an der Uhrzeit ausgerichtet) der leiseste und der
+     lauteste Wert. So sieht die Kurve live, angehalten und beim Zoomen gleich aus und flimmert nicht, während sie weiterläuft. */
+  if (bw > 250) {
+    let cur = null;
+    const flush = () => {
+      if (!cur) return;
+      const a = cur.k * bw;
+      if (cur.mn == null) { X.push(a + bw / 2); P.push(null); }
+      else {
+        const lo = [a + bw * 0.25, cur.mn], hi = [a + bw * 0.75, cur.mx];
+        for (const [t, v] of cur.imn <= cur.imx ? [lo, hi] : [[lo[0], cur.mx], [hi[0], cur.mn]]) { X.push(t); P.push(v); }
+      }
+      while (Bg.length < X.length) { Bg.push(cur.b); Th.push(cur.t); }
+      cur = null;
+    };
+    for (let i = 0; i < n; i++) {
+      const r = recs[i], k = Math.floor((r.ts - 50) / bw);
+      if (cur && (k !== cur.k || gapBefore(i))) {
+        const brk = gapBefore(i); flush();
+        if (brk) { X.push(X.length ? X[X.length - 1] + 1 : r.ts - 51); P.push(null); Bg.push(null); Th.push(null); }   // Lücke: Linie unterbrechen
+      }
+      if (!cur) cur = { k, mn: null, mx: null, imn: 0, imx: 0, b: null, t: null };
+      const v = r.l != null && r.l > -125 ? r.l : null;
+      if (v != null) { if (cur.mn == null || v < cur.mn) { cur.mn = v; cur.imn = i; } if (cur.mx == null || v > cur.mx) { cur.mx = v; cur.imx = i; } }
+      if (r.b != null) cur.b = r.b; if (r.t != null) cur.t = r.t;
+    }
+    flush();
+    return [X, P, Bg, Th];
+  }
   for (let i = 0; i < n; i++) {
     const r = recs[i];
     if (i && gapBefore(i)) { X.push(r.ts - 51); P.push(null); Bg.push(null); Th.push(null); }
@@ -687,7 +716,9 @@ function drawLevel(cv, t0, t1) {
   // Raster, Achsen, Pegel, Hintergrund, Schwelle: uPlot
   const up = upGet(cv, { kind: 'lvl', L: AXL(), R: 14, T: Tp, B: ov ? 30 : 22, pal: livePal });
   up.u.setSeries(1, { show: !!LAY.lvl }); up.u.setSeries(2, { show: !!LAY.bg }); up.u.setSeries(3, { show: !!LAY.thr });
-  upDraw(up, recs.length + ':' + (recs.length ? recs[0].s + ':' + recs[recs.length - 1].s : ''), liveLvlData, t0, t1, yv.lo, yv.hi);
+  const bw = (t1 - t0) / Math.max(50, pw);           // ms je Bildpunkt (fest gerastert, damit live und angehalten gleich aussehen)
+  const bwq = bw > 250 ? Math.pow(2, Math.round(Math.log2(bw) * 4) / 4) : 0;
+  upDraw(up, recs.length + ':' + (recs.length ? recs[0].s + ':' + recs[recs.length - 1].s : '') + ':' + bwq, () => liveLvlData(bwq), t0, t1, yv.lo, yv.hi);
   if (i1 < i0) return;
   c.save(); c.beginPath(); c.rect(L, T, pw, ph); c.clip();
   // Ereignisse
