@@ -1183,7 +1183,7 @@ fieldset.prolocked .f{opacity:.55}
 .hacard.m-raise{border-left-color:var(--thr)}.hacard.m-quiet{border-left-color:var(--pv)}.hacard.m-pause{border-left-color:var(--acc)}.hacard.m-note{border-left-color:var(--nacc)}.hacard.m-event{border-left-color:var(--ok)}
 .hacard.off{opacity:.6}.hacard.hon{box-shadow:0 0 0 1px var(--thr) inset}
 .hahead{display:flex;align-items:center;gap:10px;padding:9px 12px;cursor:pointer;user-select:none}.hahead:hover{background:var(--nl1)}
-.hahead .haon{width:18px;height:18px;flex:none}.hattl{flex:1;min-width:0;display:grid;gap:1px}.hattl b{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.hahead .haon{width:22px;height:22px;flex:none}.hattl{flex:1;min-width:0;display:grid;gap:1px}.hattl b{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .hattl small{color:var(--mut);font-size:12px;overflow-wrap:anywhere}.hattl .hanow{font-size:12px}.hachev{color:var(--mut);font-size:14px;flex:none}
 .habody{display:grid;gap:12px;padding:4px 12px 12px;border-top:1px solid var(--bd)}
 .hagrid{display:flex;flex-wrap:wrap;gap:10px 16px;align-items:flex-end}
@@ -1228,3 +1228,4 @@ button.hacalb{touch-action:none;user-select:none;-webkit-user-select:none;-webki
 @media(prefers-color-scheme:dark){:root:not([data-theme="light"]) .protag{color:#ffb35c}:root:not([data-theme="light"]) .hastat{--warntx:#ff922b}}
 :root[data-theme="dark"] .protag{color:#ffb35c}:root[data-theme="dark"] .hastat{--warntx:#ff922b}
 .sdevrow{display:flex;align-items:center;gap:6px}.sdevrow>.sdevchips{flex:1;min-width:0}
+.hattl.hatg{background:none;border:0;padding:0;margin:0;text-align:left;font:inherit;color:inherit;cursor:pointer;min-width:0;border-radius:6px}.hattl.hatg:focus-visible{outline:2px solid var(--acc);outline-offset:2px}

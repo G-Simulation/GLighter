@@ -2976,16 +2976,15 @@ function haCard(r, idx) {
   const key = r.id || '#new';
   const open = HAR.open.has(key);
   const c = el('div', { className: 'harow hacard m-' + (r.mode || 'pause') + (open ? ' open' : '') + (r.enabled === false ? ' off' : '') + (r.hold && r.enabled !== false ? ' hon' : '') }); c.dataset.id = r.id || '';
-  const hd = el('div', { className: 'hahead', tabIndex: 0 }); hd.setAttribute('role', 'button'); hd.setAttribute('aria-expanded', String(open));
+  const hd = el('div', { className: 'hahead' });
   const on = el('input', { type: 'checkbox', className: 'haon', checked: r.enabled !== false, title: t('ha_enabled') });
-  const ttl = el('div', { className: 'hattl' });
+  const ttl = el('button', { type: 'button', className: 'hattl hatg' }); ttl.setAttribute('aria-expanded', String(open));   // Aufklappen: eigener Knopf (Schalter daneben bleibt bedienbar)
   ttl.innerHTML = `<b>${esc(haIcon(r.mode))} ${esc(haName(r))}</b><small>${esc(t('ha_mode_' + (r.mode || 'pause')))}${r.mode === 'raise' ? ' +' + esc(fmtDb(r.raise_db ?? 10)) + ' dB' + (r.vol_scale ? ' 🔊' : '') : ''} · ${esc(r.entity || '')}${r.src && r.src !== 'all' ? ' · ' + esc((SOURCES.find(x => x.id === r.src) || {}).name || r.src) : ''}</small>`;
   const now = el('small', { className: 'hanow' + (r.hold ? ' hold' : ''), textContent: haStateTxt(r) }); ttl.appendChild(now);
-  const chev = el('span', { className: 'hachev', textContent: open ? '▾' : '▸' });
+  const chev = el('span', { className: 'hachev', textContent: open ? '▾' : '▸' }); chev.setAttribute('aria-hidden', 'true');
   hd.append(on, ttl, chev);
   const flip = () => { if (open) HAR.open.delete(key); else HAR.open.add(key); haRender(); };
   hd.onclick = e => { if (e.target === on) return; flip(); };
-  hd.onkeydown = e => { if ((e.key === 'Enter' || e.key === ' ') && e.target === hd) { e.preventDefault(); flip(); } };
   on.addEventListener('change', () => { r.enabled = on.checked; haSave().then(haRender); });
   c.appendChild(hd);
   if (open) c.appendChild(haBody(r, idx));
@@ -3456,8 +3455,8 @@ function sourceRow(s) {
 function refEditor(s) {
   const box = el('details', { className: 'refs' });
   const sum = el('summary', { textContent: '📏 ' + t('refs_title') + ((s.refs || []).length ? ' (' + s.refs.length + ')' : '') });
-  const ti = tipIcon('t_refs'); if (ti) sum.appendChild(ti);
   box.appendChild(sum);
+  const ti = tipIcon('t_refs'); if (ti) box.appendChild(ti);   // Hilfe-Symbol nicht in der Aufklapp-Zeile (sonst verschachtelt bedienbar)
   const list = el('div', { className: 'reflist' }); box.appendChild(list);
   let refs = JSON.parse(JSON.stringify(s.refs || []));
   const save = async () => {
@@ -3964,7 +3963,7 @@ function buildForm(base) {
         inp = el('select'); ctl.appendChild(inp);
         fillPorts(inp, cur.device, cur[k]);
       } else if (type === 'range') {
-        const rg = el('input', { type: 'range', min: fd[2], max: fd[3], step: fd[4], value: cur[k] });
+        const rg = el('input', { type: 'range', min: fd[2], max: fd[3], step: fd[4], value: cur[k] }); rg.setAttribute('aria-label', t('f_' + k));
         inp = el('input', { type: 'number', min: fd[2], max: fd[3], step: fd[4], value: cur[k], className: 'n' });
         rg.addEventListener('input', () => { inp.value = rg.value; });
         inp.addEventListener('input', () => { rg.value = inp.value; });
@@ -3988,7 +3987,7 @@ function buildForm(base) {
         ctl.appendChild(clr);
       } else if (type === 'window') {
         inp = el('input', { type: 'number', min: fd[2], max: fd[3], step: fd[4], value: cur[k], className: 'n' });
-        const u = el('select', { name: 'bg_unit', id: 'in_bg_unit' });
+        const u = el('select', { name: 'bg_unit', id: 'in_bg_unit' }); u.setAttribute('aria-label', t('a_unit'));
         option(u, 's', t('u_s')); option(u, 'min', t('u_min')); u.value = cur.bg_unit;
         ctl.appendChild(inp); ctl.appendChild(u);
       } else {

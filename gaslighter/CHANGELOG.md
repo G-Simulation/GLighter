@@ -1,5 +1,8 @@
 # Changelog
 
+## 1.77.1
+- **Barrierefreiheit, Nachtrag:** Regeln in den Einstellungen lassen sich per Tastatur aufklappen, ohne dass der An/Aus-Schalter im selben Knopf steckt (Screenreader lesen beides getrennt). Schieberegler und Einheiten-Auswahl haben einen Namen, das Hilfe-Symbol der Vergleichspegel steht nicht mehr in der Aufklapp-Zeile, der An/Aus-Schalter der Regeln ist größer.
+
 ## 1.77.0
 - **Neu: Dashboard in Home Assistant mit einem Klick.** ⚙ Einstellungen → Regeln → „Dashboard in Home Assistant“: Name, Adresse, Seitenleiste und Bereiche wählen, dann „In Home Assistant anlegen“. Ein vorhandenes Dashboard wird nur nach Rückfrage ersetzt. Die Vorlage gibt es auch als YAML zum Kopieren.
 - **Mausrad:** Über der Grafik scrollt das Mausrad jetzt die Seite; gezoomt wird mit Strg + Mausrad (Touchpad-Spreizen wie bisher). Wer es wie früher möchte: ⚙ → Allgemein → „Mausrad im Diagramm“ → „Zoomt immer“.
