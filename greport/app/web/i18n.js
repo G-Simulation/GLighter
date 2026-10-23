@@ -1,6 +1,7 @@
 /* Texte der Oberfläche (GReport) – Deutsch und Englisch */
 window.I18N = {
  "de": {
+  "gr_lay_picked": "„{k}“ ausgewählt: ziehen oder mit den Pfeiltasten verschieben, dann „Fertig“.",
   "gr_tm_hover": "nur beim Zeigen auf den Bereich (💡)",
   "gr_tm_always": "immer",
   "gr_tm_off": "aus",
@@ -608,6 +609,7 @@ window.I18N = {
   "gr_ver_files_n": "{n} geprüft (davon {a} aktiv)"
  },
  "en": {
+  "gr_lay_picked": "“{k}” selected: drag it or move it with the arrow keys, then “Done”.",
   "gr_tm_hover": "only when pointing at the area (💡)",
   "gr_tm_always": "always",
   "gr_tm_off": "off",

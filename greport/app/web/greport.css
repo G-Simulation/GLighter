@@ -374,16 +374,38 @@ body.grwide .page{max-width:min(1600px,100%)}
 body.grwide .log.tbl{width:auto;margin-left:0}
 .laywid{display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin:8px 0}.laywid .seg button{min-height:32px}
 .tip .tipi{border:0;background:transparent;padding:0;font-size:14px;line-height:20px;cursor:pointer;min-width:24px;min-height:24px;border-radius:6px}
-/* Tipps „beim Zeigen“: nur ein kleines 💡; der Text erscheint, wenn die Maus über dem Bereich ist, ein Feld darin den Fokus hat oder 💡 angetippt wurde */
-body.tipshover .tip{background:transparent;border-color:transparent;padding:0 2px;margin:2px 0;min-height:0}
-body.tipshover .tip:not(.open) .tipt,body.tipshover .tip:not(.open) .why,body.tipshover .tip:not(.open) .tipx{display:none}
-body.tipshover .tip .tipi{opacity:.55}
-body.tipshover *:hover > .tipslot > .tip .tipi,body.tipshover *:focus-within > .tipslot > .tip .tipi{opacity:1}
-body.tipshover *:hover > .tipslot > .tip,body.tipshover *:focus-within > .tipslot > .tip,body.tipshover .tip.open{background:color-mix(in srgb,var(--acc) 7%,var(--card));border-color:color-mix(in srgb,var(--acc) 25%,var(--line));padding:7px 10px}
-body.tipshover *:hover > .tipslot > .tip .tipt,body.tipshover *:focus-within > .tipslot > .tip .tipt,body.tipshover *:hover > .tipslot > .tip .why,body.tipshover *:focus-within > .tipslot > .tip .why,body.tipshover *:hover > .tipslot > .tip .tipx,body.tipshover *:focus-within > .tipslot > .tip .tipx{display:revert}
-@media (hover:none){body.tipshover *:hover > .tipslot > .tip:not(.open) .tipt,body.tipshover *:hover > .tipslot > .tip:not(.open) .why,body.tipshover *:hover > .tipslot > .tip:not(.open) .tipx{display:none}body.tipshover *:hover > .tipslot > .tip:not(.open){background:transparent;border-color:transparent;padding:0 2px}}
-/* Allgemeiner Tipp im Erfassen-Bereich: das Textfeld hat fast immer den Fokus – deshalb nur beim Zeigen auf den Tipp selbst oder nach Antippen von 💡 */
-body.tipshover *:hover > .tipslot[data-tips="cap"] > .tip:not(.open),body.tipshover *:focus-within > .tipslot[data-tips="cap"] > .tip:not(.open){background:transparent;border-color:transparent;padding:0 2px}
-body.tipshover *:hover > .tipslot[data-tips="cap"] > .tip:not(.open) :is(.tipt,.why,.tipx),body.tipshover *:focus-within > .tipslot[data-tips="cap"] > .tip:not(.open) :is(.tipt,.why,.tipx){display:none}
-@media (hover:hover){body.tipshover .tipslot[data-tips="cap"]:hover > .tip{background:color-mix(in srgb,var(--acc) 7%,var(--card));border-color:color-mix(in srgb,var(--acc) 25%,var(--line));padding:7px 10px}
-body.tipshover .tipslot[data-tips="cap"]:hover > .tip :is(.tipt,.why,.tipx){display:revert}}
+.tip .tipb{display:contents}
+/* Tipps „beim Zeigen“: nur ein kleines 💡. Zeigt die Maus auf den Bereich, wird 💡 deutlich; der Text erscheint als schwebende Blase
+   beim Zeigen auf 💡, mit der Tastatur auf 💡 oder nach Antippen – ohne dass sich der Bereich verschiebt (kein Flackern). */
+body.tipshover .tipslot{position:relative;display:inline-block;vertical-align:middle;margin:0}
+body.tipshover .tip{display:inline-flex;background:transparent;border:0;padding:0;margin:0;position:relative}
+body.tipshover .tip .tipi{opacity:.45;transition:opacity .15s}
+body.tipshover *:hover > .tipslot .tipi,body.tipshover *:focus-within > .tipslot .tipi,body.tipshover .tip.open .tipi{opacity:1}
+body.tipshover .tip .tipb{display:none;position:absolute;left:0;top:calc(100% + 4px);z-index:30;width:max-content;max-width:min(460px,calc(100vw - 32px));gap:6px 8px;flex-wrap:wrap;align-items:flex-start;
+  background:var(--card);color:var(--ink);border:1px solid color-mix(in srgb,var(--acc) 35%,var(--line));border-radius:10px;padding:8px 10px;box-shadow:var(--sh);font-size:12.5px}
+body.tipshover .tip .tipb .tipt{min-width:0;flex:1 1 240px}
+@media (hover:hover){body.tipshover .tip:has(.tipi:hover) .tipb,body.tipshover .tip .tipb:hover{display:flex}}
+body.tipshover .tip:has(.tipi:focus-visible) .tipb,body.tipshover .tip.open .tipb,body.tipshover .tip:focus-within:has(.tipb :focus) .tipb{display:flex}
+@media (prefers-reduced-motion:reduce){body.tipshover .tip .tipi{transition:none}}
+body.tipshover .tip .tipb::before{content:'';position:absolute;left:0;right:0;top:-8px;height:8px}
+body.tipshover .tip.r .tipb{left:auto;right:0}
+
+/* 💡 rechts, senkrecht mittig am Block (nur im Modus „beim Zeigen“) */
+.tipanchor{position:relative}
+body.tipshover .tipanchor{padding-right:40px}
+body.tipshover .tipanchor > .tipdock{position:absolute;right:6px;top:50%;transform:translateY(-50%);display:flex;flex-direction:column;gap:2px;z-index:5}
+body.tipshover .tipdock > .tipslot{position:relative;display:block}
+body.tipshover .tip .tipb{left:auto;right:0}
+body.tipshover .tip.u .tipb{top:auto;bottom:calc(100% + 4px)}
+body.tipshover .tip.u .tipb::before{top:auto;bottom:-8px}
+/* Erfassen-Bereich: kein Extra-Rand, 💡 bündig mit den 💡 der Zeilen darin */
+body.tipshover #fnpbody.tipanchor{padding-right:18px}
+body.tipshover #fnpbody.tipanchor > .tipdock{right:24px}
+@media(max-width:600px){body.tipshover #fnpbody.tipanchor{padding-right:14px}body.tipshover #fnpbody.tipanchor > .tipdock{right:20px}}
+@keyframes laypick{0%,100%{box-shadow:0 0 0 0 color-mix(in srgb,var(--acc) 55%,transparent)}50%{box-shadow:0 0 0 6px color-mix(in srgb,var(--acc) 0%,transparent)}}
+.layk.picked{animation:laypick .8s ease-out 3;outline:2px solid var(--acc);outline-offset:2px}
+@media(prefers-reduced-motion:reduce){.layk.picked{animation:none}}
+/* Erfassen-Bereich: kein Extra-Rand, 💡 bündig mit den 💡 der Zeilen darin */
+body.tipshover #fnpbody.tipanchor{padding-right:18px}
+body.tipshover #fnpbody.tipanchor > .tipdock{right:24px}
+@media(max-width:600px){body.tipshover #fnpbody.tipanchor{padding-right:14px}body.tipshover #fnpbody.tipanchor > .tipdock{right:20px}}

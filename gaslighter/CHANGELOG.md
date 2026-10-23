@@ -1,5 +1,10 @@
 # Changelog
 
+## 1.80.2
+- **Tipps ruhiger:** 💡 sitzt rechts, senkrecht mittig am zugehörigen Block, mehrere übereinander. Der Text erscheint als schwebende Blase beim Zeigen auf 💡, mit der Tastatur oder nach Antippen. Nichts verschiebt oder flackert mehr.
+- **Tabellenköpfe deckend:** Beim Scrollen laufen die Zeilen nicht mehr durch die Kopfzeile. Im dunklen Modus ist der Tabellentext wieder gut lesbar.
+- **Taste lange drücken** im Notiz-Bereich öffnet „Layout anpassen“ mit dieser Taste: gleich weiterziehen oder mit den Pfeiltasten verschieben.
+
 ## 1.80.1
 - **Tipps unauffälliger:** Von jedem Tipp ist nur noch ein kleines 💡 zu sehen. Der Text erscheint, wenn die Maus über dem Bereich ist, ein Feld darin ausgewählt ist oder du auf 💡 tippst. Einstellbar unter ⚙ → Allgemein → „Tipps“: nur beim Zeigen (Standard), immer oder aus.
 

@@ -1,5 +1,9 @@
 # Changelog
 
+## 1.9.3
+- **Tipps ruhiger:** 💡 sitzt rechts, senkrecht mittig am zugehörigen Block, mehrere übereinander. Der Text erscheint als schwebende Blase beim Zeigen auf 💡, mit der Tastatur oder nach Antippen. Nichts verschiebt oder flackert mehr.
+- **Taste lange drücken** öffnet „Layout anpassen“ mit dieser Taste: gleich weiterziehen oder mit den Pfeiltasten verschieben. Verwalten geht weiter über ⋯ → Schnellwahl verwalten.
+
 ## 1.9.2
 - **Tipps unauffälliger:** Von jedem Tipp ist nur noch ein kleines 💡 zu sehen. Der Text erscheint, wenn die Maus über dem Bereich ist, ein Feld darin ausgewählt ist oder du auf 💡 tippst. Einstellbar unter ⋯ → Datum und Uhrzeit → „Tipps“: nur beim Zeigen (Standard), immer oder aus.
 

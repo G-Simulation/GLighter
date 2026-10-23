@@ -1740,8 +1740,9 @@ const AG_DE = {
 };
 let AG_THEME = null;
 function agTheme() {                                  // Farben = CSS-Variablen der App: hell/dunkel und der Umschalter wirken ohne Neuaufbau
+  // Kopfzeile und Zellen deckend (var(--card)): beim Scrollen laufen Zeilen nicht sichtbar durch die Kopfzeile
   return AG_THEME || (AG_THEME = agGrid.themeQuartz.withParams({
-    backgroundColor: 'transparent', chromeBackgroundColor: 'transparent', headerBackgroundColor: 'transparent', foregroundColor: 'var(--tx)', textColor: 'var(--tx)',
+    backgroundColor: 'var(--card)', chromeBackgroundColor: 'var(--card)', headerBackgroundColor: 'var(--card)', foregroundColor: 'var(--tx)', textColor: 'var(--tx)',
     accentColor: 'var(--acc)', borderColor: 'var(--bd)', headerTextColor: 'var(--mut)', headerFontWeight: 600, headerFontSize: 12, fontFamily: 'inherit', fontSize: 14,
     rowHoverColor: 'var(--nl1)', oddRowBackgroundColor: 'transparent', selectedRowBackgroundColor: 'transparent', wrapperBorder: false, wrapperBorderRadius: 0,
     columnBorder: false, headerColumnBorder: false, rowBorder: true, headerRowBorder: true, cellHorizontalPadding: 10, spacing: 4, rowHeight: 46, headerHeight: 30,
@@ -2881,10 +2882,27 @@ function ntSugHtml() {
   const w = NTS.sug[0]; if (!w) return '';
   return `<span class="ntsug" data-w="${esc(w.w)}" data-k="${esc(w.k)}">💡 ${esc(t('qt_sug', { w: w.w, n: w.n }))} <button type="button" class="chip ntsugy">＋</button><button type="button" class="chip ntsugn" title="${esc(t('qt_sug_no'))}">✕</button></span>`;
 }
+/* Lange drücken (Maus, Stift oder Finger, ~0,55 s ohne zu bewegen) oder Rechtsklick: onHold statt Klick */
+function holdBind(b, onHold) {
+  let tm = 0, x0 = 0, y0 = 0, fired = false;
+  b.addEventListener('pointerdown', e => { if (e.button !== 0) return; fired = false; x0 = e.clientX; y0 = e.clientY; clearTimeout(tm);
+    tm = setTimeout(() => { fired = true; try { navigator.vibrate && navigator.vibrate(15); } catch (x) { } onHold(); }, 550); });
+  b.addEventListener('pointermove', e => { if (Math.hypot(e.clientX - x0, e.clientY - y0) > 8) clearTimeout(tm); });
+  for (const ev of ['pointerup', 'pointercancel', 'pointerleave']) b.addEventListener(ev, () => clearTimeout(tm));
+  b.addEventListener('click', e => { if (fired) { fired = false; e.preventDefault(); e.stopImmediatePropagation(); } }, true);
+  b.oncontextmenu = e => { e.preventDefault(); clearTimeout(tm); onHold(); };
+}
+function fclOpenAt(k) {
+  if (!FCL.on) fclOpen();
+  requestAnimationFrame(() => { const c = document.querySelector(`#fnptags .layk[data-k="${CSS.escape(k)}"]`); if (!c) return;
+    c.classList.add('picked'); setTimeout(() => c.classList.remove('picked'), 2400); const n = c.querySelector('.lkn'); if (n) { n.focus(); c.scrollIntoView({ block: 'nearest' }); }
+    fclSay(t('fc_lay_picked', { k: n ? n.textContent : k })); });
+}
 function ntChipBind(box, sel, onTog) {                     // Klick = wählen, Rechtsklick/lange drücken = verwalten, ＋ = eigene anlegen
   box.querySelectorAll('.ntchip').forEach(b => {
     b.onclick = () => { const tg = b.dataset.t; sel.has(tg) ? sel.delete(tg) : sel.add(tg); b.classList.toggle('on', sel.has(tg)); b.setAttribute('aria-pressed', sel.has(tg)); if (onTog) onTog(tg); };
-    b.oncontextmenu = e => { e.preventDefault(); ntManage(box, b.dataset.t); };
+    if (box.id === 'fnptags') holdBind(b, () => fclOpenAt(b.dataset.t));   // Notiz-Bereich: lange drücken = Layout anpassen mit dieser Taste
+    else b.oncontextmenu = e => { e.preventDefault(); ntManage(box, b.dataset.t); };
   });
   const a = box.querySelector('.ntadd'); if (a) a.onclick = () => ntManage(box);
   const sg = box.querySelector('.ntsug');
@@ -7272,15 +7290,22 @@ function qtCard(n) {                                 // Hinweis Nr. n als Elemen
   const box = el('div', { className: 'qtip' }); box.dataset.qt = n;
   const fill = () => {
     box.hidden = !qtOn() || qtHidden().has(n); if (box.hidden) { box.innerHTML = ''; return; }
-    box.innerHTML = `<button type="button" class="qti" aria-expanded="false" aria-label="${esc(t('qt_show'))}" title="${esc(t('qt_' + n))}">💡</button><span class="qtt">${esc(t('qt_' + n))}</span><details class="qtw"><summary>${esc(t('qt_why'))}</summary><small>${esc(t('qt_src', { s: QT_SRC[n] }))}</small></details><button type="button" class="qtx" aria-label="${esc(t('qt_hide'))}" title="${esc(t('qt_hide'))}">✕</button>`;
-    const qb = box.querySelector('.qti'); qb.onclick = () => { const o = box.classList.toggle('open'); qb.setAttribute('aria-expanded', String(o)); };
+    box.innerHTML = `<button type="button" class="qti" aria-expanded="false" aria-label="${esc(t('qt_show'))}" title="${esc(t('qt_' + n))}">💡</button><div class="qtb"><span class="qtt">${esc(t('qt_' + n))}</span><details class="qtw"><summary>${esc(t('qt_why'))}</summary><small>${esc(t('qt_src', { s: QT_SRC[n] }))}</small></details><button type="button" class="qtx" aria-label="${esc(t('qt_hide'))}" title="${esc(t('qt_hide'))}">✕</button></div>`;
+    const qb = box.querySelector('.qti'); const side = () => { const r = qb.getBoundingClientRect(); box.classList.toggle('r', r.left > innerWidth / 2); box.classList.toggle('u', r.top > innerHeight * 0.6); }; qb.onmouseenter = side; qb.onfocus = side;
+    qb.onclick = () => { side(); const o = box.classList.toggle('open'); qb.setAttribute('aria-expanded', String(o)); };
     box.querySelector('.qtx').onclick = () => { const h = qtHidden(); h.add(n); try { localStorage.setItem('gl_qt_hide', JSON.stringify([...h])); } catch (e) { } box.hidden = true; box.innerHTML = ''; };
   };
-  box._fill = fill; fill(); return box;
+  box._fill = fill; fill(); setTimeout(() => qtDock(box), 0); return box;
+}
+/* 💡 immer rechts, senkrecht mittig am zugehörigen Block (dem Element, in das der Hinweis gesetzt wurde); mehrere übereinander */
+function qtDock(box) {
+  const a = box.parentElement; if (!a || a.classList.contains('qtdock')) return;
+  let d = a.querySelector(':scope > .qtdock'); if (!d) { d = el('div', { className: 'qtdock' }); a.appendChild(d); }
+  a.classList.add('qtanchor'); d.appendChild(box);
 }
 function qtRefresh() { document.querySelectorAll('.qtip').forEach(b => b._fill && b._fill()); }
 function qtPlace() {                                  // feste Stellen: Ereignislisten (10), Live (11), Lärmprotokoll-Dialog (12, 13)
-  const put = (sel, n, where) => { const t0 = document.querySelector(sel); if (!t0 || t0.querySelector(`:scope > .qtip[data-qt="${n}"]`)) return; const c = qtCard(n); where === 'prepend' ? t0.prepend(c) : t0.appendChild(c); };
+  const put = (sel, n, where) => { const t0 = document.querySelector(sel); if (!t0 || t0.querySelector(`.qtip[data-qt="${n}"]`)) return; const c = qtCard(n); where === 'prepend' ? t0.prepend(c) : t0.appendChild(c); };
   put('#nightview .pevcard', 10, 'prepend'); put('#ldevcard', 10, 'prepend'); put('#ldevcard', 11);
   const pr = $('ntaproto'); if (pr && pr.parentElement && !pr.parentElement.querySelector('.qtip')) { pr.parentElement.after(qtCard(12), qtCard(13)); }
 }

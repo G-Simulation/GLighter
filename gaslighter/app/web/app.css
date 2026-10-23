@@ -1210,13 +1210,31 @@ button.art.artck:focus-visible{outline:2px solid var(--acc);outline-offset:1px}
 .capture .check{min-height:28px}
 @media(max-width:420px){.capture .caphead{gap:6px}.capture .clocknum,.capture.dn-compact .clocknum{font-size:28px}.capture .caphead .icon{min-width:32px;height:32px}}
 
-/* Quicktipps „nur beim Zeigen“ (⚙ → Allgemein → Tipps): nur ein kleines 💡, Text bei Maus über dem Bereich, Fokus darin oder Antippen */
+/* Quicktipps „nur beim Zeigen“ (⚙ → Allgemein → Tipps): nur ein kleines 💡; Text als schwebende Blase beim Zeigen auf 💡,
+   mit der Tastatur oder nach Antippen – ohne Verschieben des Bereichs (kein Flackern) */
 .qtip .qti{border:0;background:transparent;padding:0;font-size:14px;line-height:20px;cursor:pointer;min-width:24px;min-height:24px;border-radius:6px}
-body.qthover .qtip:not(.open){background:transparent;border-color:transparent;padding:0 2px;margin:2px 0}
-body.qthover .qtip:not(.open) .qtt,body.qthover .qtip:not(.open) .qtw,body.qthover .qtip:not(.open) .qtx{display:none}
-body.qthover .qtip .qti{opacity:.55}
-@media (hover:hover){
-body.qthover *:hover > .qtip,body.qthover *:focus-within > .qtip{background:color-mix(in srgb,var(--acc) 8%,transparent);border-color:color-mix(in srgb,var(--acc) 25%,var(--bd));padding:8px 10px;margin:6px 0}
-body.qthover *:hover > .qtip .qti,body.qthover *:focus-within > .qtip .qti{opacity:1}
-body.qthover *:hover > .qtip .qtt,body.qthover *:focus-within > .qtip .qtt,body.qthover *:hover > .qtip .qtw,body.qthover *:focus-within > .qtip .qtw,body.qthover *:hover > .qtip .qtx,body.qthover *:focus-within > .qtip .qtx{display:revert}}
-body.qthover .qtip.open{background:color-mix(in srgb,var(--acc) 8%,transparent);border-color:color-mix(in srgb,var(--acc) 25%,var(--bd));padding:8px 10px;margin:6px 0}
+.qtip .qtb{display:contents}
+body.qthover .qtip{display:inline-flex;position:relative;background:transparent;border:0;padding:0;margin:2px 0;vertical-align:middle}
+body.qthover .qtip .qti{opacity:.45;transition:opacity .15s}
+body.qthover *:hover > .qtip .qti,body.qthover *:focus-within > .qtip .qti,body.qthover .qtip.open .qti{opacity:1}
+body.qthover .qtip .qtb{display:none;position:absolute;left:0;top:calc(100% + 4px);z-index:40;width:max-content;max-width:min(460px,calc(100vw - 32px));flex-wrap:wrap;gap:4px 8px;align-items:flex-start;
+  background:var(--card);color:var(--tx);border:1px solid color-mix(in srgb,var(--acc) 35%,var(--bd));border-radius:10px;padding:8px 10px;box-shadow:0 6px 24px -8px #0004;font-size:13px}
+body.qthover .qtip .qtb .qtt{min-width:0;flex:1 1 240px}
+@media (hover:hover){body.qthover .qtip:has(.qti:hover) .qtb,body.qthover .qtip .qtb:hover{display:flex}}
+body.qthover .qtip:has(.qti:focus-visible) .qtb,body.qthover .qtip.open .qtb,body.qthover .qtip:focus-within:has(.qtb :focus) .qtb{display:flex}
+@media (prefers-reduced-motion:reduce){body.qthover .qtip .qti{transition:none}}
+body.qthover .qtip .qtb::before{content:'';position:absolute;left:0;right:0;top:-8px;height:8px}
+body.qthover .qtip.r .qtb{left:auto;right:0}
+
+/* 💡 rechts, senkrecht mittig am Block (nur im Modus „beim Zeigen“) */
+.qtanchor{position:relative}
+body.qthover .qtanchor{padding-right:40px}
+body.qthover .qtanchor > .qtdock{position:absolute;right:6px;top:50%;transform:translateY(-50%);display:flex;flex-direction:column;gap:2px;z-index:5}
+body.qthover .qtdock > .qtip{margin:0}
+body.qthover .qtip .qtb{left:auto;right:0}
+body.qthover .qtip.u .qtb{top:auto;bottom:calc(100% + 4px)}
+body.qthover .qtip.u .qtb::before{top:auto;bottom:-8px}
+@keyframes laypick{0%,100%{box-shadow:0 0 0 0 color-mix(in srgb,var(--acc) 55%,transparent)}50%{box-shadow:0 0 0 6px color-mix(in srgb,var(--acc) 0%,transparent)}}
+.layk.picked{animation:laypick .8s ease-out 3;outline:2px solid var(--acc);outline-offset:2px}
+@media(prefers-reduced-motion:reduce){.layk.picked{animation:none}}
+.glg .ag-header,.glg .ag-floating-filter,.glg .ag-pinned-left-header,.glg .ag-pinned-right-header{background:var(--card)}

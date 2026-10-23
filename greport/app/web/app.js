@@ -149,15 +149,24 @@ let TIPX = new Set(); try { TIPX = new Set(JSON.parse(localStorage.getItem('gr_t
 const tipMode = () => PF.tipmode || (PF.tips === false ? 'off' : 'hover');
 const tipsOn = () => tipMode() !== 'off';
 function tipModeApply() { document.body.classList.toggle('tipshover', tipMode() === 'hover'); }
+/* 💡 immer rechts, senkrecht mittig am zugehörigen Block; mehrere Tipps eines Blocks übereinander */
+function tipDock(sl) {
+  if (sl.parentElement && sl.parentElement.classList.contains('tipdock')) return;
+  const a = sl.dataset.tips === 'cap' || sl.dataset.tips === '3' ? sl.previousElementSibling : sl.parentElement; if (!a) return;
+  let d = a.querySelector(':scope > .tipdock'); if (!d) { d = el('div', { className: 'tipdock' }); a.appendChild(d); }
+  a.classList.add('tipanchor'); d.appendChild(sl);
+}
 function tipsDraw(root) {
   (root || document).querySelectorAll('.tipslot').forEach(sl => {
+    tipDock(sl);
     const want = sl.dataset.tips === 'cap' ? (FNP.edit ? ['8'] : ['1', '2', '7']) : sl.dataset.tips.split(',');
     const n = tipsOn() ? want.find(x => !TIPX.has(x)) : null;
     if (sl.dataset.cur === String(n || '') && sl.dataset.lang === lang) return;
     sl.dataset.cur = n || ''; sl.dataset.lang = lang;
     if (!n) { sl.innerHTML = ''; return; }
-    sl.innerHTML = `<div class="tip" role="note"><button type="button" class="tipi" aria-expanded="false" aria-label="${esc(t('gr_tip_show'))}" title="${esc(t('gr_tip_' + n))}">💡</button><span class="tipt">${esc(t('gr_tip_' + n))}</span><details class="why"><summary>${esc(t('gr_tip_why'))}</summary><small>${esc(t('gr_tip_src', { s: t('gr_tip_' + n + '_s') }))}</small></details><button type="button" class="tipx" aria-label="${esc(t('gr_tip_x'))}" title="${esc(t('gr_tip_x'))}">✕</button></div>`;
-    const tb = sl.querySelector('.tipi'); tb.onclick = () => { const o = tb.closest('.tip').classList.toggle('open'); tb.setAttribute('aria-expanded', String(o)); };
+    sl.innerHTML = `<div class="tip" role="note"><button type="button" class="tipi" aria-expanded="false" aria-label="${esc(t('gr_tip_show'))}" title="${esc(t('gr_tip_' + n))}">💡</button><div class="tipb"><span class="tipt">${esc(t('gr_tip_' + n))}</span><details class="why"><summary>${esc(t('gr_tip_why'))}</summary><small>${esc(t('gr_tip_src', { s: t('gr_tip_' + n + '_s') }))}</small></details><button type="button" class="tipx" aria-label="${esc(t('gr_tip_x'))}" title="${esc(t('gr_tip_x'))}">✕</button></div></div>`;
+    const tb = sl.querySelector('.tipi'); const side = () => { const r = tb.getBoundingClientRect(), tp = tb.closest('.tip'); tp.classList.toggle('r', r.left > innerWidth / 2); tp.classList.toggle('u', r.top > innerHeight * 0.6); }; tb.onmouseenter = side; tb.onfocus = side;
+    tb.onclick = () => { side(); const o = tb.closest('.tip').classList.toggle('open'); tb.setAttribute('aria-expanded', String(o)); };
     sl.querySelector('.tipx').onclick = () => { TIPX.add(n); try { localStorage.setItem('gr_tipx', JSON.stringify([...TIPX])); } catch (e) { } tipsDraw(); };
   });
 }
@@ -208,6 +217,23 @@ function extTxt(n) {                                   // kurze Anzeige in Zeitl
 const witTxt = n => { const x = n.ext || {}, r = x.wrole ? t('gr_role_' + x.wrole) : ''; return n.witness + (r || x.wcontact ? ' (' + [r, x.wcontact].filter(Boolean).join(', ') + ')' : ''); };
 /* ---------- Notiz jetzt ---------- */
 const FNP = { from: null, tags: new Set(), edit: null, fixed: false, open: new Set(), notime: false, when: null, approx: false, cap: null, manual: false, pend: null };
+/* Lange drücken (Maus, Stift oder Finger, ~0,55 s ohne zu bewegen) oder Rechtsklick: onHold statt Klick */
+function holdBind(b, onHold) {
+  let tm = 0, x0 = 0, y0 = 0, fired = false;
+  b.addEventListener('pointerdown', e => { if (e.button !== 0) return; fired = false; x0 = e.clientX; y0 = e.clientY; clearTimeout(tm);
+    tm = setTimeout(() => { fired = true; try { navigator.vibrate && navigator.vibrate(15); } catch (x) { } onHold(); }, 550); });
+  b.addEventListener('pointermove', e => { if (Math.hypot(e.clientX - x0, e.clientY - y0) > 8) clearTimeout(tm); });
+  for (const ev of ['pointerup', 'pointercancel', 'pointerleave']) b.addEventListener(ev, () => clearTimeout(tm));
+  b.addEventListener('click', e => { if (fired) { fired = false; e.preventDefault(); e.stopImmediatePropagation(); } }, true);
+  b.oncontextmenu = e => { e.preventDefault(); clearTimeout(tm); onHold(); };
+}
+/* Taste lange drücken: „Layout anpassen“ öffnet sich mit dieser Taste – gleich weiterziehen oder mit den Pfeiltasten verschieben */
+function layOpenAt(k) {
+  if (!LAY.on) layOpen();
+  requestAnimationFrame(() => { const c = document.querySelector(`#fnptags .layk[data-k="${CSS.escape(k)}"]`); if (!c) return;
+    c.classList.add('picked'); setTimeout(() => c.classList.remove('picked'), 2400); const n = c.querySelector('.lkn'); if (n) { n.focus(); c.scrollIntoView({ block: 'nearest' }); }
+    laySay(t('gr_lay_picked', { k: n ? n.textContent : k })); });
+}
 function fnpTags() {
   const box = $('fnptags'); if (!box) return;
   if (LAY.on) { layDraw(); return; }
@@ -235,10 +261,7 @@ function fnpTags() {
   });
   box.querySelectorAll('.tag[data-t]').forEach(b => {
     b.onclick = () => { const k = b.dataset.t; FNP.tags.has(k) ? FNP.tags.delete(k) : FNP.tags.add(k); b.classList.toggle('on', FNP.tags.has(k)); b.setAttribute('aria-pressed', FNP.tags.has(k)); fnpStart(); reqCheck(); if (SECHIDE.size) secDraw(); };
-    b.oncontextmenu = e => { e.preventDefault(); qtOpen(b.dataset.t); };
-    let lp = 0; b.addEventListener('touchstart', () => { lp = setTimeout(() => { lp = -1; qtOpen(b.dataset.t); }, 600); }, { passive: true });
-    b.addEventListener('touchend', e => { if (lp === -1) e.preventDefault(); clearTimeout(lp); });
-    b.addEventListener('touchmove', () => clearTimeout(lp), { passive: true });
+    holdBind(b, () => layOpenAt(b.dataset.t));
   });
   box.querySelectorAll('.tag[data-w]').forEach(b => b.onclick = () => whenPick(b.dataset.w));
   const wg = box.querySelector('.grp[data-g="when"]'); if (wg) { const sl = el('div', { className: 'tipslot' }); sl.dataset.tips = '3'; wg.after(sl); tipsDraw(box); }
