@@ -1368,7 +1368,7 @@ async function tileGo(id, now) {
   if (!c || Date.now() - c.t > 4000) { try { await prefetchDev(id); } catch (e) { } }
   if (selSrc !== from || (!now && !rotActive())) { TILE.busy = false; return; }      // inzwischen von Hand gewaehlt
   const reduce = matchMedia('(prefers-reduced-motion: reduce)').matches;
-  const parts = reduce ? [] : [$('vp0'), $('vp1')].filter(v => v && v.offsetParent).map(slideCopy).filter(Boolean);
+  const parts = reduce ? [] : [...document.querySelectorAll('#liveview .slidevp')].filter(v => v.offsetParent).map(slideCopy).filter(Boolean);   // alle geräteabhängigen Bereiche (Kennzahlen, Graph, Video, Spuren, Spektrogramm) gleiten zusammen
   parts.forEach(p => { p.inner.style.transition = 'none'; p.inner.style.transform = 'translateX(100%)'; });
   selectSource(id, true);
   markDirty(); updateStatus();
@@ -1422,10 +1422,11 @@ const ART_ORDER = ['knock', 'door', 'steps', 'voice', 'tv', 'scrape', 'signal', 
 const ART_ICON = { knock: '🔨', door: '🚪', steps: '👣', voice: '🗣', tv: '📺', scrape: '🔩', signal: '🔔', animal: '🐾', noise: '〰', other: '❓' };
 const ART_COL = { knock: '#e0314b', door: '#e8590c', steps: '#f0a500', voice: '#7048e8', tv: '#1c7ed6', scrape: '#c2255c', signal: '#2b8a3e', animal: '#66a80f', noise: '#868e96', other: '#adb5bd' };
 const artName = g => t('art_' + (ART_ORDER.includes(g) ? g : 'other'));
-function artChip(g, c, man, k) {                    // k: Störung – dann ist das Kästchen ein Knopf zum Bestätigen oder Korrigieren
+function artChip(g, c, man, k, lki) {               // k: Störung – dann ist das Kästchen ein Knopf zum Bestätigen oder Korrigieren; lki (ab 1.84.0): Vorschlag aus Korrekturen, Art der Erkennung
   if (!g) return '';
-  const tip = man ? t('art_man_tip') : (c != null ? t('art_sugg', { c }) : t('art_sugg0')) + '. ' + t('art_ai_tip');
-  const inner = `${ART_ICON[g] || '❓'} ${esc(artName(g))}${c != null && !man && g !== 'other' ? ` <small>${c} %</small>` : ''}`;
+  const lern = lki != null && !man;
+  const tip = man ? t('art_man_tip') : lern ? t('art_lern_tip', { c, k: lki ? artName(lki) : '–' }) : (c != null ? t('art_sugg', { c }) : t('art_sugg0')) + '. ' + t('art_ai_tip');
+  const inner = `${ART_ICON[g] || '❓'} ${esc(artName(g))}${c != null && !man && g !== 'other' ? ` <small>${lern ? '🎓 ' : ''}${c} %</small>` : ''}`;
   if (k) return `<button type="button" class="art artck a-${g}${man ? ' man' : ''}" data-k="${esc(k)}" tabindex="-1" title="${esc(tip + ' ' + t('art_ck'))}" aria-label="${esc(artName(g) + ': ' + tip + '. ' + t('art_ck'))}">${inner}</button>`;
   return `<span class="art a-${g}${man ? ' man' : ''}" title="${esc(tip)}">${inner}</span>`;
 }
@@ -1454,7 +1455,8 @@ async function loadArtStatus() {
   try {
     const s = await (await fetch('art_status', { cache: 'no-store' })).json(), el = $('artstat');
     if (!s.available || !s.enabled) { el.textContent = ''; return; }
-    el.textContent = s.pending > 0 ? '🔎 ' + t('art_running', { n: s.pending }) : (s.error ? '⚠ ' + s.error : '');
+    const ln = s.learn && s.learn.on && s.learn.ex ? ' 🎓 ' + t('art_lern_st', { n: s.learn.ex, s: s.learn.sug }) : '';   // ab 1.84.0: Korrekturen lernen
+    el.textContent = (s.pending > 0 ? '🔎 ' + t('art_running', { n: s.pending }) : (s.error ? '⚠ ' + s.error : '')) + ln;
   } catch (e) { }
 }
 /* Ereignisse nachtraeglich mit der KI pruefen (auch bereits eingeordnete neu) */
@@ -1755,7 +1757,7 @@ function slPaint(id, from, to, L, R, ax) {
   host.setAttribute('aria-label', t('sl_a', { a: hms(from).slice(0, 5), b: hms(to).slice(0, 5) }) + ' ' + say.join('; ') + '.');
 }
 const fnShow = () => !SHIDE.has('_fn') && (!ARTSEL.size || ARTSEL.has('_notes') || ARTSEL.has('_fn'));
-const fnText = n => `${n.gr ? '<span class="art grsrc" title="' + esc(t('gr_from_tip')) + '">GReport</span>' : ''}${(n.tags || []).map(ntTag).join('')}${n.text ? `<span class="ntt">${esc(n.text)}</span>` : ''}${n.witness ? `<span class="ntw">👤 ${esc(n.witness)}</span>` : ''}${fbx(n)}`;
+const fnText = n => `${n.gr ? '<span class="art grsrc" title="' + esc(t('gr_from_tip')) + '">GReport</span>' : ''}${(n.tags || []).map(ntTag).join('')}${n.text ? `<span class="ntt" title="${esc(n.text)}">${esc(n.text)}</span>` : ''}${n.witness ? `<span class="ntw">👤 ${esc(n.witness)}</span>` : ''}${fbx(n)}`;
 function evRows(evs, sv, grpMode) {
   const G = EV.grps || {}, out = [], seen = new Map();
   const one = r => ({ _t: 'ev', id: ek(r), r, start: new Date(r.start).getTime(), src: evSrcName(r), tags: evTags(r), dur: +r.dauer_s || 0, pk: r.spitze_dbfs, thr: r.schwelle_dbfs, bg: r.hintergrund_dbfs });
@@ -1818,8 +1820,8 @@ function evGrid(evs, sv, useArt, grpMode) {
         if (d._t === 'sens') return `<span class="art sensc">${sensIcon(d.x.kind)} ${esc(sensLabel(d.x))}</span>${d.x.note ? `<div class="hant">📝 ${esc(d.x.note)}</div>` : ''}`;
         if (d._t === 'note') return `<span class="art fnc">📝 ${esc(t('fn_row'))}</span>${d.ev ? `<button type="button" class="chip fnlink" tabindex="-1" title="${esc(t('fn_link_tip'))}">🔗 ${esc(t('fn_link', { c: clockOf(d.ev.start) }))}</button> <small class="fnasg${(d.n.asg || {}).man ? ' fnman' : ''}">${esc(fnAsgHow(d.n, EV))}</small>` : (d.n.asg && d.n.asg.man ? ` <small class="fnasg fnman">${esc(t('fn_asg_detached'))}</small>` : '')}<div class="fnrowt">${fnText(d.n)}</div>`;
         if (d._t === 'grp') return d.g.prof ? `<span class="art prof">🧩 ${esc(d.g.kind)}</span>` : d.g.kind && d.g.kind !== '?' ? artChip(d.g.kind, null, false) : esc(t('art_pending'));
-        const r = d.r; return `${fnAsgHTML(d.fn, EV)}${(r.ha_on || []).filter(n => !SHIDE.has('ha:' + n)).map(n => `<span class="art haon" title="${esc(t('ha_on_tip'))}">📡 ${esc(n)} ${esc(t('ha_on'))}</span>`).join('')}${(r.raise_on || []).map(x => `<span class="art haraisec" title="${esc(t('ha_raise_tip'))}">📈 ${esc(x[0])} +${esc(fmtDb(x[1]))} dB</span>`).join('')}${profChip(r)}${(r.labels || []).map(n => `<span class="art lbl" title="${esc(t('lb_own'))}">🏷 ${esc(n)}</span>`).join('')}${mfChip(r)}${r.art ? artChip(r.art, r.art_c, r.art_man || r.art_ok, CUR && CUR.classify === false ? '' : r.k) : (r.datei && !(r.labels || []).length && !r.prof ? '<span class="noclip" title="' + esc(t('art_pending')) + '">…</span>' : (r.labels || []).length || r.prof ? '' : '<span class="noclip">–</span>')}`; } },
-    { f: 'sc', title: t('sc_col'), minW: 140, vis: hasSc, prio: 3, sort: false, cls: 'scol', flt: 'ms', aria: t('sc_col_a'),
+        const r = d.r; return `${fnAsgHTML(d.fn, EV)}${(r.ha_on || []).filter(n => !SHIDE.has('ha:' + n)).map(n => `<span class="art haon" title="${esc(t('ha_on_tip'))}">📡 ${esc(n)} ${esc(t('ha_on'))}</span>`).join('')}${(r.raise_on || []).map(x => `<span class="art haraisec" title="${esc(t('ha_raise_tip'))}">📈 ${esc(x[0])} +${esc(fmtDb(x[1]))} dB</span>`).join('')}${profChip(r)}${(r.labels || []).map(n => `<span class="art lbl" title="${esc(t('lb_own'))}">🏷 ${esc(n)}</span>`).join('')}${mfChip(r)}${r.art ? artChip(r.art, r.art_c, r.art_man || r.art_ok, CUR && CUR.classify === false ? '' : r.k, r.art_lern != null ? r.art_lki : null) : (r.datei && !(r.labels || []).length && !r.prof ? '<span class="noclip" title="' + esc(t('art_pending')) + '">…</span>' : (r.labels || []).length || r.prof ? '' : '<span class="noclip">–</span>')}`; } },
+    { f: 'sc', title: t('sc_col'), minW: 165, vis: hasSc, prio: 3, sort: false, cls: 'scol', flt: 'ms', aria: t('sc_col_a'),
       vals: () => SC_ST.map(scLabel), fpass: (v, d) => v.includes(scLabel(scOf(d))),
       html: d => d._t === 'ev' ? scChip(d.r.sc) : '' },
     { f: 'kinds', title: t('kinds_col'), minW: 150, grow: 2, vis: hasKinds, prio: 4, sort: false, cls: 'kinds', html: d => d._t === 'ev' ? kindsHTML(d.r.kinds, EV.fine) : '' },
@@ -1845,7 +1847,7 @@ function evGrid(evs, sv, useArt, grpMode) {
     if (TBL) { TBL.destroy(); TBL = null; }
     TBL_KEY = key;
     TBL = glGrid(box, {
-      cols, rows: data, max: '75vh', ph: t('none'), key: 'gl_evtbl_sort', wkey: 'prot_ev', sort: [{ colId: 'start', sort: 'desc' }], label: t('events'),
+      cols, rows: data, max: '75vh', ph: t('none'), key: 'gl_evtbl_sort', wkey: 'prot_ev', colAt: document.querySelector('#nightview .evacts'), sort: [{ colId: 'start', sort: 'desc' }], label: t('events'),
       isOpen: p => EVOPEN.has(p.gid || ''), ext: d => !TBLEXT || TBLEXT(d),
       rowCls: d => { const a = []; if (d._t === 'grp') a.push('grph'); if (d._t === 'sens') a.push('sensr'); if (d._t === 'note') a.push('fnr');
         if (d._t === 'ev' && SEL.has(d.id)) a.push('sel'); if (d._t === 'ev' && d.id === EVCUR) a.push('cur'); if (d._t === 'ev' && d.id === EVMENU) a.push('menu');
@@ -1977,7 +1979,10 @@ function glGrid(box, o) {
   box.innerHTML = ''; box.classList.add('glg');
   const G = { o, box, flt: {}, det: new Set(), hid: new Set(), ff: true, byId: new Map(), cols: o.cols, ph: o.ph || t('none'), phEls: new Set() };
   box._G = G;
-  const vis0 = c => c.vis !== false;
+  const wk = o.wkey ? String(o.wkey).replace(/[^A-Za-z0-9_]/g, '_').slice(0, 40) : '', TP = tblPref(wk);   // ab 1.84.0: Reihenfolge, ausgeblendete Spalten, Dichte
+  G.wk = wk; G.uhid = new Set(Array.isArray(TP.hide) ? TP.hide : (o.hide0 || [])); G.dense = TP.dense === 'compact';
+  box.classList.toggle('gdense', G.dense);
+  const vis0 = c => c.vis !== false && !G.uhid.has(c.f);
   const isNar = () => G.hid.size > 0;
   G.colPass = d => Object.values(G.flt).every(f => !f.isFilterActive() || gPass(f.c, f.v, d));
   const visD = d => {
@@ -1997,30 +2002,38 @@ function glGrid(box, o) {
     wrap.onclick = e => { const r = e.target.closest('.gdl'), c = r && G.cols.find(x => x.f === r.dataset.c); if (c && c.click) c.click(e, d, r); };
     return wrap; };
   class PH { init() { this.e = el('span', { className: 'glph', textContent: G.ph }); G.phEls.add(this.e); } getGui() { return this.e; } destroy() { G.phEls.delete(this.e); } }
-  const togCol = { colId: '_rc', headerName: t('g_more'), headerClass: 'ghid', width: 32, minWidth: 32, maxWidth: 32, resizable: false, sortable: false, suppressMovable: true, cellClass: 'rcol', initialHide: true,
+  const togCol = { colId: '_rc', headerName: t('g_more'), headerClass: 'ghid', width: 32, minWidth: 32, maxWidth: 32, resizable: false, sortable: false, suppressMovable: true, lockPosition: 'left', cellClass: 'rcol', initialHide: true,
     cellRenderer: p => { const d = p.data; if (!d || d._det) return ''; const on = G.det.has(String(d.id)), b = el('button', { type: 'button', className: 'gtg' + (on ? ' on' : ''), textContent: on ? '−' : '+' });
       b.setAttribute('aria-expanded', on ? 'true' : 'false'); b.setAttribute('aria-label', t(on ? 'g_less' : 'g_more')); b.tabIndex = -1; return b; },
   };
   const saved = (() => { try { return o.key ? JSON.parse(localStorage.getItem(o.key) || 'null') : null; } catch (e) { return null; } })();
   const sort0 = saved && saved.length ? saved : (o.sort || []);
-  const wk = o.wkey ? String(o.wkey).replace(/[^A-Za-z0-9_]/g, '_').slice(0, 40) : '', wsav = colWidths(wk) || {};
+  const wsav = colWidths(wk) || {};
   const colDefs = [togCol].concat(G.cols.map(c => {
     const s = sort0.find(x => x.colId === c.f);
-    const cd = { colId: c.f, field: c.f, headerName: c.title || '', context: Object.assign(c, { G }), initialHide: !vis0(c), minWidth: c.minW || (c.w || 60), suppressMovable: true,
+    const cd = { colId: c.f, field: c.f, headerName: c.title || '', context: Object.assign(c, { G }), initialHide: !vis0(c), minWidth: c.minW || (c.w || 60), suppressMovable: !!c.head || c.f === 'act', lockPosition: c.head ? 'left' : c.f === 'act' ? 'right' : undefined,   // Spaltenköpfe ziehen = Reihenfolge (gemerkt)
       sortable: c.sort !== false, initialSort: s ? s.sort : null, comparator: typeof c.sort === 'function' ? (a, b, na, nb) => c.sort(na.data, nb.data) : gCmp,
       cellRenderer: p => p.data ? gHtml(c.html ? c.html(p.data) : esc(p.data[c.f] == null ? '' : p.data[c.f])) : '',
-      cellClass: ['gcell'].concat(c.cls ? c.cls.split(/\s+/) : []), headerClass: c.head ? 'ghcust' : c.hide ? 'ghid' : undefined, autoHeight: true, wrapText: true,
+      cellClass: ['gcell'].concat(c.cls ? c.cls.split(/\s+/) : []), headerClass: c.head ? 'ghcust' : c.hide ? 'ghid' : undefined, autoHeight: true, wrapText: !c.one,   // one: eine Zeile mit „…“ (ganzer Text im Hinweis)
       suppressHeaderMenuButton: true, suppressHeaderFilterButton: true, suppressFloatingFilterButton: true, headerTooltip: c.hide ? c.title : undefined };
     if (c.w) { cd.width = c.w; cd.maxWidth = c.w; cd.resizable = false; } else if (wsav[c.f]) cd.width = Math.max(cd.minWidth, wsav[c.f]); else cd.flex = c.grow || 1;   // gemerkte Breite (gezogen)
     if (c.flt) { cd.filter = GLFilter; cd.floatingFilter = true; cd.floatingFilterComponent = GLFloat; }
     if (c.head) cd.headerComponent = GLHead;
     return cd;
   }));
+  G.defOrder = G.cols.map(c => c.f);
+  G.ordIds = sv => {                                   // gemerkte Reihenfolge; neue Spalten stehen hinter ihrem Vorgänger aus der Standard-Reihenfolge
+    const ids = G.defOrder, k = (sv || []).filter((x, i, a) => ids.includes(x) && a.indexOf(x) === i);
+    ids.forEach((id, i) => { if (k.includes(id)) return; let at = 0; for (let j = i - 1; j >= 0; j--) { const q = k.indexOf(ids[j]); if (q >= 0) { at = q + 1; break; } } k.splice(at, 0, id); });
+    return k;
+  };
+  if (Array.isArray(TP.order) && TP.order.length) { const ord = G.ordIds(TP.order); colDefs.sort((a, b) => (a.colId === '_rc' ? -1 : ord.indexOf(a.colId)) - (b.colId === '_rc' ? -1 : ord.indexOf(b.colId))); }
   const anyFlt = G.cols.some(c => c.flt);
   const rowEl = e => e && e.target && e.target.closest ? e.target.closest('.ag-row') : null;
   const opts = {
     theme: agTheme(), localeText: lang === 'de' ? AG_DE : undefined, columnDefs: colDefs, rowData: flat(o.rows || []), getRowId: p => String(p.data.id),
-    defaultColDef: { resizable: true, sortingOrder: ['asc', 'desc'], cellDataType: false }, suppressDragLeaveHidesColumns: true, ensureDomOrder: true, enableCellTextSelection: true,
+    defaultColDef: { resizable: true, sortingOrder: ['asc', 'desc'], cellDataType: false }, suppressDragLeaveHidesColumns: true, ensureDomOrder: true, enableCellTextSelection: true, maintainColumnOrder: true, rowHeight: G.dense ? 32 : 46,
+    onColumnMoved: p => { if (p.finished && p.source !== 'api' && p.source !== 'gridOptionsChanged' && p.source !== 'flex') G.saveP(); },   // gezogen: Reihenfolge merken
     suppressRowHoverHighlight: false, animateRows: false, rowBuffer: 15, headerHeight: anyFlt ? 30 : 36, floatingFiltersHeight: 34,
     noRowsOverlayComponent: PH, noMatchingRowsOverlayComponent: PH,
     isFullWidthRow: p => !!(p.rowNode.data && p.rowNode.data._det), fullWidthCellRenderer: p => { if (!p.data) return ''; const w = detBody(p.data._ofd);
@@ -2093,11 +2106,76 @@ function glGrid(box, o) {
   G.shown = () => { let n = 0; G.api.forEachNodeAfterFilter(x => { if (x.data && !x.data._det) n++; }); return n; };
   G.top = () => { const a = []; G.api.forEachNodeAfterFilter(x => { if (x.data && !x.data._det && !x.data._pid) a.push(x.data); }); return a; };   // angezeigte Zeilen oben (Gruppen mit _children)
   G.destroy = () => { try { G.api.destroy(); } catch (e) { } box._G = null; box.style.height = ''; };
+  /* ab 1.84.0: Spalten wählen, Reihenfolge (auch per Tastatur), Dichte, zurücksetzen – nur Anzeige, je Tabelle gemerkt */
+  G.curOrder = () => G.api.getColumnState().map(s => s.colId).filter(id => id !== '_rc');
+  G.saveP = () => { if (!wk || !G.api || G.api.isDestroyed()) return; tblSave(wk, { order: G.curOrder(), hide: [...G.uhid], dense: G.dense ? 'compact' : 'normal' }); };
+  const fixedCol = id => { const c = G.cols.find(x => x.f === id); return !c || !!c.head || c.f === 'act'; };
+  G.setU = (f, on) => { if (on) G.uhid.delete(f); else G.uhid.add(f); G.fitted = false; G.fit(); G.sizeSoon(); G.saveP(); };
+  G.move = (f, dir) => {
+    const ord = G.curOrder(), mv = ord.filter(id => !fixedCol(id) && (G.cols.find(c => c.f === id) || {}).vis !== false), i = mv.indexOf(f), j = i + dir; if (i < 0 || j < 0 || j >= mv.length) return false;
+    const a = ord.indexOf(mv[i]), b = ord.indexOf(mv[j]); [ord[a], ord[b]] = [ord[b], ord[a]];
+    G.api.applyColumnState({ state: [{ colId: '_rc' }].concat(ord.map(colId => ({ colId }))), applyOrder: true }); G.saveP(); return true;
+  };
+  G.setDense = on => { G.dense = !!on; box.classList.toggle('gdense', G.dense); G.api.setGridOption('rowHeight', G.dense ? 32 : 46); G.api.resetRowHeights(); G.sizeSoon(); G.saveP(); };
+  G.reset = () => {
+    G.uhid = new Set(o.hide0 || []); G.dense = false; box.classList.remove('gdense'); G.api.setGridOption('rowHeight', 46);
+    if (wk) { delete LAYOUT.cols[wk]; layoutPush({ cols: { [wk]: null } }); tblSave(wk, null); }
+    G.api.applyColumnState({ state: [{ colId: '_rc' }].concat(G.cols.map(c => c.w ? { colId: c.f, width: c.w } : { colId: c.f, flex: c.grow || 1 })), applyOrder: true });
+    G.fitted = false; G.fit(); G.api.resetRowHeights(); G.sizeSoon();
+  };
+  G.colMenu = anchor => glColMenu(G, anchor);
+  { let b = o.colBtn || null;                          // Knopf „Spalten ▾“: vorgegeben, in o.colAt, sonst schmale Leiste über der Tabelle (ab 4 Spalten)
+    if (!b && o.colAt) b = o.colAt.querySelector(':scope > .gcolbtn') || o.colAt.appendChild(el('button', { type: 'button', className: 'chip gcolbtn' }));
+    if (!b && G.cols.filter(c => !c.head && c.f !== 'act').length >= 4 && o.colBar !== false) {
+      let bar = box.previousElementSibling; if (!bar || !bar.classList.contains('gtools')) { bar = el('div', { className: 'gtools' }); box.before(bar); }
+      b = bar.querySelector('.gcolbtn') || bar.appendChild(el('button', { type: 'button', className: 'chip gcolbtn' }));
+    }
+    if (b) { b.textContent = '▥ ' + t('g_cols') + ' ▾'; b.setAttribute('aria-haspopup', 'dialog'); b.setAttribute('aria-expanded', 'false'); b.title = t('g_cols_t');
+      b.onclick = e => { e.stopPropagation(); const g = box._G; if (g) g.colMenu(b); }; G.colBtnEl = b; }
+  }
   G.api = agGrid.createGrid(box, opts);
   if (o.label) requestAnimationFrame(() => { const r = box.querySelector('[role=treegrid],[role=grid]'); if (r && !r.getAttribute('aria-label')) r.setAttribute('aria-label', o.label); });
   box.oncontextmenu = e => { const r = rowEl(e); if (!r || !o.onCtx) return; const d = G.byId.get(r.getAttribute('row-id')); if (d) o.onCtx(e, d, r); };
   requestAnimationFrame(() => G.fit());
   return G;
+}
+/* Menü „Spalten ▾“ (ab 1.84.0): je Spalte an/aus und ← → (Reihenfolge, auch ohne Maus), Dichte bequem/kompakt, „Spalten zurücksetzen“.
+   Esc oder Klick daneben schließt, der Fokus geht zurück auf den Knopf. */
+let GCOL_N = 0;
+function glColMenu(G, anchor) {
+  document.querySelectorAll('.gcolpop').forEach(x => x._close ? x._close(false) : x.remove());
+  const pop = el('div', { className: 'gcolpop' }), uid = 'gcp' + (++GCOL_N);
+  pop.setAttribute('role', 'dialog'); pop.setAttribute('aria-labelledby', uid + 'h');
+  const name = c => c.menu || (/[\p{L}\d]/u.test(c.title || '') ? c.title : (c.aria || c.title || c.f));
+  const render = focus => {
+    const ord = G.curOrder(), list = ord.map(id => G.cols.find(c => c.f === id)).filter(c => c && !c.head && c.f !== 'act' && c.vis !== false);
+    pop.innerHTML = `<b id="${uid}h" class="gcph">${esc(t('g_cols_t'))}</b><ul class="gcpl">` + list.map((c, i) => { const n = esc(name(c));
+      return `<li data-f="${esc(c.f)}"><label><input type="checkbox"${G.uhid.has(c.f) ? '' : ' checked'}> <span>${n}</span></label>` +
+        `<button type="button" class="gcpm" data-d="-1" aria-label="${esc(t('g_col_l', { c: name(c) }))}" title="${esc(t('g_col_l', { c: name(c) }))}"${i ? '' : ' disabled'}>←</button>` +
+        `<button type="button" class="gcpm" data-d="1" aria-label="${esc(t('g_col_r', { c: name(c) }))}" title="${esc(t('g_col_r', { c: name(c) }))}"${i < list.length - 1 ? '' : ' disabled'}>→</button></li>`; }).join('') + `</ul>
+      <fieldset class="gcpdn"><legend>${esc(t('g_dense'))}</legend><label><input type="radio" name="${uid}d" value="normal"${G.dense ? '' : ' checked'}> ${esc(t('g_dense_n'))}</label><label><input type="radio" name="${uid}d" value="compact"${G.dense ? ' checked' : ''}> ${esc(t('g_dense_c'))}</label></fieldset>
+      <small class="gcphint">${esc(t('g_cols_hint'))}</small><small class="gcpmsg" role="status"></small>
+      <div class="gcpb"><button type="button" class="chip gcpr">↺ ${esc(t('g_cols_reset'))}</button><button type="button" class="chip pri gcpx">${esc(t('dash_done'))}</button></div>`;
+    pop.querySelectorAll('li').forEach(li => {
+      const f = li.dataset.f, cb = li.querySelector('input');
+      cb.onchange = () => { if (!cb.checked && !G.cols.some(c => c.f !== f && c.vis !== false && !c.head && c.f !== 'act' && !G.uhid.has(c.f))) { cb.checked = true; pop.querySelector('.gcpmsg').textContent = t('g_cols_min'); return; } G.setU(f, cb.checked); };
+      li.querySelectorAll('.gcpm').forEach(b => b.onclick = () => { if (G.move(f, +b.dataset.d)) { render(`li[data-f="${CSS.escape(f)}"] .gcpm[data-d="${b.dataset.d}"]`); const m = pop.querySelector('.gcpmsg'); const k = G.curOrder().filter(id => list.some(c => c.f === id)).indexOf(f); if (m) m.textContent = t('g_col_pos', { c: name(G.cols.find(c => c.f === f)), i: k + 1, n: list.length }); } });
+    });
+    pop.querySelectorAll('input[type=radio]').forEach(r => r.onchange = () => G.setDense(r.value === 'compact'));
+    pop.querySelector('.gcpr').onclick = () => { G.reset(); render('.gcpr'); pop.querySelector('.gcpmsg').textContent = t('g_cols_done'); };
+    pop.querySelector('.gcpx').onclick = () => close(true);
+    if (focus) { let f = pop.querySelector(focus); if (f && f.disabled) f = f.parentElement.querySelector('.gcpm:not([disabled])') || f.parentElement.querySelector('input'); if (f) f.focus(); }
+  };
+  const close = back => { pop.remove(); anchor.setAttribute('aria-expanded', 'false'); document.removeEventListener('click', out, true); removeEventListener('resize', place); if (back) anchor.focus(); };
+  const out = e => { if (!pop.contains(e.target) && e.target !== anchor && !anchor.contains(e.target)) close(false); };
+  const place = () => { const r = anchor.getBoundingClientRect(), w = Math.min(320, innerWidth - 16); pop.style.width = w + 'px';
+    pop.style.left = Math.max(8, Math.min(r.right - w, innerWidth - w - 8)) + 'px';
+    const top = r.bottom + 4, h = pop.offsetHeight; pop.style.top = (top + h > innerHeight - 8 && r.top - h - 4 > 8 ? r.top - h - 4 : Math.max(8, Math.min(top, innerHeight - Math.min(h, innerHeight - 16) - 8))) + 'px'; };
+  pop._close = close;
+  pop.onkeydown = e => { if (e.key === 'Escape') { e.preventDefault(); e.stopPropagation(); close(true); } };
+  pop.onclick = e => e.stopPropagation();
+  document.body.appendChild(pop); render('li input'); anchor.setAttribute('aria-expanded', 'true'); place();
+  setTimeout(() => document.addEventListener('click', out, true), 0); addEventListener('resize', place);
 }
 /* Gemeinsame Tabelle für alle kleinen Listen: aus einer einfachen <table> werden Spaltenfilter (Auswahl / Mindestwert / Text) und Sortierung.
    o.onRow(dataset, event) = Klick oder Eingabe auf einer Zeile (data-* der <tr>), o.head = Überschrift davor, o.max = maximale Höhe */
@@ -2207,16 +2285,28 @@ async function layoutFetch() {
 function layoutPush(b) {                               // gesammelt senden (Ziehen, Tippen) – auf dem Server gespeichert
   if (b.views) LAYOUT.pend.views = Object.assign(LAYOUT.pend.views || {}, JSON.parse(JSON.stringify(b.views)));
   if (b.cols) { const c = LAYOUT.pend.cols = LAYOUT.pend.cols || {}; for (const [k, v] of Object.entries(b.cols)) c[k] = v == null ? null : Object.assign(c[k] || {}, v); }
+  if (b.tbl) LAYOUT.pend.tbl = Object.assign(LAYOUT.pend.tbl || {}, JSON.parse(JSON.stringify(b.tbl)));   // Tabellen: ganzer Stand je Tabelle (null = Standard)
   clearTimeout(LAYOUT.t);
   LAYOUT.t = setTimeout(layoutFlush, 700);
 }
 async function layoutFlush() {
-  clearTimeout(LAYOUT.t); const body = LAYOUT.pend; LAYOUT.pend = {}; if (!body.views && !body.cols) return;
+  clearTimeout(LAYOUT.t); const body = LAYOUT.pend; LAYOUT.pend = {}; if (!body.views && !body.cols && !body.tbl) return;
   try { const j = await (await fetch('layout', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) })).json(); if (j && j.ok) { LAYOUT.srv = j.layout; LAYOUT.exists = true; } } catch (e) { }
 }
-addEventListener('pagehide', () => { if (LAYOUT.pend.views || LAYOUT.pend.cols) try { navigator.sendBeacon('layout', new Blob([JSON.stringify(LAYOUT.pend)], { type: 'application/json' })); LAYOUT.pend = {}; } catch (e) { } });
+addEventListener('pagehide', () => { if (LAYOUT.pend.views || LAYOUT.pend.cols || LAYOUT.pend.tbl) try { navigator.sendBeacon('layout', new Blob([JSON.stringify(LAYOUT.pend)], { type: 'application/json' })); LAYOUT.pend = {}; } catch (e) { } });
 function colWidths(key) { return (key && LAYOUT.cols[key]) || null; }
 function colSave(key, col, w) { if (!key) return; (LAYOUT.cols[key] = LAYOUT.cols[key] || {})[col] = w; layoutPush({ cols: { [key]: { [col]: w } } }); }
+/* ab 1.84.0 je Tabelle: Reihenfolge der Spalten, ausgeblendete Spalten, Dichte – in layout.json („tbl“), im Browser als Rückfall. Nur Anzeige. */
+function tblPref(key) {
+  const s = key && LAYOUT.srv && LAYOUT.srv.tbl && LAYOUT.srv.tbl[key]; if (s) return JSON.parse(JSON.stringify(s));
+  try { return (key && JSON.parse(localStorage.getItem('gl_tbl_' + key) || 'null')) || {}; } catch (e) { return {}; }
+}
+function tblSave(key, p) {
+  if (!key) return; LAYOUT.srv = LAYOUT.srv || { views: {}, cols: {} }; const tb = LAYOUT.srv.tbl = LAYOUT.srv.tbl || {};
+  if (p == null) delete tb[key]; else tb[key] = p;
+  try { if (p == null) localStorage.removeItem('gl_tbl_' + key); else localStorage.setItem('gl_tbl_' + key, JSON.stringify(p)); } catch (e) { }
+  layoutPush({ tbl: { [key]: p } });
+}
 function dashDefs() {
   const lv = $('liveview'), nv = $('nightview'), pg = nv.querySelector('.pgrid');
   let ha = $('nhalist'); if (!ha) { ha = el('div', { id: 'nhalist', className: 'nnotes nhalist' }); $('nnotes').after(ha); }
@@ -2224,12 +2314,16 @@ function dashDefs() {
     live: [
       { id: 'fn', t: 'pn_fn', nodes: [$('fnpanel')], w: 12 },
       { id: 'live', t: 'pn_stats', nodes: [$('srcbar') && $('srcbar').parentElement, $('tilebar'), $('vp0')], w: 12 },
+      { id: 'video', t: 'pn_video', nodes: [$('vpvid')], w: 12, auto: true, emp: () => $('vidlive').hidden },   // ab 1.84.0: Video, Spuren und Spektrogramm eigene Bereiche
       { id: 'graph', t: 'livetitle', nodes: [$('vp1')], w: 12 },   // ab 1.83.2 eigener Bereich: Notizen u. a. lassen sich zwischen Kacheln und Graph schieben
+      { id: 'lanes', t: 'pn_lanes', nodes: [$('vpsc')], w: 12, auto: true, emp: () => $('scmain').hidden && $('scld').hidden },
+      { id: 'spec', t: 'pn_spec', nodes: [$('vpsp')], w: 12 },
       { id: 'ldev', t: 'lev_title', nodes: [$('ldevcard')], w: 12 }],
     prot: [
       { id: 'sum', t: 'pn_sum', nodes: [$('nweek'), nv.querySelector('.nsum')], w: 12 },
       { id: 'run', t: 'pn_run', nodes: [$('nrun')], w: 12, auto: true },
       { id: 'day', t: 'dt_title', nodes: [$('ndaybox')], w: 12 },
+      { id: 'dlanes', t: 'pn_lanes', nodes: [$('scnd')], w: 12, auto: true, emp: () => $('scnd').hidden },
       { id: 'hours', t: 'hours', nodes: [pg && pg.children[0]], w: 6 },
       { id: 'days', t: 'days', nodes: [pg && pg.children[1]], w: 6 },
       { id: 'ev', t: 'list', nodes: [nv.querySelector('.pevcard')], w: 12, vis: true },
@@ -2282,7 +2376,10 @@ function dashMk(v, p, st, lay, gEl, items) {          // ein Bereich als Panel (
   hd.querySelector('.pren').onclick = () => dashRename(v, p.id);
   hd.ondblclick = e => { if (!e.target.closest('button')) hd.querySelector('.pcol').click(); };
   if (p.vis) hd.querySelector('.pvis').onclick = () => { st.vis[p.id] = !st.vis[p.id]; dashApply(v); dashSave(v); visChanged(); };
-  if (p.auto) { const n0 = ns[0]; const sync = () => { pn.classList.toggle('pempty', !!n0.hidden || !n0.childElementCount); const q = n0.classList.contains('quiet') && !n0.hidden && !!n0.childElementCount; if (!q) pn.classList.remove('pqopen'); pn.classList.toggle('pquiet', q); pn.querySelector('.pcol').textContent = pn.classList.contains('pcolx') || (q && !pn.classList.contains('pqopen')) ? '▸' : '▾'; }; new MutationObserver(sync).observe(n0, { attributes: true, attributeFilter: ['hidden', 'class'], childList: true }); sync(); }
+  if (p.auto && p.emp) {                              // Bereich ohne Inhalt (keine Sensoren, kein Video): außerhalb von „Layout anpassen“ ganz ausgeblendet
+    pn.classList.add('phe'); const sync = () => { const e = !!p.emp(); if (e !== pn.classList.contains('pempty')) { pn.classList.toggle('pempty', e); if (!e) dashResized(); } };
+    new MutationObserver(sync).observe(ns[0], { attributes: true, attributeFilter: ['hidden'], subtree: true }); sync();
+  } else if (p.auto) { const n0 = ns[0]; const sync = () => { pn.classList.toggle('pempty', !!n0.hidden || !n0.childElementCount); const q = n0.classList.contains('quiet') && !n0.hidden && !!n0.childElementCount; if (!q) pn.classList.remove('pqopen'); pn.classList.toggle('pquiet', q); pn.querySelector('.pcol').textContent = pn.classList.contains('pcolx') || (q && !pn.classList.contains('pqopen')) ? '▸' : '▾'; }; new MutationObserver(sync).observe(n0, { attributes: true, attributeFilter: ['hidden', 'class'], childList: true }); sync(); }
 }
 function dashItem(v, id) { const g = DASH.grids[v]; return g && g.el.querySelector(`:scope > .grid-stack-item[gs-id="${CSS.escape(id)}"]`); }
 function dashCol(v, id) {
@@ -2319,7 +2416,11 @@ function dashMove(v, id, dir) {
   const a = ns[i], b = ns[j];
   if (g.getColumn() === 12) {
     const pa = { x: a.x, y: a.y }, pb = { x: b.x, y: b.y };
-    g.batchUpdate(); g.update(a.el, { x: Math.min(pb.x, 12 - a.w), y: pb.y }); g.update(b.el, { x: Math.min(pa.x, 12 - b.w), y: pa.y }); g.batchUpdate(false);
+    if (a.y === b.y) { g.batchUpdate(); g.update(a.el, { x: Math.min(pb.x, 12 - a.w), y: pb.y }); g.update(b.el, { x: Math.min(pa.x, 12 - b.w), y: pa.y }); g.batchUpdate(false); }
+    else {                                             // übereinander (ab 1.84.0 auch bei ungleicher Höhe): der obere Platz bekommt den, der nach oben soll, der andere direkt darunter
+      const top = a.y < b.y ? a : b, bot = top === a ? b : a, first = dir < 0 ? a : b, second = first === a ? b : a, y0 = top.y, tx = top.x, bx = bot.x;
+      g.batchUpdate(); g.update(second.el, { y: y0 + first.h + 1000 }); g.update(first.el, { x: Math.min(tx, 12 - first.w), y: y0 }); g.update(second.el, { x: Math.min(bx, 12 - second.w), y: y0 + first.h }); g.batchUpdate(false);
+    }
   } else {                                             // eine Spalte (Handy): Reihenfolge tauschen, dieselbe Vertauschung in der PC-Anordnung
     const order = ns.map(n => n.id); [order[i], order[j]] = [order[j], order[i]];
     const lay = {}; for (const x of st.lay || []) lay[x.id] = x;
@@ -2384,6 +2485,18 @@ function dashInit() {
       const ord = [...st.lay].sort((a, b) => a.y - b.y || a.x - b.x).map(x => x.id), ws = {}; for (const x of st.lay) ws[x.id] = x.w;
       ord.splice(ord.indexOf('live') + 1, 0, 'graph'); ws.graph = ws.live || 12;
       st.lay = dashFlow(ord, ws); st._mig = true;
+    }
+    {                                                  // ab 1.84.0: Teile von „Live“ bzw. „Verlauf“ als eigene Bereiche – ältere Anordnung sieht gleich aus (direkt um den Graph, gleiche Breite, ausgeblendet/eingeklappt wie er)
+      const base = v === 'live' ? 'graph' : 'day', pre = v === 'live' ? ['video'] : [], post = v === 'live' ? ['lanes', 'spec'] : ['dlanes'], nw = pre.concat(post);
+      const known = id => (st.lay || []).some(x => x.id === id) || st.off.includes(id) || !!st.col[id];
+      if (st.lay && st.lay.length && !nw.some(known) && (st.lay.some(x => x.id === base) || st.off.includes(base))) {
+        const ord = [...st.lay].sort((a, b) => a.y - b.y || a.x - b.x).map(x => x.id), ws = {}; for (const x of st.lay) ws[x.id] = x.w;
+        const i = ord.indexOf(base);
+        if (i >= 0) { ord.splice(i + 1, 0, ...post); ord.splice(i, 0, ...pre); nw.forEach(id => { ws[id] = ws[base] || 12; }); st.lay = dashFlow(ord, ws); }
+        if (st.off.includes(base)) nw.forEach(id => st.off.push(id));
+        if (st.col[base]) post.forEach(id => { st.col[id] = true; });
+        st._mig = true;
+      }
     }
     const lay = {}; for (const x of st.lay || []) lay[x.id] = x;
     const items = [];
@@ -4292,7 +4405,7 @@ const FORM = [
     ['rise_s', 'num', 0.5, 3600, 0.5, null, ['dynamic', 'bounded']],
     ['fall_s', 'num', 0.5, 3600, 0.5, null, ['dynamic', 'bounded']],
     ['min_event_ms', 'num', 0, 2000, 20]]],
-  ['s_ki', [['classify', 'chk'], ['ki_embed', 'chk'], ['fp_store', 'chk']]],
+  ['s_ki', [['classify', 'chk'], ['ki_min', 'num', 5, 90, 1, 'classify'], ['ki_bg', 'chk', 'classify'], ['ki_short', 'chk', 'classify'], ['ki_short_ms', 'num', 20, 1000, 10, 'ki_short'], ['ki_damp', 'text', 'classify'], ['ki_learn_fix', 'chk', 'classify'], ['ki_learn_min', 'num', 60, 98, 1, 'ki_learn_fix'], ['ki_embed', 'chk'], ['fp_store', 'chk']]],
   ['s_quiet', [['quiet_from', 'time'], ['quiet_to', 'time'], ['quiet_sunday', 'chk']]],
   ['s_rec', [['ctx_s', 'num', 0, 120, 1], ['day_layers', 'chk'], ['day_spec', 'chk'], ['co_record', 'chk']]],
   ['s_wav', [['save_audio', 'chk'], ['audio_novoice', 'chk', 'save_audio'], ['pre_roll_s', 'num', 0, 30, 0.1, 'save_audio'], ['post_roll_s', 'num', 0.1, 60, 0.1, 'save_audio'], ['max_clip_s', 'num', 1, 300, 0.5, 'save_audio']]],
@@ -4329,7 +4442,7 @@ function fillPorts(sel, dev, val) {
 /* Pro Geraet einstellbare Werte (wie PER_KEYS im Server) */
 const PER = ['thr_mode', 'offset_db', 'thr_fixed_db', 'min_db', 'thr_max_db', 'bg_window', 'bg_unit', 'bg_stat', 'rise_s', 'fall_s',
   'min_event_ms', 'pre_roll_s', 'post_roll_s', 'max_clip_s', 'active_from', 'active_to', 'save_audio', 'audio_novoice', 'day_track', 'day_layers', 'day_spec', 'fp_store'];
-const GLOBAL_ONLY = ['mirror_dir', 'mirror_time', 'mirror_offload', 'retention_days', 'auto_delete', 'classify', 'ki_embed', 'ctx_s', 'co_record', 'group_pause_s', 'fn_pre_min', 'fn_post_min', 'fn_gr_pre_min', 'fn_gr_post_min', 'clip_dir', 'video_width', 'video_fps', 'video_crf', 'quiet_from', 'quiet_to', 'quiet_sunday'];
+const GLOBAL_ONLY = ['mirror_dir', 'mirror_time', 'mirror_offload', 'retention_days', 'auto_delete', 'classify', 'ki_min', 'ki_bg', 'ki_short', 'ki_short_ms', 'ki_damp', 'ki_learn_fix', 'ki_learn_min', 'ki_embed', 'ctx_s', 'co_record', 'group_pause_s', 'fn_pre_min', 'fn_post_min', 'fn_gr_pre_min', 'fn_gr_post_min', 'clip_dir', 'video_width', 'video_fps', 'video_crf', 'quiet_from', 'quiet_to', 'quiet_sunday'];
 let DEV = '';                                  // '' = Alle Geraete (Standard), sonst Quellen-ID
 function srcById(id) { return SOURCES.find(s => s.id === id); }
 /* Geräte zum Ansehen: eingerichtete und ehemalige (Daten vorhanden, Gerät nicht mehr eingerichtet, z. B. nach dem Einspielen) */
@@ -6246,6 +6359,7 @@ function syncLongSpan() {
   const on = histOn();
   $('ldaybox').hidden = !on;
   document.querySelectorAll('.cvwrap').forEach(e => e.classList.toggle('longhide', on));
+  $('spec').hidden = on; $('ldsp').hidden = !on; if (!on) slHide('scld');   // Spektrogramm und Spuren stehen in eigenen Bereichen: kurz oder lang
   clearInterval(LDT.timer); LDT.timer = null;
   if (on) {
     dtLoad(LDT, LDT.zoom);
@@ -6441,7 +6555,7 @@ function levRender() {
   const def = {
     tm: { f: 'start', title: levHead('tm'), sort: 'num', minW: 76, prio: 0, flt: 'txt', fpass: (v, d) => hm(d.start).includes(v), html: d => esc(hm(d.start)) },
     src: Object.assign({ f: 'src', title: levHead('src'), minW: 150, grow: 2, prio: 3, cls: 'srcc', html: d => d.fn ? `<span class="si">📝</span><span class="sn"><b>${esc(d.src)}</b></span>` : d.r ? srcCell(d.r).replace(/^<td[^>]*>/, '').replace(/<\/td>$/, '') : `<span class="si">${d.x.kind === 'ha' ? '🏠' : '📱'}</span><span class="sn"><b>${esc(d.src)}</b></span>` }, ms('src')),
-    art: Object.assign({ f: 'tags', title: levHead('art'), minW: 120, grow: 2, sort: false, prio: 1, html: d => d.fn ? `<span class="art fnc">📝 ${esc(t('fn_row'))}</span>${d.fev ? `<span class="art fnlk">🔗 ${esc(t('fn_link', { c: clockOf(d.fev.start) }))}</span>` : ''}` : d.r ? `${d.r.prof ? `<span class="art prof${d.r.bg ? ' bgp' : ''}">🧩 ${esc(d.r.prof)}${d.r.prof_ok ? ' ✓' : d.r.prof_c != null ? ` <small>${d.r.prof_c} %</small>` : ''}</span>` : ''}${(d.r.labels || []).map(n => `<span class="art lbl">🏷 ${esc(n)}</span>`).join('')}${mfChip(d.r)}${d.r.art ? artChip(d.r.art, d.r.art_c, d.r.art_man || d.r.art_ok, d.r.k) : ''}` : `<span class="art sensc">${sensIcon(d.x.kind)} ${esc(sensLabel(d.x))}</span>` }, ms('tags')),
+    art: Object.assign({ f: 'tags', title: levHead('art'), minW: 120, grow: 2, sort: false, prio: 1, html: d => d.fn ? `<span class="art fnc">📝 ${esc(t('fn_row'))}</span>${d.fev ? `<span class="art fnlk">🔗 ${esc(t('fn_link', { c: clockOf(d.fev.start) }))}</span>` : ''}` : d.r ? `${d.r.prof ? `<span class="art prof${d.r.bg ? ' bgp' : ''}">🧩 ${esc(d.r.prof)}${d.r.prof_ok ? ' ✓' : d.r.prof_c != null ? ` <small>${d.r.prof_c} %</small>` : ''}</span>` : ''}${(d.r.labels || []).map(n => `<span class="art lbl">🏷 ${esc(n)}</span>`).join('')}${mfChip(d.r)}${d.r.art ? artChip(d.r.art, d.r.art_c, d.r.art_man || d.r.art_ok, d.r.k, d.r.art_lern != null ? d.r.art_lki : null) : ''}` : `<span class="art sensc">${sensIcon(d.x.kind)} ${esc(sensLabel(d.x))}</span>` }, ms('tags')),
     sc: { f: 'sc', title: levHead('sc'), minW: 130, sort: false, prio: 3, flt: 'ms', aria: t('sc_col_a'), vals: () => SC_ST.map(scLabel), fpass: (v, d) => v.includes(scLabel(d.r ? (d.r.sc || {}).s || '' : '')), html: d => d.r ? scChip(d.r.sc) : '' },
     kinds: { f: 'kinds', title: levHead('kinds'), minW: 140, sort: false, prio: 4, html: d => d.r ? kindsHTML(d.r.kinds, j.fine) : '' },
     devs: { f: 'devs', title: levHead('devs'), minW: 120, sort: false, prio: 6, html: d => d.r && (d.r.devs || []).length > 1 ? d.r.devs.map((x, i) => `<span class="dvp${i === 0 ? ' top' : ''}">${esc(shortName(x[1]))} ${x[2] != null ? x[2].toFixed(0) : '–'}</span>`).join('') : '<span class="noclip">–</span>' },
@@ -6449,18 +6563,20 @@ function levRender() {
     pk: Object.assign({ f: 'pk', title: levHead('pk'), sort: 'num', minW: 100, prio: 5, cls: 'pk', html: d => d.pk == null ? '' : esc(d.r ? fdb(d.pk) : f2(d.pk)) + ' <small>' + esc(d.r ? 'dBFS' : (d.x.unit || '')) + '</small>' }, num()),
     thr: Object.assign({ f: 'thr', title: levHead('thr'), sort: 'num', minW: 100, prio: 7, html: d => d.r ? esc(fdb(d.thr)) : '' }, num()),
     bg: Object.assign({ f: 'bg', title: levHead('bg'), sort: 'num', minW: 100, prio: 7, html: d => d.r ? esc(fdb(d.bg)) : '' }, num()),
-    nt: { f: 'nt', title: '📝', minW: 80, prio: 4, flt: 'txt', html: d => esc(d.nt || '') },
+    nt: { f: 'nt', title: '📝', minW: 140, grow: 2, prio: 4, flt: 'txt', one: true, cls: 'g1', html: d => d.nt ? `<span class="g1t" title="${esc(d.nt)}">${esc(d.nt)}</span>` : '' },   // eine Zeile, ganzer Text im Hinweis und für Screenreader
   };
-  def.nt.aria = t('col_text');
+  def.nt.aria = t('col_text'); def.nt.menu = '📝 ' + t('fn_row'); def.tm.cls = 'tm'; def.tm.minW = LEV.rng === 'today' || LEV.vis ? 84 : 128; def.sc.minW = 165;
   const hasSc = evs.some(r => r.sc && r.sc.s);
-  const cols = LEV.cols.filter(c => (useArt || (c !== 'art' && c !== 'kinds')) && (c !== 'devs' || multi) && (c !== 'sc' || hasSc)).map(c => Object.assign({}, def[c]));
+  // ab 1.84.0: alle passenden Spalten an die Tabelle; an/aus, Reihenfolge und Dichte über „Spalten ▾“ (gemerkt in layout.json). Ältere Auswahl (laerm_lev) gilt als Vorgabe.
+  const cols = LEV_COLS.filter(c => (useArt || (c !== 'art' && c !== 'kinds')) && (c !== 'devs' || multi) && (c !== 'sc' || hasSc)).map(c => Object.assign({}, def[c]));
+  const hide0 = LEV_COLS.filter(c => !LEV.cols.includes(c)).map(c => def[c].f);
   if (typeof agGrid === 'undefined') return;
-  const key = JSON.stringify([lang, LEV.cols, useArt, multi, hasSc]);
+  const key = JSON.stringify([lang, useArt, multi, hasSc]);
   const ph = t(LEV.vis ? 'lev_none' : 'lev_none_rng');
   if (!LTBL || LTBL_KEY !== key) {
     if (LTBL) { LTBL.destroy(); LTBL = null; }
     LTBL_KEY = key;
-    LTBL = glGrid(box, { cols, rows, max: '60vh', ph, wkey: 'live_ev', sort: [{ colId: 'start', sort: 'desc' }], label: levTitle(), rowCls: () => ['gclk'],
+    LTBL = glGrid(box, { cols, rows, max: '60vh', ph, wkey: 'live_ev', hide0, colBtn: $('ldevcfg'), sort: [{ colId: 'start', sort: 'desc' }], label: levTitle(), rowCls: () => ['gclk'],
       onModel: G => levCount(G.shown(), G.nFilters()),
       onRow: (e, d) => { if (d.fn) { if (d.fev && e.target.closest && e.target.closest('.fnlk')) openEvent(d.fev.k || ''); else fnOpenId(d.fn); return; } if (d.k) openEvent(d.k); else if (d.x && d.x.kind === 'ha') haPop({ a: d.x.a, b: d.x.b, name: sensLabel(d.x), note: d.x.note || '', key: d.x.key }); } });
   } else { LTBL.setPh(ph); LTBL.setRows(rows); }
@@ -6482,7 +6598,7 @@ function initLev() {
   if (!$('ldev')) return;
   $('ldevsrc').value = LEV.src;
   $('ldevsrc').onchange = () => { LEV.src = $('ldevsrc').value; levSave(); levLoad(true); };
-  $('ldevcfg').onclick = () => { const b = $('ldevcols'); b.hidden = !b.hidden; if (!b.hidden) levCols(); };
+  $('ldevcfg').onclick = e => { e.stopPropagation(); if (LTBL) LTBL.colMenu($('ldevcfg')); };   // ab 1.84.0 kompaktes Menü „Spalten ▾“ statt der Kästchen-Reihe (levCols bleibt nur als Rückfall ohne Tabelle)
   const rs = $('ldevrng'); rs.innerHTML = LEV_RNG.map(k => `<option value="${k}">${esc(t('lev_r_' + k))}</option>`).join(''); rs.value = LEV.rng;
   const cf = $('ldevcf'), ct = $('ldevct'); cf.value = LEV.cf || dtl(new Date(new Date(nowServer()).setHours(0, 0, 0, 0))).slice(0, 16); ct.value = LEV.ct || dtl(new Date(nowServer())).slice(0, 16);
   $('ldevcus').hidden = LEV.rng !== 'custom';

@@ -231,7 +231,7 @@ def fine_meta(lang="de"):
     return out
 
 
-def analyse_full(x, max_patches=400, want_emb=False):
+def analyse_full(x, max_patches=400, want_emb=False, dur_s=None):
     """Wie analyse(), zusaetzlich je Fenster (0,975 s, Abstand 0,4875 s) die feinen Arten und auf Wunsch
     der 1024-stellige KI-Fingerabdruck (Embedding). Der Ton selbst wird nirgends gespeichert."""
     with _LOCK:
@@ -242,8 +242,9 @@ def analyse_full(x, max_patches=400, want_emb=False):
         if len(x) > (max_patches - 1) * yamnet_np.HOP + yamnet_np.PATCH:
             x = x[: (max_patches - 1) * yamnet_np.HOP + yamnet_np.PATCH]
         sc, emb = net.scores_emb(x, max_patches=max_patches)
-    res = summarize(sc, x, net.names)
-    res["patches"] = patch_marks(sc, x)
+    lv = patch_db(sc, x)
+    res = summarize(sc, x, net.names, dur_s=dur_s, lv=lv)
+    res["patches"] = patch_marks(sc, x, dur_s=dur_s, lv=lv)
     # hoechster Stimmwert ueber alle Fenster (auch leise), roh und ungewichtet - fuer die Stimm-Sicherung
     res["voice_max"] = int(math.ceil(100 * float(sc[:, VOICE_CLASSES].max()))) if len(sc) else 100
     if want_emb:
@@ -251,25 +252,89 @@ def analyse_full(x, max_patches=400, want_emb=False):
     return res
 
 
-def summarize(sc, x, names):
-    """Gruppen, Top-Klassen und Zeitverlauf aus den Fensterwerten (wie analyse())."""
+# Robuste Bewertung (ab 1.84): Einstellungen kommen aus GLighter (TUNE wird dort gesetzt)
+TUNE = {"min": 0.25,          # Mindestsicherheit einer Art (sonst „unklar“)
+        "bg": True,           # Klassen, die schon im ruhigen Umfeld (±1 s) da sind, abziehen
+        "short": True,        # sehr kurze Ausschläge: Arten, die Dauer brauchen (Stimme, Tier, Musik, Rauschen), dämpfen
+        "short_s": 0.15, "short_f": 0.25,
+        "margin": 0.08,       # Abstand zur zweitbesten Art; knapper: Sicherheit wird halbiert
+        "damp": {}}           # Art -> Faktor (0 = nie, 0,5 = halbe Sicherheit), z. B. {"animal": 0.5} oder {"cat": 0}
+SUSTAINED = ("voice", "tv", "animal", "noise")
+SUSTAINED_FINE = None          # feine Arten der Gruppen oben (wird beim ersten Aufruf gebildet)
+
+
+def patch_db(sc, x):
+    """Pegel je Fenster in dB (aus dem Ton) – wird mit gespeichert, damit eine spätere Neubewertung ohne Ton gleich rechnet."""
     P = len(sc)
     hop, pl = yamnet_np.HOP, yamnet_np.PATCH
-    w = np.ones(sc.shape[1], np.float32)
+    if x is None or not len(x):
+        return None
+    return [round(20 * math.log10(float(np.sqrt(np.mean(x[i * hop:i * hop + pl] ** 2) + 1e-12))), 1) for i in range(P)]
+
+
+def _loud_quiet(P, lv):
+    """Laute Fenster (bis 6 dB unter dem lautesten, höchstens 4) und ruhiges Umfeld (mindestens 10 dB leiser)."""
+    if lv is None or len(lv) != P:
+        return np.arange(P), np.array([], int), np.ones(P)
+    lv = np.asarray(lv, float); mx = float(lv.max())
+    loud = np.where(lv >= mx - 6)[0]
+    loud = loud[np.argsort(-lv[loud])][:4]
+    quiet = np.where(lv <= mx - 10)[0]
+    w = 10 ** ((lv - mx) / 20.0)                        # Gewicht nach Lautstärke
+    return loud, quiet, w
+
+
+def _clean(sc, lv):
+    """Gewichtete Klassenwerte; mit ruhigem Umfeld wird abgezogen, was dort schon zu hören war (Brummen, Fernseher, Modell-Neigung)."""
+    w_ = np.ones(sc.shape[1], np.float32)
     for c, v in WEIGHT.items():
-        w[c] = v
-    sc = sc * w
+        w_[c] = v
+    sc = sc * w_
+    loud, quiet, w = _loud_quiet(len(sc), lv)
+    if TUNE.get("bg", True) and len(quiet) >= 2:
+        bg = np.median(sc[quiet], axis=0)
+        sc = np.clip(sc - bg, 0.0, None)
+    return sc, loud, w
+
+
+def _damp(gloud, dur_s, fine=False):
+    """Dämpfen: kurze Ausschläge (Dauer-Arten) und vom Benutzer gedämpfte Arten."""
+    global SUSTAINED_FINE
+    if SUSTAINED_FINE is None:
+        SUSTAINED_FINE = {k for k, v in FINE.items() if v[3] in SUSTAINED}
+    short = TUNE.get("short", True) and dur_s is not None and dur_s < float(TUNE.get("short_s", 0.15))
+    sus = SUSTAINED_FINE if fine else set(SUSTAINED)
+    dm = TUNE.get("damp") or {}
+    for g in list(gloud):
+        f = 1.0
+        if short and g in sus:
+            f *= float(TUNE.get("short_f", 0.5))
+        grp = FINE[g][3] if fine and g in FINE else g
+        if grp in dm:
+            f *= float(dm[grp])
+        if fine and g in dm:
+            f *= float(dm[g])
+        gloud[g] = gloud[g] * f
+    return gloud
+
+
+def summarize(sc, x, names, dur_s=None, lv=None):
+    """Gruppen, Top-Klassen und Zeitverlauf aus den Fensterwerten. Robust (ab 1.84): Mittel über die lauten Fenster
+    statt einer einzelnen Spitze, ruhiges Umfeld abgezogen, kurze Ausschläge plausibel bewertet, knappe Entscheidungen unsicher."""
+    P = len(sc)
+    if lv is None and x is not None and len(x):
+        lv = patch_db(sc, x)
+    sc, loud, w = _clean(np.asarray(sc, np.float32), lv)
     gs = {g: sc[:, idx].max(axis=1) for g, idx in GROUPS.items()}
-    if x is not None and len(x):
-        rms = np.array([float(np.sqrt(np.mean(x[i * hop:i * hop + pl] ** 2) + 1e-12)) for i in range(P)])
-    else:
-        rms = np.ones(P)
-    loud = np.where(rms >= rms.max() * 0.5)[0]
-    loud = loud[np.argsort(-rms[loud])][:4]
-    gloud = {g: float(gs[g][loud].max()) for g in gs}
-    best = max(gloud, key=gloud.get)
-    art, conf = (best, gloud[best]) if gloud[best] >= MIN_SCORE else ("other", gloud[best])
-    top_scores = sc[loud].max(axis=0)
+    wl = w[loud] / max(1e-9, float(w[loud].sum()))
+    gloud = {g: float((gs[g][loud] * wl).sum()) for g in gs}      # gewichtetes Mittel statt Spitze
+    gloud = _damp(gloud, dur_s)
+    order = sorted(gloud, key=lambda g: -gloud[g])
+    best = order[0]; conf = gloud[best]
+    if len(order) > 1 and conf - gloud[order[1]] < float(TUNE.get("margin", 0.08)):
+        conf *= 0.5                                               # knapp: unsicher
+    art = best if conf >= float(TUNE.get("min", 0.25)) else "other"
+    top_scores = (sc[loud] * wl[:, None]).sum(axis=0)
     top = []
     for c in np.argsort(-top_scores)[:5]:
         if top_scores[c] < 0.03:
@@ -277,25 +342,26 @@ def summarize(sc, x, names):
         top.append({"name": names[c], "pct": int(round(100 * float(top_scores[c]))), "group": group_of(int(c))})
     return {"ok": True, "art": art, "conf": int(round(100 * conf)), "top": top,
             "groups": {g: int(round(100 * v)) for g, v in sorted(gloud.items(), key=lambda kv: -kv[1])},
-            "seconds": round((len(x) if x is not None else 0) / 16000.0, 1)}
+            "seconds": round((len(x) if x is not None else 0) / 16000.0, 1), "pdb": lv}
 
 
-def patch_marks(sc, x=None):
-    """Je Fenster die staerkste feine Art (oder None) mit Sicherheit in %. Leise Fenster (25 dB unter dem
-    lautesten) bekommen keinen Marker, damit Stille nicht beschriftet wird."""
+def patch_marks(sc, x=None, dur_s=None, lv=None):
+    """Je Fenster die stärkste feine Art (oder None) mit Sicherheit in %. Leise Fenster (25 dB unter dem lautesten)
+    bekommen keinen Marker. Wie oben: Umfeld abgezogen, kurze Ausschläge und gedämpfte Arten berücksichtigt."""
     keys, idx = _fine_index()
     P = len(sc)
-    hop, pl = yamnet_np.HOP, yamnet_np.PATCH
-    if x is not None and len(x):
-        lv = np.array([20 * math.log10(float(np.sqrt(np.mean(x[i * hop:i * hop + pl] ** 2) + 1e-12))) for i in range(P)])
-        loud = lv >= lv.max() - 25
-    else:
-        loud = np.ones(P, bool)
+    if lv is None and x is not None and len(x):
+        lv = patch_db(sc, x)
+    loud = (np.asarray(lv, float) >= max(lv) - 25) if lv is not None and len(lv) == P else np.ones(P, bool)
+    sc, _l, _w = _clean(np.asarray(sc, np.float32), lv)
     fs = np.stack([sc[:, ix].max(axis=1) for ix in idx], axis=1)      # (P, Arten)
+    fac = np.array([_damp({k: 1.0}, dur_s, fine=True)[k] for k in keys], np.float32)
+    fs = fs * fac
+    mn = max(FINE_MIN, float(TUNE.get("min", 0.25)) * 0.8)
     out = []
     for i in range(P):
         j = int(np.argmax(fs[i])); v = float(fs[i, j])
-        out.append([keys[j], int(round(100 * v))] if (loud[i] and v >= FINE_MIN) else None)
+        out.append([keys[j], int(round(100 * v))] if (loud[i] and v >= mn) else None)
     return out
 
 

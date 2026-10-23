@@ -33,7 +33,7 @@ HERE = os.path.dirname(os.path.abspath(__file__))
 WEB = os.path.join(HERE, "web")
 OPTIONS_FILE = os.environ.get("LAERM_OPTIONS", "/data/options.json")
 SETTINGS_FILE = os.environ.get("LAERM_SETTINGS", "/data/settings.json")
-VERSION = "1.83.2"
+VERSION = "1.84.0"
 
 # =====================================================================
 # Einstellungen
@@ -47,7 +47,7 @@ DEFAULTS = {
     "group_pause_s": 120, "fn_assign_min": 5, "fn_pre_min": 2, "fn_post_min": 15, "fn_gr_pre_min": 10, "fn_gr_post_min": 30,
     "auto_delete": False, "retention_days": 90,
     "active_from": "", "active_to": "", "mqtt": True, "output_dir": "/share/gaslighter_beta" if (os.environ.get("LAERM_CHANNEL") == "beta" or "gaslighter-beta" in os.environ.get("HOSTNAME", "")) else "/share/gaslighter", "language": "auto",
-    "mic_port": "", "classify": True, "ki_embed": False,
+    "mic_port": "", "classify": True, "ki_embed": False, "ki_min": 25, "ki_bg": True, "ki_short": True, "ki_short_ms": 150, "ki_damp": "", "ki_learn_fix": True, "ki_learn_min": 75,
     "clip_dir": "", "video_width": 640, "video_fps": 5, "video_crf": 30,
     "quiet_from": "22:00", "quiet_to": "06:00", "quiet_sunday": True, "art_silent": "", "mirror_dir": "", "mirror_time": "03:30", "mirror_offload": False,
     "wheel_zoom": "ctrl", "auto_thr": "thr", "tip_mode": "hover",
@@ -62,7 +62,7 @@ SPEC = {
     "pre_roll_s": ("num", 0, 30, 0.1), "post_roll_s": ("num", 0.1, 60, 0.1), "max_clip_s": ("num", 1, 300, 0.5),
     "ctx_s": ("int", 0, 120), "day_track": ("bool",), "day_layers": ("bool",), "day_spec": ("bool",), "co_record": ("bool",), "fp_store": ("bool",), "group_pause_s": ("int", 10, 3600), "fn_assign_min": ("int", 0, 60), "fn_pre_min": ("int", 0, 120), "fn_post_min": ("int", 0, 120), "fn_gr_pre_min": ("int", 0, 120), "fn_gr_post_min": ("int", 0, 120), "save_audio": ("bool",), "audio_novoice": ("bool",), "auto_delete": ("bool",), "retention_days": ("int", 1, 3650),
     "active_from": ("time",), "active_to": ("time",), "mqtt": ("bool",), "output_dir": ("str",),
-    "language": ("choice", ["auto", "de", "en"]), "mic_port": ("optstr",), "classify": ("bool",), "ki_embed": ("bool",),
+    "language": ("choice", ["auto", "de", "en"]), "mic_port": ("optstr",), "classify": ("bool",), "ki_embed": ("bool",), "ki_min": ("int", 5, 90), "ki_bg": ("bool",), "ki_short": ("bool",), "ki_short_ms": ("int", 20, 1000), "ki_damp": ("optstr",), "ki_learn_fix": ("bool",), "ki_learn_min": ("int", 60, 98),
     "clip_dir": ("optstr",), "video_width": ("int", 0, 3840), "video_fps": ("int", 1, 30), "video_crf": ("int", 18, 40),
     "quiet_from": ("time",), "quiet_to": ("time",), "quiet_sunday": ("bool",), "art_silent": ("optstr",), "mirror_dir": ("optstr",), "mirror_time": ("time",), "mirror_offload": ("bool",),
     "wheel_zoom": ("choice", ["ctrl", "always"]), "auto_thr": ("choice", ["thr", "data"]), "tip_mode": ("choice", ["hover", "always", "off"]),
@@ -3805,6 +3805,17 @@ def art_group(e):
 
 
 def art_fields(datei):
+    """Geräuschart für Anzeige und Export; ab 1.84.0 mit Vorschlag aus eigenen Korrekturen (art_lern = Ähnlichkeit %, art_lki = Art der Erkennung).
+    Nur berechnet – art.json, bestaetigt.json und log.csv bleiben unverändert."""
+    out = art_fields0(datei)
+    if datei and not out.get("art_man") and not out.get("art_ok"):
+        s_ = kl_sug(datei)
+        if s_:
+            out.update(art_lki=out.get("art") or "", art_lki_c=out.get("art_c"), art=s_[0], art_c=s_[1], art_lern=s_[1])
+    return out
+
+
+def art_fields0(datei):
     e = art_all().get(datei) if datei else None
     if not e:
         b_ = best_of(datei)
@@ -4026,6 +4037,35 @@ def ki_from_result(res, off, emb=None):
     return d
 
 
+KI_GROUPS = ("knock", "door", "steps", "voice", "tv", "scrape", "signal", "animal", "noise")
+
+
+def ki_damp_parse(s):
+    """„animal:0.5, cat:0“ → {Art: Faktor}. Gruppen oder feine Arten; Faktor 0 (nie) bis 1 (normal)."""
+    out = {}
+    fine = set(getattr(classify, "FINE", {}) or {}) if classify is not None else set()
+    for part in re.split(r"[,;\s]+", str(s or "")):
+        k, _, v = part.partition(":")
+        k = k.strip().lower()
+        if not k or (k not in KI_GROUPS and k not in fine):
+            continue
+        try:
+            f = max(0.0, min(1.0, float(v.replace(",", ".")))) if v else 0.0
+        except ValueError:
+            continue
+        out[k] = f
+    return out
+
+
+def ki_tune():
+    """Einstellungen der robusten KI-Bewertung an classify.py weitergeben."""
+    if classify is None:
+        return
+    classify.TUNE.update(min=max(5, min(90, int(CFG.get("ki_min", 25) or 25))) / 100.0, bg=CFG.get("ki_bg", True) is not False,
+                         short=CFG.get("ki_short", True) is not False, short_s=max(20, min(1000, int(CFG.get("ki_short_ms", 150) or 150))) / 1000.0,
+                         damp=ki_damp_parse(CFG.get("ki_damp", "")))
+
+
 def art_worker():
     while True:
         _p, _n, datei, rid, pl = ART_Q.get()
@@ -4040,8 +4080,10 @@ def art_worker():
                 emb = np.stack([np.frombuffer(base64.b64decode(e), np.uint8).astype(np.float32) * (sc / 255.0)
                                 for e, sc in zip(ki["emb"], ki["esc"])])
                 sc, names = classify.scores_from_emb(emb)
-                res = classify.summarize(sc, None, names)
-                res["patches"] = classify.patch_marks(sc, None)
+                ki_tune()
+                lv = ki.get("pdb") if isinstance(ki.get("pdb"), list) and len(ki["pdb"]) == len(sc) else None
+                res = classify.summarize(sc, None, names, dur_s=ki.get("dur"), lv=lv)
+                res["patches"] = classify.patch_marks(sc, None, dur_s=ki.get("dur"), lv=lv)
                 ki.update(ki_from_result(res, ki.get("off", 0)), emb=ki["emb"], esc=ki["esc"])
             else:
                 x = classify.pcm_to_float(pl["audio"].tobytes(), pl["rate"])
@@ -4054,9 +4096,14 @@ def art_worker():
                     if rest:
                         x = np.concatenate([x, np.zeros(H_ - rest, np.float32)])
                 mp = max(400, int(math.ceil(max(0, len(x) - classify.yamnet_np.PATCH) / classify.yamnet_np.HOP)) + 1) if pl.get("wav") else 400
-                res = classify.analyse_full(x, max_patches=mp, want_emb=bool(CFG.get("ki_embed")))
+                ki_tune()
+                res = classify.analyse_full(x, max_patches=mp, want_emb=bool(CFG.get("ki_embed")), dur_s=pl.get("dur"))
                 del x
                 ki = ki_from_result(res, pl["off"], res.get("emb"))
+                if res.get("pdb"):                         # Pegel je Fenster und Dauer: Neubewertung ohne Ton rechnet später genauso
+                    ki["pdb"] = res["pdb"]
+                if pl.get("dur") is not None:
+                    ki["dur"] = round(float(pl["dur"]), 3)
                 if pl.get("wav"):                          # Stimm-Sicherung: Ton nur ohne erkannte Stimmen
                     vm = res.get("voice_max", 100)
                     if vm < classify.VOICE_GUARD_PCT:
@@ -5308,7 +5355,8 @@ def art_status():
     spuren = [r["datei"] for r in rows if (r["datei"] or "").endswith((SPUR_EXT, VIRT_EXT))]
     done = sum(1 for d in spuren if d in known and (known[d].get("g") or not is_virtual(d)))
     return {"enabled": art_enabled(), "available": classify is not None and classify.available(), "pending": len(ART_STATE["queued"]),
-            "done": done, "clips": len(spuren), "error": ART_STATE["error"], "embed": bool(CFG.get("ki_embed")), "fp": fp_status()}
+            "done": done, "clips": len(spuren), "error": ART_STATE["error"], "embed": bool(CFG.get("ki_embed")), "fp": fp_status(),
+            "learn": {"on": kl_on(), "ex": KL["n"], "sug": sum(1 for v in list(KL["sug"].values()) if v and v[1] >= kl_min())}}
 
 
 def art_set_manual(key, group):
@@ -5325,6 +5373,7 @@ def art_set_manual(key, group):
                 else:
                     e.pop("man", None)
                 art_save()
+            kl_kick()                                      # Korrektur lernen (falls eingeschaltet)
             return {"ok": True, **art_fields(d)}
     return {"ok": False, "error": "not found"}
 
@@ -5687,7 +5736,7 @@ def save_event_virtual(ev, rate, runner, audio, dur, stem):
     if art_enabled():                            # Erkennung im Arbeitsspeicher: Ausschlag mit 1 s Umfeld
         au, a0 = ram_audio(runner, t0 - 1000, t_end + 1000)
         if len(au) >= 4000 and a0 is not None:
-            art_enqueue(fname, runner.id, 0, {"audio": au, "rate": runner.hist_rate, "off": a0 - t_from, "stem": stem, "wav": False})
+            art_enqueue(fname, runner.id, 0, {"audio": au, "rate": runner.hist_rate, "off": a0 - t_from, "stem": stem, "wav": False, "dur": float(dur or 0)})
         del au
     elif profiles_all() or labels_all():         # ohne KI: Profile nur ueber Spektrum und Pegel
         threading.Timer(3.0, lambda: prof_assign(fname, runner.id)).start()
@@ -5747,7 +5796,7 @@ def save_event(ev, rate, runner):
     if want_wav and not guard:
         write_wav(os.path.join(clips, stem + ".wav"), audio, rate, runner)
     if len(audio) and art_enabled():          # Erkennung im Arbeitsspeicher; danach ist der Ton weg
-        if not art_enqueue(fname, runner.id, 0, {"audio": audio, "rate": rate, "off": t0 - t_from, "stem": stem, "wav": guard}) and guard:
+        if not art_enqueue(fname, runner.id, 0, {"audio": audio, "rate": rate, "off": t0 - t_from, "stem": stem, "wav": guard, "dur": float(dur or 0)}) and guard:
             log(f"[{runner.name}] Ton nicht gespeichert: Stimm-Pruefung nicht moeglich (Warteschlange voll)")
     elif guard:
         log(f"[{runner.name}] Ton nicht gespeichert: Stimm-Sicherung braucht die Geraeuscherkennung (Einstellungen -> Allgemein)")
@@ -9528,6 +9577,7 @@ def main():
     threading.Thread(target=ha_watch, daemon=True).start()
     threading.Thread(target=gr_hello, daemon=True).start()
     threading.Thread(target=tiles_watch, daemon=True).start()
+    threading.Thread(target=kl_worker, daemon=True).start()        # ab 1.84.0: aus eigenen Korrekturen der Geräuschart lernen (nur Vorschläge)
     if classify is not None:
         threading.Thread(target=art_worker, daemon=True).start()
         threading.Thread(target=live_art_worker, daemon=True).start()
@@ -12527,6 +12577,26 @@ def layout_cols_clean(c):
     return out
 
 
+def layout_tbl1_clean(p):
+    """Eine Tabelle (ab 1.84.0, nur Anzeige): order [Spalte] (Reihenfolge), hide [Spalte] (ausgeblendet), dense „normal“|„compact“."""
+    if not isinstance(p, dict):
+        return None
+    ids = lambda v: list(dict.fromkeys(x for x in v if isinstance(x, str) and _LAY_ID.match(x)))[:40] if isinstance(v, list) else []
+    out = {"order": ids(p.get("order")), "hide": ids(p.get("hide"))}
+    if p.get("dense") in ("normal", "compact"):
+        out["dense"] = p["dense"]
+    return out
+
+
+def layout_tbl_clean(t):
+    out = {}
+    for tk, p in (list(t.items()) if isinstance(t, dict) else [])[:LAYOUT_MAX_TABLES]:
+        c = layout_tbl1_clean(p) if _LAY_ID.match(str(tk)) else None
+        if c:
+            out[tk] = c
+    return out
+
+
 LAYOUT_CAP_SECS = ("txt", "tags", "wit", "time")
 CAP_TPLS = ("laerm", "allg", "zaehler")
 
@@ -12570,7 +12640,7 @@ def layout_cap_pop_clean(c):
 def layout_clean(d):
     d = d if isinstance(d, dict) else {}
     vs = d.get("views") if isinstance(d.get("views"), dict) else {}
-    out = {"v": 1, "views": {k: layout_view_clean(vs[k]) for k in LAYOUT_VIEWS if k in vs}, "cols": layout_cols_clean(d.get("cols"))}
+    out = {"v": 1, "views": {k: layout_view_clean(vs[k]) for k in LAYOUT_VIEWS if k in vs}, "cols": layout_cols_clean(d.get("cols")), "tbl": layout_tbl_clean(d.get("tbl"))}
     ht = d.get("ha_tiles")
     out["ha_tiles"] = sorted({x for x in ht if isinstance(x, str) and _LAY_ID.match(x)}) if isinstance(ht, list) else []
     if isinstance(d.get("cap"), dict):
@@ -12585,7 +12655,7 @@ def layout_clean(d):
 def layout_public():
     with LAYOUT_LOCK:
         d = layout_all()
-        return {"ok": True, "exists": layout_exists(), "layout": {"views": json.loads(json.dumps(d["views"])), "cols": json.loads(json.dumps(d["cols"])),
+        return {"ok": True, "exists": layout_exists(), "layout": {"views": json.loads(json.dumps(d["views"])), "cols": json.loads(json.dumps(d["cols"])), "tbl": json.loads(json.dumps(d.get("tbl") or {})),
                                                               "cap": layout_cap_clean(d.get("cap")), "cap_pop": layout_cap_pop_clean(d.get("cap_pop"))}}
 
 
@@ -12600,7 +12670,7 @@ def layout_change(data):
         if rs in LAYOUT_VIEWS:
             d["views"].pop(rs, None)
         elif rs == "cols":
-            d["cols"] = {}
+            d["cols"] = {}; d["tbl"] = {}
         elif rs == "cap":                                  # Standard – eigene Felder (Definitionen) und Vorlage bleiben
             keep = {k_: v for k_, v in (d.get("cap") or {}).items() if k_ in ("blocks", "tpl", "made")}
             d.pop("cap", None); d.pop("cap_pop", None)          # abgedockt folgt danach wieder
@@ -12641,6 +12711,19 @@ def layout_change(data):
             if len(d["cols"]) > LAYOUT_MAX_TABLES:
                 for k in list(d["cols"])[:len(d["cols"]) - LAYOUT_MAX_TABLES]:
                     d["cols"].pop(k, None)
+        ts = data.get("tbl")                               # ab 1.84.0: Reihenfolge, ausgeblendete Spalten, Dichte je Tabelle (null = Standard)
+        if isinstance(ts, dict):
+            tb = d.setdefault("tbl", {})
+            for tk, p in list(ts.items())[:LAYOUT_MAX_TABLES]:
+                if not _LAY_ID.match(str(tk)):
+                    continue
+                c = layout_tbl1_clean(p)
+                if c is None:
+                    tb.pop(tk, None)
+                else:
+                    tb[tk] = c
+            for k in list(tb)[:max(0, len(tb) - LAYOUT_MAX_TABLES)]:
+                tb.pop(k, None)
         layout_save()
     tiles_kick()                                           # eigene Überschrift einer Kachel: Name in Home Assistant mitziehen
     return layout_public()
@@ -12738,7 +12821,7 @@ def layout_restore(raw):
     inc = layout_clean(raw)
     with LAYOUT_LOCK:
         d = layout_all()
-        d["views"].update(inc["views"]); d["cols"].update(inc["cols"])
+        d["views"].update(inc["views"]); d["cols"].update(inc["cols"]); d.setdefault("tbl", {}).update(inc.get("tbl") or {})
         if inc.get("cap"):
             d["cap"] = inc["cap"]
             if inc.get("cap_pop"):
@@ -12988,9 +13071,139 @@ def art_confirm(key, group="", undo=False):
                     return {"ok": False, "error": "bad group"}
                 A[d] = {"g": g, "ki": e.get("g") or "", "c": e.get("c"), "ts": dt.datetime.now().astimezone().isoformat(timespec="seconds")}
             best_save()
-        tiles_kick()
+        tiles_kick(); kl_kick()
         return {"ok": True, **art_fields(d)}
     return {"ok": False, "error": "not found"}
+
+
+# =====================================================================
+# Aus Korrekturen lernen (ab 1.84.0, Einstellung „Korrekturen lernen mit“, Standard an): Störungen, deren Geräuschart von Hand
+# korrigiert wurde (art.json „man“ oder bestaetigt.json mit anderer Art als die Erkennung), sind Beispiele für diese Art –
+# mit denselben Merkmalen wie benannte Bereiche (Terz-Spektrum, Pegelverlauf, KI-Fingerabdruck, lernen.py). Ähnliche, nicht
+# bestätigte Störungen bekommen diese Art als Vorschlag (art_fields). Nur berechnet und im Speicher – keine Störung, kein
+# art.json-/bestaetigt.json-Eintrag und keine log.csv-Zeile wird dafür geändert. Ausschalten = sofort wieder wie vorher.
+# =====================================================================
+KL = {"sig": None, "sug": {}, "pc": {}, "n": 0, "done": 0, "ev": threading.Event()}
+KL_MAX_EV = 3000                                          # so viele neueste Störungen werden verglichen
+KL_BUDGET_S = 6.0                                          # Rechenzeit je Durchgang (danach kurze Pause)
+
+
+def kl_on():
+    return CFG.get("ki_learn_fix", True) is not False
+
+
+def kl_min():
+    try:
+        return max(60, min(98, int(CFG.get("ki_learn_min", 75) or 75)))
+    except (TypeError, ValueError):
+        return 75
+
+
+def kl_kick():
+    KL["ev"].set()
+
+
+def kl_sug(datei):
+    if not kl_on():
+        return None
+    s_ = KL["sug"].get(datei)
+    return s_ if s_ and s_[1] >= kl_min() else None
+
+
+def kl_examples():
+    """{Datei: Art} aller von Hand korrigierten Störungen (eigene Bestätigung geht vor, wie in art_fields)."""
+    out = {}
+    for d, e in list(art_all().items()):
+        if isinstance(e, dict) and e.get("man") in ART_LABEL:
+            out[d] = e["man"]
+    for d, b in list(best_all()["a"].items()):
+        if not (isinstance(b, dict) and b.get("g") in ART_LABEL):
+            continue
+        if b["g"] != (b.get("ki") or ""):
+            out[d] = b["g"]
+        else:
+            out.pop(d, None)                               # Erkennung bestätigt: kein Korrektur-Beispiel
+    return out
+
+
+def kl_rows():
+    rows = read_log(); keys = row_keys(rows); out = []
+    for r, k in zip(rows, keys):
+        n = int(k.rsplit("|", 1)[1] or 0)
+        out.append((r, n, r["datei"] or event_stem(r, n)))
+    return out
+
+
+def kl_protos(rows):
+    ex = kl_examples()
+    if not ex:
+        return {}, ""
+    by = {d: (r, n) for r, n, d in rows if d in ex}
+    out, sig = {}, []
+    for d, g in sorted(ex.items()):
+        if d not in by:
+            continue
+        pr = KL["pc"].get((d, g))
+        if pr is None:
+            r, n = by[d]
+            gph, ki, _ = _event_data(r, n)
+            dd = lernen.decode(gph) if gph else None
+            if dd is None:
+                KL["pc"][(d, g)] = False
+                continue
+            a, b = lernen.candidate_region(dd)
+            pr = KL["pc"][(d, g)] = dict(lernen.proto_from(dd, ki, a, b), stem=d, sid=r.get("quelle_id") or "main")
+        if pr and pr.get("band") is not None:
+            out.setdefault(g, []).append(pr); sig.append(d + ":" + g)
+    return out, "|".join(sig)
+
+
+def kl_step():
+    """Ein Durchgang: Beispiele prüfen, neueste noch nicht verglichene Störungen vergleichen. True = noch nicht fertig."""
+    if not kl_on():
+        KL["sug"] = {}; KL["sig"] = None
+        return False
+    rows = kl_rows()
+    protos, sig = kl_protos(rows)
+    if sig != KL["sig"]:
+        KL["sug"] = {}; KL["sig"] = sig                    # neue oder geänderte Korrektur: alles neu vergleichen
+    KL["n"] = sum(len(v) for v in protos.values())
+    if not protos:
+        return False
+    t_end = time.time() + KL_BUDGET_S
+    order = sorted(rows, key=lambda x: x[0].get("start") or "", reverse=True)[:KL_MAX_EV]
+    sug = KL["sug"]
+    for r, n, d in order:
+        if d in sug:
+            continue
+        if time.time() > t_end:
+            return True
+        e = art_all().get(d) or {}
+        if e.get("man") or best_of(d):
+            sug[d] = None; continue
+        gph, ki, _ = _event_data(r, n)
+        dd = lernen.decode(gph) if gph else None
+        best = None
+        if dd is not None:
+            for grp, ps in protos.items():
+                ps2 = [p for p in ps if p["stem"] != d]
+                b = lernen.best_in(dd, ki, ps2) if ps2 else None
+                if b and (best is None or b[2] > best[1]):
+                    best = (grp, int(b[2]))
+        sug[d] = best
+    KL["done"] = sum(1 for _ in sug)
+    return False
+
+
+def kl_worker():
+    time.sleep(15)
+    while True:
+        more = False
+        try:
+            more = kl_step()
+        except Exception as e:
+            log("Korrekturen lernen:", e)
+        KL["ev"].wait(1.0 if more else 30.0); KL["ev"].clear()
 
 
 def art_text(af, de=True):
@@ -13000,6 +13213,8 @@ def art_text(af, de=True):
     lb = art_label(af["art"], de)
     if af.get("art_ok") or af.get("art_man"):
         return lb + (" (bestätigt)" if de else " (confirmed)")
+    if af.get("art_lern") is not None:                   # ab 1.84.0: Vorschlag aus eigenen Korrekturen
+        return f"{lb} – Vorschlag aus eigenen Korrekturen (Ähnlichkeit {af['art_lern']} %)" if de else f"{lb} – suggestion from own corrections (similarity {af['art_lern']} %)"
     c = af.get("art_c")
     return (f"{lb} – Vorschlag der Erkennung" + (f" (Konfidenz {round(c)} %)" if c is not None else "")) if de else \
            (f"{lb} – suggestion of the detection" + (f" (confidence {round(c)} %)" if c is not None else ""))

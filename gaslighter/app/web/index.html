@@ -96,12 +96,9 @@
       <button id="zauto" class="on" data-i="auto"></button>
       <button type="button" id="mkbtn" class="chip mkbtn" data-ia="mk_tip" aria-pressed="false">🏷 <span data-i="mk_btn"></span></button>
     </div>
-    <div id="vidlive" class="vidlive" hidden><div id="vidframe" class="vidframe"><img id="vidimg" alt=""></div><div class="vidbar"><small id="vidcap"></small><button type="button" id="vidrot" class="chip">⟳</button><button type="button" id="vidsz" class="chip">M</button><button type="button" id="vidfs" class="chip">⛶</button></div></div>
     <div class="mkhint" role="status"><span data-i="mk_on"></span><button type="button" class="chip mkend" data-i="mk_end"></button></div>
     <div class="cvwrap">
       <canvas id="main"></canvas>
-      <div id="scmain" class="sclanes" role="img" hidden></div>
-      <canvas id="spec"></canvas>
       <div class="cvbtns" id="cvbtns" hidden>
         <button id="classrange" class="playrange cls" type="button">🔎 <span data-i="art_range"></span></button>
         <button id="golive" class="golive" type="button"><span class="gl-dot"></span><span data-i="golive"></span></button>
@@ -110,14 +107,24 @@
     <div id="ldaybox" class="ldaybox" hidden>
       <div class="ldhd"><b id="ldrange" class="ldrange"></b><button type="button" id="ldlive" class="golive"><span class="gl-dot"></span><span data-i="golive"></span></button></div>
       <div class="ndcvw"><canvas id="ldcv"></canvas><div class="ldspin"><i></i><span data-i="loading"></span></div></div>
-      <div id="scld" class="sclanes" role="img" hidden></div>
-      <canvas id="ldsp"></canvas>
       <div class="ndfoot"><span id="ldhover" class="ndhover"></span><small data-i="dt_hint_live"></small></div>
       <div id="ldnone" class="ntnone" data-i="dt_none_live" hidden></div>
     </div>
     <div id="classres" class="classres" hidden></div>
     <details class="hlp note"><summary data-i="help_sum"></summary><div id="livenote" data-i="livenote"></div><a class="hblink" href="#" data-hb="live/bedienung" data-i="hb_more"></a></details>
   </div>
+  </div></div>
+  <!-- ab 1.84.0 eigene Bereiche (Layout anpassen): Live-Video, Sensor-Spuren, Spektrogramm; jeder mit eigenem Schiebe-Rahmen für den Geräte-Rundlauf -->
+  <div class="slidevp" id="vpvid"><div class="slideinner">
+    <div id="vidlive" class="vidlive" hidden><div id="vidframe" class="vidframe"><img id="vidimg" alt=""></div><div class="vidbar"><small id="vidcap"></small><button type="button" id="vidrot" class="chip">⟳</button><button type="button" id="vidsz" class="chip">M</button><button type="button" id="vidfs" class="chip">⛶</button></div></div>
+  </div></div>
+  <div class="slidevp" id="vpsc"><div class="slideinner">
+    <div id="scmain" class="sclanes" role="img" hidden></div>
+    <div id="scld" class="sclanes" role="img" hidden></div>
+  </div></div>
+  <div class="slidevp" id="vpsp"><div class="slideinner">
+    <canvas id="spec"></canvas>
+    <canvas id="ldsp" hidden></canvas>
   </div></div>
   <div class="card ldevcard" id="ldevcard">
     <div class="row"><h2 id="ldevh" data-i="lev_title"></h2><small id="ldevn" class="ldevn"></small>
@@ -165,12 +172,12 @@
       <div class="mkhint" role="status"><span data-i="mk_on"></span><button type="button" class="chip mkend" data-i="mk_end"></button></div>
       <canvas id="ndcv"></canvas>
       <div id="ndmulti" class="ndmulti" hidden></div>
-      <div id="scnd" class="sclanes" role="img" hidden></div>
       <div id="ndptlist" class="ndptlist" hidden></div>
       <div id="ndbar" class="ndbar" hidden><div id="ndtrack" class="ndtrack"><div id="ndthumb" class="ndthumb"></div></div></div>
       <div class="ndfoot"><span id="ndhover" class="ndhover"></span><details class="hlp"><summary data-i="help_sum"></summary><small id="dthint" data-i="dt_hint"></small><a class="hblink" href="#" data-hb="protokolle/verlauf" data-i="hb_more"></a></details></div>
       <div id="ndnone" class="ntnone" data-i="dt_none" hidden></div>
     </div>
+    <div id="scnd" class="sclanes" role="img" hidden></div>
     <div class="nchart" hidden>
       <div id="nbubble" class="nbubble"></div>
       <canvas id="ncv"></canvas>
