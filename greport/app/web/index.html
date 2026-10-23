@@ -13,13 +13,14 @@
     <img src="icon.png" alt="" class="logo" width="36" height="36">
     <div class="brand"><b data-i="title"></b><small>v{{VERSION}}</small></div>
     <span class="grow"></span>
-    <span id="grstat" class="status"></span>
+    <span id="grstat" class="status" role="group" data-ia="gr_a_status"></span>
     <button id="helpbtn" class="icon" type="button" data-ia="gr_help">?</button>
     <button id="themebtn" class="icon" type="button"></button>
     <button id="grmenu" class="icon" type="button" data-ia="gr_menu" aria-haspopup="true">⋯</button>
     <div id="grmenul" class="menu" role="menu" hidden></div>
   </header>
 
+  <main id="content">
   <section id="fnpanel" class="capture" aria-labelledby="capttl">
     <div class="caphead">
       <div class="clock"><time id="capclock" class="clocknum">--:--:--</time><span id="capdate" class="clockdate"></span></div>
@@ -28,9 +29,9 @@
     </div>
     <div id="fnpbody" class="capbody">
       <div id="secbar" class="secbar" role="group" data-ia="gr_sec_tip"></div>
-      <textarea id="fnptext" rows="2" maxlength="500" data-iph="fn_ph"></textarea>
+      <textarea id="fnptext" rows="2" maxlength="500" data-iph="fn_ph" data-ia="gr_a_text"></textarea>
       <div id="fnptags" class="groups"></div>
-      <div class="witrow" id="secwit"><span class="witicon" aria-hidden="true">👤</span><input type="text" id="fnpwit" maxlength="200" data-iph="fn_wit"><div id="fnpwitl" class="witlist"></div></div>
+      <div class="witrow" id="secwit"><span class="witicon" aria-hidden="true">👤</span><input type="text" id="fnpwit" maxlength="200" data-iph="fn_wit" data-ia="gr_a_wit"><div id="fnpwitl" class="witlist"></div></div>
       <div class="timerow" id="sectime">
         <button type="button" id="fnptimebtn" class="linkbtn" aria-expanded="false"><span aria-hidden="true">🕒</span> <span id="fnptimetxt"></span></button>
         <div id="fnpext" class="timeedit" hidden>
@@ -41,17 +42,18 @@
       </div>
     </div>
     <div class="savebar">
-      <small id="fnpmsg" class="msg" role="status"></small>
+      <small id="fnpmsg" class="msg" role="status" aria-live="polite"></small>
       <button type="button" id="fnpcancel" class="btn" data-i="cancel" hidden></button>
       <button type="button" id="fnpsave" class="btn primary" data-i="save"></button>
     </div>
   </section>
 
   <section class="log" aria-labelledby="logttl">
-    <div class="loghead"><h2 id="logttl" data-i="gr_list"></h2><small id="grcount"></small><span class="grow"></span><input type="search" id="grq" data-iph="gr_search"></div>
+    <div class="loghead"><h2 id="logttl" data-i="gr_list"></h2><small id="grcount"></small><span class="grow"></span><input type="search" id="grq" data-iph="gr_search" data-ia="gr_search"></div>
     <div id="grfilt" class="filters"></div>
     <div id="grnotes" class="timeline"></div>
   </section>
+  </main>
   <p class="foot" data-i="gr_foot"></p>
 </div>
 
@@ -63,7 +65,7 @@
     <span class="grow"></span>
     <button type="button" id="qtreset" class="btn" data-i="gr_reset"></button>
   </div>
-  <div class="qtadd"><input type="text" id="qtnew" maxlength="30" data-iph="qt_new_ph"><select id="qtnewg"></select><button type="button" id="qtaddok" class="btn primary" data-i="qt_create"></button></div>
+  <div class="qtadd"><input type="text" id="qtnew" maxlength="30" data-iph="qt_new_ph" data-ia="qt_new_ph"><select id="qtnewg" data-ia="gr_a_group"></select><button type="button" id="qtaddok" class="btn primary" data-i="qt_create"></button></div>
   <small id="qtinfo" class="hint"></small>
   <div id="qtlim" class="qtlim"></div>
   <div id="qtsug" class="sug"></div>
@@ -103,20 +105,25 @@
   </section>
   <section class="blk">
     <h4 data-i="gr_exp_title"></h4>
-    <div class="row wrap"><select id="expfmt"><option value="txt" data-i="gr_fmt_txt"></option><option value="csv" data-i="gr_fmt_csv"></option><option value="json" data-i="gr_fmt_json"></option></select>
-      <input type="text" id="exppath" class="grow" spellcheck="false" autocomplete="off"></div>
+    <div class="row wrap"><select id="expfmt" data-ia="gr_a_expfmt"><option value="txt" data-i="gr_fmt_txt"></option><option value="csv" data-i="gr_fmt_csv"></option><option value="json" data-i="gr_fmt_json"></option></select>
+      <input type="text" id="exppath" class="grow" spellcheck="false" autocomplete="off" data-ia="gr_a_exppath"></div>
     <small id="expst" class="hint"></small>
     <div class="dlgfoot"><button type="button" id="expdl" class="btn" data-i="gr_exp_dl"></button><span class="grow"></span><button type="button" id="expgo" class="btn primary" data-i="gr_exp_go"></button></div>
   </section>
   <section class="blk">
     <h4 data-i="gr_imp_title"></h4>
     <p class="hint" data-i="gr_imp_h"></p>
-    <div class="row wrap"><input type="text" id="imppath" class="grow" spellcheck="false" autocomplete="off" data-iph="gr_imp_path_ph"><button type="button" id="impfile" class="btn" data-i="gr_imp_file"></button></div>
+    <div class="row wrap"><input type="text" id="imppath" class="grow" spellcheck="false" autocomplete="off" data-iph="gr_imp_path_ph" data-ia="gr_imp_path_ph"><button type="button" id="impfile" class="btn" data-i="gr_imp_file"></button></div>
     <div id="impres" class="impres" hidden></div>
     <div class="dlgfoot"><span class="grow"></span><button type="button" id="impprev" class="btn" data-i="gr_imp_prev"></button><button type="button" id="impgo" class="btn primary" data-i="gr_imp_go" disabled></button></div>
   </section>
 </dialog>
 <input type="file" id="impf" accept=".txt,.csv,.json,.log,text/plain,text/csv,application/json" hidden>
+
+<dialog id="dashdlg" class="dlg wide" aria-labelledby="dashttl">
+  <div class="dlghead"><h3 id="dashttl" data-i="gr_dash"></h3><button type="button" class="icon dlgx" data-ia="close">✕</button></div>
+  <div id="dashbox"></div>
+</dialog>
 
 <dialog id="helpdlg" class="dlg wide">
   <div class="dlghead"><h3 data-i="gr_help"></h3><button type="button" class="icon dlgx" data-ia="close">✕</button></div>
@@ -127,19 +134,20 @@
   <div class="dlghead"><h3>⭐ <span data-i="pro_title"></span></h3><button type="button" class="icon dlgx" data-ia="close">✕</button></div>
   <p id="prost"></p>
   <p class="hint" data-i="gr_pro_list"></p>
-  <div class="row"><input type="text" id="prokey" placeholder="GL1-…" autocomplete="off" spellcheck="false"><button type="button" id="prosave" class="btn primary" data-i="pro_activate"></button></div>
-  <p id="promsg" class="msg"></p>
+  <div class="row"><input type="text" id="prokey" placeholder="GL1-…" autocomplete="off" spellcheck="false" data-ia="gr_a_prokey"><button type="button" id="prosave" class="btn primary" data-i="pro_activate"></button></div>
+  <p id="promsg" class="msg" role="status" aria-live="polite"></p>
   <div class="dlgfoot"><a id="probuy" class="btn" target="_blank" rel="noopener" data-i="pro_buy"></a><button type="button" id="prodel" class="btn" data-i="pro_remove" hidden></button></div>
 </dialog>
 
 <dialog id="perdlg" class="dlg">
   <div class="dlghead"><h3 data-i="gr_persons"></h3><button type="button" class="icon dlgx" data-ia="close">✕</button></div>
   <p class="hint" data-i="gr_persons_h"></p>
-  <textarea id="perlist" rows="6"></textarea>
+  <textarea id="perlist" rows="6" data-ia="gr_persons"></textarea>
   <div class="dlgfoot"><span class="grow"></span><button type="button" class="btn dlgx" data-i="cancel"></button><button type="button" id="persave" class="btn primary" data-i="save"></button></div>
 </dialog>
 <input type="file" id="grimpf" accept=".json,application/json" hidden>
 <script src="i18n.js?v={{VERSION}}"></script>
+<script src="hadash-ui.js?v={{VERSION}}"></script>
 <script src="app.js?v={{VERSION}}"></script>
 </body>
 </html>

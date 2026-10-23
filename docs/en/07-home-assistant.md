@@ -112,5 +112,19 @@ Sometimes a disturbance should not be reported while the graph keeps recording, 
 - **Lead time (s), e.g. for a voice assistant:** the wake word (“Hey Jarvis”) comes *before* the assistant switches to “listening”. With **lead time**, a disturbance that started up to this many seconds before the rule switched on does not count either. For this, GLighter holds each disturbance back that long (lead time + 2 s) before reporting it. Levels and graph stay unchanged; the log says “not counted”. **Set up:** add a rule, choose the entity `assist_satellite.…` – states `!idle`, “no disturbance reports”, lead time 3 s and delay 0.5 min are pre-filled. Wake word, command and the spoken answer then don’t count.
 - **As a dashboard button:** the "GLighter" device has **"Start: no disturbance reports"**, **"Report disturbances again"**, an adjustable **duration** (1–240 minutes, default 10) and **"No disturbance reports until"**. Put them on your dashboard. One tap starts the set duration.
 
+<a id="dashboard"></a>
+
+## Create a dashboard in Home Assistant
+
+⚙ Settings → tab **Rules** → **Dashboard in Home Assistant**. With one click GLighter creates a ready-made dashboard with its entities. You choose:
+
+- **Name** and **address** (e.g. `gsim-glighter`, it then appears in the Home Assistant address bar),
+- whether it shows in the **sidebar** and whether only **administrators** see it,
+- which **sections** go in: now (disturbance, level, today), level of the last 24 hours, log a disturbance, no disturbance reports, recording and pause, other microphones, “Open GLighter” button.
+
+**Create in Home Assistant** creates the dashboard. If one already exists at that address, GLighter asks before replacing it (changes you made there are lost). Without a click GLighter changes nothing in Home Assistant.
+
+**Show as YAML** has the same template to copy: create a dashboard in Home Assistant, **Edit** → ⋮ → **Raw configuration editor**, paste, save. You can keep editing the dashboard in Home Assistant afterwards.
+
 ---
 [← Devices](06-geraete.md) · [Contents](README.md) · [Printing and noise log →](08-drucken.md)

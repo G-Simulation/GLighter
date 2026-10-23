@@ -102,6 +102,7 @@ Video-Breite, Bilder pro Sekunde, Videoqualität (für IP-Kameras und Handys).
 ## Allgemein
 
 - **Sprache**<a id="s_misc"></a> – Deutsch, Englisch oder wie der Browser.
+- **Mausrad im Diagramm** – „nur mit Strg“ (Standard): Das Mausrad scrollt die Seite, zum Zoomen Strg gedrückt halten. „Zoomt immer“: wie früher, das Mausrad zoomt direkt.
 - **Protokoll & Notizen**<a id="s_list"></a> – **Störungen zusammenfassen bei bis zu (s) Abstand** (Gruppen in der Liste), **Notiz gehört zur Störung, wenn bis zu (min) danach**.
 - **GLighter Pro** – siehe [Pro](14-pro.md).
 - **GReport (Notizen-App)**<a id="s_greport"></a> – GReport ist der Notiz-Teil als eigene App (z. B. fürs Handy oder für Mitbewohner). Ist GReport installiert, erscheinen seine Notizen mit Pro automatisch hier – an den Störungen, im Verlauf und im Lärmprotokoll, markiert mit „GReport“. Geändert werden sie in GReport.

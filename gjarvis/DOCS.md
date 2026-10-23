@@ -139,6 +139,10 @@ target:
 **GasLighter** läuft unabhängig weiter und teilt sich das Mikrofon. Es kann „GJarvis hört“ / „GJarvis spricht“
 abfragen (MQTT `gjarvis/hoert`, `gjarvis/spricht` = ON/OFF) und in dieser Zeit Ereignisse ignorieren.
 
+### Dashboard mit einem Klick
+
+Einstellungen → unten **Dashboard in Home Assistant**: Name, Adresse (z. B. `gsim-gjarvis`), Seitenleiste, „nur für Administratoren“ und die Bereiche wählen – **Zustand**, **Steuerung** (Stopp, Briefing, Lautstärke, Stimme, Kalibrieren), **Erinnerungen**, Knopf **GJarvis öffnen**. **Letzter Befehl und letzte Antwort** sind aus, bis du sie wählst – sie zeigen, was Jarvis verstanden hat, auch versehentlich. **In Home Assistant anlegen** erstellt das Dashboard; ein vorhandenes wird nur nach Rückfrage ersetzt. Unter **Als YAML anzeigen** steht dieselbe Vorlage zum Kopieren.
+
 ## KI verbinden (deine eigene)
 
 GJarvis bringt keine KI mit – du nutzt deine eigene. In der Oberfläche unter **KI-Modell**:

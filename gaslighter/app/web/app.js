@@ -52,7 +52,7 @@ function placeHeader() {
 /* Handbuch (eigene Seite, Wiki) – an einer bestimmten Stelle öffnen */
 function hbOpen(at) { const th = document.documentElement.getAttribute('data-theme') || ''; const w = window.open('handbuch.html?lang=' + lang + (th ? '&theme=' + th : '') + '#' + (at || ''), 'gaslighter_hb'); if (w) w.focus(); }
 document.addEventListener('click', e => { const a = e.target.closest && e.target.closest('[data-hb]'); if (!a) return; e.preventDefault(); e.stopPropagation(); hbOpen(a.dataset.hb); });
-const HB_SEC = { s_pro: 'pro', s_thr: 'einstellungen/s_thr', s_time: 'einstellungen/s_time', s_ha: 'home-assistant/regeln', habox: 'home-assistant/regeln', s_sched: 'einstellungen/s_sched', schedbox: 'einstellungen/s_sched',
+const HB_SEC = { s_pro: 'pro', s_thr: 'einstellungen/s_thr', s_time: 'einstellungen/s_time', s_ha: 'home-assistant/regeln', habox: 'home-assistant/regeln', s_hadash: 'home-assistant/dashboard', hdbox: 'home-assistant/dashboard', s_sched: 'einstellungen/s_sched', schedbox: 'einstellungen/s_sched',
   s_notes: 'einstellungen/s_notes', s_quiet: 'einstellungen/s_notes', s_ki: 'ki', s_place: 'einstellungen/s_place', s_keep: 'einstellungen/s_keep', s_list: 'einstellungen/s_list', s_rec: 'einstellungen/s_rec', s_wav: 'einstellungen/s_wav', s_video: 'einstellungen/s_video', s_misc: 'einstellungen/s_misc', s_greport: 'einstellungen/s_greport', s_audio: 'einstellungen/s_audio',
   srcbox: 'geraete', srcbox1: 'geraete/karte', calbox: 'geraete/einpegeln', s_cal: 'geraete/einpegeln', pfbox: 'ki/tonprofile', s_prof: 'ki/tonprofile', bkbox: 'sicherung', s_backup: 'sicherung', s_mirror: 'sicherung/ziel',
   rsbox: 'sicherung/zuruecksetzen', s_reset: 'sicherung/zuruecksetzen', diagset: 'fehlerbehebung', s_diag: 'fehlerbehebung' };
@@ -1147,6 +1147,7 @@ function bindCanvas(cv, isSpec) {
     markDirty();
   }, () => { drag = null; }, () => { });
   cv.addEventListener('wheel', e => {
+    if (!wheelGate(e, cv)) return;
     e.preventDefault();
     const u = wheelPx(e), r0 = cv.getBoundingClientRect(), xIn = e.clientX - r0.left;
     const side = Math.abs(e.deltaX) > Math.abs(e.deltaY), dy = u * (side ? e.deltaX : e.deltaY); if (!dy) return;
@@ -1156,9 +1157,9 @@ function bindCanvas(cv, isSpec) {
         const [a, b] = viewRange(), sh = dy / Math.max(50, r0.width - AXL() - 14) * (b - a), now = nowServer() - DELAY;
         const end = (view.live ? now : view.end) + sh; if (end >= now) setLive(true); else { view.live = false; view.end = end; setLive(false); } markDirty(); return;
       }
-      zoomLiveX(wheelK(dy, e.ctrlKey), (xIn - AXL()) / Math.max(20, r0.width - AXL() - 14)); return;   // Mausrad / Touchpad-Spreizen: Zeit
+      zoomLiveX(wheelK(dy, isPinch(e)), (xIn - AXL()) / Math.max(20, r0.width - AXL() - 14)); return;   // Mausrad / Touchpad-Spreizen: Zeit
     } else {
-      const f = Math.exp(clamp(dy, -300, 300) * (e.ctrlKey ? 0.008 : 0.0014));   // Mausrad-Raster ≈ 15 %, Touchpad fein
+      const f = Math.exp(clamp(dy, -300, 300) * (isPinch(e) ? 0.008 : 0.0014));   // Mausrad-Raster ≈ 15 %, Touchpad fein
       if (view.mode === 'level') {
         const r = cv.getBoundingClientRect(), g_ = view.mode === 'level' ? LOV.geo || [10, 22] : [10, 22], ph = r.height - g_[0] - g_[1], fy = clamp((e.clientY - r.top - g_[0]) / ph, 0, 1);
         zoomY(f, yv.hi - fy * (yv.hi - yv.lo));
@@ -1168,6 +1169,49 @@ function bindCanvas(cv, isSpec) {
 }
 /* Live-Bild: Zeit zoomen (stufenlos). Live: nur am rechten Rand bleibt „jetzt“, sonst wird angehalten; angehalten: die Stelle unter der Maus bleibt stehen.
    Weiter als der Arbeitsspeicher (10 min) geht es nahtlos in den Tagesverlauf. */
+/* Tabellen (Tabulator): Scrollbereich als Zeilengruppe auszeichnen, damit Screenreader die Tabelle richtig lesen
+   (Tabulator legt einen fokussierbaren Scrollbereich ohne Rolle zwischen „grid“ und die Zeilen). */
+function tabA11y(root) {
+  (root.matches && root.matches('.tabulator-tableholder') ? [root] : root.querySelectorAll ? root.querySelectorAll('.tabulator-tableholder') : []).forEach(h => {
+    const rows = !!h.querySelector('.tabulator-row');
+    const hr = rows ? 'rowgroup' : 'none'; if (h.getAttribute('role') !== hr) h.setAttribute('role', hr);
+    if (rows) { if (h.getAttribute('tabindex') !== '0') h.setAttribute('tabindex', '0'); } else if (h.hasAttribute('tabindex')) h.removeAttribute('tabindex');   // leer: nichts zu scrollen
+    for (const c of h.children) if (c.classList.contains('tabulator-table') && c.getAttribute('role') !== 'none') c.setAttribute('role', 'none');
+  });
+}
+new MutationObserver(ms => {
+  const seen = new Set();
+  for (const m of ms) for (const n of m.addedNodes) {
+    if (n.nodeType !== 1 || !n.classList) continue;
+    const h = n.classList.contains('tabulator-tableholder') ? n : (n.classList.contains('tabulator-row') || n.classList.contains('tabulator-table') || n.classList.contains('tabulator-placeholder')) ? n.closest('.tabulator-tableholder') : n.classList.contains('tabulator') ? n : null;
+    if (h && !seen.has(h)) { seen.add(h); tabA11y(h); }
+  }
+  for (const m of ms) for (const n of m.removedNodes) if (n.nodeType === 1 && n.classList && n.classList.contains('tabulator-row') && m.target.closest) { const h = m.target.closest('.tabulator-tableholder'); if (h && !seen.has(h)) { seen.add(h); tabA11y(h); } }
+}).observe(document.documentElement, { childList: true, subtree: true });
+/* Live-Diagramm mit der Tastatur (Fokus mit Tab): + / − Zeit zoomen, ← / → verschieben, ↑ / ↓ Höhe, 0 zurücksetzen, Ende = live */
+function bindChartKeys(cv) {
+  cv.tabIndex = 0; cv.setAttribute('role', 'img');
+  cv.addEventListener('keydown', e => {
+    if (e.ctrlKey || e.metaKey || e.altKey) return;
+    const k = e.key, [a, b] = viewRange(), now = nowServer() - DELAY;
+    const pan = f => { const end = (view.live ? now : view.end) + f * (b - a); if (end >= now) setLive(true); else { view.live = false; view.end = end; setLive(false); } markDirty(); };
+    if (k === '+' || k === '=') zoomLiveX(1 / 1.5, view.live ? 1 : 0.5);
+    else if (k === '-' || k === '_') zoomLiveX(1.5, view.live ? 1 : 0.5);
+    else if (k === 'ArrowLeft') pan(-0.25);
+    else if (k === 'ArrowRight') pan(0.25);
+    else if (k === 'ArrowUp') zoomY(1 / 1.3);
+    else if (k === 'ArrowDown') zoomY(1.3);
+    else if (k === '0' || k === 'Home') cv.dispatchEvent(new MouseEvent('dblclick'));
+    else return;
+    e.preventDefault(); e.stopPropagation(); chartLabel();
+  });
+}
+let chartLabelT = 0;
+function chartLabel(force) {
+  const cv = $('main'); if (!cv || (!force && Date.now() - chartLabelT < 2500)) return; chartLabelT = Date.now();
+  const lv = st && st.level != null ? fdb(Math.round(st.level * 10) / 10) + ' dBFS' : '–', th = st && st.thr != null ? fdb(Math.round(st.thr * 10) / 10) + ' dBFS' : '–';
+  cv.setAttribute('aria-label', t('chart_aria', { l: lv, th, s: st && st.active ? t('event') : $('pill') ? $('pill').textContent : '', w: $('span') && $('span').selectedOptions[0] ? $('span').selectedOptions[0].textContent : '' }));
+}
 function zoomLiveX(k, fx, end0) {
   const ns = clamp(Math.round(view.span * k * 10) / 10, 5, 34560000); if (ns === view.span) return;
   if (view.live && end0 == null) { setSpan(ns); markDirty(); return; }         // Zoomen hält Live nicht an (rechter Rand bleibt „jetzt“); nur Verschieben pausiert
@@ -1230,7 +1274,7 @@ function updateStatus() {
     try { await fetch('force', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ on: !st.forced, src: selSrc }) }); } catch (e) { }
     if (typeof poll === 'function') poll();
   } : null;
-  p.textContent = txt;
+  p.textContent = txt; chartLabel();
   const E = liveCfg(selSrc), mode = CUR ? E.thr_mode : 'bounded';
   // Im Rundlauf: geraetebezogene Hinweise kompakt in der Leiste (sonst springt die Seite bei jedem Wechsel)
   const compact = TILE.on && liveDevs().length > 1, warns = [];
@@ -2826,6 +2870,15 @@ function haBox() {
   clearInterval(HAR.timer); HAR.timer = setInterval(() => { if (!$('dlg').open || !$('habox')) { clearInterval(HAR.timer); return; } if (!HAR.cal) haLoad(true); }, 5000);
   return fs;
 }
+/* Dashboard-Vorlage für Home Assistant (legt nur auf Knopfdruck etwas an) */
+function hadashBox() {
+  const fs = el('fieldset', { id: 'hdbox', className: 'ff' }); fs.dataset.sec = 's_hadash';
+  fs.appendChild(el('legend', { textContent: t('s_hadash') }));
+  const b = el('div'); fs.appendChild(b);
+  if (window.HADash) HADash.mount(b, { lang, get: 'hadash', post: 'hadash_apply', preview: 'hadash',
+    parts: { live: t('hd_live'), verlauf: t('hd_verlauf'), notiz: t('hd_notiz'), ruhe: t('hd_ruhe'), pause: t('hd_pause'), quellen: t('hd_quellen'), oeffnen: t('hd_oeffnen') } });
+  return fs;
+}
 async function haLoad(onlyState) {
   try { const r = await (await fetch('ha_rules', { cache: 'no-store' })).json(); HAR.info = r;
     const loc = HAR.rules.filter(x => x.entity), same = onlyState && loc.length === r.rules.length && loc.every((x, i) => x.id === r.rules[i].id);
@@ -3063,7 +3116,7 @@ async function haSave() {
   } catch (e) { alert(t('saveerr') + ' ' + e.message); }
 }
 /* Einstellungs-Bereiche einklappbar; Zustand pro Browser gemerkt */
-const SEC_OPEN_DEFAULT = { s_pro: true, s_greport: true, s_prof: true, srcbox1: true, srcbox: true, s_audio: true, s_time: true, s_quiet: true, s_thr: true, s_ki: true, s_ha: true, s_rec: true, s_keep: true, s_backup: true, s_mirror: true, s_misc: true, s_list: true, s_diag: true };
+const SEC_OPEN_DEFAULT = { s_pro: true, s_greport: true, s_prof: true, srcbox1: true, srcbox: true, s_audio: true, s_time: true, s_quiet: true, s_thr: true, s_ki: true, s_ha: true, s_hadash: true, s_rec: true, s_keep: true, s_backup: true, s_mirror: true, s_misc: true, s_list: true, s_diag: true };
 function secState() { try { return JSON.parse(localStorage.getItem('laerm_secs') || '{}'); } catch (e) { return {}; } }
 function makeCollapsible() {
   const st = secState();
@@ -3073,17 +3126,19 @@ function makeCollapsible() {
     fs.dataset.coll = '1'; fs.classList.add('coll');
     const open = key in st ? st[key] : !!SEC_OPEN_DEFAULT[key];
     fs.classList.toggle('shut', !open);
-    lg.tabIndex = 0; lg.setAttribute('role', 'button'); lg.setAttribute('aria-expanded', String(open));
-    const flip = () => { const o = fs.classList.toggle('shut') === false; lg.setAttribute('aria-expanded', String(o)); const s2 = secState(); s2[key] = o; try { localStorage.setItem('laerm_secs', JSON.stringify(s2)); } catch (e) { } };
-    lg.onclick = e => { if (e.target.closest('.tip,.tipi,button,input')) return; flip(); };
-    lg.onkeydown = e => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); flip(); } };
+    // Aufklappen über einen eigenen Knopf in der Überschrift (Hilfe-Symbol und Handbuch-Link bleiben daneben bedienbar)
+    const tg = el('button', { type: 'button', className: 'legtg' }); tg.setAttribute('aria-expanded', String(open));
+    for (const n of [...lg.childNodes]) { if (n.nodeType === 1 && n.matches('.tip,.tipi,.hbleg,button,input,a')) break; tg.appendChild(n); }
+    lg.prepend(tg);
+    const flip = () => { const o = fs.classList.toggle('shut') === false; tg.setAttribute('aria-expanded', String(o)); const s2 = secState(); s2[key] = o; try { localStorage.setItem('laerm_secs', JSON.stringify(s2)); } catch (e) { } };
+    lg.onclick = e => { if (e.target.closest('.tip,.tipi,input,a') || (e.target.closest('button') && !e.target.closest('.legtg'))) return; flip(); };
     const hbk = HB_SEC[key]; if (hbk && !lg.querySelector('.hbleg')) { const a = el('a', { href: '#', className: 'hbleg', textContent: '📖', title: t('hb_more') }); a.dataset.hb = hbk; lg.appendChild(a); }   // Kapitel im Handbuch
   });
 }
 function openSec(key) { if (SEC_TAB[key]) setSTab(SEC_TAB[key]); const fs = $('sbody').querySelector(`fieldset[data-sec="${key}"], fieldset#${key}`); if (fs && fs.classList.contains('shut')) fs.querySelector(':scope > legend').click(); return fs; }
 /* Einstellungen in Reitern; Inhalte der Bereiche bleiben unveraendert. Bereiche ohne Reiter (Auswahl des Geraets) stehen in jedem Reiter. */
 const STABS = [['dev', 'st_dev'], ['det', 'st_det'], ['time', 'st_time'], ['rules', 'st_rules'], ['save', 'st_save'], ['gen', 'st_gen']];
-const SEC_TAB = { s_ki: 'det', s_quiet: 'time', s_place: 'save', s_keep: 'save', s_list: 'gen', s_pro: 'gen', s_wav: 'save', s_mirror: 'save', s_reset: 'gen', rsbox: 'gen', s_greport: 'gen', grbox: 'gen', s_prof: 'det', pfbox: 'det', srcbox1: 'dev', diagset: 'gen', s_diag: 'gen', srcbox: 'dev', calbox: 'dev', s_cal: 'dev', s_audio: 'dev', s_thr: 'det', s_time: 'time', s_sched: 'time', schedbox: 'time', s_ha: 'rules', habox: 'rules', s_notes: 'time', s_rec: 'save', s_video: 'save', s_misc: 'gen', s_backup: 'save', bkbox: 'save' };
+const SEC_TAB = { s_ki: 'det', s_quiet: 'time', s_place: 'save', s_keep: 'save', s_list: 'gen', s_pro: 'gen', s_wav: 'save', s_mirror: 'save', s_reset: 'gen', rsbox: 'gen', s_greport: 'gen', grbox: 'gen', s_prof: 'det', pfbox: 'det', srcbox1: 'dev', diagset: 'gen', s_diag: 'gen', srcbox: 'dev', calbox: 'dev', s_cal: 'dev', s_audio: 'dev', s_thr: 'det', s_time: 'time', s_sched: 'time', schedbox: 'time', s_ha: 'rules', habox: 'rules', s_hadash: 'rules', hdbox: 'rules', s_notes: 'time', s_rec: 'save', s_video: 'save', s_misc: 'gen', s_backup: 'save', bkbox: 'save' };
 let STAB = 'dev'; try { STAB = localStorage.getItem('laerm_stab') || 'dev'; } catch (e) { }
 if (!STABS.some(x => x[0] === STAB)) STAB = 'dev';
 function applySTab() {
@@ -3631,7 +3686,7 @@ const FORM = [
   ['s_place', [['clip_dir', 'text']]],
   ['s_keep', [['auto_delete', 'chk'], ['retention_days', 'num', 1, 3650, 1]]],
   ['s_mirror', [['mirror_dir', 'text'], ['mirror_time', 'time'], ['mirror_offload', 'chk']]],
-  ['s_misc', [['language', 'sel', ['auto', 'de', 'en'], { auto: 'lauto', de: '#Deutsch', en: '#English' }]]],
+  ['s_misc', [['language', 'sel', ['auto', 'de', 'en'], { auto: 'lauto', de: '#Deutsch', en: '#English' }], ['wheel_zoom', 'sel', ['ctrl', 'always'], { ctrl: 'wz_ctrl', always: 'wz_always' }]]],
   ['s_list', [['group_pause_s', 'num', 10, 3600, 10], ['fn_assign_min', 'num', 0, 60, 1]]],
 ];
 /* Reihenfolge der Kästen je Reiter (nach dem, was man tun will) */
@@ -3687,11 +3742,12 @@ function setDev(id, scroll) {
 function devBox() {
   const bar = $('sdev'); bar.innerHTML = '';
   const chips = el('div', { className: 'sdevchips', id: 'devsel' }); chips.setAttribute('role', 'tablist');
-  const chip = (id, label) => { const b = el('button', { type: 'button', className: 'chip sdevc' + (DEV === id ? ' cur' : ''), textContent: label }); b.setAttribute('aria-selected', String(DEV === id)); b.onclick = () => { if (DEV !== id) setDev(id); }; chips.appendChild(b); };
+  const chip = (id, label) => { const b = el('button', { type: 'button', className: 'chip sdevc' + (DEV === id ? ' cur' : ''), textContent: label }); b.setAttribute('role', 'tab'); b.setAttribute('aria-selected', String(DEV === id)); b.onclick = () => { if (DEV !== id) setDev(id); }; chips.appendChild(b); };
   chip('', '⚙ ' + t('dev_gen'));
   for (const s of SOURCES) chip(s.id, (SRC_ICON[s.type] || '') + ' ' + s.name + (s.own ? ' · ' + t('own_short') : ''));
-  const ti = tipIcon('t_dev'); if (ti) chips.appendChild(ti);
-  bar.appendChild(chips);
+  const crow = el('div', { className: 'sdevrow' }); crow.appendChild(chips);
+  const ti = tipIcon('t_dev'); if (ti) crow.appendChild(ti);   // Hilfe-Symbol neben (nicht in) der Reiterleiste
+  bar.appendChild(crow);
   requestAnimationFrame(() => { const c = chips.querySelector('.cur'); if (c && chips.scrollWidth > chips.clientWidth) chips.scrollLeft = c.offsetLeft - chips.offsetLeft - 8; });   // Handy: gewähltes Gerät sichtbar
   if (DEV) {
     const s = srcById(DEV), r2 = el('div', { className: 'sdevown' });
@@ -3949,7 +4005,7 @@ function buildForm(base) {
     body.appendChild(fs);
   }
   const thrFs = body.querySelector('fieldset[data-sec="s_thr"]'); if (thrFs) { thrFs.after(schedBox()); thrFs.after(profBox()); }
-  const timeFs = body.querySelector('fieldset[data-sec="s_time"]'); if (timeFs) timeFs.after(haBox());
+  const timeFs = body.querySelector('fieldset[data-sec="s_time"]'); if (timeFs) timeFs.after(haBox(), hadashBox());
   $('in_thr_mode').addEventListener('change', syncModeRows);
   if ($('in_save_audio')) $('in_save_audio').addEventListener('change', e => {   // Einschalten nur nach Bestaetigung des Hinweises
     if (e.target.checked && !confirm(t('audio_confirm'))) e.target.checked = false;
@@ -4054,7 +4110,7 @@ function drawMeter() {
     if (k.major) c.fillText(mg.fmt(k.v), clamp(x, L + 12 * d, L + pw - 12 * d), h - 3 * d);
   }
   const html = [[t('level'), st.silent ? null : st.level, st.active ? C.red : C.acc], [t('background'), st.base, C.bgl], [t('threshold'), st.thr, C.thr], [t('preview'), pv, C.pv]]
-    .map(([n, v, col]) => `<b style="color:${col}">${esc(n)} ${f1(v == null || !isFinite(v) ? null : v)}</b>`).join(' ');
+    .map(([n, v, col]) => `<b><i style="background:${col}"></i>${esc(n)} ${f1(v == null || !isFinite(v) ? null : v)}</b>`).join(' ');
   if (leg.innerHTML !== html) leg.innerHTML = html;
 }
 let calTimer = null;
@@ -4526,7 +4582,7 @@ async function init() {
   try { const r = await (await fetch('settings', { cache: 'no-store' })).json(); CUR = r.settings; SRC = r.sources || []; SCHED = r.schedule || []; MIRROR_ST = r.mirror || null; if (r.pro && r.pro.state) PRO = r.pro; } catch (e) { }
   pickLang(CUR && CUR.language); dashInit(); statLoad(); tr(); setLive(true); syncRec(null); initHelp();
   proBanner(); setInterval(proLoad, 6 * 3600 * 1000);
-  bindCanvas($('main'), false); bindCanvas($('spec'), true);
+  bindCanvas($('main'), false); bindCanvas($('spec'), true); bindChartKeys($('main')); document.querySelectorAll('dialog').forEach((d, i) => { const h = d.querySelector('h3,h2'); if (h && !d.hasAttribute('aria-labelledby')) { h.id = h.id || 'dlgh' + i; d.setAttribute('aria-labelledby', h.id); } }); $('spec').setAttribute('aria-hidden', 'true'); chartLabel(true);
   $('livebtn').addEventListener('click', () => setLive(!view.live));
   $('vidrot').onclick = vidRotate; $('vidsz').onclick = vidSize; $('vidfs').onclick = vidFull; $('vidframe').onclick = vidFull;
   for (const [id, k] of [['vidrot', 'vid_rot_tip'], ['vidsz', 'vid_size_tip'], ['vidfs', 'vid_full_tip']]) { $(id).title = t(k); $(id).setAttribute('aria-label', t(k)); }
@@ -5354,6 +5410,15 @@ function initDtBar(S) {
 }
 /* Mausrad / Touchpad: Weg in Pixel; Zoomfaktor nach Weg (Mausrad-Raster ≈ 100 px ≈ 25 %, Touchpad-Schritte fein, Touchpad-Zwei-Finger-Spreizen = Strg + Rad) */
 function wheelPx(e) { return e.deltaMode === 1 ? 16 : e.deltaMode === 2 ? 400 : 1; }
+/* Mausrad über einem Diagramm: Standard „nur mit Strg zoomen“, damit die Seite normal scrollt (Einstellung „Mausrad im Diagramm“).
+   Touchpad-Spreizen (Strg ohne Raster), seitliches Wischen und Umschalt + Rad bleiben beim Diagramm. */
+const isPinch = e => e.ctrlKey && e.deltaMode === 0 && Math.abs(e.deltaY) < 50;
+function wheelGate(e, cv) {
+  if (e.ctrlKey || e.shiftKey || Math.abs(e.deltaX) > Math.abs(e.deltaY) || (CUR && CUR.wheel_zoom === 'always')) return true;
+  const now = Date.now();
+  if (!cv._wzT || now - cv._wzT > 4000) { cv._wzT = now; toast(t('wz_hint')); }
+  return false;
+}
 function wheelK(px, pinch) { return Math.exp(clamp(px, -300, 300) * (pinch ? 0.01 : 0.0022)); }
 /* Zwei Finger auf Touch-Geräten: zoomen und gleichzeitig verschieben. Läuft über Touch-Ereignisse, damit der Browser
    dabei nicht die Seite scrollt; ein Finger bleibt für Seite scrollen (senkrecht) bzw. Ziehen (waagerecht). */
@@ -5439,16 +5504,17 @@ function bindDay(S, reset) {
     tg.from = tq(a); tg.to = Math.max(tq(b), tg.from + 30000); tg.zoom = true; dtLoad(tg, true);
   };
   cv.addEventListener('pointerup', up); cv.addEventListener('pointercancel', up);
-  cv.addEventListener('wheel', e => {                 // Mausrad / Touchpad = zoomen, Umschalt + Rad oder seitlich wischen = scrollen
+  cv.addEventListener('wheel', e => {
+    if (!wheelGate(e, cv)) return;                 // Mausrad / Touchpad = zoomen, Umschalt + Rad oder seitlich wischen = scrollen
     e.preventDefault();
     if (!S.parent || !S.data || !S.geo) return;
     const u = wheelPx(e), dx = u * e.deltaX, dy = u * e.deltaY, side = Math.abs(dx) > Math.abs(dy) ? dx : 0;
     if (!side && (e.shiftKey || xAt(e) < S.geo.L)) {  // Umschalt + Mausrad oder über der dB-Beschriftung: Höhe (alle Zeilen), unten bündig
-      tg.yk = clamp((tg.yk || 1) * wheelK(dy, e.ctrlKey), 0.02, 1); for (const sub of tg.subs || [tg]) if (sub.data) dtDraw(sub); return;
+      tg.yk = clamp((tg.yk || 1) * wheelK(dy, isPinch(e)), 0.02, 1); for (const sub of tg.subs || [tg]) if (sub.data) dtDraw(sub); return;
     }
     if (side && tg.from != null) { const [wf, wt] = dtWin(tg), sh = side / S.geo.pw * (wt - wf); dtSetWin(tg, wf + sh, wt + sh); return; }
     const z = side || dy; if (!z) return;
-    dtZoom(tg, wheelK(z, e.ctrlKey), fxAt(xAt(e)));  // Stärke nach Weg: ein Mausrad-Raster ≈ 25 %, Touchpad fein
+    dtZoom(tg, wheelK(z, isPinch(e)), fxAt(xAt(e)));  // Stärke nach Weg: ein Mausrad-Raster ≈ 25 %, Touchpad fein
   }, { passive: false });
   bindPinch(cv, () => S.parent && S.data && S.geo ? dtWin(tg) : null, fxAt, (f, t2) => dtSetWin(tg, f, t2), () => { pts.clear(); pinch = null; pan = null; S.drag = null; }, () => dtLoad(tg, true));
   cv.addEventListener('dblclick', e => { clearTimeout(dcT); reset(e); });
@@ -5634,14 +5700,15 @@ function bindLive() {
   cv.addEventListener('pointerup', up); cv.addEventListener('pointercancel', up);
   cv.addEventListener('pointerleave', e => { if (e.pointerType === 'mouse') tipHide('day'); if (!S.drag) { $(S.el.hover).textContent = ''; dtDraw(S); } });
   cv.addEventListener('wheel', e => {
+    if (!wheelGate(e, cv)) return;
     e.preventDefault(); if (!S.data || !S.geo) return;
     const u = wheelPx(e), side = Math.abs(e.deltaX) > Math.abs(e.deltaY), z = side ? u * e.deltaX : u * e.deltaY; if (!z) return;
-    if (!side && (e.shiftKey || xAt(e) < S.geo.L)) { S.yk = clamp((S.yk || 1) * wheelK(z, e.ctrlKey), 0.02, 1); dtDraw(S); return; }   // Höhe
+    if (!side && (e.shiftKey || xAt(e) < S.geo.L)) { S.yk = clamp((S.yk || 1) * wheelK(z, isPinch(e)), 0.02, 1); dtDraw(S); return; }   // Höhe
     if (side) { const sh = z / S.geo.pw * (S.data.to - S.data.from); setWin(S.data.from + sh, S.data.to + sh); return; }   // seitlich wischen: verschieben
     if (!LDT.hist && (!S.zoom || S.data.to >= nowServer() - 3000)) {   // läuft bis „jetzt“: Zeitfenster zoomen, rechter Rand bleibt jetzt (unter 10 min wieder das normale Live-Bild)
-      setSpan(clamp(Math.round(view.span * wheelK(z, e.ctrlKey)), 5, 34560000)); return;
+      setSpan(clamp(Math.round(view.span * wheelK(z, isPinch(e))), 5, 34560000)); return;
     }
-    const r = S.data, span = r.to - r.from, ns = clamp(span * wheelK(z, e.ctrlKey), 60000, 400 * 86400000);
+    const r = S.data, span = r.to - r.from, ns = clamp(span * wheelK(z, isPinch(e)), 60000, 400 * 86400000);
     const fx = clamp((xAt(e) - S.geo.L) / S.geo.pw, 0, 1), c0 = r.from + fx * span;
     setWin(c0 - fx * ns, c0 - fx * ns + ns);
   }, { passive: false });

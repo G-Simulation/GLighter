@@ -32,7 +32,7 @@ HERE = os.path.dirname(os.path.abspath(__file__))
 WEB = os.path.join(HERE, "web")
 OPTIONS_FILE = os.environ.get("LAERM_OPTIONS", "/data/options.json")
 SETTINGS_FILE = os.environ.get("LAERM_SETTINGS", "/data/settings.json")
-VERSION = "1.76.3"
+VERSION = "1.77.0"
 
 # =====================================================================
 # Einstellungen
@@ -49,6 +49,7 @@ DEFAULTS = {
     "mic_port": "", "classify": True, "ki_embed": False,
     "clip_dir": "", "video_width": 640, "video_fps": 5, "video_crf": 30,
     "quiet_from": "22:00", "quiet_to": "06:00", "quiet_sunday": True, "art_silent": "", "mirror_dir": "", "mirror_time": "03:30", "mirror_offload": False,
+    "wheel_zoom": "ctrl",
 }
 SPEC = {
     # ("num", min, max, Aufloesung): Kommazahlen, auf die Aufloesung gerundet
@@ -63,6 +64,7 @@ SPEC = {
     "language": ("choice", ["auto", "de", "en"]), "mic_port": ("optstr",), "classify": ("bool",), "ki_embed": ("bool",),
     "clip_dir": ("optstr",), "video_width": ("int", 0, 3840), "video_fps": ("int", 1, 30), "video_crf": ("int", 18, 40),
     "quiet_from": ("time",), "quiet_to": ("time",), "quiet_sunday": ("bool",), "art_silent": ("optstr",), "mirror_dir": ("optstr",), "mirror_time": ("time",), "mirror_offload": ("bool",),
+    "wheel_zoom": ("choice", ["ctrl", "always"]),
 }
 # Diese Werte erfordern einen Neustart der Aufnahme
 RESTART_KEYS = {"device", "sample_rate"}
@@ -2116,6 +2118,160 @@ def ha_test(entity, states):
     return {"ok": True, "state": d.get("state"), "name": at_.get("friendly_name") or ent, "match": rule_match(states or "on", d.get("state")),
             "vol": int(round(float(v) * 100)) if isinstance(v, (int, float)) else None, "mute": at_.get("is_volume_muted") if isinstance(at_.get("is_volume_muted"), bool) else None,
             "src_list": at_.get("source_list") if isinstance(at_.get("source_list"), list) else None}
+
+
+# =====================================================================
+# Dashboard-Vorlage für Home Assistant (nur auf Knopfdruck in den Einstellungen)
+# =====================================================================
+import hadash
+
+HADASH_FILE = os.path.join(os.path.dirname(SOURCES_FILE), "hadash.json")
+HADASH_PARTS = ("live", "verlauf", "notiz", "ruhe", "pause", "quellen", "oeffnen")
+
+
+def HADASH_GUESS():
+    """Platzhalter für die Vorschau, wenn Home Assistant nicht erreichbar ist."""
+    dom = {"active": "binary_sensor", "online": "binary_sensor", "level": "sensor", "baseline": "sensor", "threshold": "sensor",
+           "events_today": "sensor", "last_event": "sensor", "note": "text", "mark": "button", "quiet_minutes": "number",
+           "quiet_start": "button", "quiet_stop": "button", "quiet_until": "sensor", "recording": "switch", "pause15": "button",
+           "pause60": "button", "resume": "button", "pause_until": "sensor"}
+    return {f"{HAID}_{k}": f"{v}.{HAID}_{k}" for k, v in dom.items()}
+
+
+def hadash_prefs():
+    de = CFG.get("language") != "en"
+    d = {"title": BRAND, "url": "gsim-glighter" if HAID == "gaslighter" else "gsim-" + HAID.replace("_", "-"), "sidebar": True, "admin": False, "parts": list(HADASH_PARTS)}
+    try:
+        with open(HADASH_FILE, encoding="utf-8") as f:
+            x = json.load(f)
+        if isinstance(x, dict):
+            d.update({k: x[k] for k in d if k in x})
+    except (OSError, ValueError):
+        pass
+    d["parts"] = [p for p in d.get("parts") or [] if p in HADASH_PARTS]
+    d["de"] = de
+    return d
+
+
+def hadash_clean(data):
+    d = hadash_prefs()
+    if isinstance(data.get("title"), str):
+        d["title"] = data["title"].strip()[:60] or BRAND
+    if isinstance(data.get("url"), str):
+        d["url"] = data["url"].strip().lower()[:40]
+    for k in ("sidebar", "admin"):
+        if k in data:
+            d[k] = bool(data[k])
+    if isinstance(data.get("parts"), list):
+        d["parts"] = [p for p in HADASH_PARTS if p in data["parts"]]
+    return d
+
+
+def hadash_config(d, ents):
+    de = d["de"]
+    T = (lambda a, b: a if de else b)
+    e = lambda key: ents.get(f"{HAID}_{key}")
+    t = hadash.tile
+    parts = set(d["parts"])
+    secs = []
+    if "live" in parts:
+        secs.append(hadash.section([
+            hadash.heading(T("Jetzt", "Now"), "mdi:ear-hearing"),
+            e("active") and t(e("active"), T("Störung", "Disturbance")),
+            e("level") and t(e("level"), T("Pegel", "Level")),
+            e("events_today") and t(e("events_today"), T("Störungen heute", "Events today")),
+            e("last_event") and t(e("last_event"), T("Letzte Störung", "Last event")),
+            e("sound_type") and t(e("sound_type"), T("Letzte Geräuschart", "Last sound type")),
+            e("online") and t(e("online"), T("Mikrofon verbunden", "Microphone connected")),
+        ]))
+    if "verlauf" in parts:
+        hs = [x for x in (e("level"), e("baseline"), e("threshold")) if x]
+        if hs:
+            secs.append(hadash.section([
+                hadash.heading(T("Pegel der letzten 24 Stunden", "Level, last 24 hours"), "mdi:chart-line"),
+                {"type": "history-graph", "hours_to_show": 24, "entities": hs, "grid_options": {"columns": "full"}},
+            ]))
+    if "notiz" in parts:
+        secs.append(hadash.section([
+            hadash.heading(T("Störung erfassen", "Log a disturbance"), "mdi:note-edit-outline"),
+            e("note") and {"type": "entities", "entities": [{"entity": e("note"), "name": T("Notiz", "Note")}], "grid_options": {"columns": "full"}},
+            e("mark") and hadash.press(e("mark"), T("Störung jetzt markieren", "Mark disturbance now")),
+        ]))
+    if "ruhe" in parts:
+        secs.append(hadash.section([
+            hadash.heading(T("Keine Störung melden", "No disturbance reports"), "mdi:bell-off-outline"),
+            e("quiet_minutes") and t(e("quiet_minutes"), T("Dauer", "Duration"), features=[{"type": "numeric-input", "style": "buttons"}],
+                                     features_position="bottom"),
+            e("quiet_start") and hadash.press(e("quiet_start"), T("Jetzt starten", "Start now")),
+            e("quiet_stop") and hadash.press(e("quiet_stop"), T("Wieder melden", "Report again")),
+            e("quiet_until") and t(e("quiet_until"), T("Bis", "Until")),
+        ]))
+    if "pause" in parts:
+        secs.append(hadash.section([
+            hadash.heading(T("Aufzeichnung", "Recording"), "mdi:record-rec"),
+            e("recording") and t(e("recording"), T("Aufzeichnung", "Recording")),
+            e("pause15") and hadash.press(e("pause15"), T("Pause 15 min", "Pause 15 min")),
+            e("pause60") and hadash.press(e("pause60"), T("Pause 1 h", "Pause 1 h")),
+            e("resume") and hadash.press(e("resume"), T("Fortsetzen", "Resume")),
+            e("pause_until") and t(e("pause_until"), T("Pause bis", "Paused until")),
+        ]))
+    if "quellen" in parts:
+        cards = [hadash.heading(T("Weitere Mikrofone", "Other microphones"), "mdi:microphone-variant")]
+        for r in list(RUNNERS.values()):
+            if r.id == "main":
+                continue
+            a, lv = ents.get(f"{HAID}_{r.id}_active"), ents.get(f"{HAID}_{r.id}_level")
+            if a:
+                cards.append(t(a, f"{r.name}: " + T("Störung", "disturbance")))
+            if lv:
+                cards.append(t(lv, f"{r.name}: " + T("Pegel", "level")))
+        secs.append(hadash.section(cards))
+    if "oeffnen" in parts:
+        secs.append(hadash.section([
+            hadash.heading(BRAND, "mdi:open-in-app"),
+            hadash.open_button(T(f"{BRAND} öffnen", f"Open {BRAND}"), hadash.self_slug("local_" + HAID), "mdi:ear-hearing"),
+        ]))
+    return hadash.board(d["title"], secs)
+
+
+def hadash_state(data=None):
+    """Vorschau (YAML) und ob es das Dashboard schon gibt. Ändert nichts."""
+    d = hadash_clean(data or {})
+    out = {"ok": True, "available": hadash.available(), "prefs": {k: d[k] for k in ("title", "url", "sidebar", "admin", "parts")},
+           "parts": list(HADASH_PARTS), "valid_url": hadash.valid_url(d["url"])}
+    ents = {}
+    if out["available"]:
+        try:
+            ents = hadash.entity_map(HAID)
+            out["exists"] = bool(hadash.find(d["url"]))
+        except Exception as e:
+            out["error"] = str(e)[:200]
+    out["n_entities"] = len(ents)
+    out["yaml"] = hadash.to_yaml(hadash_config(d, ents or HADASH_GUESS()))
+    return out
+
+
+def hadash_apply(data):
+    """Dashboard in Home Assistant anlegen oder (nur mit overwrite) ersetzen. Merkt sich die Auswahl."""
+    d = hadash_clean(data or {})
+    if not hadash.valid_url(d["url"]):
+        return {"ok": False, "error": "bad_url"}
+    try:
+        with open(HADASH_FILE + ".tmp", "w", encoding="utf-8") as f:
+            json.dump({k: d[k] for k in ("title", "url", "sidebar", "admin", "parts")}, f)
+        os.replace(HADASH_FILE + ".tmp", HADASH_FILE)
+    except OSError:
+        pass
+    try:
+        ents = hadash.entity_map(HAID)
+        if not ents:
+            return {"ok": False, "error": "no_entities"}
+        r = hadash.install(d["url"], d["title"], "mdi:ear-hearing", hadash_config(d, ents), d["sidebar"], d["admin"], bool(data.get("overwrite")))
+        if r.get("ok"):
+            log("Dashboard in Home Assistant", "angelegt:" if r.get("created") else "ersetzt:", "/" + d["url"])
+        return r
+    except Exception as e:
+        return {"ok": False, "error": str(e)[:200]}
 
 
 def ha_entities():
@@ -10790,7 +10946,7 @@ class BaseHandler(BaseHTTPRequestHandler):
         self.do_GET()
 
 
-STATIC = {"app.js", "app.css", "i18n.js", "qrcode.js", "druck.js", "uplot.min.js", "uplot.min.css", "tabulator.min.js", "tabulator.min.css", "gridstack-all.js", "gridstack.min.css", "handbuch.js", "hb_inhalt.js"}   # uPlot (MIT, github.com/leeoniya/uPlot): Kurven und Balken
+STATIC = {"app.js", "hadash-ui.js", "app.css", "i18n.js", "qrcode.js", "druck.js", "uplot.min.js", "uplot.min.css", "tabulator.min.js", "tabulator.min.css", "gridstack-all.js", "gridstack.min.css", "handbuch.js", "hb_inhalt.js"}   # uPlot (MIT, github.com/leeoniya/uPlot): Kurven und Balken
 
 
 class Handler(BaseHandler):
@@ -10978,6 +11134,8 @@ class Handler(BaseHandler):
                 return self.js(ha_rules_payload())
             if name == "ha_entities":
                 return self.js(ha_entities())
+            if name == "hadash":                       # Dashboard-Vorlage: Vorschau, ändert nichts
+                return self.js(hadash_state({k: v[0] for k, v in q.items() if k in ("title", "url")}))
             if name == "greport":
                 return self.js(dict(gr_status(), ok=True))
             if name == "ha_test":
@@ -11224,6 +11382,11 @@ class Handler(BaseHandler):
                 if not isinstance(data, dict):
                     return self.js({"ok": False, "error": "bad request"}, 400)
                 return self.js(enote_change(name, data))
+            if name in ("hadash", "hadash_apply"):      # Dashboard-Vorlage: Vorschau bzw. in Home Assistant anlegen
+                data = json.loads(body or b"{}")
+                if not isinstance(data, dict):
+                    return self.js({"ok": False, "error": "bad request"}, 400)
+                return self.js(hadash_apply(data) if name == "hadash_apply" else hadash_state(data))
             if name == "reset":                         # Zuruecksetzen (Einstellungen -> Allgemein)
                 data = json.loads(body or b"{}")
                 if not isinstance(data, dict) or data.get("confirm") != "RESET" or not isinstance(data.get("parts"), list):

@@ -1,5 +1,14 @@
 # Changelog
 
+## 1.77.0
+- **Neu: Dashboard in Home Assistant mit einem Klick.** ⚙ Einstellungen → Regeln → „Dashboard in Home Assistant“: Name, Adresse, Seitenleiste und Bereiche wählen, dann „In Home Assistant anlegen“. Ein vorhandenes Dashboard wird nur nach Rückfrage ersetzt. Die Vorlage gibt es auch als YAML zum Kopieren.
+- **Mausrad:** Über der Grafik scrollt das Mausrad jetzt die Seite; gezoomt wird mit Strg + Mausrad (Touchpad-Spreizen wie bisher). Wer es wie früher möchte: ⚙ → Allgemein → „Mausrad im Diagramm“ → „Zoomt immer“.
+- **Barrierefreiheit:**
+  - Live-Grafik mit der Tastatur bedienbar (Tab, dann + / −, ← / →, ↑ / ↓, 0, Ende) und für Screenreader beschrieben (Pegel, Schwelle, Zustand).
+  - Bessere Kontraste bei grauem Text, blauen Knöpfen, grünen und roten Anzeigen, „Pro“-Hinweis und Regel-Status.
+  - Tabellen, Geräte-Reiter in den Einstellungen und aufklappbare Abschnitte werden von Screenreadern richtig erkannt. Dialoge haben einen Namen, die Seite hat einen Hauptbereich.
+  - Kontrollkästchen sind größer. Die Legende über dem Pegelmesser zeigt die Farbe als Kästchen, der Text bleibt gut lesbar.
+
 ## 1.76.3
 - **GReport-Notizen nur, wenn GReport sie freigibt:** In GReport (ab 1.7.1) lässt sich unter ⋯ → GLighter „Notizen an GLighter weitergeben“ abschalten. Dann zeigt GLighter keine Notizen aus GReport mehr, und unter Einstellungen → GReport steht, dass die Weitergabe dort ausgeschaltet ist. Eigene Notizen in GLighter sind davon nicht betroffen.
 

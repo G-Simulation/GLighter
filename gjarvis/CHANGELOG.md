@@ -1,5 +1,12 @@
 # Änderungen
 
+## 1.11.0
+
+- Neu: Dashboard in Home Assistant mit einem Klick (Einstellungen → „Dashboard in Home Assistant“): Zustand, Steuerung (Stopp, Briefing, Lautstärke, Stimme), Erinnerungen und Knopf „GJarvis öffnen“. „Letzter Befehl und letzte Antwort“ nur, wenn du es auswählst. Ein vorhandenes Dashboard wird nur nach Rückfrage ersetzt; die Vorlage gibt es auch als YAML
+- Barrierefreiheit: Reiter als echte Reiter (Pfeiltasten, Pos1/Ende), der Zustand („Bereit“, „Hört zu“ …) wird von Screenreadern angesagt, bessere Kontraste, größere Kontrollkästchen, Seite mit Hauptbereich
+- Handy: Reiter brechen in eine zweite Zeile um statt aus dem Bild zu laufen
+- Klarer: „Hintergrund-Aufgaben“ statt „Hintergrund“, Stopp-Knopf hervorgehoben
+
 ## 1.10.0
 
 - Sicherer: Die Oberfläche und ihre Schnittstelle sind nur noch über Home Assistant (Seitenleiste) erreichbar, nicht mehr direkt von anderen Apps im Netz

@@ -14,7 +14,7 @@ COPY requirements.txt /tmp/requirements.txt
 RUN pip install --no-cache-dir -r /tmp/requirements.txt \
     && pip install --no-cache-dir --no-deps openwakeword==0.6.0
 
-COPY gjarvis.py web.py features.py apps.py lizenz.py satellite.py config.yaml /
+COPY gjarvis.py web.py features.py apps.py lizenz.py satellite.py hadash.py config.yaml /
 COPY web /web
 COPY translations /translations
 COPY run.sh /run.sh

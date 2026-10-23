@@ -102,3 +102,15 @@ Manchmal soll eine Störung nicht gemeldet werden, der Graph aber trotzdem weite
 - **In einer Regel:** Wähle bei der Aktion **„keine Störung melden“**. Solange die Bedingung gilt und für den **Nachlauf** (z. B. 10 Minuten), entsteht keine Störung. Der Graph wird weiter aufgezeichnet, es gibt keine Lücke.
 - **Vorlauf (s), z. B. für einen Sprachassistenten:** Das Rufwort („Hey Jarvis“) kommt, *bevor* der Assistent auf „hört zu“ wechselt. Mit **Vorlauf** zählt auch eine Störung nicht, die bis zu so viele Sekunden vor dem Einschalten der Regel begann. Dafür hält GLighter jede Störung so lange (Vorlauf + 2 s) zurück, bevor sie gemeldet wird. Pegel und Graph bleiben unverändert; im Protokoll steht „nicht gezählt“. **Einrichten:** Regel hinzufügen, Entität `assist_satellite.…` wählen – Zustände `!idle`, „keine Störung melden“, Vorlauf 3 s und Nachlauf 0,5 min werden vorbelegt. So zählen Rufwort, Befehl und die Antwort aus dem Lautsprecher nicht.
 - **Als Knopf im Dashboard:** Am Gerät „GLighter“ gibt es **„Keine Störung melden (Dauer starten)“**, **„Störungen wieder melden“**, die einstellbare **Dauer** (1–240 Minuten, Standard 10) und **„Keine Störungsmeldung bis“**. Lege sie auf dein Dashboard. Ein Tipp auf den Knopf startet die eingestellte Dauer.
+
+## Dashboard in Home Assistant anlegen {#dashboard}
+
+⚙ Einstellungen → Reiter **Regeln** → **Dashboard in Home Assistant**. GLighter legt dort mit einem Klick ein fertiges Dashboard mit seinen Entitäten an. Du wählst:
+
+- **Name** und **Adresse** (z. B. `gsim-glighter`, steht danach in der Adresszeile von Home Assistant),
+- ob es in der **Seitenleiste** steht und ob es **nur für Administratoren** sichtbar ist,
+- welche **Bereiche** hinein sollen: Jetzt (Störung, Pegel, heute), Pegel der letzten 24 Stunden, Störung erfassen, Keine Störung melden, Aufzeichnung und Pause, weitere Mikrofone, Knopf „GLighter öffnen“.
+
+**In Home Assistant anlegen** erstellt das Dashboard. Gibt es unter der Adresse schon eins, fragt GLighter nach, bevor es ersetzt wird (Änderungen, die du dort gemacht hast, gehen dabei verloren). Ohne Klick ändert GLighter in Home Assistant nichts.
+
+Unter **Als YAML anzeigen** steht dieselbe Vorlage zum Kopieren: in Home Assistant ein Dashboard anlegen, **Bearbeiten** → ⋮ → **Rohdaten-Konfigurationseditor**, einfügen, speichern. Das Dashboard kannst du danach in Home Assistant frei weiter bearbeiten.

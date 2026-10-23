@@ -29,6 +29,9 @@ Diese Wörter stehen auch in Home Assistant in der Auswahlliste „Schnellwahl�
   - `sensor.greport_letzte_notiz` (Attribut `notizen`: die letzten 10 mit Datum, Uhrzeit, Text, Zeuge, Wörtern) und `sensor.greport_notizen_heute`
 - **Auswahlliste „Schnellwahl“ und Knopf „Hinzufügen“**: Wort wählen, Knopf drücken – die Notiz ist mit der Uhrzeit angelegt. Der Knopf lässt sich auch in Automationen verwenden (z. B. Zigbee-Taster).
 
+### Dashboard mit einem Klick
+⋯ → **Dashboard in Home Assistant**: Name, Adresse (z. B. `gsim-greport`), Seitenleiste, „nur für Administratoren“ und die Bereiche wählen – **Notiz erfassen** (als GReport-Karte oder als einzelne Felder), **Letzte Notizen**, Zähler **heute**, Knopf **GReport öffnen**. **In Home Assistant anlegen** erstellt das Dashboard; ein vorhandenes wird nur nach Rückfrage ersetzt. Ohne Klick ändert GReport nichts. Unter **Als YAML anzeigen** steht dieselbe Vorlage zum Einfügen in den Rohdaten-Editor eines Dashboards.
+
 ## Mit GLighter
 Ist GLighter installiert, findet es GReport selbst (über `/share/greport`). Mit GLighter Pro erscheinen die Notizen dort an den Störungen, im Verlauf und im Lärmprotokoll; geändert werden sie in GReport.
 

@@ -145,6 +145,115 @@ def field_meta() -> dict:
     return {"fields": fields, "groups": groups, "version": cfg.get("version", "?")}
 
 
+
+# ---------------------------------------------------------------- Dashboard-Vorlage für Home Assistant
+import hadash  # noqa: E402
+
+HADASH_FILE = Path(os.environ.get("GJARVIS_DATA", "/data")) / "hadash.json"
+HADASH_PARTS = ("zustand", "steuerung", "erinnerungen", "gespraech", "oeffnen")
+
+
+def hadash_prefs():
+    d = {"title": "GJarvis", "url": "gsim-gjarvis", "sidebar": True, "admin": False, "parts": ["zustand", "steuerung", "erinnerungen", "oeffnen"]}
+    try:
+        x = json.loads(HADASH_FILE.read_text(encoding="utf-8"))
+        if isinstance(x, dict):
+            d.update({k: x[k] for k in d if k in x})
+    except (OSError, ValueError):
+        pass
+    d["parts"] = [p for p in d.get("parts") or [] if p in HADASH_PARTS]
+    return d
+
+
+def hadash_clean(data):
+    d = hadash_prefs()
+    if isinstance(data.get("title"), str):
+        d["title"] = data["title"].strip()[:60] or "GJarvis"
+    if isinstance(data.get("url"), str):
+        d["url"] = data["url"].strip().lower()[:40]
+    for k in ("sidebar", "admin"):
+        if k in data:
+            d[k] = bool(data[k])
+    if isinstance(data.get("parts"), list):
+        d["parts"] = [p for p in HADASH_PARTS if p in data["parts"]]
+    return d
+
+
+HADASH_GUESS = {"gjarvis_state": "sensor.gjarvis_zustand", "gjarvis_hoert": "binary_sensor.gjarvis_hort", "gjarvis_spricht": "binary_sensor.gjarvis_spricht",
+                "gjarvis_stop": "button.gjarvis_stopp", "gjarvis_briefing": "button.gjarvis_briefing", "gjarvis_calibrate": "button.gjarvis_kalibrieren",
+                "gjarvis_volume": "number.gjarvis_lautstarke", "gjarvis_voice": "select.gjarvis_stimme", "gjarvis_reminders": "sensor.gjarvis_erinnerungen",
+                "gjarvis_last_command": "sensor.gjarvis_letzter_befehl", "gjarvis_last_answer": "sensor.gjarvis_letzte_antwort"}
+
+
+def hadash_config(d, ents):
+    e = lambda key: ents.get(f"gjarvis_{key}")
+    t, parts, secs = hadash.tile, set(d["parts"]), []
+    if "zustand" in parts:
+        secs.append(hadash.section([hadash.heading("Jarvis", "mdi:account-voice"),
+                                    e("state") and t(e("state"), "Zustand"),
+                                    e("hoert") and t(e("hoert"), "Hört zu"),
+                                    e("spricht") and t(e("spricht"), "Spricht")]))
+    if "steuerung" in parts:
+        secs.append(hadash.section([hadash.heading("Steuerung", "mdi:gesture-tap-button"),
+                                    e("stop") and hadash.press(e("stop"), "Stopp", "mdi:stop-circle"),
+                                    e("briefing") and hadash.press(e("briefing"), "Briefing", "mdi:weather-sunset-up"),
+                                    e("volume") and t(e("volume"), "Lautstärke", features=[{"type": "numeric-input", "style": "slider"}], features_position="bottom"),
+                                    e("voice") and t(e("voice"), "Stimme", features=[{"type": "select-options"}], features_position="bottom"),
+                                    e("calibrate") and hadash.press(e("calibrate"), "Kalibrieren", "mdi:tune-vertical")]))
+    if "erinnerungen" in parts and e("reminders"):
+        eid = e("reminders")
+        md = "**Nächste:** {{ state_attr('" + eid + "', 'naechste') or 'keine' }}"
+        secs.append(hadash.section([hadash.heading("Erinnerungen", "mdi:bell-ring-outline"), t(eid, "Erinnerungen"),
+                                    {"type": "markdown", "content": md, "grid_options": {"columns": "full"}}]))
+    if "gespraech" in parts:
+        secs.append(hadash.section([hadash.heading("Letztes Gespräch", "mdi:message-text-outline"),
+                                    e("last_command") and t(e("last_command"), "Letzter Befehl", grid_options={"columns": "full"}),
+                                    e("last_answer") and t(e("last_answer"), "Letzte Antwort", grid_options={"columns": "full"})]))
+    if "oeffnen" in parts:
+        secs.append(hadash.section([hadash.heading("GJarvis", "mdi:open-in-app"),
+                                    hadash.open_button("GJarvis öffnen", hadash.self_slug("local_gjarvis"), "mdi:account-voice")]))
+    return hadash.board(d["title"], secs)
+
+
+def hadash_state(data=None):
+    d = hadash_clean(data or {})
+    out = {"ok": True, "available": hadash.available(), "prefs": {k: d[k] for k in ("title", "url", "sidebar", "admin", "parts")},
+           "parts": list(HADASH_PARTS), "valid_url": hadash.valid_url(d["url"])}
+    ents = {}
+    if out["available"]:
+        try:
+            ents = hadash.entity_map("gjarvis_")
+            out["exists"] = bool(hadash.find(d["url"]))
+        except Exception as e:  # noqa: BLE001
+            out["error"] = str(e)[:200]
+    out["n_entities"] = len(ents)
+    out["yaml"] = hadash.to_yaml(hadash_config(d, ents or HADASH_GUESS))
+    return out
+
+
+def hadash_apply(data):
+    d = hadash_clean(data or {})
+    if not hadash.valid_url(d["url"]):
+        return {"ok": False, "error": "bad_url"}
+    try:
+        HADASH_FILE.parent.mkdir(parents=True, exist_ok=True)
+        tmp = HADASH_FILE.with_suffix(".tmp")
+        tmp.write_text(json.dumps({k: d[k] for k in ("title", "url", "sidebar", "admin", "parts")}), encoding="utf-8")
+        os.replace(tmp, HADASH_FILE)
+    except OSError:
+        pass
+    try:
+        ents = hadash.entity_map("gjarvis_")
+        if not ents:
+            return {"ok": False, "error": "no_entities"}
+        r = hadash.install(d["url"], d["title"], "mdi:account-voice", hadash_config(d, ents), d["sidebar"], d["admin"], bool(data.get("overwrite")))
+        if r.get("ok"):
+            _LOGGER.info("Dashboard in Home Assistant %s: /%s", "angelegt" if r.get("created") else "ersetzt", d["url"])
+        return r
+    except Exception as e:  # noqa: BLE001
+        return {"ok": False, "error": str(e)[:200]}
+
+
 def make_app(gj) -> web.Application:
     meta = field_meta()
     app = web.Application(middlewares=[only_ingress])
@@ -327,7 +436,26 @@ def make_app(gj) -> web.Application:
         asyncio.create_task(_bye())
         return web.json_response({"ok": True})
 
+    async def hadash_ui(request):
+        return web.FileResponse(WEB_DIR / "hadash-ui.js", headers={"Cache-Control": "no-cache"})
+
+    async def hadash_get(request):
+        return web.json_response(await asyncio.get_running_loop().run_in_executor(None, hadash_state, {}))
+
+    async def hadash_post(request):
+        try:
+            d = await request.json()
+        except Exception:  # noqa: BLE001
+            d = {}
+        if not isinstance(d, dict):
+            d = {}
+        fn = hadash_apply if request.match_info["what"] == "apply" else hadash_state
+        return web.json_response(await asyncio.get_running_loop().run_in_executor(None, fn, d))
+
     app.router.add_get("/", index)
+    app.router.add_get("/hadash-ui.js", hadash_ui)
+    app.router.add_get("/api/hadash", hadash_get)
+    app.router.add_post("/api/hadash/{what}", hadash_post)
     app.router.add_get("/api/status", status)
     app.router.add_get("/api/log", logs)
     app.router.add_get("/api/settings", get_settings)

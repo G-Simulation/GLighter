@@ -82,7 +82,7 @@ async function stLoad() {
 }
 function stShow() {
   const b = $('grstat'); if (!b) return; b.innerHTML = '';
-  const dot = (txt, on, tip) => { const c = el('span', { textContent: txt, className: on ? 'on' : '' }); c.title = tip; c.setAttribute('aria-label', tip); b.appendChild(c); };
+  const dot = (txt, on, tip) => { const c = el('span', { textContent: txt, className: on ? 'on' : '' }); c.title = tip; c.setAttribute('role', 'img'); c.setAttribute('aria-label', tip); b.appendChild(c); };
   const g = ST.glighter || {};
   if (g.found && ST.prefs && ST.prefs.gl === false) dot('🔗', false, t('gr_gl_off'));
   else if (g.linked) dot('🔗', true, t('gr_gl_linked') + ' – ' + t('gr_gl_linked_tip'));
@@ -499,7 +499,7 @@ function menu() {
   const m = document.getElementById('grmenul');
   if (!m.hidden) { m.hidden = true; return; }
   const lock = PRO() ? '' : '🔒 Pro';
-  const items = [['✎', t('qt_title'), () => qtOpen()], ['🕒', t('gr_prefs'), prefOpen], ['🔗', t('gr_gl_title'), glOpen], null,
+  const items = [['✎', t('qt_title'), () => qtOpen()], ['🕒', t('gr_prefs'), prefOpen], ['🔗', t('gr_gl_title'), glOpen], ['🏠', t('gr_dash'), dashOpen], null,
     ['⤓', t('gr_backup'), () => { location.href = 'backup'; }],
     ['📄', t('gr_txt_title'), txtOpen, lock],
     ['👤', t('gr_persons'), () => PRO() ? perOpen() : proOpen(), lock], null,
@@ -512,6 +512,20 @@ function menu() {
     b.onclick = () => { m.hidden = true; it[2](); }; m.appendChild(b);
   }
   m.hidden = false; m.querySelector('button').focus();
+  m.onkeydown = e => {                                  // Pfeiltasten im Menü
+    const bs = [...m.querySelectorAll('button')], i = bs.indexOf(document.activeElement);
+    if (e.key === 'ArrowDown' || e.key === 'ArrowUp') { e.preventDefault(); bs[(i + (e.key === 'ArrowDown' ? 1 : bs.length - 1)) % bs.length].focus(); }
+    else if (e.key === 'Home' || e.key === 'End') { e.preventDefault(); bs[e.key === 'Home' ? 0 : bs.length - 1].focus(); }
+    else if (e.key === 'Escape' || e.key === 'Tab') { m.hidden = true; document.getElementById('grmenu').focus(); }
+  };
+}
+/* Dashboard-Vorlage für Home Assistant */
+let DASH_ON = false;
+function dashOpen() {
+  const d = document.getElementById('dashdlg');
+  if (!DASH_ON && window.HADash) { DASH_ON = true; HADash.mount(document.getElementById('dashbox'), { lang, get: 'hadash', post: 'hadash_apply', preview: 'hadash',
+    parts: { karte: t('hd_karte'), felder: t('hd_felder'), letzte: t('hd_letzte'), heute: t('hd_heute'), oeffnen: t('hd_oeffnen') } }); }
+  d.showModal();
 }
 function proOpen() {
   const p = ST.pro || {};
@@ -530,6 +544,7 @@ function glOpen() {
 function perOpen() { document.getElementById('perlist').value = (ST.persons || []).join('\n'); document.getElementById('perdlg').showModal(); }
 function initDialogs() {
   document.querySelectorAll('dialog .dlgx').forEach(b => b.onclick = () => b.closest('dialog').close());
+  document.querySelectorAll('dialog').forEach((d, i) => { const h = d.querySelector('h3'); if (h && !d.hasAttribute('aria-labelledby')) { h.id = h.id || 'dlgh' + i; d.setAttribute('aria-labelledby', h.id); } });
   document.getElementById('prosave').onclick = async () => {
     const k = document.getElementById('prokey').value.trim(); if (!k) return;
     const j = await post('pro', { key: k }).catch(() => ({ ok: false }));

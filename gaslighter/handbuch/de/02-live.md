@@ -36,12 +36,14 @@ Die Leiste unter der Notiz zeigt alle Geräte mit Anzahl der Störungen heute. A
 
 | Am Computer | Am Handy / Tablet |
 |---|---|
-| Mausrad oder Touchpad = Zeit zoomen | zwei Finger spreizen = Zeit zoomen |
+| Strg + Mausrad oder Touchpad spreizen = Zeit zoomen (Mausrad allein scrollt die Seite; einstellbar unter ⚙ → Allgemein → „Mausrad im Diagramm“) | zwei Finger spreizen = Zeit zoomen |
 | Ziehen oder seitlich wischen = in der Zeit blättern | waagerecht wischen = blättern, senkrecht = Seite scrollen |
 | Umschalt + Ziehen = Bereich aufziehen und hineinzoomen | − / + |
-| Umschalt + Mausrad oder Mausrad über der dB-Beschriftung = Höhe zoomen (unten bündig) | „Auto“ |
+| Umschalt + Mausrad oder Strg + Mausrad über der dB-Beschriftung = Höhe zoomen (unten bündig) | „Auto“ |
 | Doppelklick = zurück zu Live | Doppeltippen = zurück zu Live |
 | Über eine Störung fahren = Einzelheiten | Störung antippen = Einzelheiten |
+
+**Mit der Tastatur:** Mit Tab auf die Grafik gehen (blauer Rahmen). Dann **+ / −** Zeit zoomen, **← / →** in der Zeit blättern, **↑ / ↓** Höhe, **0** zurücksetzen, **Ende** zurück zu Live. Screenreader lesen den aktuellen Pegel, die Schwelle und den Zustand vor.
 
 Weiter zurück als die letzten 10 Minuten zeigt die Grafik den **ganzen Tag** aus der Tagesaufzeichnung (Zeitfenster 1 h, 6 h oder „Heute“).
 

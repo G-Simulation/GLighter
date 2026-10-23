@@ -33,7 +33,7 @@ WEB = os.path.join(HERE, "web")
 sys.path.insert(0, HERE)
 import lizenz  # noqa: E402
 
-VERSION = "1.7.1"
+VERSION = "1.8.0"
 BRAND = "GReport"
 OPTIONS = os.environ.get("GR_OPTIONS", "/data/options.json")
 PRIV = os.environ.get("GR_PRIVATE", "/data")                    # nur für GReport (Pro-Schlüssel)
@@ -1467,6 +1467,8 @@ class H(http.server.BaseHTTPRequestHandler):
             return self.js(txt_state())
         if name == "pro":
             return self.js(pro_info())
+        if name == "hadash":                                 # Dashboard-Vorlage: Vorschau, ändert nichts
+            return self.js(hadash_state())
         return self.send(404, "text/plain", b"not found")
 
     def do_POST(self):
@@ -1497,6 +1499,10 @@ class H(http.server.BaseHTTPRequestHandler):
             return self.js(txt_set(d))
         if name == "export_file":
             return self.js(export_file(d))
+        if name == "hadash":                                 # Vorschau mit den gewählten Einstellungen (ändert nichts)
+            return self.js(hadash_state(d))
+        if name == "hadash_apply":                           # Dashboard in Home Assistant anlegen (nur auf Knopfdruck)
+            return self.js(hadash_apply(d))
         if name == "pro":
             if d.get("action") == "del":
                 try:
@@ -1600,6 +1606,142 @@ def card_register():
 def card_install():
     if card_copy():
         card_register()
+
+
+
+# =====================================================================
+# Dashboard-Vorlage für Home Assistant (nur auf Knopfdruck in der App)
+# =====================================================================
+import hadash  # noqa: E402
+
+HADASH_PARTS = ("karte", "felder", "letzte", "heute", "oeffnen")
+
+
+def hadash_file():
+    return os.path.join(PRIV, "hadash.json")
+
+
+def hadash_prefs():
+    d = {"title": BRAND, "url": "gsim-greport", "sidebar": True, "admin": False, "parts": ["karte", "letzte", "heute", "oeffnen"]}
+    try:
+        with open(hadash_file(), encoding="utf-8") as f:
+            x = json.load(f)
+        if isinstance(x, dict):
+            d.update({k: x[k] for k in d if k in x})
+    except (OSError, ValueError):
+        pass
+    d["parts"] = [p for p in d.get("parts") or [] if p in HADASH_PARTS]
+    return d
+
+
+def hadash_clean(data):
+    d = hadash_prefs()
+    if isinstance(data.get("title"), str):
+        d["title"] = data["title"].strip()[:60] or BRAND
+    if isinstance(data.get("url"), str):
+        d["url"] = data["url"].strip().lower()[:40]
+    for k in ("sidebar", "admin"):
+        if k in data:
+            d[k] = bool(data[k])
+    if isinstance(data.get("parts"), list):
+        d["parts"] = [p for p in HADASH_PARTS if p in data["parts"]]
+    return d
+
+
+def hadash_guess():
+    """Platzhalter für die Vorschau, wenn Home Assistant nicht erreichbar ist."""
+    out = {f"{HAID}_{k}": f"{dom}.{HAID}_{k}" for k, dom in (("notiz", "text"), ("zeuge", "text"), ("speichern", "button"),
+                                                                ("letzte_notiz", "sensor"), ("notizen_heute", "sensor"))}
+    for slug in GROUP_SLUG.values():
+        out[f"{HAID}_{slug}"] = f"select.{HAID}_{slug}"
+    return out
+
+
+def hadash_config(d, ents, card=True):
+    de = lang() == "de"
+    T = (lambda a, b: a if de else b)
+    e = lambda key: ents.get(f"{HAID}_{key}")
+    parts = set(d["parts"])
+    secs = []
+    if "karte" in parts and card:
+        secs.append(hadash.section([hadash.heading(T("Notiz erfassen", "Add a note"), "mdi:note-edit-outline"),
+                                    {"type": "custom:greport-card", "grid_options": {"columns": "full"}}]))
+    if "felder" in parts or ("karte" in parts and not card):
+        rows = [{"entity": e("notiz"), "name": T("Notiz", "Note")}] if e("notiz") else []
+        for g, slug in GROUP_SLUG.items():
+            if e(slug):
+                rows.append({"entity": e(slug), "name": (GROUP_DE if de else GROUP_EN)[g]})
+        if e("zeuge"):
+            rows.append({"entity": e("zeuge"), "name": T("Zeuge", "Witness")})
+        secs.append(hadash.section([hadash.heading(T("Notiz erfassen", "Add a note"), "mdi:note-edit-outline"),
+                                    rows and {"type": "entities", "entities": rows, "grid_options": {"columns": "full"}},
+                                    e("speichern") and hadash.press(e("speichern"), T("Notiz speichern", "Save note"), "mdi:content-save")]))
+    if "letzte" in parts and e("letzte_notiz"):
+        eid = e("letzte_notiz")
+        md = ("{% set n = state_attr('" + eid + "', 'notizen') or [] %}"
+              "{% for x in n %}- **{{ x.datum }} {{ x.zeit }}** {{ x.text }}{% if x.zeuge %} · 👤 {{ x.zeuge }}{% endif %}\n"
+              "{% else %}" + T("Noch keine Notizen.", "No notes yet.") + "{% endfor %}")
+        secs.append(hadash.section([hadash.heading(T("Letzte Notizen", "Latest notes"), "mdi:history"),
+                                    {"type": "markdown", "content": md, "grid_options": {"columns": "full"}}]))
+    if "heute" in parts:
+        secs.append(hadash.section([hadash.heading(T("Heute", "Today"), "mdi:calendar-today"),
+                                    e("notizen_heute") and hadash.tile(e("notizen_heute"), T("Notizen heute", "Notes today")),
+                                    e("letzte_notiz") and hadash.tile(e("letzte_notiz"), T("Letzte Notiz", "Last note"))]))
+    if "oeffnen" in parts:
+        secs.append(hadash.section([hadash.heading(BRAND, "mdi:open-in-app"),
+                                    hadash.open_button(T("GReport öffnen", "Open GReport"), hadash.self_slug("local_greport"), "mdi:note-edit-outline")]))
+    return hadash.board(d["title"], secs)
+
+
+def hadash_card_ready():
+    """Ist die GReport-Karte als Dashboard-Ressource eingetragen? (nur lesen)"""
+    try:
+        res = hadash.call({"type": "lovelace/resources"})[0] or []
+        return any(str(r.get("url", "")).split("?")[0] == CARD_URL for r in res)
+    except Exception:
+        return False
+
+
+def hadash_state(data=None):
+    d = hadash_clean(data or {})
+    out = {"ok": True, "available": hadash.available(), "prefs": {k: d[k] for k in ("title", "url", "sidebar", "admin", "parts")},
+           "parts": list(HADASH_PARTS), "valid_url": hadash.valid_url(d["url"])}
+    ents, card = {}, True
+    if out["available"]:
+        try:
+            ents = hadash.entity_map(HAID)
+            out["exists"] = bool(hadash.find(d["url"]))
+            card = hadash_card_ready()
+        except Exception as e:
+            out["error"] = str(e)[:200]
+    out["n_entities"] = len(ents)
+    out["card"] = card
+    out["yaml"] = hadash.to_yaml(hadash_config(d, ents or hadash_guess(), card))
+    return out
+
+
+def hadash_apply(data):
+    d = hadash_clean(data or {})
+    if not hadash.valid_url(d["url"]):
+        return {"ok": False, "error": "bad_url"}
+    try:
+        os.makedirs(PRIV, exist_ok=True)
+        with open(hadash_file() + ".tmp", "w", encoding="utf-8") as f:
+            json.dump({k: d[k] for k in ("title", "url", "sidebar", "admin", "parts")}, f)
+        os.replace(hadash_file() + ".tmp", hadash_file())
+    except OSError:
+        pass
+    try:
+        ents = hadash.entity_map(HAID)
+        if not ents:
+            return {"ok": False, "error": "no_entities"}
+        r = hadash.install(d["url"], d["title"], "mdi:note-edit-outline", hadash_config(d, ents, hadash_card_ready()),
+                           d["sidebar"], d["admin"], bool(data.get("overwrite")))
+        if r.get("ok"):
+            log("Dashboard in Home Assistant", "angelegt:" if r.get("created") else "ersetzt:", "/" + d["url"])
+        return r
+    except Exception as e:
+        return {"ok": False, "error": str(e)[:200]}
 
 
 def main():

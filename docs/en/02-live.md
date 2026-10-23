@@ -44,12 +44,14 @@ The bar below the note shows all devices with today's number of disturbances. Ta
 
 | Computer | Phone / tablet |
 |---|---|
-| Mouse wheel or touchpad = zoom time | spread two fingers = zoom time |
+| Ctrl + mouse wheel or touchpad pinch = zoom time (the wheel alone scrolls the page; change under ⚙ → General → “Mouse wheel on the chart”) | spread two fingers = zoom time |
 | Drag or swipe sideways = move in time | swipe horizontally = move, vertically = scroll the page |
 | Shift + drag = select a range and zoom in | − / + |
-| Shift + wheel or wheel over the dB labels = zoom height (bottom-aligned) | “Auto” |
+| Shift + wheel or Ctrl + wheel over the dB labels = zoom height (bottom-aligned) | “Auto” |
 | Double click = back to live | Double tap = back to live |
 | Hover over a disturbance = details | Tap a disturbance = details |
+
+**With the keyboard:** Tab to the chart (blue frame). Then **+ / −** zoom time, **← / →** move in time, **↑ / ↓** height, **0** reset, **End** back to live. Screen readers read the current level, threshold and state.
 
 Further back than the last 10 minutes the chart shows the **whole day** from the day recording (time window 1 h, 6 h or “Today”).
 

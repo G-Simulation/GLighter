@@ -1,5 +1,10 @@
 # Changelog
 
+## 1.8.0
+- **Neu: Dashboard in Home Assistant mit einem Klick.** ⋯ → „Dashboard in Home Assistant“: Name, Adresse, Seitenleiste und Bereiche wählen (GReport-Karte oder einzelne Felder, letzte Notizen, Zähler „heute“, Knopf „GReport öffnen“), dann „In Home Assistant anlegen“. Ein vorhandenes Dashboard wird nur nach Rückfrage ersetzt. Die Vorlage gibt es auch als YAML zum Kopieren.
+- **Barrierefreiheit:** bessere Kontraste bei grauem Text, alle Eingabefelder haben einen Namen für Screenreader, Statussymbole (🔗 🏠) werden vorgelesen, Meldungen nach dem Speichern werden angesagt, Menü mit Pfeiltasten bedienbar, größere Abschnitt- und Filterknöpfe, Seite mit Hauptbereich.
+- **Handy:** Auf sehr schmalen Bildschirmen steht der Hinweis unter der Uhr statt in einer schmalen Spalte daneben.
+
 ## 1.7.1
 - **Neu: Weitergabe an GLighter einstellbar.** Unter ⋯ → **GLighter** lässt sich „Notizen an GLighter weitergeben“ ein- und ausschalten (Standard: an). Aus: GLighter zeigt keine Notizen aus GReport mehr – an den Störungen, im Verlauf und im Lärmprotokoll. Die Notizen bleiben in GReport unverändert. Die Änderung gilt sofort. Das 🔗 oben zeigt, wenn die Weitergabe aus ist.
 - Braucht GLighter ab 1.76.3. Ältere GLighter zeigen die Notizen weiterhin.

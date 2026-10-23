@@ -1,7 +1,7 @@
 /* GReport – eigenes Erscheinungsbild. Ein ruhiges Notizbuch: die Uhrzeit ist der Anker (sie ist der Nachweis). */
 :root{
-  --bg:#eef0f3;--card:#fff;--ink:#1d2126;--mut:#69707a;--line:#dce0e6;--soft:#f5f6f8;
-  --acc:#5b3fd0;--onacc:#fff;--ok:#2b8a3e;--warn:#c2410c;--bad:#c92a2a;
+  --bg:#eef0f3;--card:#fff;--ink:#1d2126;--mut:#5d636c;--line:#dce0e6;--soft:#f5f6f8;
+  --acc:#5b3fd0;--onacc:#fff;--ok:#237032;--warn:#c2410c;--bad:#c92a2a;
   --g-src:#0c8a6a;--g-kind:#d6336c;--g-lvl:#e67700;--g-eff:#6741d9;--g-act:#1c6fd6;--g-misc:#5f6b78;--g-own:#a61e4d;
   --r:14px;--r2:9px;--sh:0 1px 2px #1d212614,0 6px 24px -12px #1d212629;
   color-scheme:light}
@@ -55,7 +55,7 @@ button,input,select,textarea{font:inherit;color:inherit}
 
 /* Abschnitte ein-/ausblenden */
 .secbar{display:flex;gap:6px;flex-wrap:wrap;margin:-2px 0 0}
-.secb{border:1px solid var(--line);background:transparent;color:var(--mut);border-radius:999px;padding:2px 11px;font-size:12px;cursor:pointer;line-height:20px}
+.secb{border:1px solid var(--line);background:transparent;color:var(--mut);border-radius:999px;padding:5px 12px;font-size:12.5px;cursor:pointer;line-height:20px;min-height:32px}
 .secb::before{content:"○ ";opacity:.8}.secb.on{color:var(--ink);border-color:color-mix(in srgb,var(--acc) 45%,var(--line))}.secb.on::before{content:"● ";color:var(--acc)}
 .secb:hover{border-color:var(--mut)}
 
@@ -119,7 +119,7 @@ button,input,select,textarea{font:inherit;color:inherit}
 .loghead h2{margin:0;font-size:17px;font-weight:650}.loghead small{color:var(--mut)}
 #grq{border:1px solid var(--line);background:var(--soft);border-radius:999px;padding:6px 14px;min-width:0;width:220px}
 .filters{display:flex;gap:6px;flex-wrap:wrap;margin:10px 0 2px}.filters:empty{display:none}
-.filters .tag{height:26px;font-size:12.5px;padding:0 9px}
+.filters .tag{height:32px;font-size:12.5px;padding:0 10px}
 .timeline{margin-top:6px}
 .day{display:flex;justify-content:space-between;font-size:13px;font-weight:650;margin:14px 0 4px;padding-bottom:4px;border-bottom:1px solid var(--line)}
 .day small{color:var(--mut);font-weight:400}
@@ -227,3 +227,6 @@ body.pop .capbody{flex:1}
     background:linear-gradient(to right,transparent,var(--card) 65%);pointer-events:none}
 }
 @media(prefers-reduced-motion:reduce){*{transition:none!important}}
+
+/* sehr schmale Handys: Uhr oben, Hinweis darunter (statt Wort-für-Wort-Spalte) */
+@media(max-width:380px){.caphead{flex-wrap:wrap}.capinfo{flex-basis:100%;order:3;padding-left:0;border-left:0;border-top:1px solid var(--line);padding-top:6px}.clocknum{font-size:30px}}

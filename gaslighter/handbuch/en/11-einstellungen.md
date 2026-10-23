@@ -76,6 +76,7 @@ Video width, frames per second, video quality (for IP cameras and phones).
 ## General {#allgemein}
 
 - **Language** {#s_misc} – German, English or like the browser.
+- **Mouse wheel on the chart** – “only with Ctrl” (default): the wheel scrolls the page, hold Ctrl to zoom. “Always zooms”: as before, the wheel zooms directly.
 - **Log & notes** {#s_list} – **Group disturbances up to (s) apart** (groups in the list), **Note belongs to the disturbance if up to (min) after it**.
 - **GLighter Pro** – see [Pro](#pro).
 - **GReport (notes app)** {#s_greport} – GReport is the notes part as its own app (e.g. for phones or flatmates). When GReport is installed, its notes appear here automatically with Pro – at disturbances, in the history and in the noise log, marked “GReport”. They are edited in GReport.

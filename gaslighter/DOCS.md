@@ -82,12 +82,14 @@ Die Leiste unter der Notiz zeigt alle Geräte mit Anzahl der Störungen heute. A
 
 | Am Computer | Am Handy / Tablet |
 |---|---|
-| Mausrad oder Touchpad = Zeit zoomen | zwei Finger spreizen = Zeit zoomen |
+| Strg + Mausrad oder Touchpad spreizen = Zeit zoomen (Mausrad allein scrollt die Seite; einstellbar unter ⚙ → Allgemein → „Mausrad im Diagramm“) | zwei Finger spreizen = Zeit zoomen |
 | Ziehen oder seitlich wischen = in der Zeit blättern | waagerecht wischen = blättern, senkrecht = Seite scrollen |
 | Umschalt + Ziehen = Bereich aufziehen und hineinzoomen | − / + |
-| Umschalt + Mausrad oder Mausrad über der dB-Beschriftung = Höhe zoomen (unten bündig) | „Auto“ |
+| Umschalt + Mausrad oder Strg + Mausrad über der dB-Beschriftung = Höhe zoomen (unten bündig) | „Auto“ |
 | Doppelklick = zurück zu Live | Doppeltippen = zurück zu Live |
 | Über eine Störung fahren = Einzelheiten | Störung antippen = Einzelheiten |
+
+**Mit der Tastatur:** Mit Tab auf die Grafik gehen (blauer Rahmen). Dann **+ / −** Zeit zoomen, **← / →** in der Zeit blättern, **↑ / ↓** Höhe, **0** zurücksetzen, **Ende** zurück zu Live. Screenreader lesen den aktuellen Pegel, die Schwelle und den Zustand vor.
 
 Weiter zurück als die letzten 10 Minuten zeigt die Grafik den **ganzen Tag** aus der Tagesaufzeichnung (Zeitfenster 1 h, 6 h oder „Heute“).
 
@@ -463,6 +465,18 @@ Manchmal soll eine Störung nicht gemeldet werden, der Graph aber trotzdem weite
 - **Vorlauf (s), z. B. für einen Sprachassistenten:** Das Rufwort („Hey Jarvis“) kommt, *bevor* der Assistent auf „hört zu“ wechselt. Mit **Vorlauf** zählt auch eine Störung nicht, die bis zu so viele Sekunden vor dem Einschalten der Regel begann. Dafür hält GLighter jede Störung so lange (Vorlauf + 2 s) zurück, bevor sie gemeldet wird. Pegel und Graph bleiben unverändert; im Protokoll steht „nicht gezählt“. **Einrichten:** Regel hinzufügen, Entität `assist_satellite.…` wählen – Zustände `!idle`, „keine Störung melden“, Vorlauf 3 s und Nachlauf 0,5 min werden vorbelegt. So zählen Rufwort, Befehl und die Antwort aus dem Lautsprecher nicht.
 - **Als Knopf im Dashboard:** Am Gerät „GLighter“ gibt es **„Keine Störung melden (Dauer starten)“**, **„Störungen wieder melden“**, die einstellbare **Dauer** (1–240 Minuten, Standard 10) und **„Keine Störungsmeldung bis“**. Lege sie auf dein Dashboard. Ein Tipp auf den Knopf startet die eingestellte Dauer.
 
+### Dashboard in Home Assistant anlegen
+
+⚙ Einstellungen → Reiter **Regeln** → **Dashboard in Home Assistant**. GLighter legt dort mit einem Klick ein fertiges Dashboard mit seinen Entitäten an. Du wählst:
+
+- **Name** und **Adresse** (z. B. `gsim-glighter`, steht danach in der Adresszeile von Home Assistant),
+- ob es in der **Seitenleiste** steht und ob es **nur für Administratoren** sichtbar ist,
+- welche **Bereiche** hinein sollen: Jetzt (Störung, Pegel, heute), Pegel der letzten 24 Stunden, Störung erfassen, Keine Störung melden, Aufzeichnung und Pause, weitere Mikrofone, Knopf „GLighter öffnen“.
+
+**In Home Assistant anlegen** erstellt das Dashboard. Gibt es unter der Adresse schon eins, fragt GLighter nach, bevor es ersetzt wird (Änderungen, die du dort gemacht hast, gehen dabei verloren). Ohne Klick ändert GLighter in Home Assistant nichts.
+
+Unter **Als YAML anzeigen** steht dieselbe Vorlage zum Kopieren: in Home Assistant ein Dashboard anlegen, **Bearbeiten** → ⋮ → **Rohdaten-Konfigurationseditor**, einfügen, speichern. Das Dashboard kannst du danach in Home Assistant frei weiter bearbeiten.
+
 ## 8. Drucken und Lärmprotokoll
 
 Es gibt zwei Ausdrucke: das **Lärmprotokoll** (Bericht mit Zusammenfassung und Liste) und den **Verlauf als Notenblatt** (die Kurven Zeile für Zeile).
@@ -684,6 +698,7 @@ Video-Breite, Bilder pro Sekunde, Videoqualität (für IP-Kameras und Handys).
 ### Allgemein
 
 - **Sprache** – Deutsch, Englisch oder wie der Browser.
+- **Mausrad im Diagramm** – „nur mit Strg“ (Standard): Das Mausrad scrollt die Seite, zum Zoomen Strg gedrückt halten. „Zoomt immer“: wie früher, das Mausrad zoomt direkt.
 - **Protokoll & Notizen** – **Störungen zusammenfassen bei bis zu (s) Abstand** (Gruppen in der Liste), **Notiz gehört zur Störung, wenn bis zu (min) danach**.
 - **GLighter Pro** – siehe Pro.
 - **GReport (Notizen-App)** – GReport ist der Notiz-Teil als eigene App (z. B. fürs Handy oder für Mitbewohner). Ist GReport installiert, erscheinen seine Notizen mit Pro automatisch hier – an den Störungen, im Verlauf und im Lärmprotokoll, markiert mit „GReport“. Geändert werden sie in GReport.
@@ -905,12 +920,14 @@ The bar below the note shows all devices with today's number of disturbances. Ta
 
 | Computer | Phone / tablet |
 |---|---|
-| Mouse wheel or touchpad = zoom time | spread two fingers = zoom time |
+| Ctrl + mouse wheel or touchpad pinch = zoom time (the wheel alone scrolls the page; change under ⚙ → General → “Mouse wheel on the chart”) | spread two fingers = zoom time |
 | Drag or swipe sideways = move in time | swipe horizontally = move, vertically = scroll the page |
 | Shift + drag = select a range and zoom in | − / + |
-| Shift + wheel or wheel over the dB labels = zoom height (bottom-aligned) | “Auto” |
+| Shift + wheel or Ctrl + wheel over the dB labels = zoom height (bottom-aligned) | “Auto” |
 | Double click = back to live | Double tap = back to live |
 | Hover over a disturbance = details | Tap a disturbance = details |
+
+**With the keyboard:** Tab to the chart (blue frame). Then **+ / −** zoom time, **← / →** move in time, **↑ / ↓** height, **0** reset, **End** back to live. Screen readers read the current level, threshold and state.
 
 Further back than the last 10 minutes the chart shows the **whole day** from the day recording (time window 1 h, 6 h or “Today”).
 
@@ -1287,6 +1304,18 @@ Sometimes a disturbance should not be reported while the graph keeps recording, 
 - **Lead time (s), e.g. for a voice assistant:** the wake word (“Hey Jarvis”) comes *before* the assistant switches to “listening”. With **lead time**, a disturbance that started up to this many seconds before the rule switched on does not count either. For this, GLighter holds each disturbance back that long (lead time + 2 s) before reporting it. Levels and graph stay unchanged; the log says “not counted”. **Set up:** add a rule, choose the entity `assist_satellite.…` – states `!idle`, “no disturbance reports”, lead time 3 s and delay 0.5 min are pre-filled. Wake word, command and the spoken answer then don’t count.
 - **As a dashboard button:** the "GLighter" device has **"Start: no disturbance reports"**, **"Report disturbances again"**, an adjustable **duration** (1–240 minutes, default 10) and **"No disturbance reports until"**. Put them on your dashboard. One tap starts the set duration.
 
+### Create a dashboard in Home Assistant
+
+⚙ Settings → tab **Rules** → **Dashboard in Home Assistant**. With one click GLighter creates a ready-made dashboard with its entities. You choose:
+
+- **Name** and **address** (e.g. `gsim-glighter`, it then appears in the Home Assistant address bar),
+- whether it shows in the **sidebar** and whether only **administrators** see it,
+- which **sections** go in: now (disturbance, level, today), level of the last 24 hours, log a disturbance, no disturbance reports, recording and pause, other microphones, “Open GLighter” button.
+
+**Create in Home Assistant** creates the dashboard. If one already exists at that address, GLighter asks before replacing it (changes you made there are lost). Without a click GLighter changes nothing in Home Assistant.
+
+**Show as YAML** has the same template to copy: create a dashboard in Home Assistant, **Edit** → ⋮ → **Raw configuration editor**, paste, save. You can keep editing the dashboard in Home Assistant afterwards.
+
 ## 8. Printing and noise log
 
 There are two printouts: the **noise log** (report with summary and list) and the **history as a score sheet** (the curves line by line).
@@ -1508,6 +1537,7 @@ Video width, frames per second, video quality (for IP cameras and phones).
 ### General
 
 - **Language** – German, English or like the browser.
+- **Mouse wheel on the chart** – “only with Ctrl” (default): the wheel scrolls the page, hold Ctrl to zoom. “Always zooms”: as before, the wheel zooms directly.
 - **Log & notes** – **Group disturbances up to (s) apart** (groups in the list), **Note belongs to the disturbance if up to (min) after it**.
 - **GLighter Pro** – see Pro.
 - **GReport (notes app)** – GReport is the notes part as its own app (e.g. for phones or flatmates). When GReport is installed, its notes appear here automatically with Pro – at disturbances, in the history and in the noise log, marked “GReport”. They are edited in GReport.

@@ -1,4 +1,4 @@
-:root{--bg:#f2f4f7;--card:#fff;--tx:#1b1f24;--mut:#6b7280;--bd:#e3e6ea;--grid:#e9ecef;--acc:#1c7ed6;--onacc:#fff;--thr:#e8590c;--bgl:#868e96;--red:#e03131;--ok:#2b8a3e;--pv:#7048e8;--nacc:#0ca678;--nl1:#0000000d;--nl2:#0000001f;--nl3:#00000066;color-scheme:light}
+:root{--bg:#f2f4f7;--card:#fff;--tx:#1b1f24;--mut:#5f6672;--bd:#e3e6ea;--grid:#e9ecef;--acc:#1971c2;--onacc:#fff;--thr:#e8590c;--bgl:#868e96;--red:#c92a2a;--ok:#237032;--pv:#7048e8;--nacc:#0ca678;--nl1:#0000000d;--nl2:#0000001f;--nl3:#00000066;color-scheme:light}
 @media(prefers-color-scheme:dark){:root{--bg:#10141a;--card:#1a2029;--tx:#e6e8eb;--mut:#98a2ad;--bd:#2a313b;--grid:#232a33;--acc:#4dabf7;--onacc:#0b1a2b;--thr:#ff922b;--bgl:#adb5bd;--pv:#b197fc;--nacc:#38d9c4;--nl1:#ffffff0d;--nl2:#ffffff1f;--nl3:#ffffff99;color-scheme:dark}}
 *{box-sizing:border-box}
 body{margin:0;background:var(--bg);color:var(--tx);font:15px/1.45 system-ui,"Segoe UI",Roboto,sans-serif}
@@ -37,6 +37,8 @@ button.pri{background:var(--acc);color:var(--onacc);border-color:var(--acc)}
 button:disabled{opacity:.5;cursor:default}
 canvas{width:100%;display:block;touch-action:pan-y}
 #main.yfree{touch-action:none}
+#main:focus-visible{outline:3px solid var(--acc);outline-offset:3px}
+input[type=checkbox],input[type=radio]{width:20px;height:20px;accent-color:var(--acc)}
 #main{height:clamp(300px,46vh,520px);cursor:grab}#spec{height:180px;cursor:grab;margin-top:6px}
 @media(max-width:600px){#main{height:clamp(220px,34vh,360px)}#spec{height:130px}}
 #main.drag,#spec.drag{cursor:grabbing}
@@ -297,7 +299,7 @@ input.wide{width:100%;max-width:340px}
 .srcvideo{flex-wrap:wrap}.srcvideo .srcurl{flex:1 1 220px;min-width:180px}
 
 /* Erzwungenes Design (Auto folgt Home Assistant bzw. dem Browser) */
-:root[data-theme="light"]{--bg:#f2f4f7;--card:#fff;--tx:#1b1f24;--mut:#6b7280;--bd:#e3e6ea;--grid:#e9ecef;--acc:#1c7ed6;--onacc:#fff;--thr:#e8590c;--bgl:#868e96;--red:#e03131;--ok:#2b8a3e;--pv:#7048e8;--nacc:#0ca678;--nl1:#0000000d;--nl2:#0000001f;--nl3:#00000066;color-scheme:light}
+:root[data-theme="light"]{--bg:#f2f4f7;--card:#fff;--tx:#1b1f24;--mut:#5f6672;--bd:#e3e6ea;--grid:#e9ecef;--acc:#1971c2;--onacc:#fff;--thr:#e8590c;--bgl:#868e96;--red:#c92a2a;--ok:#237032;--pv:#7048e8;--nacc:#0ca678;--nl1:#0000000d;--nl2:#0000001f;--nl3:#00000066;color-scheme:light}
 :root[data-theme="dark"]{--bg:#10141a;--card:#1a2029;--tx:#e6e8eb;--mut:#98a2ad;--bd:#2a313b;--grid:#232a33;--acc:#4dabf7;--onacc:#0b1a2b;--thr:#ff922b;--bgl:#adb5bd;--pv:#b197fc;--nacc:#38d9c4;--nl1:#ffffff0d;--nl2:#ffffff1f;--nl3:#ffffff99;color-scheme:dark}
 .themebtn{cursor:pointer}
 /* Nachtbericht: Tabelle der Stoerungen */
@@ -437,7 +439,7 @@ a.chip.pri{background:var(--acc);color:var(--onacc);border-color:var(--acc);text
 .ntedbtns{display:flex;gap:8px;justify-content:flex-end}
 
 /* Pause-Regeln (Home Assistant) */
-.hastat{color:var(--thr);font-size:13px;margin:4px 0}.hastat:empty{display:none}
+.hastat{color:var(--warntx,#a8460a);font-size:13px;margin:4px 0}.hastat:empty{display:none}
 .halist{display:grid;gap:8px;margin:8px 0}
 .harow{border:1px solid var(--bd);border-radius:10px;padding:8px 10px;display:grid;gap:6px;background:var(--card)}
 .harow2 .haname{width:190px}
@@ -831,7 +833,7 @@ details.hlp{font-size:12px;color:var(--mut);margin-top:4px}details.hlp summary{c
 legend .hbleg{margin-left:8px;text-decoration:none;font-size:13px;opacity:.75}legend .hbleg:hover{opacity:1}
 @media(max-width:600px){.hmenu #hbbtn{width:100%}}
 /* GLighter Pro */
-.protag{display:inline-block;margin-left:6px;padding:0 6px;border-radius:999px;font-size:11px;font-weight:600;line-height:18px;background:#f59f0022;color:#e67700;border:1px solid #f59f0066;vertical-align:middle;white-space:nowrap}
+.protag{display:inline-block;margin-left:6px;padding:0 6px;border-radius:999px;font-size:11px;font-weight:600;line-height:18px;background:#f59f0022;color:#9a4d00;border:1px solid #f59f0066;vertical-align:middle;white-space:nowrap}
 .proban{display:flex;flex-wrap:wrap;align-items:center;gap:6px;margin:0 0 10px;padding:8px 10px;border-radius:10px;background:#f59f0014;border:1px solid #f59f0055;font-size:13px}
 .proban .protag{margin-left:0}
 fieldset.prolocked .f{opacity:.55}
@@ -928,7 +930,7 @@ fieldset.prolocked .f{opacity:.55}
 .pnlbd{padding:0 12px 8px}
 .pnl.pcolx .pnlbd{display:none}
 .pnl.pempty:not(.pcolx) .pnlbd{display:none}
-.pnl.pempty .pnlhd{opacity:.6}
+.pnl.pempty .pnlhd b{color:var(--mut)}
 .pnl.pquiet:not(.pqopen) .pnlbd{display:none}
 /* Inhalte im Panel: eigener Kartenrahmen und doppelte Überschriften entfallen */
 .pnlbd>.card,.pnlbd>.ndaybox,.pnlbd>.pevcard,.pnlbd>.nnotes,.pnlbd>.nrun,.pnlbd>.fnpanel{border:0!important;box-shadow:none!important;background:transparent!important;margin:0!important;padding:0!important}
@@ -1218,3 +1220,11 @@ button.hacalb{touch-action:none;user-select:none;-webkit-user-select:none;-webki
 @media(max-width:600px){.hafld:has(em){grid-template-columns:minmax(0,140px) auto;justify-content:start}.hafld:has(em) .n{width:100%}.hawide{grid-template-columns:1fr 80px auto!important}}
 .hatile b{display:block}.hatile b::first-letter{text-transform:uppercase}.hati{height:26px;line-height:26px}
 .art.grsrc{color:#c2255c;border-color:color-mix(in srgb,#c2255c 45%,transparent);font-size:11px}.grst{margin:4px 0 6px}
+
+/* Barrierefreiheit (1.77): Platzhalter leerer Tabellen lesbar, Aufklapp-Knopf in Überschriften, Legenden-Text in Textfarbe */
+.tabulator .tabulator-placeholder .tabulator-placeholder-contents{color:var(--mut)!important}
+.legtg{all:unset;cursor:pointer;border-radius:4px}.legtg:focus-visible{outline:2px solid var(--acc);outline-offset:2px}
+.mleg b{color:var(--tx);font-weight:600}.mleg b i{display:inline-block;width:10px;height:10px;border-radius:2px;margin-right:5px;vertical-align:-1px}
+@media(prefers-color-scheme:dark){:root:not([data-theme="light"]) .protag{color:#ffb35c}:root:not([data-theme="light"]) .hastat{--warntx:#ff922b}}
+:root[data-theme="dark"] .protag{color:#ffb35c}:root[data-theme="dark"] .hastat{--warntx:#ff922b}
+.sdevrow{display:flex;align-items:center;gap:6px}.sdevrow>.sdevchips{flex:1;min-width:0}
