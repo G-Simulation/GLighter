@@ -34,7 +34,7 @@ WEB = os.path.join(HERE, "web")
 sys.path.insert(0, HERE)
 import lizenz  # noqa: E402
 
-VERSION = "1.9.0"
+VERSION = "1.9.1"
 BRAND = "GReport"
 OPTIONS = os.environ.get("GR_OPTIONS", "/data/options.json")
 PRIV = os.environ.get("GR_PRIVATE", "/data")                    # nur für GReport (Pro-Schlüssel)
@@ -679,7 +679,8 @@ def mqtt_groups():
 # =====================================================================
 # Anzeige: Datum und Uhrzeit (gilt in der App und im Export)
 # =====================================================================
-PREF_DEF = {"date": "dmy4", "time": "hms", "rel": True, "wd": False, "gl": True, "tips": True}   # tips: Hinweise in der App zeigen   # gl: Notizen an GLighter weitergeben
+PREF_DEF = {"date": "dmy4", "time": "hms", "rel": True, "wd": False, "gl": True, "tips": True, "width": "wide"}   # width: wide = ganze Breite, narrow = schmale Spalte
+WIDTHS = ("wide", "narrow")   # tips: Hinweise in der App zeigen   # gl: Notizen an GLighter weitergeben
 DATE_FMTS = ("dmy4", "dmy2", "wdm", "iso", "long")
 TIME_FMTS = ("hms", "hm", "h12")
 CAP_SECS = ("txt", "tags", "wit", "more", "time")                # Bereiche von „Notiz jetzt“ (Reihenfolge einstellbar)
@@ -697,6 +698,8 @@ def prefs():
         out["date"] = d["date"]
     if d.get("time") in TIME_FMTS:
         out["time"] = d["time"]
+    if d.get("width") in WIDTHS:
+        out["width"] = d["width"]
     for k in ("rel", "wd", "gl", "tips"):
         if isinstance(d.get(k), bool):
             out[k] = d[k]
@@ -716,6 +719,8 @@ def prefs_set(d):
         cur["date"] = d["date"]
     if d.get("time") in TIME_FMTS:
         cur["time"] = d["time"]
+    if d.get("width") in WIDTHS:
+        cur["width"] = d["width"]
     for k in ("rel", "wd", "gl", "tips"):
         if isinstance(d.get(k), bool):
             cur[k] = d[k]

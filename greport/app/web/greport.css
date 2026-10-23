@@ -368,3 +368,7 @@ body.pop .capbody{flex:1}
 .docrow .mks{display:flex;flex-wrap:wrap;gap:4px}
 @media (max-width:600px){.attacts{max-width:none;flex:1 1 100%;justify-content:flex-start}.attrow{flex-wrap:wrap}.attpend{padding:8px 14px 0}}
 .grid .ag-floating-filter-button-button{width:24px;height:24px}
+
+/* Ganze Breite (Einstellung „Breite“): Erfassung und Liste so breit wie die Tabelle */
+body.grwide .page{max-width:min(1600px,100%)}
+body.grwide .log.tbl{width:auto;margin-left:0}

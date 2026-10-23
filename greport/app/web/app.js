@@ -78,6 +78,7 @@ async function stLoad() {
   try { ST = await (await fetch('state', { cache: 'no-store' })).json(); } catch (e) { }
   if (ST.lang === 'de' || ST.lang === 'en') lang = ST.lang;
   if (ST.prefs) PF = ST.prefs;
+  widthApply();
   stShow(); witList();
 }
 function stShow() {
@@ -503,12 +504,15 @@ function filtDraw() {
     + (nn ? `<button type="button" class="tag ${gAttr('when').replace('"', LST.tag === NOTIME ? ' on"' : '"')} data-t="${NOTIME}" aria-pressed="${LST.tag === NOTIME}">${esc(t('gr_notime'))} <small>${nn}</small></button>` : '');
   box.querySelectorAll('.tag').forEach(b => b.onclick = () => { LST.tag = LST.tag === b.dataset.t ? '' : b.dataset.t; listDraw(); });
 }
+/* Breite: ganze Breite (Standard, wie die Tabelle) oder schmale Spalte; die Tabelle ist immer breit */
+function widthApply() { document.body.classList.toggle('grwide', (PF && PF.width || 'wide') === 'wide'); }
 function viewShow() {
   const tb = LST.view === 'tb';
   document.getElementById('grnotes').hidden = tb; document.getElementById('grgrid').hidden = !tb;
   document.getElementById('grfilt').hidden = tb; document.getElementById('grcols').hidden = !tb;
   if (!tb) colMenuClose();
   document.getElementById('logsec').classList.toggle('tbl', tb);
+  widthApply();
   document.querySelectorAll('#grview button').forEach(b => { const on = b.dataset.v === LST.view; b.classList.toggle('on', on); b.setAttribute('aria-pressed', String(on)); });
 }
 async function noteDel(n) {
@@ -791,14 +795,14 @@ function prefOpen() {
   const ds = document.getElementById('pfdate'), ts = document.getElementById('pftime'), ex = Date.now();
   ds.innerHTML = ''; for (const f of ['dmy4', 'dmy2', 'wdm', 'iso', 'long']) option(ds, f, fDate(ex, Object.assign({}, PF, { date: f, wd: false })));
   ts.innerHTML = ''; for (const f of ['hms', 'hm', 'h12']) option(ts, f, fTime(ex, Object.assign({}, PF, { time: f })));
-  ds.value = PF.date; ts.value = PF.time; document.getElementById('pfrel').checked = PF.rel; document.getElementById('pfwd').checked = PF.wd;
+  ds.value = PF.date; ts.value = PF.time; document.getElementById('pfwidth').value = PF.width || 'wide'; document.getElementById('pfrel').checked = PF.rel; document.getElementById('pfwd').checked = PF.wd;
   document.getElementById('pftips').checked = tipsOn();
   document.getElementById('pftipsr').onclick = () => { TIPX.clear(); try { localStorage.removeItem('gr_tipx'); } catch (e) { } tipsDraw(); toast('✓ ' + t('gr_p_tips_done')); };
   const upd = () => { const p = prefRead(); document.getElementById('pfex').textContent = fDate(ex, p) + ', ' + fTime(ex, p); };
   for (const x of [ds, ts, document.getElementById('pfrel'), document.getElementById('pfwd')]) x.onchange = upd;
   upd(); document.getElementById('prefdlg').showModal();
 }
-const prefRead = () => ({ date: document.getElementById('pfdate').value, time: document.getElementById('pftime').value, rel: document.getElementById('pfrel').checked, wd: document.getElementById('pfwd').checked, tips: document.getElementById('pftips').checked });
+const prefRead = () => ({ width: document.getElementById('pfwidth').value, date: document.getElementById('pfdate').value, time: document.getElementById('pftime').value, rel: document.getElementById('pfrel').checked, wd: document.getElementById('pfwd').checked, tips: document.getElementById('pftips').checked });
 /* ---------- Textdatei & Import/Export (Pro) ---------- */
 const TXT = { st: null, content: null };
 const txtErr = e => { const k = 'gr_err_' + String(e || 'x').replace(/\W/g, '_'); const v = t(k); return v === k ? t('gr_err_x') + (e ? ' (' + e + ')' : '') : v; };
@@ -969,7 +973,7 @@ function initDialogs() {
   };
   document.getElementById('pfsave').onclick = async () => {
     const j = await post('prefs', prefRead()).catch(() => ({ ok: false }));
-    if (j.ok) { delete j.ok; PF = j; tipsDraw(); document.getElementById('prefdlg').close(); fnpShow(); listDraw(); } else alert(t('saveerr'));
+    if (j.ok) { delete j.ok; PF = j; widthApply(); tipsDraw(); document.getElementById('prefdlg').close(); fnpShow(); listDraw(); } else alert(t('saveerr'));
   };
   document.getElementById('glsave').onclick = async () => {
     const j = await post('prefs', { gl: document.getElementById('glshare').checked }).catch(() => ({ ok: false }));

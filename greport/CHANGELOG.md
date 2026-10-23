@@ -1,5 +1,8 @@
 # Changelog
 
+## 1.9.1
+- **Ganze Breite:** Erfassung und Liste nutzen jetzt die ganze Breite des Fensters, genauso breit wie die Tabelle. Wer die schmale Spalte lieber mag: ⋯ → Datum und Uhrzeit → „Breite“ → „Schmale Spalte“.
+
 ## 1.9.0
 - **Neu: Tabelle.** Über der Liste lässt sich zwischen **Zeitleiste** und **Tabelle** wechseln (wird gemerkt). Die Tabelle zeigt Datum, Uhrzeit (von–bis), Text, Schnellwahl-Wörter in ihren Gruppenfarben, Zeuge sowie ✎ und 🗑. Sortieren nach jeder Spalte (Standard: neueste zuerst), Filter in der Kopfzeile (Zeitraum, Uhrzeit, Text, mehrere Wörter, Zeuge), Spalten wählen mit ⚙. Darüber steht genau, was angezeigt wird, z. B. „12 von 340 Notizen (gefiltert)“, mit „Filter löschen“. Auf dem Handy weniger Spalten; die Tabelle nutzt am PC die ganze Breite. Läuft ohne Internet.
 - **Neu: „Anzeigen:“** Alle, Heute, Letzte 7 Tage, Letzte 30 Tage oder eigener Zeitraum – für Zeitleiste und Tabelle. Die Überschrift zeigt den Zeitraum, z. B. „Notizen der letzten 7 Tage“.

@@ -1,6 +1,9 @@
 /* Texte der Oberfläche (GReport) – Deutsch und Englisch */
 window.I18N = {
  "de": {
+  "gr_p_width": "Breite",
+  "gr_p_wide": "Ganze Breite (wie die Tabelle)",
+  "gr_p_narrow": "Schmale Spalte",
   "gr_a_text": "Notiztext",
   "gr_a_wit": "Zeuge",
   "gr_a_group": "Gruppe der neuen Taste",
@@ -601,6 +604,9 @@ window.I18N = {
   "gr_ver_files_n": "{n} geprüft (davon {a} aktiv)"
  },
  "en": {
+  "gr_p_width": "Width",
+  "gr_p_wide": "Full width (like the table)",
+  "gr_p_narrow": "Narrow column",
   "gr_a_text": "Note text",
   "gr_a_wit": "Witness",
   "gr_a_group": "Group of the new button",
