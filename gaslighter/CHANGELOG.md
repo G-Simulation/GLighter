@@ -1,5 +1,9 @@
 # Changelog
 
+## 1.79.0
+- **Ereignis-Tabelle im Live-Reiter mit Anzeigebereich:** „Anzeigen:“ Sichtbarer Bereich des Graphen, Heute, Letzte 24 Stunden, Letzte 7 Tage, Letzte 30 Tage oder eigener Zeitraum (von–bis). Die Überschrift sagt jetzt, was gezeigt wird (z. B. „Ereignisse der letzten 7 Tage“), statt immer „im sichtbaren Bereich“.
+- **Anzahl stimmt mit der Tabelle überein:** Mit Spaltenfiltern (z. B. „Spitze ≥ −30“) steht dort „10 von 4743 Ereignissen (gefiltert)“ und ein Knopf „Filter löschen“. Sind es mehr als geladen werden können, steht „… (die neuesten)“.
+
 ## 1.78.0
 - **„Auto“ zeigt die Schwelle mit:** Im Live-Bild (Pegelspur und Lautstärke-Balken) bezieht die Auto-Höhe jetzt die Schwelle ein. So siehst du immer, wie weit ein Geräusch noch von einer Meldung entfernt ist. Wer es enger um die Messwerte möchte: ⚙ → Allgemein → „„Auto“-Höhe im Live-Bild“ → „nur Messwerte“.
 

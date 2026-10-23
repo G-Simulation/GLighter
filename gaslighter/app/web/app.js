@@ -5727,10 +5727,36 @@ function bindLive() {
   $('ldlive').onclick = back;
 }
 /* ================= Dashboard: Ereignisse des Tages als einfache Liste (Spalten und Gerät einstellbar, pro Browser gemerkt) ================= */
+const LEV_RNG = ['vis', 'today', '24h', '7d', '30d', 'custom'];
 const LEV_COLS = ['tm', 'src', 'art', 'kinds', 'devs', 'dur', 'pk', 'thr', 'bg', 'nt'];
 const LEV = (() => { let c = null; try { c = JSON.parse(localStorage.getItem('laerm_lev') || 'null'); } catch (e) { } c = c && typeof c === 'object' ? c : {};
-  return { cols: Array.isArray(c.cols) ? c.cols.filter(x => LEV_COLS.includes(x)) : ['tm', 'src', 'art', 'devs', 'dur', 'pk', 'bg', 'nt'], src: c.src === 'sel' ? 'sel' : 'all', vis: c.vis !== false, key: '', data: null, req: 0, fa: 0, fb: 0, sig: '' }; })();
-function levSave() { try { localStorage.setItem('laerm_lev', JSON.stringify({ cols: LEV.cols, src: LEV.src, vis: LEV.vis })); } catch (e) { } }
+  const rng = LEV_RNG.includes(c.rng) ? c.rng : c.vis === false ? 'today' : 'vis';
+  return { cols: Array.isArray(c.cols) ? c.cols.filter(x => LEV_COLS.includes(x)) : ['tm', 'src', 'art', 'devs', 'dur', 'pk', 'bg', 'nt'], src: c.src === 'sel' ? 'sel' : 'all', rng, cf: c.cf || '', ct: c.ct || '',
+    get vis() { return this.rng === 'vis'; }, key: '', data: null, req: 0, fa: 0, fb: 0, sig: '' }; })();
+function levSave() { try { localStorage.setItem('laerm_lev', JSON.stringify({ cols: LEV.cols, src: LEV.src, rng: LEV.rng, cf: LEV.cf, ct: LEV.ct })); } catch (e) { } }
+/* Anzeigebereich der Tabelle: sichtbarer Bereich des Graphen, heute, letzte 24 h / 7 / 30 Tage oder eigener Zeitraum */
+function levRange() {
+  const now = nowServer(), d0 = new Date(now); d0.setHours(0, 0, 0, 0);
+  const tom = new Date(d0); tom.setDate(tom.getDate() + 1);
+  const minute = x => Math.floor(x / 60000) * 60000;
+  switch (LEV.rng) {
+    case 'today': return [d0.getTime(), tom.getTime()];
+    case '24h': return [minute(now - 86400000), minute(now) + 120000];
+    case '7d': { const a = new Date(d0); a.setDate(a.getDate() - 6); return [a.getTime(), tom.getTime()]; }
+    case '30d': { const a = new Date(d0); a.setDate(a.getDate() - 29); return [a.getTime(), tom.getTime()]; }
+    case 'custom': { const a = LEV.cf ? new Date(LEV.cf).getTime() : d0.getTime(), b = LEV.ct ? new Date(LEV.ct).getTime() : now; return isFinite(a) && isFinite(b) && b > a ? [a, b] : [d0.getTime(), now]; }
+  }
+  return null;
+}
+function levTitle() {
+  const L = locale(), f = x => new Date(x).toLocaleString(L, { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' });
+  if (LEV.rng === 'custom') { const r = levRange(); return t('lev_t_custom', { a: f(r[0]), b: f(r[1]) }); }
+  return t('lev_t_' + LEV.rng);
+}
+function levTitleSet() {                              // Überschrift von Panel und Karte passend zum Anzeigebereich
+  const txt = levTitle();
+  for (const e of document.querySelectorAll('#ldevh, .pnl[data-p="ldev"] .pnlhd b')) { e.removeAttribute('data-i'); e.textContent = txt; }
+}
 function levHead(c) { return { tm: t('start'), src: t('src_col'), art: t('art_col'), kinds: t('kinds_col'), devs: t('devs_col'), dur: t('dur'), pk: t('peak'), thr: t('thr_col'), bg: t('bg_col'), nt: '📝' }[c]; }
 function levWin() {                                   // im Live-Bild gerade sichtbarer Zeitraum (normales Live-Bild oder Verlauf, auch gezoomt/verschoben)
   if (histOn()) return LDT.data && LDT.data.from ? [LDT.data.from, LDT.data.to] : null;
@@ -5740,16 +5766,18 @@ async function levLoad(force) {
   if (NV.open || !$('ldev')) return;                 // nur im Live-Reiter
   const now = new Date(nowServer()), nx = new Date(now); nx.setDate(nx.getDate() + 1);
   const w0 = LDT.data && LDT.data.from ? LDT.data.from : (LDT.from || now.getTime() - 86400000);     // Anfang des im Live-Verlauf sichtbaren Bereichs
-  const win = LEV.vis ? levWin() : null;
+  const win = LEV.vis ? levWin() : null, rg = LEV.vis ? null : levRange();
   let fa = Math.min(w0, now.getTime()), fb = nx.setHours(0, 0, 0, 0);
   if (win) { fa = Math.floor((win[0] - 60000) / 60000) * 60000; fb = Math.ceil((win[1] + 60000) / 60000) * 60000 + 60000; }   // nur den sichtbaren Bereich holen (mit 1 min Rand)
-  const src = LEV.src === 'sel' ? selSrc : 'all', key = [lastCount, src, fa, win ? fb : 0].join('|');
+  else if (rg) { fa = rg[0]; fb = rg[1]; }
+  const src = LEV.src === 'sel' ? selSrc : 'all', key = [lastCount, src, fa, fb, LEV.rng].join('|');
   if (!force && key === LEV.key) return; LEV.key = key;
-  const id = ++LEV.req;
-  try { const j = await (await fetch('events?src=' + encodeURIComponent(src) + '&n=500&from=' + dtl(new Date(fa)).slice(0, 16) + '&to=' + dtl(new Date(fb)).slice(0, 16), { cache: 'no-store' })).json(); if (id !== LEV.req) return; LEV.data = j; LEV.fa = fa; LEV.fb = fb; LEV.sig = ''; levRender(); } catch (e) { LEV.key = ''; }
+  const id = ++LEV.req; levTitleSet();
+  try { const j = await (await fetch('events?src=' + encodeURIComponent(src) + '&n=' + (win ? 500 : 5000) + '&from=' + dtl(new Date(fa)).slice(0, 16) + '&to=' + dtl(new Date(fb)).slice(0, 16), { cache: 'no-store' })).json(); if (id !== LEV.req) return; LEV.data = j; LEV.fa = fa; LEV.fb = fb; LEV.sig = ''; levRender(); } catch (e) { LEV.key = ''; }
 }
 function levTick() {                                  // sichtbarer Bereich ändert sich (Live läuft, Zoomen, Verschieben): Tabelle mitführen
-  if (!LEV.vis || NV.open || !$('ldev') || document.hidden) return;
+  if (NV.open || !$('ldev') || document.hidden) return;
+  if (!LEV.vis) { if (LEV.rng === '24h' || LEV.rng === 'today') levLoad(); return; }   // rollende Zeiträume: neu holen, wenn sich die Minute bzw. der Tag ändert
   const w = levWin(); if (!w) return;
   if (w[0] < LEV.fa || w[1] > LEV.fb - 30000) levLoad(true); else levRender();
 }
@@ -5773,12 +5801,13 @@ function levRender() {
     for (let i = rows.length - 1; i >= 0; i--) if (!inWin(rows[i])) rows.splice(i, 1);
   }
   const sf = STATS.filt.live; if (sf) for (let i = rows.length - 1; i >= 0; i--) if (!statMatch(sf, rows[i], 'live')) rows.splice(i, 1);
-  const vh = $('ldevh'); if (vh) { vh.dataset.i = win ? 'lev_title' : 'lev_title_all'; vh.textContent = t(vh.dataset.i); }
-  const vb = $('ldevvis'); if (vb) { vb.classList.toggle('on', LEV.vis); vb.textContent = (LEV.vis ? '◧ ' : '▭ ') + t('lev_vis'); vb.title = t('lev_vis_tip'); vb.setAttribute('aria-pressed', String(LEV.vis)); }
+  levTitleSet();
+  const rs = $('ldevrng'); if (rs && rs.value !== LEV.rng) rs.value = LEV.rng;
+  const cw = $('ldevcus'); if (cw) cw.hidden = LEV.rng !== 'custom';
   const sig = rows.map(d => d.id).join(',') + '|' + (LEV.fa) + '|' + rows.length + '|' + JSON.stringify(sf);
   if (win && sig === LEV.sig && LTBL) return;          // nichts Neues im Bereich: Tabelle nicht neu aufbauen
   LEV.sig = sig;
-  $('ldevn').textContent = t('lev_n', { n: win ? rows.length : (j.total != null ? j.total : evs.length) + sens.length });
+  LEV.tot = win ? rows.length : (j.total != null ? j.total : evs.length) + sens.length; LEV.loaded = rows.length;
   for (const d of rows) if (d.fn && d.fev) { const e = rows.find(x => x.k && x.k === d.fev.k); if (e) e.nt = [e.nt, '📝 ' + (d.fn.text || (d.fn.tags || []).map(x => ntLabel(x)).join(', '))].filter(Boolean).join(' · '); }   // Notiz auch an der Störung
   const vals = f => () => [...new Set(rows.flatMap(d => f === 'tags' ? d.tags : [d[f]]).filter(Boolean))].sort((p, q) => String(p).localeCompare(String(q)));
   const ms = f => ({ headerFilter: msFilter(vals(f)), headerFilterFunc: (hv, rv, rd) => !hv || !hv.length || (f === 'tags' ? rd.tags.some(x => hv.includes(x)) : hv.includes(rv)), headerFilterLiveFilter: false });
@@ -5804,9 +5833,18 @@ function levRender() {
   if (!LTBL || LTBL_KEY !== key) {
     if (LTBL) { try { LTBL.destroy(); } catch (e) { } LTBL = null; }
     LTBL_KEY = key; box.innerHTML = '';
-    LTBL = new Tabulator(box, { data: rows, columns: cols, index: 'id', layout: 'fitColumns', responsiveLayout: 'collapse', responsiveLayoutCollapseStartOpen: false, maxHeight: '60vh', placeholder: t('lev_none'), headerSortElement: '<span class="srt"></span>', initialSort: [{ column: 'start', dir: 'desc' }] });
+    LTBL = new Tabulator(box, { data: rows, columns: cols, index: 'id', layout: 'fitColumns', responsiveLayout: 'collapse', responsiveLayoutCollapseStartOpen: false, maxHeight: '60vh', placeholder: t(LEV.vis ? 'lev_none' : 'lev_none_rng'), headerSortElement: '<span class="srt"></span>', initialSort: [{ column: 'start', dir: 'desc' }] });
+    LTBL.on('dataFiltered', (f, rs) => levCount(rs.length, (f || []).length));
     LTBL.on('rowClick', (e, row) => { const d = row.getData(); if (d.fn) { if (d.fev && e.target.closest('.fnlk')) openEvent(d.fev.k || ''); else fnOpenId(d.fn); return; } if (d.k) openEvent(d.k); else if (d.x && d.x.kind === 'ha') haPop({ a: d.x.a, b: d.x.b, name: sensLabel(d.x), note: d.x.note || '', key: d.x.key }); });
   } else LTBL.replaceData(rows);
+  levCount(LTBL.getDataCount ? LTBL.getDataCount('active') : rows.length, (LTBL.getHeaderFilters ? LTBL.getHeaderFilters() : []).filter(x => x.value !== '' && x.value != null && !(Array.isArray(x.value) && !x.value.length)).length);
+}
+/* Anzahl über der Tabelle: zählt genau, was die Tabelle zeigt (mit Spaltenfiltern), dazu „Filter löschen“ */
+function levCount(shown, nf) {
+  const box = $('ldevn'); if (!box) return;
+  const tot = LEV.tot != null ? LEV.tot : shown;
+  box.textContent = nf ? t('lev_n_filt', { n: shown, t: tot }) : tot > shown ? t('lev_n_of', { n: shown, t: tot }) : t('lev_n', { n: shown });
+  if (nf) { const b = el('button', { type: 'button', className: 'chip ldevclr', textContent: '✕ ' + t('lev_clr') }); b.onclick = () => { if (LTBL) LTBL.clearHeaderFilter(); }; box.append(' ', b); }
 }
 function levCols() {
   const box = $('ldevcols');
@@ -5818,7 +5856,11 @@ function initLev() {
   $('ldevsrc').value = LEV.src;
   $('ldevsrc').onchange = () => { LEV.src = $('ldevsrc').value; levSave(); levLoad(true); };
   $('ldevcfg').onclick = () => { const b = $('ldevcols'); b.hidden = !b.hidden; if (!b.hidden) levCols(); };
-  $('ldevvis').onclick = () => { LEV.vis = !LEV.vis; levSave(); levLoad(true); };
+  const rs = $('ldevrng'); rs.innerHTML = LEV_RNG.map(k => `<option value="${k}">${esc(t('lev_r_' + k))}</option>`).join(''); rs.value = LEV.rng;
+  const cf = $('ldevcf'), ct = $('ldevct'); cf.value = LEV.cf || dtl(new Date(new Date(nowServer()).setHours(0, 0, 0, 0))).slice(0, 16); ct.value = LEV.ct || dtl(new Date(nowServer())).slice(0, 16);
+  $('ldevcus').hidden = LEV.rng !== 'custom';
+  rs.onchange = () => { LEV.rng = rs.value; if (LEV.rng === 'custom') { LEV.cf = cf.value; LEV.ct = ct.value; } $('ldevcus').hidden = LEV.rng !== 'custom'; LTBL_KEY = ''; levSave(); levLoad(true); };
+  const cus = () => { LEV.cf = cf.value; LEV.ct = ct.value; levSave(); levLoad(true); }; cf.onchange = cus; ct.onchange = cus;
   setInterval(levTick, 1000);
   setInterval(() => { if (!document.hidden && !NV.open) statRefresh('live'); }, 60000);
 }

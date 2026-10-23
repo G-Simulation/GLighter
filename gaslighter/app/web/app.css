@@ -1229,3 +1229,9 @@ button.hacalb{touch-action:none;user-select:none;-webkit-user-select:none;-webki
 :root[data-theme="dark"] .protag{color:#ffb35c}:root[data-theme="dark"] .hastat{--warntx:#ff922b}
 .sdevrow{display:flex;align-items:center;gap:6px}.sdevrow>.sdevchips{flex:1;min-width:0}
 .hattl.hatg{background:none;border:0;padding:0;margin:0;text-align:left;font:inherit;color:inherit;cursor:pointer;min-width:0;border-radius:6px}.hattl.hatg:focus-visible{outline:2px solid var(--acc);outline-offset:2px}
+.ldevrng{display:inline-flex;align-items:center;gap:6px;font-size:13px;color:var(--mut)}.ldevrng select{min-height:36px}
+.ldevcus{display:inline-flex;flex-wrap:wrap;gap:8px;align-items:center;font-size:13px}.ldevcus label{display:inline-flex;align-items:center;gap:4px}.ldevcus input{min-height:36px}
+.ldevrng{display:inline-flex;align-items:center;gap:6px;font-size:13px;color:var(--mut)}.ldevrng select{min-height:36px}
+.ldevcus{display:inline-flex;flex-wrap:wrap;gap:8px;align-items:center;font-size:13px}.ldevcus label{display:inline-flex;align-items:center;gap:4px}.ldevcus input{min-height:36px}
+.ldevclr{margin-left:6px;min-height:28px;font-size:12px}
+.ldevcus[hidden]{display:none!important}
