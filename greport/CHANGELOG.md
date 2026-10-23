@@ -1,5 +1,10 @@
 # Changelog
 
+## 1.11.0
+- **Eigene Notiz-Arten** wie „Erinnerung“, „Termin“ oder „Idee“: unter ▦ Layout anpassen → „Notiz-Arten“ anlegen, mit Name, Farbe und Symbol. Je Art einstellbar: „ohne Zeitpunkt“ (wählen setzt dann auch „ohne Zeitpunkt“, außer die Zeit wurde von Hand gesetzt) und „nicht Störungen zuordnen“ (GLighter hängt solche Notizen an keine Störung). Vorgabe beim Erfassen und „zuletzt gewählte Art behalten“ einstellbar. „Erinnerung“ ist schon angelegt.
+- Beim Erfassen als Tasten „Art“ wählbar (auch beim Ändern); im Verlauf als farbiges Schild und als Filter-Taste mit Anzahl, in der Tabelle als Spalte „Art“ mit Filter (mehrere wählbar, auch „ohne Art“). Im CSV-Export die Spalte „notiz_art“ (nur wenn eine Notiz eine Art hat), beim Import wird sie wieder erkannt.
+- Gelöschte Arten bleiben für alte Notizen lesbar. Notizen ohne Art bleiben, wie sie sind.
+
 ## 1.10.2
 - **Eigene Felder genauer einstellbar:** Textfeld mit Platzhalter, Höchstlänge, Zeilenzahl (mehrzeilig) und „frühere Eingaben vorschlagen“ (einzeilig); Datum/Uhrzeit wahlweise „nur Datum“ oder „nur Uhrzeit“, vorbelegt mit „jetzt“, Taste „Jetzt“/„Heute“ abschaltbar, mit Sekunden; Ort mit Platzhalter. Ältere Werte bleiben gültig.
 - **Abgedockt: Tipps wie eingestellt.** Im abgedockten Fenster „Notiz jetzt“ (⧉) folgen die 💡-Tipps jetzt der Tipp-Einstellung, statt alle offen dazustehen: „beim Zeigen“ zeigt nur ein kleines 💡, der Text erscheint beim Zeigen, mit der Tastatur oder nach Antippen. 💡 sitzt im Fenster (und am Handy) in einer eigenen Spalte rechts, keine Taste liegt mehr darunter, und die Blase bleibt im Fenster. Hell/dunkel, Sprache und Gruppenfarben ziehen mit; Meldungen erscheinen im Fenster.

@@ -266,3 +266,39 @@ class HomeAssistant(Basis):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+class NotizArten(Basis):
+    """Notiz-Arten (ab 1.11): anlegen, beim Erfassen setzen, filterbar exportieren; gehen nie verloren."""
+    def test_arten(self):
+        r = G.fb_change({"action": "set", "kinds": [{"id": "k_abcdef", "l": "Erinnerung", "col": "#7048E8", "ico": "⏰", "notime": True, "noassign": True},
+                                                    {"id": "bad", "l": "x"}], "kind_def": "k_abcdef", "kind_keep": True})
+        self.assertEqual([k["id"] for k in r["kinds"]], ["k_abcdef", "k_000001"]); self.assertEqual(r["kinds"][0]["col"], "#7048e8")   # „Erinnerung“ ist von Anfang an da
+        self.assertEqual((r["kind_def"], r["kind_keep"]), ("k_abcdef", True))
+        G.note_change("add", {"text": "Müll raus", "notime": True, "kind": "k_abcdef"})
+        G.note_change("add", {"text": "Bass", "from": "2026-10-20T22:00:00+02:00", "kind": "k_gibtsnicht"})
+        ns = {n["text"]: n for n in G.notes_all()["free"]}
+        self.assertEqual(ns["Müll raus"]["kind"], "k_abcdef"); self.assertNotIn("kind", ns["Bass"])
+        self.assertEqual(G.fb_state()["kind_n"], {"k_abcdef": 1})
+        rows = list(csv.reader(io.StringIO(G.export_csv().decode("utf-8").lstrip("﻿")), delimiter=";"))
+        self.assertEqual(rows[0][-1], "notiz_art"); self.assertIn("Erinnerung", [r_[-1] for r_ in rows[1:3]])
+        nid = ns["Müll raus"]["id"]
+        G.note_change("edit", {"id": nid, "text": "Müll raus!", "notime": True})          # ohne „kind“ (ältere Oberfläche): Art bleibt
+        self.assertEqual(next(n for n in G.notes_all()["free"] if n["id"] == nid)["kind"], "k_abcdef")
+        G.fb_change({"action": "set", "kinds": []})                                          # fehlt in der Liste: bleibt
+        self.assertEqual(len(G.fb_state()["kinds"]), 2)
+        G.fb_change({"action": "set", "kinds": [{"id": "k_abcdef", "l": "Erinnerung", "del": True}]})
+        self.assertTrue(G.fb_state()["kinds"][0]["del"])
+        self.assertEqual(G.note_change("add", {"text": "neu", "notime": True, "kind": "k_abcdef"})["ok"], True)
+        self.assertNotIn("kind", next(n for n in G.notes_all()["free"] if n["text"] == "neu"))   # gelöschte Art: nicht mehr wählbar
+
+    def test_ohne_arten_export_wie_bisher(self):
+        G.note_change("add", {"text": "Bass", "from": "2026-10-20T22:00:00+02:00"})
+        head = next(csv.reader(io.StringIO(G.export_csv().decode("utf-8").lstrip("﻿")), delimiter=";"))
+        self.assertNotIn("notiz_art", head)
+
+    def test_vorlage_bringt_erinnerung(self):
+        G.tpl_apply("allg", "de")
+        ls = [k["l"] for k in G.fb_state()["kinds"]]
+        self.assertIn("Erinnerung", ls)
+        G.tpl_apply("allg", "de"); self.assertEqual(len(G.fb_state()["kinds"]), len(ls))   # nicht doppelt

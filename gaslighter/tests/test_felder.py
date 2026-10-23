@@ -125,3 +125,19 @@ class Felder(Basis):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+class ArtNichtZuordnen(unittest.TestCase):
+    """GReport-Notiz mit Art „nicht zuordnen“ hängt GLighter an keine Störung."""
+    def test_fn_assign_ueberspringt(self):
+        import laerm as L
+        rows = [{"start": "2026-10-20T22:00:00", "dauer_s": "2", "quelle_id": "main", "k": "K1"}]
+        a = int(L.ms_of("2026-10-20T22:01:00")); keep = L.na_ovr; L.na_ovr = lambda: {}
+        try:
+            n1 = {"id": "g1", "a": a, "b": a, "src": "all", "gr": True}
+            n2 = dict(n1, id="g2", noassign=True)
+            r = L.fn_assign([n1, n2], rows)
+        finally:
+            L.na_ovr = keep
+        ks = [k for k in r]
+        self.assertEqual(len(ks), 1)

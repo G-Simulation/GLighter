@@ -33,7 +33,7 @@ HERE = os.path.dirname(os.path.abspath(__file__))
 WEB = os.path.join(HERE, "web")
 OPTIONS_FILE = os.environ.get("LAERM_OPTIONS", "/data/options.json")
 SETTINGS_FILE = os.environ.get("LAERM_SETTINGS", "/data/settings.json")
-VERSION = "1.84.0"
+VERSION = "1.84.1"
 
 # =====================================================================
 # Einstellungen
@@ -2374,7 +2374,7 @@ def fn_assign(notes, rows=None):
         if a is None:
             continue
         evs.append((r["k"], a, a + int((fnum(r.get("dauer_s")) or 0) * 1000) + 100, r.get("quelle_id") or "main"))
-    ns = [(na_key(n), n.get("a"), n.get("b"), n.get("src") or "all", *fn_win(n)) for n in notes]
+    ns = [(na_key(n), n.get("a"), n.get("b"), n.get("src") or "all", *fn_win(n)) for n in notes if not n.get("noassign")]   # Art „nicht zuordnen“ (GReport)
     return BC.assign(ns, evs, na_ovr())
 
 
@@ -6989,13 +6989,18 @@ def gr_notes():
         st = os.stat(f)
     except OSError:
         return []
-    key = (st.st_mtime_ns, st.st_size)
+    try:
+        sf = os.stat(os.path.join(GR_DIR, "felder.json")); fk = (sf.st_mtime_ns, sf.st_size)     # Arten/Felder geändert: neu lesen
+    except OSError:
+        fk = None
+    key = (st.st_mtime_ns, st.st_size, fk)
     if GR_CACHE["key"] != key:
         d = read_json(f); qt = read_json(os.path.join(GR_DIR, "schnellwahl.json")) if os.path.exists(os.path.join(GR_DIR, "schnellwahl.json")) else {}
         own = (qt or {}).get("own") if isinstance(qt, dict) else {}
         own = own if isinstance(own, dict) else {}
         fd = read_json(os.path.join(GR_DIR, "felder.json")) if os.path.exists(os.path.join(GR_DIR, "felder.json")) else {}
         gdefs = felder.clean_defs((fd or {}).get("blocks") if isinstance(fd, dict) else [], [])[0]
+        gkinds = felder.clean_kinds((fd or {}).get("kinds") if isinstance(fd, dict) else [], [])      # Notiz-Arten aus GReport
         rows = []
         for x in (d.get("free") if isinstance(d, dict) else None) or []:
             if not isinstance(x, dict):
@@ -7008,6 +7013,11 @@ def gr_notes():
                     tags.append("g:" + str(own[t_].get("l") or t_)[:30])
             rec = {"id": str(x.get("id") or "")[:20], "from": x.get("from"), "to": x.get("to") or "", "src": re.sub(r"[^a-z0-9_]", "", str(x.get("src") or "all"))[:16] or "all",
                    "text": clean_text(x.get("text")), "tags": tags, "witness": clean_text(x.get("witness"), 200), "ts": x.get("ts"), "gr": True}
+            kd = felder.kind_of(gkinds, str(x.get("kind") or ""))
+            if kd:
+                rec["kind_l"] = kd["l"]; rec["kind_c"] = kd.get("col") or ""; rec["kind_i"] = kd.get("ico") or ""
+                if kd.get("noassign"):
+                    rec["noassign"] = True
             if isinstance(x.get("fields"), dict) and x["fields"]:      # eigene Felder aus GReport: fertig als Text („Name: Wert“)
                 fx = felder.compact(gdefs, x["fields"], CFG.get("language") != "en")
                 if fx:

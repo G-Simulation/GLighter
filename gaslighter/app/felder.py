@@ -439,3 +439,70 @@ def new_id(taken, tok):
         i = "b_" + tok()
         if i not in taken:
             return i
+
+
+# ---------------------------------------------------------------- Notiz-Arten (ab GReport 1.11 / GLighter 1.84.1)
+# Eigene Arten wie „Erinnerung“: Name, Farbe, Symbol; „ohne Zeitpunkt“ (setzt beim Erfassen „ohne Zeitpunkt“) und
+# „nicht zuordnen“ (GLighter hängt solche Notizen an keine Störung). Gelöschte Arten bleiben für alte Notizen lesbar.
+KID = re.compile(r"^k_[0-9a-f]{6}$")
+KIND_MAX = 20
+KIND_TPL = {"laerm": [{"id": "k_000001", "l": "Erinnerung", "col": "#7048e8", "ico": "⏰", "notime": True, "noassign": True}],
+            "allg": [{"id": "k_000001", "l": "Erinnerung", "col": "#7048e8", "ico": "⏰", "notime": True, "noassign": True},
+                     {"id": "k_000002", "l": "Idee", "col": "#2b8a3e", "ico": "💡", "notime": True, "noassign": True}],
+            "zaehler": []}
+
+
+def clean_kind(d, old=None):
+    if not isinstance(d, dict):
+        return None
+    old = old if isinstance(old, dict) else {}
+    kid = str(old.get("id") or d.get("id") or "")
+    if not KID.match(kid):
+        return None
+    out = {"id": kid, "l": _txt(d.get("l"), 30) or old.get("l") or "Art"}
+    c = str(d.get("col") or "")
+    if re.fullmatch(r"#[0-9a-fA-F]{6}", c):
+        out["col"] = c.lower()
+    ico = re.sub(r"[\x00-\x1f<>\"'&\s]", "", str(d.get("ico") or ""))[:4]
+    if ico:
+        out["ico"] = ico
+    for k in ("notime", "noassign", "hide", "del"):
+        if d.get(k) is True:
+            out[k] = True
+    return out
+
+
+def clean_kinds(new, old=()):
+    """Wie clean_defs: vorhandene ändern, neue anhängen, fehlende bleiben (gehen nie verloren). Höchstens KIND_MAX aktive."""
+    old = [x for x in (old or []) if isinstance(x, dict) and KID.match(str(x.get("id") or ""))]
+    by = {x["id"]: x for x in old}
+    out, seen = [], set()
+    for d in (new if isinstance(new, list) else [])[:MAX_ALL]:
+        if not isinstance(d, dict) or str(d.get("id") or "") in seen:
+            continue
+        c = clean_kind(d, by.get(str(d.get("id") or "")))
+        if c:
+            seen.add(c["id"]); out.append(c)
+    out += [x for x in old if x["id"] not in seen]
+    act = 0
+    for x in out:
+        if not x.get("del"):
+            act += 1
+            if act > KIND_MAX:
+                x["del"] = True
+    return out[:MAX_ALL]
+
+
+def kind_of(kinds, kid):
+    return next((k for k in kinds or [] if k.get("id") == kid), None) if kid else None
+
+
+def kind_ok(kinds, kid):
+    """Gültige Art zum Speichern: vorhanden und nicht gelöscht (sonst keine)."""
+    k = kind_of(kinds, kid)
+    return k["id"] if k and not k.get("del") else ""
+
+
+def kind_label(kinds, kid):
+    k = kind_of(kinds, kid)
+    return k["l"] if k else ""

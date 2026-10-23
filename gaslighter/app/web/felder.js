@@ -10,11 +10,12 @@ window.Felder = (() => {
     lang: () => 'de', fmtDT: ms => new Date(ms).toLocaleString(), dtl: d => d.toISOString().slice(0, 16), dto: d => d.toISOString(), nowMs: () => Date.now() };
   function t(k, v) { return H.t(k, v); }
   const e = s => H.esc(s);
-  const S = { defs: [], sec: {}, counts: {}, daily: {}, sug: {}, tpl: null, first: false, max: 20, tpls: ['laerm', 'allg', 'zaehler'] };
+  const S = { defs: [], sec: {}, counts: {}, daily: {}, sug: {}, tpl: null, first: false, max: 20, tpls: ['laerm', 'allg', 'zaehler'], kinds: [], kind_def: '', kind_keep: false, kind_n: {} };
   function setup(o) { Object.assign(H, o || {}); }
   function load(j) {
     if (!j || !j.ok) return;
     for (const k of ['sec', 'counts', 'daily', 'sug']) S[k] = j[k] || {};
+    S.kinds = j.kinds || []; S.kind_def = j.kind_def || ''; S.kind_keep = !!j.kind_keep; S.kind_n = j.kind_n || {};
     S.defs = j.blocks || []; S.tpl = j.tpl || null; S.first = !!j.first; S.max = j.max || 20; if (j.tpls) S.tpls = j.tpls;
   }
   const isId = id => /^b_[0-9a-f]{6}$/.test(String(id || ''));
@@ -210,12 +211,57 @@ window.Felder = (() => {
     };
   }
   /* Entwurf → zum Speichern (ohne Hilfsfelder) */
-  const strip = d => ({ blocks: d.blocks.filter(b => !(b.isNew && b.del)).map(b => { const o = Object.assign({}, b); delete o.isNew; return o; }), sec: d.sec });
+  const strip = d => Object.assign({ blocks: d.blocks.filter(b => !(b.isNew && b.del)).map(b => { const o = Object.assign({}, b); delete o.isNew; return o; }), sec: d.sec },
+    d.kinds ? { kinds: d.kinds.filter(k => !(k.isNew && k.del)).map(k => { const o = Object.assign({}, k); delete o.isNew; return o; }), kind_def: d.kind_def || '', kind_keep: !!d.kind_keep } : {});
+  /* ---------- Notiz-Arten (z. B. „Erinnerung“): Name, Farbe, Symbol, ohne Zeitpunkt, nicht Störungen zuordnen ---------- */
+  const newKid = list => { let i; do { i = 'k_' + hex6(); } while ((list || []).some(k => k.id === i)); return i; };
+  const kindsActive = () => S.kinds.filter(k => !k.del);
+  const kindsShown = () => kindsActive().filter(k => !k.hide);
+  const kindOf = id => S.kinds.find(k => k.id === id);
+  const kindChip = (id, small) => { const k = kindOf(id); if (!k) return ''; return `<span class="fbkind${small ? ' sm' : ''}" style="--kc:${e(k.col || '#5f6b78')}">${k.ico ? `<span aria-hidden="true">${e(k.ico)}</span> ` : ''}${e(k.l)}</span>`; };
+  /* Auswahl in der Erfassung: box, aktuelle Art, onPick(id | '') */
+  function kindPick(box, cur, onPick) {
+    const ks = kindsShown(); box.hidden = !ks.length; if (!ks.length) { box.innerHTML = ''; return; }
+    box.innerHTML = `<span class="fbl" id="fbkl">${e(t('fk_title'))}</span><span class="fbrow" role="group" aria-labelledby="fbkl">${ks.map(k => `<button type="button" class="fbchip fbkchip" data-k="${e(k.id)}" aria-pressed="${cur === k.id}" style="--kc:${e(k.col || '#5f6b78')}" title="${e([k.notime ? t('fk_notime') : '', k.noassign ? t('fk_noassign') : ''].filter(Boolean).join(' · '))}">${k.ico ? `<span aria-hidden="true">${e(k.ico)}</span> ` : ''}${e(k.l)}</button>`).join('')}</span>`;
+    box.querySelectorAll('.fbkchip').forEach(b => b.onclick = () => onPick(b.getAttribute('aria-pressed') === 'true' ? '' : b.dataset.k));
+  }
+  /* Verwaltung in „Layout anpassen“ (Entwurf d.kinds, d.kind_def, d.kind_keep) */
+  function kindsEditor(box, d, hk) {
+    d.kinds = d.kinds || [];
+    const act = d.kinds.filter(k => !k.del);
+    const row = k => `<details class="fbed fbkrow${k.hide ? ' off' : ''}" data-k="${e(k.id)}"${k.isNew ? ' open' : ''}><summary>${kindChipD(k)} <small>${e([k.notime ? t('fk_notime') : '', k.noassign ? t('fk_noassign') : '', k.hide ? t('fb_ed_hidden') : '', S.kind_n[k.id] ? t('fk_used', { n: S.kind_n[k.id] }) : ''].filter(Boolean).join(' · '))}</small></summary>
+      <div class="fbedg">${inp('fk_l', t('fb_ed_name'), k.l, 30)}<label class="fbf"><span>${e(t('fk_col'))}</span><input type="color" class="fk_col" value="${e(k.col || '#5f6b78')}"></label>${inp('fk_ico', t('fk_ico'), k.ico, 4)}
+        ${cb('fk_notime', k.notime, t('fk_notime_l'))}${cb('fk_noassign', k.noassign, t('fk_noassign_l'))}${cb('fk_show', !k.hide, t('fb_ed_shown'))}
+        <button type="button" class="btn fk_del">🗑 ${e(t('fb_ed_del', { l: k.l }))}</button></div></details>`;
+    box.innerHTML = `<div class="fbkeds"><span class="laysl" id="fbkedl">${e(t('fk_ed_title'))}</span><p class="hint fbhint">${e(t('fk_ed_hint'))}</p>
+      <div class="fbedl" role="list" aria-labelledby="fbkedl">${act.map(k => `<div role="listitem">${row(k)}</div>`).join('')}</div>
+      <div class="fbadd"><button type="button" class="btn fk_add">＋ ${e(t('fk_add'))}</button>
+        <label class="fbf"><span>${e(t('fk_def'))}</span><select class="fk_def"><option value="">${e(t('fk_none'))}</option>${act.map(k => `<option value="${e(k.id)}"${d.kind_def === k.id ? ' selected' : ''}>${e(k.l)}</option>`).join('')}</select></label>
+        ${cb('fk_keep', d.kind_keep, t('fk_keep'))}</div></div>`;
+    box.querySelectorAll('.fbkrow').forEach(r => {
+      const k = d.kinds.find(x => x.id === r.dataset.k), q = c => r.querySelector('.' + c), sum = () => { r.querySelector('summary').firstElementChild.outerHTML = kindChipD(k); r.classList.toggle('off', !!k.hide); hk.change(); };
+      q('fk_l').addEventListener('input', ev => { const v = ev.target.value.trim().slice(0, 30); if (v) k.l = v; sum(); });
+      q('fk_col').addEventListener('input', ev => { k.col = ev.target.value; sum(); });
+      q('fk_ico').addEventListener('input', ev => { k.ico = ev.target.value.trim().slice(0, 4); sum(); });
+      q('fk_notime').onchange = ev => { k.notime = ev.target.checked; hk.change(); };
+      q('fk_noassign').onchange = ev => { k.noassign = ev.target.checked; hk.change(); };
+      q('fk_show').onchange = ev => { k.hide = !ev.target.checked; sum(); };
+      q('fk_del').onclick = () => { if (!confirm(t('fk_del_q', { l: k.l }))) return; k.del = true; if (d.kind_def === k.id) d.kind_def = ''; hk.say(t('fb_ed_deleted', { l: k.l })); kindsEditor(box, d, hk); hk.change(); };
+    });
+    box.querySelector('.fk_add').onclick = () => {
+      if (d.kinds.filter(x => !x.del).length >= 20) { alert(t('fk_limit', { n: 20 })); return; }
+      const k = { id: newKid(d.kinds), l: t('fk_new'), col: '#7048e8', isNew: true }; d.kinds.push(k); hk.say(t('fb_ed_added', { l: k.l })); kindsEditor(box, d, hk); hk.change();
+      const i = box.querySelector(`.fbkrow[data-k="${k.id}"] .fk_l`); if (i) { i.focus(); i.select(); }
+    };
+    box.querySelector('.fk_def').onchange = ev => { d.kind_def = ev.target.value; hk.change(); };
+    box.querySelector('.fk_keep').onchange = ev => { d.kind_keep = ev.target.checked; hk.change(); };
+  }
+  const kindChipD = k => `<span class="fbkind" style="--kc:${e(k.col || '#5f6b78')}">${k.ico ? `<span aria-hidden="true">${e(k.ico)}</span> ` : ''}${e(k.l)}</span>`;
   /* ---------- Vorlagen ---------- */
   function tplBox(box, cur, onPick, later) {
     box.innerHTML = `<p class="fbtplh"><b>${e(t('fb_tpl_title'))}</b> ${e(t('fb_tpl_h'))}</p><div class="fbtpls">${S.tpls.map(x => `<button type="button" class="fbtpl${cur === x ? ' on' : ''}" data-tpl="${x}" aria-pressed="${cur === x}"><b>${e(t('fb_tpl_' + x))}</b><small>${e(t('fb_tpl_' + x + '_h'))}</small></button>`).join('')}</div>${later ? `<button type="button" class="linkbtn fbtpll">${e(t('fb_tpl_later'))}</button>` : ''}`;
     box.querySelectorAll('.fbtpl').forEach(x => x.onclick = () => onPick(x.dataset.tpl));
     const l = box.querySelector('.fbtpll'); if (l && later) l.onclick = later;
   }
-  return { TYPES, ROLES, S, setup, load, isId, byId, active, visible, isEmpty, fmt, compact, render, countShow, check, chart, editor, strip, newDef, tplBox, readNum };
+  return { kindsActive, kindsShown, kindOf, kindChip, kindPick, kindsEditor, TYPES, ROLES, S, setup, load, isId, byId, active, visible, isEmpty, fmt, compact, render, countShow, check, chart, editor, strip, newDef, tplBox, readNum };
 })();

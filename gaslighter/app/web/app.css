@@ -1394,3 +1394,4 @@ body.qthover .qtip.u .qtb::before{top:auto;bottom:-8px}
 .layprof .seg button{background:transparent;padding:6px 12px;cursor:pointer;color:var(--tx)}
 .layprof .seg button.on{background:var(--acc);color:var(--onacc)}
 .fbedg [hidden]{display:none!important}
+.fbkind{display:inline-flex;align-items:center;gap:2px;padding:0 8px;border-radius:99px;border:1.5px solid var(--kc);background:color-mix(in srgb,var(--kc) 12%,transparent);font-weight:600;font-size:12px;white-space:nowrap;color:inherit;margin-right:4px}

@@ -35,7 +35,7 @@ sys.path.insert(0, HERE)
 import lizenz  # noqa: E402
 import felder  # noqa: E402
 
-VERSION = "1.10.2"
+VERSION = "1.11.0"
 BRAND = "GReport"
 OPTIONS = os.environ.get("GR_OPTIONS", "/data/options.json")
 PRIV = os.environ.get("GR_PRIVATE", "/data")                    # nur für GReport (Pro-Schlüssel)
@@ -831,6 +831,12 @@ def fb_path():
     return os.path.join(DIR, "felder.json")
 
 
+def kinds_seed(tpl):
+    """Erste Notiz-Arten (vor 1.11 gab es keine): aus der Vorlage, Namen in der Sprache der Einstellung."""
+    de = lang() != "en"
+    return [dict(k, l=k["l"] if de else {"Erinnerung": "Reminder", "Idee": "Idea"}.get(k["l"], k["l"])) for k in felder.KIND_TPL.get(tpl or "laerm") or []]
+
+
 def fb_all():
     with FB_LOCK:
         if FB["data"] is None:
@@ -838,6 +844,8 @@ def fb_all():
             d = d if isinstance(d, dict) else {}
             blocks, _ = felder.clean_defs(d.get("blocks") or [], [])
             FB["data"] = {"v": 1, "blocks": blocks, "sec": felder.clean_sec(d.get("sec")),
+                          "kinds": felder.clean_kinds(d.get("kinds") if "kinds" in d else kinds_seed(d.get("tpl")), []),   # noch nie Arten: „Erinnerung“ anbieten
+                          "kind_def": d.get("kind_def") if felder.KID.match(str(d.get("kind_def") or "")) else "", "kind_keep": d.get("kind_keep") is True,
                           "tpl": d.get("tpl") if d.get("tpl") in TPLS + ("eigen",) else None,
                           "made": {k: v for k, v in (d.get("made") or {}).items() if isinstance(k, str) and isinstance(v, str)} if isinstance(d.get("made"), dict) else {}}
         return FB["data"]
@@ -867,7 +875,12 @@ def fb_state():
     with FB_LOCK:
         f = fb_all()
         out = {"ok": True, "tpl": f["tpl"] or ("laerm" if not fb_first() else None), "first": fb_first(), "blocks": json.loads(json.dumps(f["blocks"])),
-               "sec": json.loads(json.dumps(f["sec"])), "max": felder.MAX_ACTIVE, "tpls": list(TPLS), "counts": {}, "daily": {}, "sug": {}}
+               "sec": json.loads(json.dumps(f["sec"])), "max": felder.MAX_ACTIVE, "tpls": list(TPLS), "counts": {}, "daily": {}, "sug": {},
+               "kinds": json.loads(json.dumps(f.get("kinds") or [])), "kind_def": f.get("kind_def") or "", "kind_keep": bool(f.get("kind_keep")), "kind_n": {}}
+        with NOTES_LOCK:
+            for x in notes_all().get("free") or []:
+                if x.get("kind"):
+                    out["kind_n"][x["kind"]] = out["kind_n"].get(x["kind"], 0) + 1
     want = [b for b in out["blocks"] if not b.get("del") and (b["type"] in ("counter", "place") or (b["type"] == "text" and b.get("sug")))]
     if want:
         ns = notes_list(limit=None)
@@ -892,6 +905,12 @@ def fb_change(d):
                 f["blocks"], errs = felder.clean_defs(d.get("blocks"), f["blocks"])
             if "sec" in d:
                 f["sec"] = felder.clean_sec(d.get("sec"))
+            if "kinds" in d:                                  # Notiz-Arten (ab 1.11)
+                f["kinds"] = felder.clean_kinds(d.get("kinds"), f.get("kinds") or [])
+            if "kind_def" in d:
+                f["kind_def"] = felder.kind_ok(f.get("kinds"), str(d.get("kind_def") or ""))
+            if "kind_keep" in d:
+                f["kind_keep"] = d.get("kind_keep") is True
             if not f["tpl"]:
                 f["tpl"] = "laerm"
             fb_save()
@@ -945,6 +964,15 @@ def tpl_apply(name, ui_lang=None):
             for k in ("txt", "tags", "wit", "more"):
                 sec[k]["hide"] = True
             order = [bid, "time"]
+        have = {k["id"] for k in f.get("kinds") or []}               # Notiz-Arten der Vorlage ergänzen (vorhandene bleiben, wie sie sind)
+        for k in felder.KIND_TPL.get(name) or []:
+            if k["id"] not in have:
+                k = dict(k, l=k["l"] if de else {"Erinnerung": "Reminder", "Idee": "Idea"}.get(k["l"], k["l"]))
+                f["kinds"] = (f.get("kinds") or []) + [felder.clean_kind(k)]
+            else:
+                for x in f["kinds"]:
+                    if x["id"] == k["id"]:
+                        x.pop("hide", None); x.pop("del", None)
         f["sec"] = felder.clean_sec(sec); f["tpl"] = name
         write_json(qt_path(), q)
         write_json(fb_path(), f)
@@ -1930,6 +1958,9 @@ def note_change(action, data, by="app"):
             rec["ext"] = ext
         if fields:
             rec["fields"] = fields
+        kd = felder.kind_ok(fb_all().get("kinds"), str(data.get("kind") or ""))     # Notiz-Art (ab 1.11)
+        if kd:
+            rec["kind"] = kd
         # Nachvollziehbar: wann tatsächlich notiert wurde (cap, ms) und welche Zeitpunkt-Taste die Zeit gesetzt hat (wk/wl, approx = ungefähr)
         try:
             cap = int(data.get("cap")) if data.get("cap") not in (None, "") else None
@@ -1963,7 +1994,9 @@ def note_change(action, data, by="app"):
                 return {"ok": False, "error": "not found"}
             if "fields" not in data and x.get("fields"):            # ältere Oberfläche/Automation ohne Felder: Werte bleiben
                 rec["fields"] = x["fields"]
-            for k_ in ("notime", "cap", "wk", "wl", "approx", "ext", "fields"):     # beim Ändern gilt, was jetzt mitkommt
+            if "kind" not in data and x.get("kind"):                # ältere Oberfläche/Automation ohne Art: Art bleibt
+                rec["kind"] = x["kind"]
+            for k_ in ("notime", "cap", "wk", "wl", "approx", "ext", "fields", "kind"):     # beim Ändern gilt, was jetzt mitkommt
                 if k_ not in rec:
                     x.pop(k_, None)
             if notime and not x.get("at"):
@@ -2238,14 +2271,15 @@ def diary_render(notes, fmt, pf=None):
     if fmt == "csv":
         out = io.StringIO(); w = SafeWriter(out); de = lang() != "en"
         fc = felder.csv_defs(fb_defs(), notes)              # je eigenes Feld eine Spalte: „Name (b_…)“
+        kinds = fb_all().get("kinds") or []; kcol = any(p.get("kind") for p in notes)
         w.writerow(["datum", "uhrzeit", "bis", "schnellwahl", "text", "zeuge", "geaendert", "von_iso", "bis_iso", "kennung", "erfasst_iso", "zeit_per_taste", "ungefaehr"] + EXT_COLS
-                   + [felder.csv_head(b, de) for b in fc])
+                   + [felder.csv_head(b, de) for b in fc] + (["notiz_art"] if kcol else []))
         for p in notes:
             a = dt.datetime.fromtimestamp(p["a"] / 1000).astimezone(); b = dt.datetime.fromtimestamp(p["b"] / 1000).astimezone() if p.get("to") else None
             w.writerow([fmt_date(a, pf), notime_txt() if p.get("notime") else fmt_time(a, pf), fmt_time(b, pf) if b else "", ", ".join(tag_label(t) for t in p.get("tags") or []),
                         p.get("text") or "", p.get("witness") or "", "ja" if p.get("edited") else "", p.get("from"), p.get("to") or "", p.get("id"),
                         cap_iso(p), (p.get("wl") or tag_label(p["wk"])) if p.get("wk") else "", "ja" if p.get("approx") else ""] + ext_cols(p)
-                       + felder.csv_cells(fc, p, de))
+                       + felder.csv_cells(fc, p, de) + ([felder.kind_label(kinds, p.get("kind"))] if kcol else []))
         pb = proof_block()
         for k, v in pb.items():                          # Prüfblock am Ende (Zeilen mit # werden beim Import übersprungen)
             w.writerow(["#" + k, v])
@@ -2415,7 +2449,7 @@ def parse_import(text):
         if not isinstance(lst, list):
             return None, "format"
         return [{"from": x.get("from"), "to": x.get("to") or "", "keys": x.get("tags") or [], "text": x.get("text") or "", "witness": x.get("witness") or "",
-                 "id": x.get("id"), "fields": x.get("fields") if isinstance(x.get("fields"), dict) else {}} for x in lst if isinstance(x, dict)], None
+                 "id": x.get("id"), "fields": x.get("fields") if isinstance(x.get("fields"), dict) else {}, "kind": str(x.get("kind") or "")} for x in lst if isinstance(x, dict)], None
     first = text.split("\n", 1)[0]
     if ";" in first and re.search(r"(datum|von_iso|schnellwahl)", first, re.I):
         out = []
@@ -2441,7 +2475,7 @@ def parse_import(text):
             if not to and r.get("bis") and frm:
                 tm, _ = parse_time(r["bis"]); to = _when(dt.datetime.fromisoformat(frm).date(), tm) if tm else ""
             out.append({"from": frm, "to": to, "labels": [x.strip() for x in (r.get("schnellwahl") or "").split(",") if x.strip()],
-                        "text": r.get("text") or "", "witness": r.get("zeuge") or "", "id": r.get("kennung") or None, "fields": fv})
+                        "text": r.get("text") or "", "witness": r.get("zeuge") or "", "id": r.get("kennung") or None, "fields": fv, "kind_l": r.get("notiz_art") or ""})
         return out, None
     out, day = [], None
     wit_re = re.compile(r"\s*–\s*(?:Zeuge|Zeugin|Witness):\s*(.+?)\s*$")
@@ -2526,7 +2560,9 @@ def import_plan(text):
         if (nid and nid in have_id) or (a, text, tuple(sorted(k for k in keys if not k.startswith("?")))) in have_key:
             plan["dup"] += 1; continue
         b = ms_of(r.get("to")) if r.get("to") else None
-        plan["new"].append({"id": nid, "from": iso_of(a), "to": iso_of(b) if b and b >= a else "", "keys": keys, "text": text, "witness": wit, "fields": fv})
+        kinds = fb_all().get("kinds") or []
+        kd = felder.kind_ok(kinds, str(r.get("kind") or "")) or next((k["id"] for k in kinds if not k.get("del") and r.get("kind_l") and k["l"].lower() == str(r["kind_l"]).lower()), "")
+        plan["new"].append({"id": nid, "from": iso_of(a), "to": iso_of(b) if b and b >= a else "", "keys": keys, "text": text, "witness": wit, "fields": fv, "kind": kd})
     plan["words"] = sorted(words.values(), key=str.lower)
     return plan, None
 
@@ -2570,7 +2606,7 @@ def import_text(d, apply=False):
             text = x["text"] if not extra else ((", ".join(extra) + (" – " if x["text"] else "")) + x["text"])
             nid = x["id"] if x["id"] and x["id"] not in have else "r_" + secrets.token_hex(5)
             a["free"].append(dict({"id": nid, "from": x["from"], "to": x["to"], "src": "all", "text": text, "tags": list(dict.fromkeys(keys))[:12],
-                                   "witness": x["witness"], "ts": now_iso(), "by": "import"}, **({"fields": x["fields"]} if x.get("fields") else {})))
+                                   "witness": x["witness"], "ts": now_iso(), "by": "import"}, **({"fields": x["fields"]} if x.get("fields") else {}), **({"kind": x["kind"]} if x.get("kind") else {})))
             have.add(nid); n += 1
         if n:
             notes_save()
@@ -2583,13 +2619,14 @@ def export_csv():
     out = io.StringIO(); w = SafeWriter(out); pf = prefs(); de = lang() != "en"
     notes = sorted(notes_list(limit=None), key=lambda p: p["a"])
     fc = felder.csv_defs(fb_defs(), notes)                  # je eigenes Feld eine Spalte
+    kinds = fb_all().get("kinds") or []; kcol = any(p.get("kind") for p in notes)
     w.writerow(["datum", "von", "bis", "schnellwahl", "text", "zeuge", "von_iso", "bis_iso", "geschrieben", "kennung", "erfasst_iso", "zeit_per_taste", "ungefaehr", "geaendert"] + EXT_COLS
-               + [felder.csv_head(b, de) for b in fc])
+               + [felder.csv_head(b, de) for b in fc] + (["notiz_art"] if kcol else []))
     for p in notes:
         a = dt.datetime.fromtimestamp(p["a"] / 1000).astimezone(); b = dt.datetime.fromtimestamp(p["b"] / 1000).astimezone() if p.get("to") else None
         w.writerow([fmt_date(a, pf), notime_txt() if p.get("notime") else fmt_time(a, pf), fmt_time(b, pf) if b else "", ", ".join(p["tagl"]), p.get("text"), p.get("witness"),
                     p.get("from"), p.get("to"), p.get("ts"), p.get("id"), cap_iso(p), (p.get("wl") or tag_label(p["wk"])) if p.get("wk") else "",
-                    "ja" if p.get("approx") else "", p.get("edited") or ""] + ext_cols(p) + felder.csv_cells(fc, p, de))
+                    "ja" if p.get("approx") else "", p.get("edited") or ""] + ext_cols(p) + felder.csv_cells(fc, p, de) + ([felder.kind_label(kinds, p.get("kind"))] if kcol else []))
     for k, v in proof_block().items():
         w.writerow(["#" + k, v])
     return ("﻿" + out.getvalue()).encode("utf-8")

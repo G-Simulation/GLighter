@@ -1,5 +1,9 @@
 # Changelog
 
+## 1.84.1
+- **Notiz-Arten aus GReport:** Notizen aus GReport zeigen ihre Art (z. B. „⏰ Erinnerung“) als farbiges Schild. Arten mit „nicht Störungen zuordnen“ hängt GLighter an keine Störung; Notizen „ohne Zeitpunkt“ wie bisher nie.
+- Gemeinsame Bausteine (felder) wie in GReport 1.11.0.
+
 ## 1.84.0
 - **KI-Erkennung robuster:** Die Geräuschart richtet sich nicht mehr nach einer einzelnen Spitze, sondern nach dem Mittel über die lauten Abschnitte (nach Lautstärke gewichtet). Was schon im ruhigen Umfeld davor und danach zu hören ist (Brummen, Fernseher, Neigung des Modells), wird abgezogen. Sehr kurze Ausschläge (unter 150 ms) zählen bei Stimme, Tier, Musik und Rauschen nur ein Viertel – Klopfen, Schlag, Tür und Schritte bleiben voll. Knappe Entscheidungen werden als unsicher gewertet, unter 25 % steht „unklar“. Einstellbar unter Einstellungen → Erkennung, dort auch „Arten dämpfen oder abschalten“ (z. B. „cat:0“). Ältere Störungen lassen sich mit „Neu bewerten“ neu einordnen. Gespeicherte Störungen bleiben unverändert.
 - **Alle Bereiche im Layout-Editor:** Spektrogramm, Sensor-Spuren und Live-Video sind eigene Bereiche neben „Live“ (Pegelverlauf mit seinen Tasten). Unter ▦ Layout anpassen lassen sie sich verschieben (↑ ↓, Ziehen, Pfeiltasten), in der Breite ändern, einklappen und ausblenden. Zeitfenster, Zoom und Verschieben bleiben für Graph, Spektrogramm und Spuren gleich; die lange Ansicht (1 h, 6 h, Tag) zeigt ihr Tages-Spektrogramm und ihre Spuren in denselben Bereichen. Beim Geräte-Rundlauf gleiten alle geräteabhängigen Bereiche zusammen. Ohne Sensoren bzw. ohne Video bleiben die Bereiche außerhalb von „Layout anpassen“ unsichtbar.

@@ -226,7 +226,15 @@ function extTxt(n) {                                   // kurze Anzeige in Zeitl
 }
 const witTxt = n => { const x = n.ext || {}, r = x.wrole ? t('gr_role_' + x.wrole) : ''; return n.witness + (r || x.wcontact ? ' (' + [r, x.wcontact].filter(Boolean).join(', ') + ')' : ''); };
 /* ---------- Notiz jetzt ---------- */
-const FNP = { from: null, tags: new Set(), edit: null, fixed: false, open: new Set(), notime: false, when: null, approx: false, cap: null, manual: false, pend: null, fv: {}, reqWarned: null };
+const FNP = { from: null, tags: new Set(), edit: null, fixed: false, open: new Set(), notime: false, when: null, approx: false, cap: null, manual: false, pend: null, fv: {}, reqWarned: null, kind: '', kindNt: false };
+/* Notiz-Art (ab 1.11): wählen setzt bei Arten „ohne Zeitpunkt“ auch „ohne Zeitpunkt“ (außer die Zeit wurde von Hand gesetzt) */
+function kindSet(id, quiet) {
+  const k = Felder.kindOf(id), prev = FNP.kindNt; FNP.kind = k && !k.del ? id : '';
+  FNP.kindNt = !!(k && k.notime && !FNP.manual && !FNP.timeTouched);
+  if (FNP.kindNt) { FNP.notime = true; FNP.when = null; } else if (prev && FNP.notime && !FNP.manual) FNP.notime = false;
+  kindDraw(); if (!quiet) { notimeShow(); fnpShow(); }
+}
+function kindDraw() { const b = $('fnpkinds'); if (b) Felder.kindPick(b, FNP.kind, id => kindSet(id)); }
 /* Lange drücken (Maus, Stift oder Finger, ~0,55 s ohne zu bewegen) oder Rechtsklick: onHold statt Klick */
 function holdBind(b, onHold) {
   let tm = 0, x0 = 0, y0 = 0, fired = false;
@@ -357,6 +365,7 @@ function fnpReset() {
   FNP.from = null; FNP.tags = new Set(); FNP.edit = null; FNP.fixed = false; Object.assign(FNP, { notime: false, when: null, approx: false, cap: null, manual: false, pend: null });
   $('fnptext').value = ''; $('fnpwit').value = ''; $('fnpfromi').value = ''; $('fnptoi').value = ''; $('fnprun').checked = false;
   FNP.fv = {}; FNP.reqWarned = null; fbMount();
+  FNP.kindNt = false; kindSet(FB.kind_keep && Felder.kindOf(FNP.kind) ? FNP.kind : (FB.kind_def || ''), true);   // Art: gemerkt oder Vorgabe
   $('fnpcancel').hidden = true; $('fnpsave').textContent = t('save'); $('fnpanel').classList.remove('editing');
   ATT.pend = []; attPendDraw();
   extFill(null); timeEdit(false); notimeShow(); fnpTags(); fnpShow(); listDraw(); reqCheck(); secDraw(); tipsDraw();
@@ -370,7 +379,7 @@ async function fnpSave() {
   if (!fbReqOk()) return;
   const body = { action: ed ? 'edit' : 'add', id: ed ? ed.id : '', from: fixed ? inIso($('fnpfromi').value, ed && ed.from) : ed ? (ed.from || dto(new Date(ed.a))) : dto(new Date(nowMs())), to: tv ? inIso(tv, ed && ed.to) : run ? dto(new Date(nowMs())) : '',
     src: ed ? (ed.src || 'all') : 'all', text: autoText($('fnptext').value, FNP.tags) || (ATT.pend.length ? t('gr_att_only', { n: ATT.pend.map(p => p.f.name).join(', ') }) : ''), typed: !!$('fnptext').value.trim(), tags: [...FNP.tags], witness: $('fnpwit').value,
-    notime: !!FNP.notime, ext: extRead(), fields: fbOut() };
+    notime: !!FNP.notime, ext: extRead(), fields: fbOut(), kind: FNP.kind || '' };
   if (FNP.when) Object.assign(body, { wk: FNP.when, wl: ntLabel(FNP.when), approx: !!FNP.approx, cap: FNP.cap || nowMs() });   // erfasst um … (Taste: …)
   else if (ed && ed.wk && !FNP.timeTouched) Object.assign(body, { wk: ed.wk, wl: ed.wl, approx: !!ed.approx, cap: ed.cap });
   else if (ed && ed.cap) body.cap = ed.cap;                                    // Erfassungszeit bleibt beim Ändern
@@ -390,6 +399,7 @@ function fnpEdit(n) {
   Object.assign(FNP, { notime: !!n.notime, when: null, approx: !!n.approx, cap: n.cap || null, manual: false, pend: null, timeTouched: false });
   $('fnptext').value = n.text || ''; $('fnpwit').value = n.witness || '';
   FNP.fv = JSON.parse(JSON.stringify(n.fields || {})); FNP.reqWarned = null; fbMount();      // eigene Felder (auch gelöschte bleiben erhalten)
+  FNP.kind = n.kind || ''; FNP.kindNt = false; kindDraw();
   $('fnpfromi').value = n.from ? dtl(new Date(n.from)) : ''; $('fnptoi').value = n.to ? dtl(new Date(n.to)) : ''; $('fnprun').checked = false;
   $('fnpcancel').hidden = false; $('fnpsave').textContent = t('gr_change'); $('fnpanel').classList.add('editing');
   extFill(n.ext); attPendDraw(); notimeShow(); fnpTags(); fnpShow(); listDraw(); tipsDraw(); $('fnpanel').scrollIntoView({ block: 'start', behavior: 'smooth' }); $('fnptext').focus({ preventScroll: true });
@@ -590,8 +600,13 @@ async function fbCount(b, d) {
 }
 async function fbLoad(quiet) {
   try { Felder.load(await (await fetch('felder', { cache: 'no-store' })).json()); } catch (e) { }
+  kindsLoaded();
   if (quiet) { statsDraw(); for (const b of viewBlocks()) if (b.type === 'counter') Felder.countShow($('fnpbody'), b); return; }
   fbApply();
+}
+function kindsLoaded() {                              // Arten geladen: Auswahl zeichnen; ohne Wahl die Vorgabe nehmen
+  if (!FNP.edit && !FNP.kind && FB.kind_def && !FNP.from) kindSet(FB.kind_def);
+  else if (FNP.kind && !Felder.kindOf(FNP.kind)) kindSet(''); else kindDraw();
 }
 function fbApply() {
   if (!LAY.on) { fbMount(); secApply(); secDraw(); }
@@ -616,7 +631,7 @@ async function fbTpl(name, ask) {
   if (!j.ok) { toast(t('saveerr')); return false; }
   Felder.load(j); ntsApply(j.qt); if (j.prefs) PF = j.prefs;
   if (LAY.on) layClose();
-  fbApply(); fnpTags(); fnpShow(); toast('✓ ' + t('fb_tpl_done', { n: t('fb_tpl_' + name) }));
+  kindsLoaded(); fbApply(); fnpTags(); fnpShow(); toast('✓ ' + t('fb_tpl_done', { n: t('fb_tpl_' + name) }));
   return true;
 }
 /* ---------- Liste: Zeitleiste nach Tagen oder Tabelle (nur Anzeige – gespeichert wird nichts anders) ---------- */
@@ -675,7 +690,10 @@ function filtDraw() {
   const cnt = {}; for (const n of LST.notes) for (const k of n.tags || []) cnt[k] = (cnt[k] || 0) + 1;
   const top = Object.keys(cnt).sort((a, b) => cnt[b] - cnt[a]).slice(0, 10);
   const nn = LST.notes.filter(n => n.notime).length;
-  box.innerHTML = (top.length > 1 ? top.map(k => `<button type="button" class="tag ${gAttr(ntGroup(k)).replace('"', LST.tag === k ? ' on"' : '"')} data-t="${esc(k)}" aria-pressed="${LST.tag === k}">${esc(ntLabel(k))} <small>${cnt[k]}</small></button>`).join('') : '')
+  const kc = {}; for (const n of LST.notes) if (n.kind) kc[n.kind] = (kc[n.kind] || 0) + 1;      // Notiz-Arten als Filter (ab 1.11)
+  const kh = Object.keys(kc).filter(k => Felder.kindOf(k)).map(k => { const x = Felder.kindOf(k), on = LST.tag === 'kind:' + k;
+    return `<button type="button" class="tag fbkind${on ? ' on' : ''}" style="--kc:${esc(x.col || '#5f6b78')}" data-t="kind:${esc(k)}" aria-pressed="${on}">${x.ico ? esc(x.ico) + ' ' : ''}${esc(x.l)} <small>${kc[k]}</small></button>`; }).join('');
+  box.innerHTML = kh + (top.length > 1 ? top.map(k => `<button type="button" class="tag ${gAttr(ntGroup(k)).replace('"', LST.tag === k ? ' on"' : '"')} data-t="${esc(k)}" aria-pressed="${LST.tag === k}">${esc(ntLabel(k))} <small>${cnt[k]}</small></button>`).join('') : '')
     + (nn ? `<button type="button" class="tag ${gAttr('when').replace('"', LST.tag === NOTIME ? ' on"' : '"')} data-t="${NOTIME}" aria-pressed="${LST.tag === NOTIME}">${esc(t('gr_notime'))} <small>${nn}</small></button>` : '');
   box.querySelectorAll('.tag').forEach(b => b.onclick = () => { LST.tag = LST.tag === b.dataset.t ? '' : b.dataset.t; listDraw(); });
 }
@@ -703,7 +721,7 @@ function listDraw() {
   if (LST.view === 'tb' && window.agGrid) { tblDraw(); return; }
   const box = document.getElementById('grnotes'); if (!box) return; box.innerHTML = ''; box.hidden = false;
   filtDraw();
-  const list = LST.tag === NOTIME ? LST.notes.filter(n => n.notime) : LST.tag ? LST.notes.filter(n => (n.tags || []).includes(LST.tag)) : LST.notes;
+  const list = LST.tag === NOTIME ? LST.notes.filter(n => n.notime) : LST.tag.startsWith('kind:') ? LST.notes.filter(n => 'kind:' + n.kind === LST.tag) : LST.tag ? LST.notes.filter(n => (n.tags || []).includes(LST.tag)) : LST.notes;
   countShow(list.length, LST.all.length, !!(q || LST.tag));
   if (!list.length) { box.appendChild(el('div', { className: 'empty', textContent: t(q || LST.tag || LST.range !== 'all' ? 'gr_none_q' : 'gr_none') })); return; }
   const days = new Map(); for (const n of list) { const k = isoDay(new Date(n.a)); if (!days.has(k)) days.set(k, []); days.get(k).push(n); }
@@ -713,7 +731,7 @@ function listDraw() {
       const r = el('div', { className: 'note' + (FNP.edit && FNP.edit.id === n.id ? ' cur' : '') });
       const by = n.by === 'homeassistant' ? '🏠 Home Assistant' : n.by === 'import' ? t('gr_imported') : '';
       r.innerHTML = `<div class="t">${n.notime ? `<small class="nt">${esc(t('gr_notime'))}</small>` : esc((n.approx ? '≈ ' : '') + fTime(n.a))}${n.to ? `<small>${esc(t('gr_until', { t: fTime(n.b) }))}</small>` : ''}</div>
-        <div class="c">${(n.tags || []).filter(k => k !== 'zeuge' || !n.witness).map(tagMk).join('')}${n.text ? `<span class="tx">${esc(n.text)}</span>` : ''}${n.witness ? `<span class="who">👤 ${esc(witTxt(n))}</span>` : ''}${fxHtml(n)}${extTxt(n).map(x => `<span class="by ext">${esc(x)}</span>`).join('')}${(n.att || []).length ? `<button type="button" class="by attb" aria-label="${esc(t('gr_att_open') + ': ' + n.att.map(a => a.name).join(', '))}" title="${esc(n.att.map(a => a.name).join(', '))}">📎 ${n.att.length}</button>` : ''}${by ? `<span class="by">${esc(by)}</span>` : ''}${metaTxt(n) ? `<span class="by meta">${esc(metaTxt(n))}</span>` : ''}${n.edited ? `<button type="button" class="by histb" data-h="${esc(n.id)}">${esc(t('gr_edited_at', { t: fDate(Date.parse(n.edited)) + ' ' + fTime(Date.parse(n.edited)) }))}</button>` : ''}</div>
+        <div class="c">${n.kind ? Felder.kindChip(n.kind, true) : ''}${(n.tags || []).filter(k => k !== 'zeuge' || !n.witness).map(tagMk).join('')}${n.text ? `<span class="tx">${esc(n.text)}</span>` : ''}${n.witness ? `<span class="who">👤 ${esc(witTxt(n))}</span>` : ''}${fxHtml(n)}${extTxt(n).map(x => `<span class="by ext">${esc(x)}</span>`).join('')}${(n.att || []).length ? `<button type="button" class="by attb" aria-label="${esc(t('gr_att_open') + ': ' + n.att.map(a => a.name).join(', '))}" title="${esc(n.att.map(a => a.name).join(', '))}">📎 ${n.att.length}</button>` : ''}${by ? `<span class="by">${esc(by)}</span>` : ''}${metaTxt(n) ? `<span class="by meta">${esc(metaTxt(n))}</span>` : ''}${n.edited ? `<button type="button" class="by histb" data-h="${esc(n.id)}">${esc(t('gr_edited_at', { t: fDate(Date.parse(n.edited)) + ' ' + fTime(Date.parse(n.edited)) }))}</button>` : ''}</div>
         <div class="a"><button type="button" class="e" aria-label="${esc(t('nt_edit'))}" title="${esc(t('nt_edit'))}">✎</button><button type="button" class="d" aria-label="${esc(t('nt_del'))}" title="${esc(t('nt_del'))}">🗑</button></div>`;
       r.querySelector('.e').onclick = () => fnpEdit(n);
       r.querySelector('.d').onclick = () => noteDel(n);
@@ -845,6 +863,25 @@ class TimeFloat {
   onParentModelChanged(m) { const v = m && m.values && m.values.length ? m.values.map(x => t('gr_tf_' + x)).join(', ') : t('gr_f_all'); this.b.textContent = v; this.b.setAttribute('aria-label', t('gr_c_time') + ': ' + v); }
   getGui() { return this.b; }
 }
+class KindFilter {                                     // Notiz-Art: mehrere wählbar, auch „ohne Art“
+  init(p) { this.p = p; this.sel = new Set(); this.gui = el('div', { className: 'tagf' }); this.draw(); }
+  draw() {
+    const o = [...Felder.kindsActive().map(k => [k.id, k.l]), ['', t('fk_none')]];
+    this.gui.innerHTML = `<fieldset><legend>${esc(t('fk_col_h'))}</legend>${o.map(([v, l]) => `<label class="check"><input type="checkbox" value="${esc(v)}"${this.sel.has(v) ? ' checked' : ''}> ${esc(l)}</label>`).join('')}</fieldset>`;
+    this.gui.querySelectorAll('input').forEach(i => i.onchange = () => { i.checked ? this.sel.add(i.value) : this.sel.delete(i.value); this.p.filterChangedCallback(); });
+  }
+  getGui() { return this.gui; }
+  afterGuiAttached() { this.draw(); const f = this.gui.querySelector('input'); if (f) f.focus(); }
+  isFilterActive() { return this.sel.size > 0; }
+  doesFilterPass(p) { return this.sel.has(p.data.kind || ''); }
+  getModel() { return this.sel.size ? { values: [...this.sel] } : null; }
+  setModel(m) { this.sel = new Set((m && m.values) || []); this.draw(); }
+}
+class KindFloat {
+  init(p) { this.b = el('button', { type: 'button', className: 'tagff kindf' }); this.b.onclick = () => p.showParentFilter(); this.onParentModelChanged(null); }
+  onParentModelChanged(m) { const v = m && m.values && m.values.length ? m.values.map(x => x ? (Felder.kindOf(x) || {}).l || x : t('fk_none')).join(', ') : t('gr_f_all'); this.b.textContent = v; this.b.setAttribute('aria-label', t('fk_col_h') + ': ' + v); }
+  getGui() { return this.b; }
+}
 const dayOf = ms => { const d = new Date(ms); return new Date(d.getFullYear(), d.getMonth(), d.getDate()).getTime(); };
 const secOfDay = ms => { const d = new Date(ms); return d.getHours() * 3600 + d.getMinutes() * 60 + d.getSeconds(); };
 const timeTxt = n => n.notime ? t('gr_notime') : (n.approx ? '≈ ' : '') + fTime(n.a) + (n.to ? ' – ' + fTime(n.b) : '');
@@ -869,6 +906,8 @@ function gridCols() {
       { colId: 'time', headerName: t('gr_c_time'), valueGetter: p => p.data.notime ? -1 : secOfDay(p.data.a), flex: 1.2, minWidth: 124, wrapText: true, autoHeight: true, cellClass: 'num',
         cellRenderer: p => `<span>${esc(timeTxt(p.data))}</span>${metaTxt(p.data) ? `<small class="tm">${esc(metaTxt(p.data))}</small>` : ''}${p.data.edited ? `<small class="tm">${esc(t('gr_edited'))}</small>` : ''}`,
         filter: TimeFilter, floatingFilterComponent: TimeFloat, getQuickFilterText: p => timeTxt(p.data) },
+      ...(Felder.kindsActive().length || LST.all.some(n => n.kind) ? [{ colId: 'kind', field: 'kind', headerName: t('fk_col_h'), flex: 1, minWidth: 110, filter: KindFilter, floatingFilterComponent: KindFloat,
+        valueGetter: p => (Felder.kindOf(p.data.kind) || {}).l || '', cellRenderer: p => p.data.kind ? Felder.kindChip(p.data.kind, true) : '', getQuickFilterText: p => (Felder.kindOf(p.data.kind) || {}).l || '' }] : []),
       { colId: 'text', field: 'text', headerName: t('gr_c_text'), flex: 3, minWidth: 100, wrapText: true, autoHeight: true, filter: 'agTextColumnFilter', filterParams: tf,
         cellRenderer: p => `<span>${esc(p.data.text || '')}</span>${(p.data.att || []).length ? ` <button type="button" class="attb linkbtn" tabindex="-1" aria-label="${esc(t('gr_att_open'))}">📎 ${p.data.att.length}</button>` : ''}${extTxt(p.data).map(x => `<small class="tm">${esc(x)}</small>`).join('')}`, getQuickFilterText: p => (p.data.text || '') + ' ' + extTxt(p.data).join(' ') },
       { colId: 'tags', field: 'tags', headerName: t('gr_c_tags'), cellDataType: false, flex: 2.2, minWidth: 150, sortable: false, wrapText: true, autoHeight: true, filter: TagFilter, floatingFilterComponent: TagFloat,
@@ -896,8 +935,8 @@ function gridOpts() {
 }
 function tblCount() { if (GRID) countShow(GRID.getDisplayedRowCount(), LST.all.length, GRID.isAnyFilterPresent() || !!LST.q.trim()); }
 function tblDraw() {
-  if (!GRID) { GRID = agGrid.createGrid(document.getElementById('grgrid'), gridOpts()); GRID_COLS = JSON.stringify(fbCols()); colApply(); }
-  const ck = JSON.stringify(fbCols()); if (ck !== GRID_COLS) { GRID_COLS = ck; GRID.setGridOption('columnDefs', gridCols()); colApply(); }   // eigene Felder geändert
+  if (!GRID) { GRID = agGrid.createGrid(document.getElementById('grgrid'), gridOpts()); GRID_COLS = JSON.stringify([fbCols(), FB.kinds, LST.all.some(n => n.kind)]); colApply(); }
+  const ck = JSON.stringify([fbCols(), FB.kinds, LST.all.some(n => n.kind)]); if (ck !== GRID_COLS) { GRID_COLS = ck; GRID.setGridOption('columnDefs', gridCols()); colApply(); }   // eigene Felder geändert
   const fk = JSON.stringify([PF, lang, NTS.ren, NTS.own, NTS.grp, FB.defs]);
   GRID.setGridOption('rowData', LST.notes);
   if (fk !== GRID_FMT) { GRID_FMT = fk; GRID.refreshCells({ force: true }); }
@@ -1236,7 +1275,7 @@ function layBuild(prof) {
     const w = WHEN.get(k);
     keys[k] = { k, l: ntLabel(k), l0: ntLabel(k), kind: w ? 'when' : 'tag', own: w ? !!w.own : NTS.own[k] != null, hide: w ? !!w.hide : NTS.hide.has(k), hide0: w ? !!w.hide : NTS.hide.has(k), g0: gr.g, isNew: false, del: false };
   }
-  const secs = capOrder(null, PF.cap_order || []), fb = JSON.parse(JSON.stringify({ blocks: FB.defs, sec: FB.sec }));
+  const secs = capOrder(null, PF.cap_order || []), fb = JSON.parse(JSON.stringify({ blocks: FB.defs, sec: FB.sec, kinds: FB.kinds || [], kind_def: FB.kind_def || '', kind_keep: !!FB.kind_keep }));
   const dock = viewDock(), pop = viewGet('pop');
   LAY.d = { groups, keys, order0: layFlat(groups).join(), gorder0: groups.map(g => g.g).join(), secs, secs0: secs.join(), title: PF.cap_title || '', sub: PF.cap_sub || '', width: PF.width || 'wide', width0: PF.width || 'wide',
     fb, fb0: JSON.stringify(Felder.strip(fb)), prof: 'dock', views: { dock, pop }, dock0: layVKey(dock), pop0: layVKey(pop), popSync: layVKey(pop), popOwn: !!PF.pop, popFollow: false };
@@ -1299,9 +1338,10 @@ function layBar() {
       <span class="grow"></span><button type="button" class="btn" id="laytpl" aria-expanded="false" aria-controls="laytplbox">${esc(t('fb_tpl'))}</button></div>
     <div id="laytplbox" class="fbtplbox" hidden></div>
     <div id="layfb" class="layfb"></div>
+    <div id="laykinds" class="layfb"></div>
     <div class="laybtns"><button type="button" class="btn" id="layreset">${esc(t('gr_reset'))}</button><span class="grow"></span><button type="button" class="btn" id="laycancel">${esc(t('cancel'))}</button><button type="button" class="btn primary" id="laydone">${esc(t('gr_lay_done'))}</button></div>
     <span class="sr" id="laylive" aria-live="polite"></span>`;
-  layChips(); layFb();
+  layChips(); layFb(); layKinds();
   bar.querySelectorAll('.layob').forEach(b => b.onclick = () => {                 // Breite (nur angedockt), Dichte, Tipps – Vorschau sofort
     const k = b.dataset.k, x = b.dataset.v;
     if (k === 'width') { d.width = x; widthApply(x); } else { v[k] = x; if (k === 'dens') layDens(); }
@@ -1344,6 +1384,10 @@ function layFb(focusId) {
   });
   box.querySelectorAll('details.fbed').forEach(x => { if (opened.has(x.dataset.id)) x.open = true; });
   if (focusId) { const r = box.querySelector(`details.fbed[data-id="${CSS.escape(focusId)}"]`); if (r) { r.open = true; const i = r.querySelector('.fe_l'); i.focus(); i.select(); r.scrollIntoView({ block: 'nearest' }); } }
+}
+function layKinds() {                                 // Notiz-Arten verwalten (Vorschau sofort in der Erfassung)
+  const box = $('laykinds'), d = LAY.d; if (!box || !d) return;
+  Felder.kindsEditor(box, d.fb, { change: () => { const keep = { kinds: FB.kinds }; FB.kinds = d.fb.kinds.filter(k => !k.del); kindDraw(); FB.kinds = keep.kinds; }, say: laySay });
 }
 function fbPreview() { const d = LAY.d; if (!d) return; fbMount(d.fb.blocks, d.fb.sec); secApply(d.secs); }
 function layFind(k) { return LAY.d.groups.find(g => g.keys.includes(k)); }
@@ -1529,7 +1573,7 @@ async function laySave() {
     if (JSON.stringify(fbNew) !== d.fb0) {                // eigene Felder zuerst (Reihenfolge darf auf neue Felder zeigen)
       const j = await post('felder', Object.assign({ action: 'set' }, fbNew));
       if (!j.ok) throw new Error('felder');
-      Felder.load(j); if ((j.errors || []).some(x => /limit/.test(x))) toast(t('fb_ed_limit', { n: FB.max }), 6000);
+      Felder.load(j); kindsLoaded(); if ((j.errors || []).some(x => /limit/.test(x))) toast(t('fb_ed_limit', { n: FB.max }), 6000);
     }
     if (ops.length) {
       const j = await post('notetags', { action: 'batch', ops });

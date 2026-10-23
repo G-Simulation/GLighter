@@ -487,3 +487,13 @@ body.pop .layps{flex-basis:100%}
 body.pop.tipshover #fnpbody.tipanchor{padding-right:40px}body.pop.tipshover #fnpbody.tipanchor > .tipdock{right:8px}
 body.pop.tipshover #secwit.tipanchor,body.pop.tipshover #fnptags > .tipanchor{padding-right:0}body.pop.tipshover #secwit.tipanchor > .tipdock,body.pop.tipshover #fnptags > .tipanchor > .tipdock{right:-32px}
 .fbedg [hidden]{display:none!important}
+
+/* Notiz-Arten (1.11) */
+.fbkinds{display:grid;gap:6px;margin:0 0 6px}.fbkinds[hidden]{display:none}.fbkinds .fbl{font-size:13px;font-weight:600;color:var(--ink)}.fbkinds .fbrow{display:flex;flex-wrap:wrap;gap:6px}
+.fbkind{display:inline-flex;align-items:center;gap:2px;padding:1px 9px;border-radius:99px;border:1.5px solid var(--kc);background:color-mix(in srgb,var(--kc) 12%,transparent);font-weight:600;font-size:12.5px;white-space:nowrap;color:inherit}
+.fbkind.sm{font-size:12px;padding:0 8px}
+.fbkchip{border-color:color-mix(in srgb,var(--kc) 70%,transparent)!important}
+.fbkchip[aria-pressed="true"]{background:color-mix(in srgb,var(--kc) 22%,transparent)!important;border-color:var(--kc)!important}
+.fbkeds{margin-top:14px}
+.fbkchip[aria-pressed="true"]{color:var(--ink)!important}
+.tag.fbkind{min-height:34px;font-weight:600}.tag.fbkind.on{background:color-mix(in srgb,var(--kc) 28%,transparent)}

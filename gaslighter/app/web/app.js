@@ -1757,7 +1757,7 @@ function slPaint(id, from, to, L, R, ax) {
   host.setAttribute('aria-label', t('sl_a', { a: hms(from).slice(0, 5), b: hms(to).slice(0, 5) }) + ' ' + say.join('; ') + '.');
 }
 const fnShow = () => !SHIDE.has('_fn') && (!ARTSEL.size || ARTSEL.has('_notes') || ARTSEL.has('_fn'));
-const fnText = n => `${n.gr ? '<span class="art grsrc" title="' + esc(t('gr_from_tip')) + '">GReport</span>' : ''}${(n.tags || []).map(ntTag).join('')}${n.text ? `<span class="ntt" title="${esc(n.text)}">${esc(n.text)}</span>` : ''}${n.witness ? `<span class="ntw">👤 ${esc(n.witness)}</span>` : ''}${fbx(n)}`;
+const fnText = n => `${n.gr ? '<span class="art grsrc" title="' + esc(t('gr_from_tip')) + '">GReport</span>' : ''}${n.kind_l ? `<span class="fbkind sm" style="--kc:${esc(/^#[0-9a-f]{6}$/i.test(n.kind_c || '') ? n.kind_c : '#5f6b78')}"${n.noassign ? ` title="${esc(t('fk_noassign'))}"` : ''}>${n.kind_i ? esc(n.kind_i) + ' ' : ''}${esc(n.kind_l)}</span>` : ''}${(n.tags || []).map(ntTag).join('')}${n.text ? `<span class="ntt" title="${esc(n.text)}">${esc(n.text)}</span>` : ''}${n.witness ? `<span class="ntw">👤 ${esc(n.witness)}</span>` : ''}${fbx(n)}`;
 function evRows(evs, sv, grpMode) {
   const G = EV.grps || {}, out = [], seen = new Map();
   const one = r => ({ _t: 'ev', id: ek(r), r, start: new Date(r.start).getTime(), src: evSrcName(r), tags: evTags(r), dur: +r.dauer_s || 0, pk: r.spitze_dbfs, thr: r.schwelle_dbfs, bg: r.hintergrund_dbfs });
