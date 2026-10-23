@@ -1,5 +1,13 @@
 # Changelog
 
+## 1.10.0
+- **Für jedes Thema:** Die Notiz-Erfassung lässt sich jetzt aus Bausteinen zusammenstellen – vom einfachen Strichliste-Zähler („wie oft fällt mir das Feuerzeug runter“) bis zum ausführlichen, nachvollziehbaren Protokoll. Unter ▦ Layout anpassen → „Bereiche und Felder“ → „Hinzufügen“: Pillen-Rubrik (Tasten, auf Wunsch „nur eine Auswahl“), Textfeld, Zähler (＋1, auf Wunsch −1), Zahl (mit Einheit, kleinster und größter Zahl), Ja/Nein, Auswahlliste (eine oder mehrere), Skala (1–5 oder 0–10), Dauer, Datum/Uhrzeit, Ort (mit früheren Eingaben als Vorschlag) und Person/Zeuge (Name, Rolle, Erreichbarkeit).
+- **Jeder Bereich** – auch die eingebauten (Text, Schnellwahl, Zeuge, Weitere Angaben, Zeitraum) – hat einen Namen, einen Hinweis, „Pflichtfeld“ und „zeigen“. Der Zeugen-Bereich ist damit freiwillig und frei benennbar. Pflichtfelder geben einen Hinweis; ein zweites „Speichern“ speichert trotzdem.
+- **Vorlagen:** „Lärm und Störungen“ (wie bisher, Standard), „Allgemein“ (Text, eine freie Rubrik, Person, Zeit) und „Zähler“ (nur Zeit und eine große Taste ＋1 – jeder Druck ein eigener Eintrag mit genauer Uhrzeit). Beim ersten Start werden sie angeboten, später unter ▦ Layout anpassen → „Vorlage wählen“. Eine Vorlage stellt nur ein, was zu sehen ist – es wird nie etwas gelöscht.
+- **Werte überall dabei:** Die Werte stehen je Notiz in einem eigenen Feld („fields“) und erscheinen in der Liste, in der Suche, als eigene Spalten in der Tabelle (mit Filter je Feld), im CSV-Export (je Feld eine Spalte „Name (Kennung)“), im Tagebuch, in JSON-Export, Bericht und Sicherung. CSV und JSON lassen sich mit den Werten wieder einlesen.
+- **Zähler-Statistik:** Über der Liste zeigt je Zähler ein kleines Balkenbild die letzten 14 Tage, dazu „heute“. Im Bericht steht die Summe im Zeitraum. In Home Assistant gibt es je Zähler einen Knopf „+1“, Textfelder, Ort, Ja/Nein und einfache Auswahllisten zum Ausfüllen.
+- Gelöschte Felder bleiben mit ihren Werten in alten Notizen und im Export erhalten. Notizen ohne eigene Felder, das Änderungsprotokoll mit Prüfsummenkette und bisherige Exporte bleiben unverändert.
+
 ## 1.9.3
 - **Tipps ruhiger:** 💡 sitzt rechts, senkrecht mittig am zugehörigen Block, mehrere übereinander. Der Text erscheint als schwebende Blase beim Zeigen auf 💡, mit der Tastatur oder nach Antippen. Nichts verschiebt oder flackert mehr.
 - **Taste lange drücken** öffnet „Layout anpassen“ mit dieser Taste: gleich weiterziehen oder mit den Pfeiltasten verschieben. Verwalten geht weiter über ⋯ → Schnellwahl verwalten.

@@ -1,5 +1,21 @@
 # Changelog
 
+## 1.82.0
+- **Sensor-Bestätigung:** Jede Störung wird gegen die Sensoren aus den Regeln „nur festhalten“ und „als Ereignis“ sowie Handy-Erschütterung, Kamera-Bewegung (IP-Webcam) und Handy-Neigung geprüft – je Sensor in einem eigenen Suchfenster um den Störungsbeginn (Voreinstellung: Erschütterung −5/+10 s, Bewegungsmelder −10/+10 s, Tür/Fenster ±5 s, Kamera −5/+30 s, Handy-Erschütterung ±10 s, Leistungsmesser −60/+10 s) und mit Sperrzeit (Erschütterung und Bewegungsmelder 60 s). Es zählen nur neue Auslösungen (steigende Flanke).
+- **Vier Ergebnisse je Sensor:** zeitgleich registriert, ohne Ereignis (neutral, kein Gegenbeweis), nicht beurteilbar (offline, in der Sperrzeit, schon aktiv oder noch keine Daten – mit Grund) und vermutlich eigene Quelle (Sensoren mit der Rolle „eigene Aktivität“, z. B. Bewegung im eigenen Flur, eigene Tür, laufender eigener Verbraucher).
+- **In der Tabelle** eine Spalte „Sensoren“ mit Chip wie „✓ 2 von 3 Sensoren“ – gezählt werden nur prüfbare Sensoren; Screenreader lesen den ganzen Satz vor, z. B. „bestätigt durch 2 von 3 verfügbaren Sensoren; Decke 3 s später“. Filter: Bestätigt / Nicht bestätigt / Nicht beurteilbar / Vermutlich eigene Quelle. Darunter die Zusammenfassung mit Bestätigungsquote (nur über prüfbare Störungen) und den durch Zufall zu erwartenden Treffern.
+- **Im Ereignis** eine Tabelle je Sensor: Ergebnis, Abstand Δt, Suchfenster, knapp daneben („nächstes Ereignis +14 s, außerhalb −5 / +10 s“), Zufallstreffer p = 1 − exp(−λ · Fenster) aus der Grundrate der letzten 14 Tage und die Regel im Klartext.
+- **Export:** CSV der Störungen mit Spalten zur Bestätigung, den einzelnen Sensoren mit Δt und dem Zufall, dazu ein vorsichtig formulierter Methodenhinweis („zeitgleich registriert“, kein Nachweis der Ursache). Das Lärmprotokoll zeigt Zusammenfassung, Methode und je Störung die Sensoren. Nicht bestätigte Störungen bleiben immer enthalten.
+- **Einstellungen → Regeln → Sensor-Bestätigung:** an/aus und je Sensor Art, Rolle (Bestätigung, eigene Aktivität, nur Kontext), Fenster vorher/nachher, Sperrzeit und „prüfen“, dazu die Grundrate. Die Erreichbarkeit der Sensoren wird ab jetzt in ha_verfuegbar.csv mitgeschrieben.
+- **Notizen zuordnen:** Statt „Notiz gehört zur Störung, wenn bis zu … min danach“ gibt es ein Fenster vorher und nachher (Standard −2 / +15 min, je 0 bis 120 min). Es gilt die Ereigniszeit der Notiz, auch bei Notizen mit eingestellter Zeit; passen mehrere Störungen, gewinnt die nächste. An der Störung steht „Notiz zugeordnet (5 min danach) · automatisch (Fenster −2 / +15 min)“. Notizen zählen nie als Sensor-Bestätigung.
+- Alles wird beim Ansehen berechnet: gespeicherte Störungen, Tagesaufzeichnung, Prüfsummen, log.csv und ha_zustand.csv bleiben unverändert. Die Fenster sind Startwerte und sollten mit eigenen Daten überprüft werden.
+
+## 1.81.0
+- **Notiz-Erfassung für jedes Thema (wie in GReport 1.10):** Unter ▦ Layout der Notiz anpassen → „Bereiche und Felder“ lassen sich eigene Felder hinzufügen: Pillen-Rubrik (auf Wunsch „nur eine Auswahl“), Textfeld, Zähler (＋1), Zahl, Ja/Nein, Auswahlliste, Skala, Dauer, Datum/Uhrzeit, Ort und Person/Zeuge. Jeder Bereich – auch Text, Schnellwahl, Zeuge und Zeitraum – hat Name, Hinweis, „Pflichtfeld“ und „zeigen“; der Zeugen-Bereich ist freiwillig.
+- **Vorlagen** „Lärm und Störungen“ (Standard, wie bisher), „Allgemein“ und „Zähler“ unter „Vorlage wählen“. Es wird nie etwas gelöscht, nur die Anzeige ändert sich.
+- **Werte überall dabei:** in den Notiz-Listen, im Ereignis, in der Nachtansicht, im Lärmprotokoll und als eigene Spalten im CSV-Export der Notizen. Die Suche findet auch Feldwerte. Eigene Felder aus GReport-Notizen werden mit angezeigt.
+- Gespeicherte Störungen, Tagesaufzeichnung, Prüfsummen und Notizen ohne eigene Felder bleiben unverändert.
+
 ## 1.80.2
 - **Tipps ruhiger:** 💡 sitzt rechts, senkrecht mittig am zugehörigen Block, mehrere übereinander. Der Text erscheint als schwebende Blase beim Zeigen auf 💡, mit der Tastatur oder nach Antippen. Nichts verschiebt oder flackert mehr.
 - **Tabellenköpfe deckend:** Beim Scrollen laufen die Zeilen nicht mehr durch die Kopfzeile. Im dunklen Modus ist der Tabellentext wieder gut lesbar.

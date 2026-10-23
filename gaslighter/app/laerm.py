@@ -33,7 +33,7 @@ HERE = os.path.dirname(os.path.abspath(__file__))
 WEB = os.path.join(HERE, "web")
 OPTIONS_FILE = os.environ.get("LAERM_OPTIONS", "/data/options.json")
 SETTINGS_FILE = os.environ.get("LAERM_SETTINGS", "/data/settings.json")
-VERSION = "1.80.2"
+VERSION = "1.82.0"
 
 # =====================================================================
 # Einstellungen
@@ -44,7 +44,7 @@ DEFAULTS = {
     "bg_window": 60, "bg_unit": "s", "bg_stat": "quiet", "rise_s": 300, "fall_s": 10, "min_event_ms": 0,
     "pre_roll_s": 5, "post_roll_s": 5, "max_clip_s": 60, "ctx_s": 30, "save_audio": False, "audio_novoice": True,
     "day_track": True, "day_layers": True, "day_spec": True, "co_record": True, "fp_store": True,
-    "group_pause_s": 120, "fn_assign_min": 5,
+    "group_pause_s": 120, "fn_assign_min": 5, "fn_pre_min": 2, "fn_post_min": 15,
     "auto_delete": False, "retention_days": 90,
     "active_from": "", "active_to": "", "mqtt": True, "output_dir": "/share/gaslighter_beta" if (os.environ.get("LAERM_CHANNEL") == "beta" or "gaslighter-beta" in os.environ.get("HOSTNAME", "")) else "/share/gaslighter", "language": "auto",
     "mic_port": "", "classify": True, "ki_embed": False,
@@ -60,7 +60,7 @@ SPEC = {
     "bg_window": ("int", 1, 3600), "bg_unit": ("choice", ["s", "min"]), "bg_stat": ("choice", ["median", "quiet", "min", "mean", "max"]),
     "rise_s": ("num", 0.5, 3600, 0.5), "fall_s": ("num", 0.5, 3600, 0.5), "min_event_ms": ("int", 0, 2000),
     "pre_roll_s": ("num", 0, 30, 0.1), "post_roll_s": ("num", 0.1, 60, 0.1), "max_clip_s": ("num", 1, 300, 0.5),
-    "ctx_s": ("int", 0, 120), "day_track": ("bool",), "day_layers": ("bool",), "day_spec": ("bool",), "co_record": ("bool",), "fp_store": ("bool",), "group_pause_s": ("int", 10, 3600), "fn_assign_min": ("int", 0, 60), "save_audio": ("bool",), "audio_novoice": ("bool",), "auto_delete": ("bool",), "retention_days": ("int", 1, 3650),
+    "ctx_s": ("int", 0, 120), "day_track": ("bool",), "day_layers": ("bool",), "day_spec": ("bool",), "co_record": ("bool",), "fp_store": ("bool",), "group_pause_s": ("int", 10, 3600), "fn_assign_min": ("int", 0, 60), "fn_pre_min": ("int", 0, 120), "fn_post_min": ("int", 0, 120), "save_audio": ("bool",), "audio_novoice": ("bool",), "auto_delete": ("bool",), "retention_days": ("int", 1, 3650),
     "active_from": ("time",), "active_to": ("time",), "mqtt": ("bool",), "output_dir": ("str",),
     "language": ("choice", ["auto", "de", "en"]), "mic_port": ("optstr",), "classify": ("bool",), "ki_embed": ("bool",),
     "clip_dir": ("optstr",), "video_width": ("int", 0, 3840), "video_fps": ("int", 1, 30), "video_crf": ("int", 18, 40),
@@ -1064,6 +1064,8 @@ HIST_SECONDS = 60          # so lange liegt Ton im Arbeitsspeicher (danach ueber
 # Aufzeichnung, Protokoll, Druck, Export und Sicherung erstellen bleiben immer frei.
 # =====================================================================
 import lizenz
+import felder  # noqa: E402  (eigene Felder der Notiz-Erfassung, gleiche Datei wie in GReport)
+import bestaetigung as BC  # noqa: E402  (Sensor-Bestätigung von Störungen, nur Anzeige)
 PRO_FILE = os.path.join(DATA_DIR, "lizenz.json")
 try:                                                    # Suchverzeichnis (SQLite): nur abgeleitete Daten, siehe suchindex.py
     import suchindex as _sx
@@ -1713,7 +1715,10 @@ def ha_hist_sync(rules):
                 continue
             st_ = x.get("state")
             if st_ in ("unavailable", "unknown", None):
+                ha_avail_add(r, t_, True)                 # nicht erreichbar: eigene Datei (für „nicht beurteilbar“), Zustand bleibt
+                last = t_
                 continue
+            ha_avail_add(r, t_, False)
             act = rule_match(r["states"], st_)
             if act != act0:
                 ha_hist_add(r, r["label"] or (HA_STATE.get(r["id"]) or {}).get("name") or r["entity"], st_, act, at_ms=t_)
@@ -1787,6 +1792,72 @@ def ha_heal(rules, now_ms):
 
 def ha_hist_path():
     return os.path.join(paths()[0], "ha_zustand.csv")
+
+
+def ha_avail_path():
+    return os.path.join(paths()[0], "ha_verfuegbar.csv")
+
+
+HA_AVAIL = {"cur": None, "key": None, "rows": []}
+
+
+def ha_avail_last():
+    """Letzter Stand je Regel aus ha_verfuegbar.csv: {Regel: offline (bool)}."""
+    out = {}
+    try:
+        with open(ha_avail_path(), newline="", encoding="utf-8", errors="replace") as fh:
+            for r in csv.DictReader(fh):
+                out[r.get("regel")] = r.get("offline") == "1"
+    except OSError:
+        pass
+    return out
+
+
+def ha_avail_add(rule, at_ms, offline):
+    """Erreichbarkeit einer Festhalte-Regel mitschreiben, nur bei Wechsel (Zeit, Regel, Entität, offline). Ändert ha_zustand.csv nie."""
+    if HA_AVAIL["cur"] is None:
+        HA_AVAIL["cur"] = ha_avail_last()
+    if bool(HA_AVAIL["cur"].get(rule["id"], False)) == bool(offline):
+        return
+    HA_AVAIL["cur"][rule["id"]] = bool(offline)
+    try:
+        f = ha_avail_path(); os.makedirs(os.path.dirname(f), exist_ok=True); new = not os.path.exists(f)
+        with open(f, "a", newline="", encoding="utf-8") as fh:
+            w = csv.writer(fh)
+            if new:
+                w.writerow(["zeit", "regel", "entitaet", "offline"])
+            w.writerow([dt.datetime.fromtimestamp((at_ms or time.time() * 1000) / 1000.0).astimezone().isoformat(timespec="milliseconds"), rule["id"], rule.get("entity", ""), "1" if offline else "0"])
+    except OSError as e:
+        log("Erreichbarkeit nicht gespeichert:", e)
+
+
+def ha_offline(now_ms=None):
+    """Zeiten „nicht erreichbar“ je Regel: {Regel: [[von, bis], …]} (offen bis jetzt)."""
+    f = ha_avail_path()
+    try:
+        stt = os.stat(f)
+    except OSError:
+        return {}
+    key = (stt.st_mtime_ns, stt.st_size)
+    if HA_AVAIL["key"] != key:
+        rows = []
+        with open(f, newline="", encoding="utf-8", errors="replace") as fh:
+            for r in csv.DictReader(fh):
+                t_ = ms_of(r.get("zeit"))
+                if t_ is not None:
+                    rows.append((t_, r.get("regel"), r.get("offline") == "1"))
+        rows.sort(key=lambda x: x[0])
+        HA_AVAIL.update(key=key, rows=rows)
+    now_ms = now_ms or int(time.time() * 1000)
+    out, open_ = {}, {}
+    for t_, rid, off in HA_AVAIL["rows"]:
+        if off and rid not in open_:
+            open_[rid] = t_
+        elif not off and rid in open_:
+            out.setdefault(rid, []).append([open_.pop(rid), t_])
+    for rid, a in open_.items():
+        out.setdefault(rid, []).append([a, now_ms])
+    return out
 
 
 def ha_hist_add(rule, label, state, on, at_ms=None):
@@ -1912,6 +1983,183 @@ def sensor_events(src, a_ms, b_ms):
                     "peak": m["peak"], "unit": m["unit"], "open": bool(m.get("open"))})
     out.sort(key=lambda x: -x["a"])
     return out
+
+
+# =====================================================================
+# Sensor-Bestätigung (ab 1.82, siehe bestaetigung.py): Prüft jede Störung gegen die Sensoren aus den Regeln
+# „nur festhalten“/„als Ereignis“ und die Handys als Bewegungsmelder. Nur Anzeige und Export – Störungen,
+# Tagesaufzeichnung, Prüfsummen und ha_zustand.csv bleiben unverändert. Einstellungen in data/bestaetigung.json.
+# =====================================================================
+BC_FILE = os.path.join(DATA_DIR, "bestaetigung.json")
+BC_LOCK = threading.Lock()
+
+
+def bc_cfg():
+    d = read_json(BC_FILE) if os.path.exists(BC_FILE) else {}
+    return BC.clean_cfg(d if isinstance(d, dict) else {})
+
+
+def bc_save(d):
+    """Einstellungen übernehmen: {"on": bool, "sens": {Kennung: {type, pre, post, lock, role, off}}}. Fehlende Sensoren behalten ihre Einstellung."""
+    d = d if isinstance(d, dict) else {}
+    with BC_LOCK:
+        cur = bc_cfg()
+        if "on" in d:
+            cur["on"] = d.get("on") is not False
+        if isinstance(d.get("sens"), dict):
+            for k, v in d["sens"].items():
+                if v is None:
+                    cur["sens"].pop(str(k), None)
+                elif isinstance(v, dict):
+                    cur["sens"][str(k)] = v
+        c = BC.clean_cfg(cur)
+        os.makedirs(os.path.dirname(BC_FILE) or ".", exist_ok=True)
+        tmp = BC_FILE + ".tmp"
+        with open(tmp, "w", encoding="utf-8") as f:
+            json.dump(c, f, ensure_ascii=False, indent=1); f.flush(); os.fsync(f.fileno())
+        os.replace(tmp, BC_FILE)
+    return c
+
+
+def bc_list(cfg=None):
+    """Alle prüfbaren Sensoren mit ihrer Einstellung: Regeln „nur festhalten“/„als Ereignis“ und Handy-Bewegungsmelder."""
+    cfg = cfg or bc_cfg(); de = CFG.get("language") != "en"
+    out = []
+    with HA_LOCK:
+        rules = [dict(r) for r in HA_RULES]
+    for r in rules:
+        if not r.get("enabled", True) or r.get("mode") not in ("note", "event"):
+            continue
+        sid = "ha_" + r["id"]; nm = r.get("label") or (HA_STATE.get(r["id"]) or {}).get("name") or r["entity"]
+        c = cfg["sens"].get(sid) or BC.clean_sensor({}, BC.guess_type(r["entity"], nm))
+        out.append(dict(c, id=sid, name=nm, kind="ha", rid=r["id"], entity=r["entity"], src=r.get("src") or "all", saved=sid in cfg["sens"]))
+    with SRC_LOCK:
+        rs = [(x.id, x.name, motion_cfg(x.src)) for x in RUNNERS.values()]
+    for rid_, rname, mc in rs:
+        for kind, typ in (("vib", "phone_vib"), ("cam", "cam"), ("tilt", "tilt")):
+            if not mc.get(kind):
+                continue
+            sid = f"m_{kind}_{rid_}"
+            c = cfg["sens"].get(sid) or BC.clean_sensor({}, typ)
+            out.append(dict(c, id=sid, name=f"{MOTION_NAME[kind][0 if de else 1]} ({rname})", kind=kind, dev=rid_, src=rid_, saved=sid in cfg["sens"]))
+    return out
+
+
+def bc_sensors(cfg=None, now_ms=None):
+    """Sensoren mit Daten für die Prüfung: steigende Flanken, Zeiten „an“, Zeiten „nicht erreichbar“, erste Daten."""
+    now_ms = now_ms or int(time.time() * 1000)
+    lst = [s for s in bc_list(cfg) if not s.get("off") and s.get("role") != "ctx"]
+    if not lst:
+        return []
+    ha_intervals("*", 0, 1)                                  # Historie (ha_zustand.csv) in den Zwischenspeicher
+    rows = HA_HIST.get("rows") or []
+    offl = ha_offline(now_ms)
+    by = {}
+    for t_, rid, nm, on, src in rows:
+        by.setdefault(rid, []).append((t_, on))
+    mot = {}
+    if any(s["kind"] != "ha" for s in lst):
+        for m in motion_rows():
+            mot.setdefault(f"m_{m['kind']}_{m['src']}", []).append((m["a"], m["b"]))
+    downs = run_downs()
+    out = []
+    for s in lst:
+        s = dict(s)
+        if s["kind"] == "ha":
+            seq = by.get(s["rid"], [])
+            edges, on_, cur, prev = [], [], None, None
+            for t_, on in seq:
+                if on and prev is not True:
+                    edges.append(t_); cur = t_
+                elif not on and cur is not None:
+                    on_.append([cur, t_]); cur = None
+                prev = on
+            if cur is not None:
+                on_.append([cur, now_ms])
+            s.update(edges=edges, on=on_, offl=(offl.get(s["rid"]) or []) + [list(d) for d in downs], since=seq[0][0] if seq else None)
+            if s.get("src") not in (None, "", "all"):
+                s["only_src"] = s["src"]
+        else:
+            iv = mot.get(s["id"], [])
+            s.update(edges=[a for a, _ in iv], on=[[a, b] for a, b in iv], offl=[list(d) for d in downs], since=0, only_dev=s["kind"] == "tilt")
+        out.append(s)
+    return out
+
+
+def bc_eval(rows, cfg=None):
+    """Störungen (Einträge mit k, start, quelle_id) → ({k: {sum, res}}, Grundraten, an?). Zwischengespeichert, bis sich Daten ändern."""
+    cfg = cfg or bc_cfg()
+    if not cfg["on"] or not rows:
+        return {}, {}, cfg["on"]
+    now_ms = int(time.time() * 1000)
+    sens = bc_sensors(cfg, now_ms)
+    if not sens:
+        return {}, {}, True
+    evs = []
+    for r in rows:
+        try:
+            t0 = int(aware(dt.datetime.fromisoformat(r["start"])).timestamp() * 1000)
+        except (ValueError, KeyError, TypeError):
+            continue
+        evs.append((r["k"], t0, r.get("quelle_id") or "main"))
+    out, rates = {}, {}
+    groups = {}
+    for s in sens:                                           # Regel nur für ein Gerät: nur dessen Störungen
+        groups.setdefault(s.get("only_src"), []).append(s)
+    for osrc, ss in groups.items():
+        ev_ = evs if osrc is None else [e for e in evs if e[2] == osrc]
+        o, r_ = BC.evaluate(ev_, ss, now_ms)
+        rates.update(r_)
+        for k, v in o.items():
+            if k in out:
+                out[k]["res"] += v["res"]; out[k]["sum"] = BC.combine(out[k]["res"])
+            else:
+                out[k] = v
+    return out, rates, True
+
+
+def bc_text(sm, de=True):
+    """Kurztext für Export und Lärmprotokoll (vorsichtig formuliert)."""
+    st = sm.get("s")
+    if st == "ok":
+        f = sm.get("first") or ["", None]
+        return (f"zeitgleich registriert von {sm['n']} von {sm['m']} prüfbaren Sensoren" if de else f"registered at the same time by {sm['n']} of {sm['m']} checkable sensors") + \
+            (f" ({f[0]} {f[1]:+g} s)" if f[1] is not None else "")
+    if st == "no":
+        return f"kein zeitgleiches Sensorereignis bei {sm['m']} prüfbaren Sensoren" if de else f"no simultaneous sensor event at {sm['m']} checkable sensors"
+    if st == "nb":
+        why = ", ".join(f"{n} {BC_WHY.get(w, ('', ''))[0 if de else 1]}".strip() for n, w in sm.get("nb") or [])
+        return ("nicht beurteilbar" if de else "not assessable") + (f" ({why})" if why else (" (kein Vergleichssensor verfügbar)" if de else " (no comparison sensor available)"))
+    if st == "own":
+        return ("vermutlich eigene Quelle: " if de else "probably own source: ") + ", ".join(x[0] for x in sm.get("own") or [])
+    return ""
+
+
+BC_METHOD = ("Methode Sensor-Bestätigung (Regelversion {v}): Für jede Störung wird geprüft, ob ein Sensor innerhalb seines Suchfensters "
+             "(z. B. −5 s bis +10 s um den Störungsbeginn) neu ausgelöst hat; es zählen nur steigende Flanken. „Zeitgleich (±x s) registriert“ "
+             "beschreibt nur die zeitliche Übereinstimmung, keinen Nachweis der Ursache oder Herkunft. Sensoren, die offline, in ihrer Sperrzeit "
+             "oder schon aktiv waren, gelten als nicht beurteilbar. Die Sensoren sind keine Schwingungsmesser nach DIN 45669-1; Werte nach DIN 4150-2 "
+             "werden nicht ermittelt. Alle Störungen sind enthalten, auch solche ohne Bestätigung. Notizen zählen nie als Bestätigung.",
+             "Method sensor confirmation (rule version {v}): for each disturbance it is checked whether a sensor triggered anew within its search window "
+             "(e.g. −5 s to +10 s around the start); only rising edges count. “Registered at the same time (±x s)” only describes the timing, it is no proof "
+             "of cause or origin. Sensors that were offline, in their lockout time or already active count as not assessable. The sensors are not vibration "
+             "meters to DIN 45669-1; no values to DIN 4150-2 are determined. All disturbances are included, also those without confirmation. Notes never count as confirmation.")
+
+
+def bc_public():
+    """Für die Einstellungen: an/aus, Sensoren mit Einstellung und Voreinstellung, Grundrate der letzten 14 Tage."""
+    cfg = bc_cfg()
+    lst = bc_list(cfg)
+    try:
+        sens = {s["id"]: s for s in bc_sensors(cfg)}
+        now_ms = int(time.time() * 1000)
+        rates = {k: BC.base_rate(s, now_ms - BC.RATE_DAYS * 86400000, now_ms) for k, s in sens.items()}
+    except Exception as e:
+        log("Sensor-Bestätigung: Grundrate nicht berechnet:", e); rates = {}
+    return {"ok": True, "on": cfg["on"], "types": list(BC.TYPES), "roles": list(BC.ROLES), "def": BC.DEF, "version": BC.VERSION,
+            "sensors": [dict({k: s[k] for k in ("id", "name", "kind", "type", "pre", "post", "lock", "role", "off", "saved")},
+                             rate=(None if rates.get(s["id"], (None,))[0] is None else round(rates[s["id"]][0] * 3600, 2)),
+                             days=round(rates.get(s["id"], (None, 0))[1], 1)) for s in lst]}
 
 
 HA_NOTE_LOCK = threading.Lock()
@@ -5492,8 +5740,25 @@ def event_detail(key):
                     "legacy": bool((r["datei"] or "").endswith(".wav")),
                     "wav": wav_name(r) if audio_allowed(r) else "", "has_wav": bool(wav_name(r)),
                     "wav_skip": (ki or {}).get("wav") if (ki or {}).get("wav") in ("voice", "error") else "",
-                    "art_label": {k: v[0] for k, v in ART_LABEL.items()}}
+                    "art_label": {k: v[0] for k, v in ART_LABEL.items()},
+                    "sc": bc_detail(dict(r, k=k))}
     return {"ok": False, "error": "not found"}
+
+
+def bc_detail(r):
+    """Sensor-Bestätigung einer Störung für die Detailansicht: je Sensor Ergebnis, Δt, Fenster, Grund, knapp daneben, Zufall, Grundrate."""
+    try:
+        bcr, rates, on = bc_eval([r])
+    except Exception as e:
+        log("Sensor-Bestätigung nicht berechnet:", e)
+        return None
+    x = bcr.get(r["k"])
+    if not on or not x:
+        return {"on": on, "res": [], "sum": None}
+    for y in x["res"]:
+        rt = rates.get(y["id"]) or {}
+        y.update(per_h=rt.get("per_h"), days=rt.get("days"), unsure=rt.get("unsure", True))
+    return {"on": True, "res": x["res"], "sum": x["sum"], "version": BC.VERSION}
 
 
 def row_keys(rows):
@@ -5945,6 +6210,8 @@ def qt_state():
                 "order": [k for k in qt_x("order", list) if tag_known(k)], "mode": "fixed" if d.get("mode") == "fixed" else "use",
                 "gcol": {g: c for g, c in qt_x("gcol").items() if g in qt_groups_all() and re.fullmatch(r"#[0-9a-fA-F]{6}", str(c))},
                 "req": sorted(g for g, v in qt_x("req").items() if v and g in qt_groups_all()),
+                "gone": sorted(g for g, v in qt_x("gone").items() if v and g in qt_groups_all()),
+                "ghelp": {g: str(v)[:160] for g, v in qt_x("ghelp").items() if v and g in qt_groups_all()},
                 "gall": [{"g": g, "l": (gc[g].get("l") or g) if g in gc else str(qt_x("gren").get(g) or ""), "custom": g in gc,
                           "hide": bool(qt_x("ghide").get(g)), "renamed": bool(qt_x("gren").get(g))} for g in qt_groups_all()],
                 "own_max": QT_OWN_MAX,
@@ -6006,7 +6273,7 @@ def qt_change_one(data):
             d["mode"] = "fixed" if data.get("mode") == "fixed" else "use"
             qt_save()
             return qt_state()
-        if a in ("gcol", "req", "gren", "gdel", "ghide"):
+        if a in ("gcol", "req", "gren", "gdel", "ghide", "gone", "ghelp"):
             g = str(data.get("g") or "")
             if g not in qt_groups_all():
                 return {"ok": False, "error": "not found"}
@@ -6016,7 +6283,13 @@ def qt_change_one(data):
                     qt_xset("gcol", qt_x("gcol"))[g] = c.lower()
                 else:
                     qt_x("gcol").pop(g, None)
-            elif a in ("req", "ghide"):
+            elif a == "ghelp":                               # Hilfetext der Rubrik (leer = keiner)
+                hp = re.sub(r"\s+", " ", re.sub(r"[\x00-\x1f<>]", "", str(data.get("h") or ""))).strip()[:160]
+                if hp:
+                    qt_xset("ghelp", qt_x("ghelp"))[g] = hp
+                else:
+                    qt_x("ghelp").pop(g, None)
+            elif a in ("req", "ghide", "gone"):
                 if data.get("on"):
                     qt_xset(a, qt_x(a))[g] = True
                 else:
@@ -6060,7 +6333,7 @@ def qt_change_one(data):
             qt_save()
             return qt_state()
         if a == "reset":
-            for x in ("ren", "hide", "gren", "ghide", "gcol", "req"):
+            for x in ("ren", "hide", "gren", "ghide", "gcol", "req", "gone", "ghelp"):
                 d.pop(x, None)
             d["hide"] = {}
             if isinstance(d.get("grp"), dict):
@@ -6379,6 +6652,8 @@ def gr_notes():
         d = read_json(f); qt = read_json(os.path.join(GR_DIR, "schnellwahl.json")) if os.path.exists(os.path.join(GR_DIR, "schnellwahl.json")) else {}
         own = (qt or {}).get("own") if isinstance(qt, dict) else {}
         own = own if isinstance(own, dict) else {}
+        fd = read_json(os.path.join(GR_DIR, "felder.json")) if os.path.exists(os.path.join(GR_DIR, "felder.json")) else {}
+        gdefs = felder.clean_defs((fd or {}).get("blocks") if isinstance(fd, dict) else [], [])[0]
         rows = []
         for x in (d.get("free") if isinstance(d, dict) else None) or []:
             if not isinstance(x, dict):
@@ -6391,6 +6666,12 @@ def gr_notes():
                     tags.append("g:" + str(own[t_].get("l") or t_)[:30])
             rec = {"id": str(x.get("id") or "")[:20], "from": x.get("from"), "to": x.get("to") or "", "src": re.sub(r"[^a-z0-9_]", "", str(x.get("src") or "all"))[:16] or "all",
                    "text": clean_text(x.get("text")), "tags": tags, "witness": clean_text(x.get("witness"), 200), "ts": x.get("ts"), "gr": True}
+            if isinstance(x.get("fields"), dict) and x["fields"]:      # eigene Felder aus GReport: fertig als Text („Name: Wert“)
+                fx = felder.compact(gdefs, x["fields"], CFG.get("language") != "en")
+                if fx:
+                    rec["fx"] = [f"{l}: {v}" for l, v in fx][:20]
+                    if not rec["text"] and not tags:
+                        rec["text"] = "; ".join(rec["fx"])[:NOTE_TEXT_MAX]
             try:
                 p = fnote_public(rec)
             except Exception:
@@ -6647,13 +6928,15 @@ def runtime_info(t_from=None, t_to=None, with_chains=True):
 
 
 def fnote_target(at_ms, src="all"):
-    """Welcher Stoerung eine Notiz ohne eingegebene Uhrzeit zugeordnet wird: der letzten innerhalb von fn_assign_min
-    Minuten vor dem Zeitpunkt (alle Geraete bzw. nur das gewaehlte). Rueckgabe: {a, b, k, start, devs, kind} oder None."""
-    win = int(CFG.get("fn_assign_min", 5) or 0) * 60000
+    """Welcher Stoerung eine Notiz ohne eingegebene Uhrzeit zugeordnet wird (ab 1.82): Zeitpunkt der Notiz im Fenster
+    [Stoerungsbeginn − fn_pre_min, Stoerungsende + fn_post_min] (Standard −2 / +15 min), bei mehreren die naechste zum Beginn
+    (alle Geraete bzw. nur das gewaehlte). Rueckgabe: {a, b, k, start, devs, kind, delta_s, pre_min, post_min} oder None."""
+    pre, post = int(CFG.get("fn_pre_min", 2) or 0) * 60000, int(CFG.get("fn_post_min", 15) or 0) * 60000
+    win = max(pre, post)
     if win <= 0 or at_ms is None:
         return None
-    lo = dt.datetime.fromtimestamp((at_ms - win - 600000) / 1000.0).isoformat(timespec="seconds")
-    hi = dt.datetime.fromtimestamp((at_ms + 60000) / 1000.0).isoformat(timespec="seconds")
+    lo = dt.datetime.fromtimestamp((at_ms - post - 600000) / 1000.0).isoformat(timespec="seconds")
+    hi = dt.datetime.fromtimestamp((at_ms + pre + 60000) / 1000.0).isoformat(timespec="seconds")
     allrows = read_log()
     near = [dict(r, k=k) for r, k in zip(allrows, row_keys(allrows)) if lo <= (r.get("start") or "")[:19] <= hi]
     if not near:
@@ -6662,11 +6945,11 @@ def fnote_target(at_ms, src="all"):
     by_k, I, G = incidents(near)
     best = None
     for i, inc in I.items():
-        if inc["a"] > at_ms + 1000 or at_ms - inc["b"] > win:
+        if not (inc["a"] - pre - 1000 <= at_ms <= inc["b"] + post):
             continue
         if src != "all" and not any(d[0] == src for d in inc["devs"]):
             continue
-        if best is None or inc["a"] > best[1]["a"]:
+        if best is None or (abs(at_ms - inc["a"]), -inc["a"]) < (abs(at_ms - best[1]["a"]), -best[1]["a"]):
             best = (i, inc)
     if best is None:
         return None
@@ -6679,7 +6962,8 @@ def fnote_target(at_ms, src="all"):
     g = G.get(inc["grp"], {})
     return {"a": inc["a"], "b": inc["b"], "k": inc["lead"], "start": dt.datetime.fromtimestamp(inc["a"] / 1000.0).astimezone().isoformat(timespec="seconds"),
             "clock": dt.datetime.fromtimestamp(inc["a"] / 1000.0).strftime("%H:%M:%S"), "devs": [[d[1], d[2]] for d in inc["devs"]],
-            "kind": g.get("kind", ""), "prof": g.get("prof", False), "ago_s": int(max(0, at_ms - inc["a"]) / 1000)}
+            "kind": g.get("kind", ""), "prof": g.get("prof", False), "ago_s": int(max(0, at_ms - inc["a"]) / 1000),
+            "delta_s": int((at_ms - inc["a"]) / 1000), "pre_min": pre // 60000, "post_min": post // 60000}
 
 
 def range_events(a_ms, b_ms, src="all"):
@@ -6753,7 +7037,10 @@ def fnote_change(action, data):
             return {"ok": False, "error": "to"}
         text = clean_text(data.get("text"))
         tags = clean_tags(data.get("tags"))
-        if not text and not tags:
+        fields, bad = felder.clean_fields(cap_defs(), data.get("fields"))      # eigene Felder (freiwillig)
+        if bad:
+            return {"ok": False, "error": "field", "fields": bad}
+        if not text and not tags and not fields:
             return {"ok": False, "error": "empty"}
         src = re.sub(r"[^a-z0-9_]", "", str(data.get("src") or "all"))[:16] or "all"
         witness = clean_text(data.get("witness"), 80) if "zeuge" in tags else ""
@@ -6761,6 +7048,8 @@ def fnote_change(action, data):
         rec = {"from": dt.datetime.fromtimestamp(fa / 1000.0).astimezone().isoformat(timespec="seconds"),
                "to": dt.datetime.fromtimestamp(tb / 1000.0).astimezone().isoformat(timespec="seconds") if tb else "",
                "src": src, "text": text, "tags": list(dict.fromkeys(tags)), "witness": witness}
+        if fields:
+            rec["fields"] = fields
         if action == "add":
             if len(lst) >= FNOTES_MAX:
                 return {"ok": False, "error": "limit"}
@@ -6773,6 +7062,8 @@ def fnote_change(action, data):
             x = next((y for y in lst if y.get("id") == nid), None)
             if x is None:
                 return {"ok": False, "error": "not found"}
+            if "fields" in data and not fields:             # Felder ausdrücklich geleert; ohne „fields“ (Dialog) bleiben sie
+                x.pop("fields", None)
             x.update(rec, edited=now)
         notes_save()
         return {"ok": True, "note": fnote_public(x), "target": tgt}
@@ -6875,7 +7166,7 @@ def notes_query(q):
             continue
         if tags and not tags.intersection(p.get("tags") or []):
             continue
-        if text and text not in (p.get("text", "") + " " + p.get("witness", "")).lower():
+        if text and text not in (p.get("text", "") + " " + p.get("witness", "") + " " + (fnote_fx(p) if p.get("fields") or p.get("fx") else "")).lower():
             continue
         ta = dt.datetime.fromtimestamp(p["a"] / 1000.0).astimezone()
         out.append(dict(p, t=p["a"], off=0, approx=False, abs=ta.isoformat(timespec="milliseconds"), k="", stem="", start=p["from"],
@@ -6889,13 +7180,15 @@ def notes_csv(q):
     rows = notes_query(q)
     buf = io.StringIO()
     w = csv.writer(buf)
+    de = CFG.get("language") != "en"
+    fc = felder.csv_defs(cap_defs(), [x for x in rows if not x.get("gr")])       # je eigenes Feld eine Spalte „Name (b_…)“
+    safe = lambda v: ("'" + v) if isinstance(v, str) and v[:1] in ("=", "+", "-", "@", "\t", "\r") else v
     w.writerow(["datum", "uhrzeit", "offset_s", "ungefaehr", "ruhezeit", "ereignis_start", "quelle", "datei", "dauer_s", "spitze_dbfs_relativ",
-                "ki_art", "tags", "zeuge", "notiz", "erstellt"])
-    safe = lambda v: ("'" + v) if isinstance(v, str) and v[:1] in ("=", "+", "-", "@") else v
+                "ki_art", "tags", "zeuge", "notiz", "erstellt"] + [safe(felder.csv_head(b, de)) for b in fc])
     for x in rows:
         w.writerow([x["date"], x["clock"], x["off"], "ja" if x.get("approx") else "nein", "ja" if x["rz"] else "nein", x["start"], safe(x["quelle"]),
                     x["datei"], x["dauer_s"], x["spitze_dbfs"], x["art"], " ".join(x.get("tags") or []), safe(x.get("witness", "")),
-                    safe(x.get("text", "")), x.get("ts", "")])
+                    safe(x.get("text", "")), x.get("ts", "")] + ([safe(v) for v in felder.csv_cells(fc, x, de)] if not x.get("gr") else [""] * len(fc)))
     return ("﻿" + buf.getvalue()).encode("utf-8")
 
 
@@ -7132,8 +7425,13 @@ def export_csv(q):
     omit = (q.get("mfo") or ["0"])[0] == "1"
     buf = io.StringIO()
     w = csv.writer(buf, delimiter=";")
+    try:                                              # Sensor-Bestätigung (nur wenn eingeschaltet und Sensoren eingestellt): eigene Spalten, alle Störungen bleiben drin
+        bcr, _rt, _on = bc_eval([x["r"] for x in rows])
+    except Exception as e:
+        log("Sensor-Bestätigung nicht berechnet:", e); bcr = {}
+    bc_cols = ["sensor_bestaetigung", "sensoren_zeitgleich", "sensoren_einzeln", "zufallstreffer_pct"] if bcr else []
     w.writerow(["beginn", "dauer_s", "spitze_dbfs", "hintergrund_dbfs", "schwelle_dbfs", "ueber_schwelle_db", "impulse", "geraet", "geraet_id", "stoerung_nr", "fuehrendes_geraet",
-                "art", "art_status", "art_konfidenz_pct", "tonprofil", "hintergrund_profil", "ruhezeit", "nach_muster_ausgefiltert", "datei"])
+                "art", "art_status", "art_konfidenz_pct", "tonprofil", "hintergrund_profil", "ruhezeit", "nach_muster_ausgefiltert", "datei"] + bc_cols)
     n = 0
     for x in rows:
         r, af = x["r"], x["af"]
@@ -7150,9 +7448,34 @@ def export_csv(q):
                     "" if pk is None or thr is None else round(pk - thr, 1), "" if imp is None else imp, r.get("quelle") or "", r.get("quelle_id") or "",
                     "" if x["inc"] is None else x["inc"] + 1, "ja" if x["lead"] else "nein",
                     art_label(af["art"], de) if af.get("art") else "", st_, "" if af.get("art_c") is None or st_ == "bestaetigt" else round(af["art_c"]),
-                    af.get("prof") or "", "ja" if x["bg"] else "", "ja" if rz else "", ", ".join(x["mf"]), r.get("datei") or ""])
+                    af.get("prof") or "", "ja" if x["bg"] else "", "ja" if rz else "", ", ".join(x["mf"]), r.get("datei") or ""] + (bc_cells(bcr.get(r["k"]), de) if bc_cols else []))
         n += 1
+    if bc_cols:
+        w.writerow(["#methode", BC_METHOD[0 if de else 1].format(v=BC.VERSION)])
     return ("﻿" + buf.getvalue()).encode("utf-8")
+
+
+BC_ST = {"ok": ("bestaetigt", "confirmed"), "no": ("nicht_bestaetigt", "not_confirmed"), "nb": ("nicht_beurteilbar", "not_assessable"), "own": ("eigene_quelle", "own_source")}
+BC_WHY = {"offline": ("offline", "offline"), "lock": ("Sperrzeit", "lockout"), "active": ("war schon aktiv", "already active"), "nodata": ("noch keine Daten", "no data yet"),
+          "running": ("lief schon", "already running")}
+
+
+def bc_res_txt(y, de=True):
+    """Ein Sensor kurz: „Decke +3 s“, „Flur nicht beurteilbar (Sperrzeit)“, „Decke ohne Ereignis (−5/+10 s)“."""
+    L = 0 if de else 1; win = f"−{y['pre']}/+{y['post']} s"
+    if y["st"] in ("ok", "own") and y.get("dt") is not None:
+        return f"{y['name']} {y['dt']:+g} s" + (("" if y["st"] == "ok" else (" (eigene Quelle?)" if de else " (own source?)")))
+    if y["st"] == "nb":
+        return f"{y['name']} " + ("nicht beurteilbar" if de else "not assessable") + f" ({BC_WHY.get(y.get('why'), ('', ''))[L]})"
+    return f"{y['name']} " + ("ohne Ereignis" if de else "no event") + f" ({win}" + (f", {'nächstes' if de else 'nearest'} {y['near']:+g} s" if y.get("near") is not None else "") + ")"
+
+
+def bc_cells(x, de=True):
+    if not x:
+        return ["", "", "", ""]
+    sm = x["sum"]
+    return [BC_ST.get(sm.get("s"), ("", ""))[0 if de else 1], f"{sm['n']}/{sm['m']}" if sm.get("m") else "",
+            "; ".join(bc_res_txt(y, de) for y in x["res"]), "" if sm.get("p") is None or sm.get("s") not in ("ok", "no") else f"{sm['p'] * 100:.1f}".replace(".", "," if de else ".")]
 
 
 DUR_BUCKETS = ((5, ("unter 5 s", "under 5 s")), (60, ("5 s bis 1 Min.", "5 s to 1 min")), (600, ("1 bis 10 Min.", "1 to 10 min")), (None, ("über 10 Min.", "over 10 min")))
@@ -7624,8 +7947,19 @@ def protocol_html(q):
             x = fns.pop(0); ta = dt.datetime.fromtimestamp(x["a"] / 1000.0).astimezone()
             tg = ", ".join(tag_label(tt) for tt in x.get("tags") or [])
             rng = x["clock"] + (f'–{x["clock_to"]}' if x.get("to") else "")
+            fx = fnote_fx(x)
             o.append(f'<tr class="en"><td>{wdn[ta.weekday()]} {ta:%d.%m.%Y}</td><td>{h(rng)}</td><td>📝 Notiz: {h(x.get("text") or "")}'
-                     f'{(" · Zeuge: " + h(x["witness"])) if x.get("witness") else ""}</td><td>{h(tg)}{" · <span class=rz>Ruhezeit</span>" if x.get("rz") else ""}</td></tr>')
+                     f'{(" · Zeuge: " + h(x["witness"])) if x.get("witness") else ""}{(" · " + h(fx)) if fx else ""}</td><td>{h(tg)}{" · <span class=rz>Ruhezeit</span>" if x.get("rz") else ""}</td></tr>')
+    try:                                              # Sensor-Bestätigung: Zusammenfassung und Methode (nur wenn eingestellt), alle Störungen bleiben drin
+        bcr_p, _rt_p, _on_p = bc_eval([dict(r, k=k) for r, k in evs])
+    except Exception as e:
+        log("Laermprotokoll: Sensor-Bestätigung", e); bcr_p = {}
+    if bcr_p:
+        sm_ = BC.summary([v["sum"] for v in bcr_p.values()])
+        o.append('<h2>Zeitgleiche Sensorereignisse</h2><p>' + h(f"{sm_['n']} Störungen: {sm_['ok']} zeitgleich von Sensoren registriert, {sm_['no']} ohne Sensorereignis, "
+                 f"{sm_['nb']} nicht prüfbar, {sm_['own']} vermutlich eigene Quelle. Bestätigungsquote {sm_['ok']} von {sm_['chk']} prüfbaren Störungen."
+                 + ((" Durch Zufall wären weniger als 0,1 Treffer zu erwarten." if sm_["exp"] < 0.1 else f" Durch Zufall wären etwa {str(sm_['exp']).replace('.', ',')} Treffer zu erwarten.") if sm_.get("exp") is not None and sm_["chk"] else "")) + '</p>'
+                 + '<p class="small">' + h(BC_METHOD[0].format(v=BC.VERSION)) + '</p>')
     o.append('<h2>Chronologische Aufstellung</h2><table><tr><th style="width:92px">Datum</th><th style="width:70px">Uhrzeit</th><th>Notiz / Störung</th><th style="width:30%">Merkmale</th></tr>')
     last_grp = None
     for r, k in evs:
@@ -7673,6 +8007,9 @@ def protocol_html(q):
             ctx_ = co_text(co_compare(r, g_, st_)) if g_ and not is_virtual(r.get("datei")) else ""
         if ctx_:
             o.append(f'<tr class="en"><td></td><td></td><td colspan="2">{h(ctx_)}</td></tr>')
+        if bcr_p.get(k):                                  # Sensoren: zeitgleich (±x s) registriert / ohne Ereignis / nicht beurteilbar
+            x_ = bcr_p[k]
+            o.append(f'<tr class="en"><td></td><td></td><td colspan="2">Sensoren: {h(bc_text(x_["sum"]))} – {h("; ".join(bc_res_txt(y) for y in x_["res"]))}</td></tr>')
         if k in ev_graph:                                 # kleine Grafik der Stoerung mit Umfeld
             try:
                 ca_, cb_ = row_core(r)
@@ -10326,7 +10663,7 @@ def backup_items():
     items = []
     for name, f in (("data/settings.json", None), ("data/sources.json", SOURCES_FILE), ("data/schedule.json", SCHED_FILE), ("data/ha_rules.json", HA_FILE),
                     ("data/laufzeit.jsonl", os.path.join(DATA_DIR, "laufzeit.jsonl")), ("data/unterbrechung_notizen.json", run_notes_path()), ("data/ha_notizen.json", ha_notes_path()),
-                    ("data/layout.json", LAYOUT_FILE)):
+                    ("data/layout.json", LAYOUT_FILE), ("data/bestaetigung.json", BC_FILE)):
         if f and os.path.isfile(f):
             items.append((name, f))
     secret_files = {os.path.realpath(chain_key_path()), os.path.realpath(SOURCES_FILE), os.path.realpath(os.path.join(DATA_DIR, "lizenz.json"))}
@@ -11062,6 +11399,9 @@ def restore_run(path, with_settings, pick=None, off=None, move_pass=None):
                 ha = rd("data/ha_rules.json")
                 if isinstance(ha, dict):
                     save_ha_rules(ha.get("rules"))
+                bc_ = rd("data/bestaetigung.json")          # Sensor-Bestätigung: Fenster, Sperrzeit, Rolle je Sensor (ab 1.82)
+                if isinstance(bc_, dict):
+                    bc_save(bc_)
                 lo = rd("data/layout.json")                 # Anordnung der Ansichten und Spaltenbreiten (ab 1.80)
                 if isinstance(lo, dict):
                     layout_restore(lo)
@@ -11408,7 +11748,7 @@ def events_summary(src="all", n=200, plist="", rng=None, art=""):
     # Fuer die Liste nach Beginn sortieren (stabil, gleiche Startzeit behaelt die Dateireihenfolge).
     hours = [0] * 24
     days = collections.Counter()
-    seen, bg_n, mf_n = set(), 0, 0
+    seen, bg_n, mf_n, counted = set(), 0, 0, []
     for r in rows:                                   # gezaehlt wird je Stoerung (nicht je Geraet), Hintergrund-Profile und ausgefilterte Muster nicht
         ig = by_k.get(r["k"])
         if ig is not None:
@@ -11419,6 +11759,7 @@ def events_summary(src="all", n=200, plist="", rng=None, art=""):
                 bg_n += 1; continue
         if r["k"] in MF:
             mf_n += 1; continue
+        counted.append(r)
         try:
             days[r["start"][:10]] += 1; hours[int(r["start"][11:13])] += 1
         except (ValueError, IndexError):
@@ -11455,11 +11796,24 @@ def events_summary(src="all", n=200, plist="", rng=None, art=""):
                     rs_[x[2]] = max(rs_.get(x[2], 0), x[3])
             if rs_:
                 e["raise_on"] = [[k, v] for k, v in sorted(rs_.items())]
+    sc_sum = None                                    # Sensor-Bestätigung: nur Anzeige, beim Lesen berechnet
+    try:
+        bk = {r["k"]: r for r in counted}; bk.update({e["k"]: e for e in out_rows if e.get("k")})
+        bcr, _rates, bc_on = bc_eval(list(bk.values()))
+        for e in out_rows:
+            x = bcr.get(e.get("k"))
+            if x:
+                e["sc"] = x["sum"]
+        if bcr:
+            sc_sum = BC.summary([bcr[r["k"]]["sum"] for r in counted if r["k"] in bcr])
+    except Exception as e_:
+        log("Sensor-Bestätigung nicht berechnet:", e_)
     used_i = {e["inc"] for e in out_rows if "inc" in e}; used_g = {e["grp"] for e in out_rows if "grp" in e}
-    return {"total": sum(days.values()), "rows": len(rows), "bg_n": bg_n, "mf_n": mf_n, "muster": muster_names() if MF else {}, "today": days.get(dt.date.today().isoformat(), 0), "hours": hours,
+    return {"total": sum(days.values()), "sc_sum": sc_sum, "rows": len(rows), "bg_n": bg_n, "mf_n": mf_n, "muster": muster_names() if MF else {}, "today": days.get(dt.date.today().isoformat(), 0), "hours": hours,
             "days": sorted(days.items(), reverse=True)[:(62 if rng else 14)], "n": n,
             "events": out_rows, "grps": {str(k): v for k, v in G.items() if k in used_g},
             "sens": _sens_for(src, rng), "ha_names": ha_rule_names(), "fnotes": _fnotes_for(src, rng), "fn_assign_min": CFG.get("fn_assign_min", 5),
+            "fn_pre_min": int(CFG.get("fn_pre_min", 2) or 0), "fn_post_min": int(CFG.get("fn_post_min", 15) or 0),
             "fine": classify.fine_meta("en" if CFG.get("language") == "en" else "de") if classify is not None else {}}
 
 
@@ -11808,17 +12162,28 @@ def layout_cols_clean(c):
 
 
 LAYOUT_CAP_SECS = ("txt", "tags", "wit", "time")
+CAP_TPLS = ("laerm", "allg", "zaehler")
 
 
 def layout_cap_clean(c):
-    """Notiz-Erfassung: Überschrift, Untertitel, Reihenfolge und ausgeblendete Bereiche, Uhr, Dichte, Tasten-Stil."""
+    """Notiz-Erfassung: Überschrift, Untertitel, Reihenfolge und ausgeblendete Bereiche, Uhr, Dichte, Tasten-Stil;
+    ab 1.81 eigene Felder (blocks), Name/Hinweis/Pflicht der eingebauten Bereiche (sec), Vorlage (tpl, made)."""
     c = c if isinstance(c, dict) else {}
     txt = lambda v, n: re.sub(r"[\x00-\x1f<>]", "", v).strip()[:n] if isinstance(v, str) else ""
-    sec = lambda v: list(dict.fromkeys(x for x in v if x in LAYOUT_CAP_SECS)) if isinstance(v, list) else []
+    sec = lambda v: list(dict.fromkeys(x for x in v if isinstance(x, str) and (x in LAYOUT_CAP_SECS or felder.BID.match(x)))) if isinstance(v, list) else []
     out = {"title": txt(c.get("title"), 60), "sub": txt(c.get("sub"), 160), "order": sec(c.get("order")), "hide": sec(c.get("hide")),
            "clock": c.get("clock") if c.get("clock") in ("big", "small", "off") else "big",
            "dense": c.get("dense") if c.get("dense") in ("normal", "compact") else "normal",
            "style": c.get("style") if c.get("style") in ("outline", "filled") else "outline"}
+    if isinstance(c.get("blocks"), list) and c["blocks"]:
+        out["blocks"] = felder.clean_defs(c["blocks"], [])[0]
+    sc = felder.clean_sec(c.get("sec"), LAYOUT_CAP_SECS)
+    if sc:
+        out["sec"] = sc
+    if c.get("tpl") in CAP_TPLS:
+        out["tpl"] = c["tpl"]
+    if isinstance(c.get("made"), dict):
+        out["made"] = {k: v for k, v in c["made"].items() if isinstance(k, str) and isinstance(v, str)}
     return out
 
 
@@ -11854,12 +12219,20 @@ def layout_change(data):
             d["views"].pop(rs, None)
         elif rs == "cols":
             d["cols"] = {}
-        elif rs == "cap":
+        elif rs == "cap":                                  # Standard – eigene Felder (Definitionen) und Vorlage bleiben
+            keep = {k_: v for k_, v in (d.get("cap") or {}).items() if k_ in ("blocks", "tpl", "made")}
             d.pop("cap", None)
+            if keep:
+                d["cap"] = layout_cap_clean(keep)
         elif rs is not None:
             return {"ok": False, "error": "bad reset"}
         if isinstance(data.get("cap"), dict):                  # Notiz-Erfassung: geänderte Felder übernehmen
-            d["cap"] = layout_cap_clean(dict(d.get("cap") or {}, **data["cap"]))
+            inc = dict(data["cap"]); old = (d.get("cap") or {}).get("blocks") or []
+            if "blocks" in inc:                               # eigene Felder: nie Definitionen verlieren (gelöschte bleiben markiert)
+                inc["blocks"] = felder.clean_defs(inc["blocks"], old)[0]
+            for k_ in ("tpl", "made"):                        # Vorlage nur über cap_tpl()
+                inc.pop(k_, None)
+            d["cap"] = layout_cap_clean(dict(d.get("cap") or {}, **inc))
         vs = data.get("views")
         if isinstance(vs, dict):
             for k in LAYOUT_VIEWS:
@@ -11881,6 +12254,91 @@ def layout_change(data):
         layout_save()
     tiles_kick()                                           # eigene Überschrift einer Kachel: Name in Home Assistant mitziehen
     return layout_public()
+
+
+def cap_defs():
+    """Eigene Felder der Notiz-Erfassung (Definitionen, auch gelöschte)."""
+    with LAYOUT_LOCK:
+        return (layout_all().get("cap") or {}).get("blocks") or []
+
+
+def fnote_fx(x):
+    """Eigene Felder einer freien Notiz als Text „Name: Wert; …“ (Lärmprotokoll)."""
+    if x.get("fx"):
+        return "; ".join(x["fx"])
+    return felder.compact_txt(cap_defs(), x.get("fields"), CFG.get("language") != "en",
+                              lambda d: d.astimezone().strftime("%d.%m.%Y %H:%M"))
+
+
+def felder_state():
+    """Für die Erfassung: Definitionen, Vorlage, Zähler heute und je Tag, Vorschläge für „Ort“ (nur lesen)."""
+    with LAYOUT_LOCK:
+        c = layout_cap_clean((layout_all().get("cap") or {}))
+    defs = c.get("blocks") or []
+    out = {"ok": True, "tpl": c.get("tpl") or "laerm", "first": False, "blocks": defs, "sec": c.get("sec") or {}, "max": felder.MAX_ACTIVE,
+           "tpls": list(CAP_TPLS), "counts": {}, "daily": {}, "sug": {}}
+    want = [b for b in defs if not b.get("del") and b["type"] in ("counter", "place")]
+    if want:
+        with NOTES_LOCK:
+            ns = [fnote_public(x) for x in notes_all().get("free") or []]
+        t0 = int(dt.datetime.now().astimezone().replace(hour=0, minute=0, second=0, microsecond=0).timestamp() * 1000)
+        for b in want:
+            if b["type"] == "counter":
+                out["counts"][b["id"]] = felder.counter_sum(ns, b["id"], t0)
+                out["daily"][b["id"]] = felder.daily(ns, b["id"])
+            else:
+                out["sug"][b["id"]] = felder.suggestions(ns, b["id"])
+    return out
+
+
+TPL_QT_GROUPS = ["src", "kind", "lvl", "eff", "act", "misc"]
+
+
+def cap_tpl(name):
+    """Vorlage anwenden (wie in GReport): nur Sichtbarkeit, Namen und Reihenfolge – nie Notizen, Tasten oder Felder löschen.
+    Standard bleibt „Lärm und Störungen“."""
+    if name not in CAP_TPLS:
+        return {"ok": False, "error": "bad tpl"}
+    de = CFG.get("language") != "en"
+    with QT_LOCK, LAYOUT_LOCK:
+        d = layout_all(); c = dict(d.get("cap") or {})
+        made = dict(c.get("made") or {}); sec = {k: dict(v) for k, v in (c.get("sec") or {}).items()}
+        blocks = [dict(b) for b in c.get("blocks") or []]
+        for k in LAYOUT_CAP_SECS:
+            e = sec.get(k) or {}
+            if made.get("l_" + k) and e.get("l") == made["l_" + k]:
+                e.pop("l", None)
+            sec[k] = e
+        gren, ghide = qt_xset("gren", qt_x("gren")), qt_xset("ghide", qt_x("ghide"))
+        if made.get("own_l") and gren.get("own") == made["own_l"]:
+            gren.pop("own", None)
+        for g in TPL_QT_GROUPS + ["own"]:
+            ghide.pop(g, None)
+        for b in blocks:
+            if b["id"] in made.values():
+                b["hide"] = True
+        hide, order = [], []
+        if name == "allg":
+            for g in TPL_QT_GROUPS:
+                ghide[g] = True
+            if not gren.get("own"):
+                gren["own"] = made["own_l"] = "Stichworte" if de else "Keywords"
+            if not sec["wit"].get("l"):
+                sec["wit"]["l"] = made["l_wit"] = "Person"
+        elif name == "zaehler":
+            bid = made.get("counter")
+            b = next((x for x in blocks if x["id"] == bid), None)
+            if b is None:
+                bid = felder.new_id({x["id"] for x in blocks}, lambda: secrets.token_hex(3))
+                b = felder.clean_def({"id": bid, "type": "counter", "l": "Zähler" if de else "Counter", "mode": "entry", "minus": True})
+                blocks.append(b); made["counter"] = bid
+            b.pop("hide", None); b.pop("del", None)
+            hide = ["txt", "tags", "wit"]; order = [bid, "time"]
+        c.update(blocks=blocks, sec=sec, made=made, tpl=name, hide=hide, order=order)
+        d["cap"] = layout_cap_clean(c)
+        layout_save()
+        qt_save()
+    return dict(felder_state(), qt=qt_state(), layout=layout_public()["layout"])
 
 
 def layout_restore(raw):
@@ -12581,7 +13039,7 @@ class BaseHandler(BaseHTTPRequestHandler):
         self.do_GET()
 
 
-STATIC = {"app.js", "hadash-ui.js", "app.css", "i18n.js", "qrcode.js", "druck.js", "uplot.min.js", "uplot.min.css", "ag-grid-community.min.js", "gridstack-all.js", "gridstack.min.css", "handbuch.js", "hb_inhalt.js"}   # uPlot (MIT, github.com/leeoniya/uPlot): Kurven und Balken
+STATIC = {"app.js", "hadash-ui.js", "felder.js", "app.css", "i18n.js", "qrcode.js", "druck.js", "uplot.min.js", "uplot.min.css", "ag-grid-community.min.js", "gridstack-all.js", "gridstack.min.css", "handbuch.js", "hb_inhalt.js"}   # uPlot (MIT, github.com/leeoniya/uPlot): Kurven und Balken
 
 
 class Handler(BaseHandler):
@@ -12788,7 +13246,7 @@ class Handler(BaseHandler):
                 except (KeyError, ValueError, IndexError):
                     at_ = int(time.time() * 1000)
                 return self.js({"ok": True, "target": fnote_target(at_, re.sub(r"[^a-z0-9_]", "", (q.get("src") or ["all"])[0])[:16] or "all"),
-                                "min": int(CFG.get("fn_assign_min", 5) or 0)})
+                                "min": int(CFG.get("fn_post_min", 15) or 0), "pre": int(CFG.get("fn_pre_min", 2) or 0)})
             if name == "profiles":
                 return self.js({"ok": True, "profiles": profile_names(), "teach": teach_status(), "scan": dict(SCAN)})
             if name == "teach_status":
@@ -12808,6 +13266,10 @@ class Handler(BaseHandler):
                 return self.js(dict({"ok": True, "list": stat_list(), "pro": pro_ok(), "tpls": STAT_TPLS}, **stat_meta()))
             if name == "layout":                      # Anordnung der Ansichten und Spaltenbreiten (für alle Browser gleich)
                 return self.js(layout_public())
+            if name == "felder":                      # eigene Felder der Notiz: Definitionen, Zähler heute, Vorschläge
+                return self.js(felder_state())
+            if name == "bestaetigung":                # Sensor-Bestätigung: an/aus, Sensoren mit Fenster, Sperrzeit, Rolle, Grundrate
+                return self.js(bc_public())
             if name == "methode":                     # Messmethode für Ausdruck und Lärmprotokoll
                 return self.js({"ok": True, "info": method_info((q.get("src") or ["all"])[0], CFG.get("language") != "en")})
             if name == "muster":                      # Musterfilter: Liste, Pro, Regeln und Profile für die Auswahl
@@ -13190,6 +13652,17 @@ class Handler(BaseHandler):
                 if not isinstance(data, dict):
                     return self.js({"ok": False, "error": "bad request"}, 400)
                 return self.js(qt_change(data))
+            if name == "bestaetigung":                  # Einstellungen der Sensor-Bestätigung (ändert nie Störungen oder Aufzeichnungen)
+                data = json.loads(body or b"{}")
+                if not isinstance(data, dict):
+                    return self.js({"ok": False, "error": "bad request"}, 400)
+                bc_save(data)
+                return self.js(bc_public())
+            if name == "felder":                        # Vorlage der Notiz-Erfassung anwenden (löscht nie etwas)
+                data = json.loads(body or b"{}")
+                if not isinstance(data, dict) or data.get("action") != "tpl":
+                    return self.js({"ok": False, "error": "bad request"}, 400)
+                return self.js(cap_tpl(data.get("tpl")))
             if name == "fnote":                         # freie Notiz (📝 Notiz jetzt)
                 data = json.loads(body or b"{}")
                 if not isinstance(data, dict) or data.get("action") not in ("add", "edit", "del"):

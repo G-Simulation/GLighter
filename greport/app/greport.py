@@ -33,8 +33,9 @@ HERE = os.path.dirname(os.path.abspath(__file__))
 WEB = os.path.join(HERE, "web")
 sys.path.insert(0, HERE)
 import lizenz  # noqa: E402
+import felder  # noqa: E402
 
-VERSION = "1.9.3"
+VERSION = "1.10.0"
 BRAND = "GReport"
 OPTIONS = os.environ.get("GR_OPTIONS", "/data/options.json")
 PRIV = os.environ.get("GR_PRIVATE", "/data")                    # nur für GReport (Pro-Schlüssel)
@@ -186,7 +187,7 @@ def qt_all():
         if QT["data"] is None:
             d = read_json(qt_path(), {})
             QT["data"] = d if isinstance(d, dict) else {}
-        for k in ("own", "hide", "use", "words", "nope", "ren", "grp", "gcol", "req", "when", "groups", "gren", "ghide"):
+        for k in ("own", "hide", "use", "words", "nope", "ren", "grp", "gcol", "req", "when", "groups", "gren", "ghide", "gone", "ghelp"):
             if not isinstance(QT["data"].get(k), dict):
                 QT["data"][k] = {}
         for k in ("order", "gorder"):
@@ -385,6 +386,8 @@ def qt_state():
                 "order": [k for k in d["order"] if tag_known(k)], "mode": d["mode"],
                 "gcol": {g: c for g, c in d["gcol"].items() if g in groups_all() and re.fullmatch(r"#[0-9a-fA-F]{6}", str(c))},
                 "req": sorted(g for g, v in d["req"].items() if v and g in groups_all()),
+                "gone": sorted(g for g, v in d["gone"].items() if v and g in groups_all()),          # nur eine Auswahl in dieser Rubrik
+                "ghelp": {g: str(v)[:160] for g, v in d["ghelp"].items() if v and g in groups_all()},   # Hilfetext unter der Rubrik
                 "gall": [{"g": g, "l": group_label(g), "custom": g in group_custom(), "hide": bool(d["ghide"].get(g)), "renamed": bool(d["gren"].get(g))}
                          for g in groups_all()],
                 "when": [dict({"k": k, "l": tag_label(k), "own": k not in WHEN_DEF, "hide": bool(d["hide"].get(k))}, **(when_spec(k) or {}))
@@ -472,14 +475,25 @@ def qt_change_one(data):
             d[a] = max(QT_OWN_FREE, min(QT_OWN_PRO_MAX, n)) if a == "limit" else max(0, min(50, n))
             qt_save()
             return qt_state()
-        if a == "req":                                        # Gruppe als „muss gewählt werden“ markieren (nur Hinweis, gespeichert wird immer)
+        if a in ("req", "gone"):                              # Pflicht (nur Hinweis, gespeichert wird immer) / nur eine Auswahl
             g = data.get("g")
             if g not in groups_all():
                 return {"ok": False, "error": "not found"}
             if data.get("on"):
-                d["req"][g] = True
+                d[a][g] = True
             else:
-                d["req"].pop(g, None)
+                d[a].pop(g, None)
+            qt_save()
+            return qt_state()
+        if a == "ghelp":                                      # Hilfetext einer Rubrik (leer = keiner)
+            g = data.get("g")
+            if g not in groups_all():
+                return {"ok": False, "error": "not found"}
+            h = cap_clean(data.get("h"), 160)
+            if h:
+                d["ghelp"][g] = h
+            else:
+                d["ghelp"].pop(g, None)
             qt_save()
             return qt_state()
         if a == "gcol":                                       # Farbe einer Gruppe (leer = Standardfarbe)
@@ -499,6 +513,7 @@ def qt_change_one(data):
         if a == "reset":
             d["ren"] = {}; d["grp"] = {k_: v for k_, v in d["grp"].items() if k_ not in NOTE_TAG_SET}; d["hide"] = {}; d["order"] = []; d["mode"] = "use"
             d["gren"] = {}; d["ghide"] = {}; d["gorder"] = []           # Rubriken: Namen, Ausblenden, Reihenfolge wieder wie geliefert
+            d["gone"] = {}; d["ghelp"] = {}
             qt_save()
             return qt_state()
         if a == "ren" and (k in NOTE_TAG_SET or k in WHEN_DEF):   # eingebautes Wort umbenennen (alte Notizen behalten den Schlüssel)
@@ -709,7 +724,7 @@ def prefs():
         if isinstance(d.get(k), str) and cap_clean(d[k], n):
             out[k] = cap_clean(d[k], n)
     if isinstance(d.get("cap_order"), list):
-        o = [x for x in dict.fromkeys(d["cap_order"]) if x in CAP_SECS]
+        o = [x for x in dict.fromkeys(d["cap_order"]) if x in CAP_SECS or felder.BID.match(str(x))]
         if o:
             out["cap_order"] = o + [x for x in CAP_SECS if x not in o]
     return out
@@ -737,7 +752,7 @@ def prefs_set(d):
             else:
                 cur.pop(k, None); drop.append(k)
     if "cap_order" in d:
-        o = [x for x in dict.fromkeys(d["cap_order"] if isinstance(d["cap_order"], list) else []) if x in CAP_SECS]
+        o = [x for x in dict.fromkeys(d["cap_order"] if isinstance(d["cap_order"], list) else []) if x in CAP_SECS or felder.BID.match(str(x))]
         o = o + [x for x in CAP_SECS if x not in o] if o else []
         if o and o != list(CAP_SECS):
             cur["cap_order"] = o
@@ -753,6 +768,154 @@ def prefs_set(d):
         log("Notizen an GLighter:", "weitergeben" if cur["gl"] else "nicht weitergeben")
     diary_soon()                                         # Tagebuch im neuen Datumsformat
     return dict(cur, ok=True)
+
+
+# =====================================================================
+# Eigene Felder (felder.json): Bausteine der Erfassung, Name/Hilfe/Pflicht/Ausblenden der eingebauten Bereiche, Vorlage.
+# Werte stehen je Notiz in "fields" (freiwillig) – alte Notizen, Export, Sicherung und Nachweis bleiben gültig.
+# Fehlt felder.json, ist alles wie bisher („Lärm und Störungen“).
+# =====================================================================
+FB_LOCK = threading.RLock()
+FB = {"data": None}
+TPLS = ("laerm", "allg", "zaehler")
+TPL_GROUPS = ["src", "kind", "lvl", "eff", "act", "misc"]          # eingebaute Rubriken, die nur zu Lärm gehören
+
+
+def fb_path():
+    return os.path.join(DIR, "felder.json")
+
+
+def fb_all():
+    with FB_LOCK:
+        if FB["data"] is None:
+            d = read_json(fb_path(), {}) or {}
+            d = d if isinstance(d, dict) else {}
+            blocks, _ = felder.clean_defs(d.get("blocks") or [], [])
+            FB["data"] = {"v": 1, "blocks": blocks, "sec": felder.clean_sec(d.get("sec")),
+                          "tpl": d.get("tpl") if d.get("tpl") in TPLS + ("eigen",) else None,
+                          "made": {k: v for k, v in (d.get("made") or {}).items() if isinstance(k, str) and isinstance(v, str)} if isinstance(d.get("made"), dict) else {}}
+        return FB["data"]
+
+
+def fb_defs():
+    return fb_all()["blocks"]
+
+
+def fb_save():
+    with FB_LOCK:
+        write_json(fb_path(), fb_all())
+    mqtt_announce()
+    diary_soon()
+
+
+def fb_first():
+    """Erster Start: noch nichts angelegt (keine Notizen, keine Schnellwahl, keine Felder) → Vorlage anbieten."""
+    if os.path.exists(fb_path()) or os.path.exists(qt_path()):
+        return False
+    with NOTES_LOCK:
+        a = notes_all()
+        return not a["free"] and not a["trash"]
+
+
+def fb_state():
+    with FB_LOCK:
+        f = fb_all()
+        out = {"ok": True, "tpl": f["tpl"] or ("laerm" if not fb_first() else None), "first": fb_first(), "blocks": json.loads(json.dumps(f["blocks"])),
+               "sec": json.loads(json.dumps(f["sec"])), "max": felder.MAX_ACTIVE, "tpls": list(TPLS), "counts": {}, "daily": {}, "sug": {}}
+    want = [b for b in out["blocks"] if not b.get("del") and b["type"] in ("counter", "place")]
+    if want:
+        ns = notes_list(limit=None)
+        t0 = int(dt.datetime.now().astimezone().replace(hour=0, minute=0, second=0, microsecond=0).timestamp() * 1000)
+        for b in want:
+            if b["type"] == "counter":
+                out["counts"][b["id"]] = felder.counter_sum(ns, b["id"], t0)
+                out["daily"][b["id"]] = felder.daily(ns, b["id"])
+            else:
+                out["sug"][b["id"]] = felder.suggestions(ns, b["id"])
+    return out
+
+
+def fb_change(d):
+    """set: Bausteine (blocks) und eingebaute Bereiche (sec) übernehmen; tpl: Vorlage anwenden (löscht nie etwas)."""
+    a = str(d.get("action") or "")
+    with FB_LOCK:
+        f = fb_all()
+        if a == "set":
+            errs = []
+            if "blocks" in d:
+                f["blocks"], errs = felder.clean_defs(d.get("blocks"), f["blocks"])
+            if "sec" in d:
+                f["sec"] = felder.clean_sec(d.get("sec"))
+            if not f["tpl"]:
+                f["tpl"] = "laerm"
+            fb_save()
+            return dict(fb_state(), errors=errs)
+        if a == "tpl":
+            if d.get("tpl") not in TPLS:
+                return {"ok": False, "error": "bad tpl"}
+            tpl_apply(d["tpl"])
+            return dict(fb_state(), qt=qt_state(), prefs=prefs())
+    return {"ok": False, "error": "bad action"}
+
+
+def tpl_apply(name):
+    """Vorlage anwenden: nur Sichtbarkeit, Namen und Reihenfolge – nie Notizen, Tasten, Rubriken oder Felder löschen.
+    Von einer Vorlage angelegte Dinge (made) werden beim Wechsel nur ausgeblendet und beim nächsten Mal wieder benutzt."""
+    de = lang() != "en"
+    with QT_LOCK, FB_LOCK:
+        q, f = qt_all(), fb_all()
+        made, sec = f["made"], f["sec"]
+        for k in felder.SEC_KEYS:                                  # eingebaute Bereiche: alle zeigen, Vorlagen-Namen weg
+            e = sec.get(k) or {}
+            e.pop("hide", None)
+            if made.get("l_" + k) and e.get("l") == made["l_" + k]:
+                e.pop("l", None)
+            sec[k] = e
+        if made.get("own_l") and q["gren"].get("own") == made["own_l"]:
+            q["gren"].pop("own", None)
+        for g in TPL_GROUPS + [WHEN_G, "own"]:
+            q["ghide"].pop(g, None)
+        for b in f["blocks"]:                                      # Felder einer Vorlage ausblenden
+            if b["id"] in made.values():
+                b["hide"] = True
+        order = []
+        if name == "allg":
+            for g in TPL_GROUPS:
+                q["ghide"][g] = True
+            if not q["gren"].get("own"):
+                q["gren"]["own"] = made["own_l"] = "Stichworte" if de else "Keywords"
+            if not sec["wit"].get("l"):
+                sec["wit"]["l"] = made["l_wit"] = "Person"
+            sec["more"]["hide"] = True
+        elif name == "zaehler":
+            bid = made.get("counter")
+            b = next((x for x in f["blocks"] if x["id"] == bid), None)
+            if b is None:
+                bid = felder.new_id({x["id"] for x in f["blocks"]}, lambda: secrets.token_hex(3))
+                b = felder.clean_def({"id": bid, "type": "counter", "l": "Zähler" if de else "Counter", "mode": "entry", "minus": True})
+                f["blocks"].append(b); made["counter"] = bid
+            b.pop("hide", None); b.pop("del", None)
+            for k in ("txt", "tags", "wit", "more"):
+                sec[k]["hide"] = True
+            order = [bid, "time"]
+        f["sec"] = felder.clean_sec(sec); f["tpl"] = name
+        write_json(qt_path(), q)
+        write_json(fb_path(), f)
+    prefs_set({"cap_order": order})
+    mqtt_announce(); diary_soon()
+
+
+def fb_fields(data):
+    """Werte aus der Oberfläche prüfen → (fields, Fehler)."""
+    return felder.clean_fields(fb_defs(), data.get("fields"))
+
+
+def fb_dt(d):
+    return fmt_date(d) + " " + fmt_time(d)
+
+
+def fb_txt(p, sep="; "):
+    return felder.compact_txt(fb_defs(), p.get("fields"), lang() != "en", fb_dt, sep)
 
 
 MON_DE = ["Jan.", "Feb.", "März", "Apr.", "Mai", "Juni", "Juli", "Aug.", "Sep.", "Okt.", "Nov.", "Dez."]
@@ -1631,7 +1794,7 @@ def notes_list(t_from=None, t_to=None, q="", limit=500):
                 continue
             if t_to is not None and p["a"] > t_to:
                 continue
-            if q and q not in (" ".join([p.get("text") or "", p.get("witness") or ""] + p["tagl"])).lower():
+            if q and q not in (" ".join([p.get("text") or "", p.get("witness") or "", fb_txt(p) if p.get("fields") else ""] + p["tagl"])).lower():
                 continue
             out.append(p)
     out.sort(key=lambda p: -p["a"])
@@ -1647,6 +1810,8 @@ def note_text(x):
         parts.append(x["text"])
     if x.get("witness"):
         parts.append(("Witness " if lang() == "en" else "Zeuge ") + x["witness"])
+    if x.get("fields"):
+        parts.append(fb_txt(x, " · "))
     return " · ".join(p for p in parts if p)[:250]
 
 
@@ -1700,7 +1865,10 @@ def note_change(action, data, by="app"):
             return {"ok": False, "error": "to"}
         text = clean_text(data.get("text"))
         tags = clean_tags(data.get("tags"))
-        if not text and not tags:
+        fields, bad = fb_fields(data)                       # eigene Felder (freiwillig)
+        if bad:
+            return {"ok": False, "error": "field", "fields": bad}
+        if not text and not tags and not fields:
             return {"ok": False, "error": "empty"}
         wit = clean_text(data.get("witness"), 200)
         if not pro_ok():                                   # mehrere Zeugen: Pro
@@ -1713,6 +1881,8 @@ def note_change(action, data, by="app"):
         ext = clean_ext(data.get("ext"))
         if ext:
             rec["ext"] = ext
+        if fields:
+            rec["fields"] = fields
         # Nachvollziehbar: wann tatsächlich notiert wurde (cap, ms) und welche Zeitpunkt-Taste die Zeit gesetzt hat (wk/wl, approx = ungefähr)
         try:
             cap = int(data.get("cap")) if data.get("cap") not in (None, "") else None
@@ -1744,7 +1914,9 @@ def note_change(action, data, by="app"):
             x = next((y for y in lst if y.get("id") == nid), None)
             if x is None:
                 return {"ok": False, "error": "not found"}
-            for k_ in ("notime", "cap", "wk", "wl", "approx", "ext"):     # beim Ändern gilt, was jetzt mitkommt
+            if "fields" not in data and x.get("fields"):            # ältere Oberfläche/Automation ohne Felder: Werte bleiben
+                rec["fields"] = x["fields"]
+            for k_ in ("notime", "cap", "wk", "wl", "approx", "ext", "fields"):     # beim Ändern gilt, was jetzt mitkommt
                 if k_ not in rec:
                     x.pop(k_, None)
             if notime and not x.get("at"):
@@ -1780,7 +1952,10 @@ def notes_import(data):
                    "witness": clean_text(x.get("witness"), 200), "ts": str(x.get("ts") or now_iso())[:30], "by": "import"}
             if nt:
                 rec.update(notime=True, at=str(x.get("at") or x.get("ts"))[:30])
-            if not rec["text"] and not rec["tags"]:
+            fv, _ = felder.clean_fields(fb_defs(), x.get("fields"))
+            if fv:
+                rec["fields"] = fv
+            if not rec["text"] and not rec["tags"] and not fv:
                 continue
             a["free"].append(rec); have.add(nid); n += 1
         if n:
@@ -1997,6 +2172,10 @@ def _line_txt(p, pf):
         s += p["text"].replace("\n", " / ")
     if p.get("witness"):
         s += (" – " if (tags or p.get("text")) else "") + ("Witness: " if lang() == "en" else "Zeuge: ") + p["witness"]
+    if p.get("fields"):                                 # eigene Felder in geschweiften Klammern (beim Import erkannt)
+        fx = fb_txt(p)
+        if fx:
+            s += " {" + fx + "}"
     mp = meta_parts(p, pf) + ext_parts(p)
     if mp:
         s += " (" + ", ".join(mp) + ")"
@@ -2010,13 +2189,16 @@ def diary_render(notes, fmt, pf=None):
     pf = pf or prefs()
     notes = sorted(notes, key=lambda p: p["a"])
     if fmt == "csv":
-        out = io.StringIO(); w = SafeWriter(out)
-        w.writerow(["datum", "uhrzeit", "bis", "schnellwahl", "text", "zeuge", "geaendert", "von_iso", "bis_iso", "kennung", "erfasst_iso", "zeit_per_taste", "ungefaehr"] + EXT_COLS)
+        out = io.StringIO(); w = SafeWriter(out); de = lang() != "en"
+        fc = felder.csv_defs(fb_defs(), notes)              # je eigenes Feld eine Spalte: „Name (b_…)“
+        w.writerow(["datum", "uhrzeit", "bis", "schnellwahl", "text", "zeuge", "geaendert", "von_iso", "bis_iso", "kennung", "erfasst_iso", "zeit_per_taste", "ungefaehr"] + EXT_COLS
+                   + [felder.csv_head(b, de) for b in fc])
         for p in notes:
             a = dt.datetime.fromtimestamp(p["a"] / 1000).astimezone(); b = dt.datetime.fromtimestamp(p["b"] / 1000).astimezone() if p.get("to") else None
             w.writerow([fmt_date(a, pf), notime_txt() if p.get("notime") else fmt_time(a, pf), fmt_time(b, pf) if b else "", ", ".join(tag_label(t) for t in p.get("tags") or []),
                         p.get("text") or "", p.get("witness") or "", "ja" if p.get("edited") else "", p.get("from"), p.get("to") or "", p.get("id"),
-                        cap_iso(p), (p.get("wl") or tag_label(p["wk"])) if p.get("wk") else "", "ja" if p.get("approx") else ""] + ext_cols(p))
+                        cap_iso(p), (p.get("wl") or tag_label(p["wk"])) if p.get("wk") else "", "ja" if p.get("approx") else ""] + ext_cols(p)
+                       + felder.csv_cells(fc, p, de))
         pb = proof_block()
         for k, v in pb.items():                          # Prüfblock am Ende (Zeilen mit # werden beim Import übersprungen)
             w.writerow(["#" + k, v])
@@ -2121,7 +2303,7 @@ def export_file(d):
 def export_text(fmt):
     if fmt == "json":
         return json.dumps({"app": BRAND, "v": VERSION, "notes": notes_all()["free"], "anlagen": [att_public(x) for x in att_all()["files"] if not x.get("del")],
-                           "nachweis": proof_block()}, ensure_ascii=False, indent=1)
+                           "felder": fb_defs(), "nachweis": proof_block()}, ensure_ascii=False, indent=1)
     return diary_render(notes_list(limit=None), fmt)
 
 
@@ -2186,11 +2368,20 @@ def parse_import(text):
         if not isinstance(lst, list):
             return None, "format"
         return [{"from": x.get("from"), "to": x.get("to") or "", "keys": x.get("tags") or [], "text": x.get("text") or "", "witness": x.get("witness") or "",
-                 "id": x.get("id")} for x in lst if isinstance(x, dict)], None
+                 "id": x.get("id"), "fields": x.get("fields") if isinstance(x.get("fields"), dict) else {}} for x in lst if isinstance(x, dict)], None
     first = text.split("\n", 1)[0]
     if ";" in first and re.search(r"(datum|von_iso|schnellwahl)", first, re.I):
         out = []
+        fdefs = felder.by_id(fb_defs())
         for r in csv.DictReader(io.StringIO(text), delimiter=";"):
+            fv = {}                                         # Spalten „Name (b_…)“ → eigene Felder
+            for k, v in r.items():
+                bid = felder.head_id(k)
+                if bid in fdefs and v:
+                    v = v[1:] if len(v) > 1 and v[0] == "'" and v[1] in "=+-@\t\r" else v
+                    val = felder.from_raw(fdefs[bid], v)
+                    if val is not None:
+                        fv[bid] = val
             r = {str(k or "").strip().lower(): (v or "").strip() for k, v in r.items()}
             r = {k: (v[1:] if len(v) > 1 and v[0] == "'" and v[1] in "=+-@\t\r" else v) for k, v in r.items()}   # Schutz vor Formeln wieder entfernen
             if (r.get("datum") or "").startswith("#"):          # Prüfblock
@@ -2203,7 +2394,7 @@ def parse_import(text):
             if not to and r.get("bis") and frm:
                 tm, _ = parse_time(r["bis"]); to = _when(dt.datetime.fromisoformat(frm).date(), tm) if tm else ""
             out.append({"from": frm, "to": to, "labels": [x.strip() for x in (r.get("schnellwahl") or "").split(",") if x.strip()],
-                        "text": r.get("text") or "", "witness": r.get("zeuge") or "", "id": r.get("kennung") or None})
+                        "text": r.get("text") or "", "witness": r.get("zeuge") or "", "id": r.get("kennung") or None, "fields": fv})
         return out, None
     out, day = [], None
     wit_re = re.compile(r"\s*–\s*(?:Zeuge|Zeugin|Witness):\s*(.+?)\s*$")
@@ -2227,6 +2418,7 @@ def parse_import(text):
             t2, _ = parse_time(m[1]); to = _when(day, t2) if t2 else ""; rest = rest[m.end():]
         rest = re.sub(r"\s*\((?:geändert|changed)\)\s*$", "", rest)
         rest = re.sub(r"\s*\((?:erfasst|noted|Zeit per Taste|time set by|ungefähr|approximate|Zeuge |witness |Häufigkeit|frequency|Polizei|police|gemeldet|reported|Folgen|effects|Attest|certificate|Drohung|threat|aus Dokument|recognised|Anlage|attachment)[^()]*(?:\([^()]*\)[^()]*)*\)\s*$", "", rest)
+        rest = re.sub(r"\s*\{[^{}]*\}\s*$", "", rest)        # eigene Felder {Name: Wert; …} (nur in CSV/JSON wieder einlesbar)
         labels = []
         m = re.match(r"\[([^\]]*)\]\s*", rest)
         if m:
@@ -2277,16 +2469,17 @@ def import_plan(text):
             else:
                 words.setdefault(l.lower(), l); keys.append("?" + l)
         text = clean_text(r.get("text")); wit = clean_text(r.get("witness"), 200)
+        fv, _ = felder.clean_fields(fb_defs(), r.get("fields"))
         if wit:
             keys.append("zeuge")
         keys = list(dict.fromkeys(keys))
-        if not text and not keys:
+        if not text and not keys and not fv:
             plan["bad"] += 1; continue
         nid = re.sub(r"[^a-z0-9_]", "", str(r.get("id") or ""))[:20]
         if (nid and nid in have_id) or (a, text, tuple(sorted(k for k in keys if not k.startswith("?")))) in have_key:
             plan["dup"] += 1; continue
         b = ms_of(r.get("to")) if r.get("to") else None
-        plan["new"].append({"id": nid, "from": iso_of(a), "to": iso_of(b) if b and b >= a else "", "keys": keys, "text": text, "witness": wit})
+        plan["new"].append({"id": nid, "from": iso_of(a), "to": iso_of(b) if b and b >= a else "", "keys": keys, "text": text, "witness": wit, "fields": fv})
     plan["words"] = sorted(words.values(), key=str.lower)
     return plan, None
 
@@ -2329,8 +2522,8 @@ def import_text(d, apply=False):
                     keys.append(k)
             text = x["text"] if not extra else ((", ".join(extra) + (" – " if x["text"] else "")) + x["text"])
             nid = x["id"] if x["id"] and x["id"] not in have else "r_" + secrets.token_hex(5)
-            a["free"].append({"id": nid, "from": x["from"], "to": x["to"], "src": "all", "text": text, "tags": list(dict.fromkeys(keys))[:12],
-                              "witness": x["witness"], "ts": now_iso(), "by": "import"})
+            a["free"].append(dict({"id": nid, "from": x["from"], "to": x["to"], "src": "all", "text": text, "tags": list(dict.fromkeys(keys))[:12],
+                                   "witness": x["witness"], "ts": now_iso(), "by": "import"}, **({"fields": x["fields"]} if x.get("fields") else {})))
             have.add(nid); n += 1
         if n:
             notes_save()
@@ -2340,13 +2533,16 @@ def import_text(d, apply=False):
 
 def export_csv():
     """Tabelle: Datum und Uhrzeit wie in der Anzeige eingestellt, dazu die genaue Zeit (ISO) für den Abgleich."""
-    out = io.StringIO(); w = SafeWriter(out); pf = prefs()
-    w.writerow(["datum", "von", "bis", "schnellwahl", "text", "zeuge", "von_iso", "bis_iso", "geschrieben", "kennung", "erfasst_iso", "zeit_per_taste", "ungefaehr", "geaendert"] + EXT_COLS)
-    for p in sorted(notes_list(limit=None), key=lambda p: p["a"]):
+    out = io.StringIO(); w = SafeWriter(out); pf = prefs(); de = lang() != "en"
+    notes = sorted(notes_list(limit=None), key=lambda p: p["a"])
+    fc = felder.csv_defs(fb_defs(), notes)                  # je eigenes Feld eine Spalte
+    w.writerow(["datum", "von", "bis", "schnellwahl", "text", "zeuge", "von_iso", "bis_iso", "geschrieben", "kennung", "erfasst_iso", "zeit_per_taste", "ungefaehr", "geaendert"] + EXT_COLS
+               + [felder.csv_head(b, de) for b in fc])
+    for p in notes:
         a = dt.datetime.fromtimestamp(p["a"] / 1000).astimezone(); b = dt.datetime.fromtimestamp(p["b"] / 1000).astimezone() if p.get("to") else None
         w.writerow([fmt_date(a, pf), notime_txt() if p.get("notime") else fmt_time(a, pf), fmt_time(b, pf) if b else "", ", ".join(p["tagl"]), p.get("text"), p.get("witness"),
                     p.get("from"), p.get("to"), p.get("ts"), p.get("id"), cap_iso(p), (p.get("wl") or tag_label(p["wk"])) if p.get("wk") else "",
-                    "ja" if p.get("approx") else "", p.get("edited") or ""] + ext_cols(p))
+                    "ja" if p.get("approx") else "", p.get("edited") or ""] + ext_cols(p) + felder.csv_cells(fc, p, de))
     for k, v in proof_block().items():
         w.writerow(["#" + k, v])
     return ("﻿" + out.getvalue()).encode("utf-8")
@@ -2431,7 +2627,9 @@ def report_build(gs=False, t_from=None, t_to=None):
                      "meldung": ({"an": PL.get(ext.get("rep_to"), ""), "datum": ext.get("rep_date", "")} if ext.get("rep_to") or ext.get("rep_date") else None),
                      "folgen": ext.get("health", ""), "attest": ext.get("attest", ""), "drohung_gewalt": bool(ext.get("threat")),
                      "zeit_per_taste": (p.get("wl") or tag_label(p["wk"])) if p.get("wk") and not p.get("notime") else "", "ungefaehr": bool(p.get("approx")),
-                     "geaendert": p.get("edited") or "", "a": p["a"], "b": p["b"]})
+                     "geaendert": p.get("edited") or "", "a": p["a"], "b": p["b"],
+                     "felder": [{"id": b_["id"], "name": b_.get("l"), "wert": (p.get("fields") or {}).get(b_["id"]), "text": felder.fmt(b_, (p.get("fields") or {}).get(b_["id"]), de, fb_dt)}
+                                for b_ in fb_defs() if b_["id"] in (p.get("fields") or {})]})
     if gs:
         rows.sort(key=lambda r: (not r["drohung_gewalt"], r["a"]))
     wits = {}
@@ -2452,7 +2650,10 @@ def report_build(gs=False, t_from=None, t_to=None):
                                 "dauer": {"mit_dauer": len(durs), "gesamt_min": round(sum(durs) / 60000), "schnitt_min": round(sum(durs) / len(durs) / 60000) if durs else 0,
                                           "laengste_min": round(max(durs) / 60000) if durs else 0},
                                 "je_woche": round(len(timed) / weeks, 1), "drohung_gewalt": sum(1 for r in rows if r["drohung_gewalt"]),
-                                "spaet_notiert": sum(1 for r in rows if r["abstand_h"])},
+                                "spaet_notiert": sum(1 for r in rows if r["abstand_h"]),
+                                "zaehler": [{"id": b_["id"], "name": b_.get("l"), "summe": felder.counter_sum(notes, b_["id"]),
+                                             "tage": len({dt.date.fromtimestamp(p["a"] / 1000) for p in notes if b_["id"] in (p.get("fields") or {})})}
+                                            for b_ in fb_defs() if b_["type"] == "counter" and any(b_["id"] in (p.get("fields") or {}) for p in notes)]},
             "vorfaelle": rows, "zeugen": list(wits.values()), "tage": days, "protokoll": ops, "nachweis": proof_block(),
             "anlagen": [att_public(x) for x in att_all()["files"] if not x.get("del") and (set(x.get("notes") or []) & {r["id"] for r in rows}
                                                                                        or (t_from is None and t_to is None))]}
@@ -2488,6 +2689,8 @@ def report_text(rb):
         L.append(T("- Häufigkeit (eigene Angaben): ", "- Frequency (own notes): ") + "; ".join(f"{k} ({v}×)" for k, v in fr.items()))
     if z["drohung_gewalt"]:
         L.append(T(f"- Mit Drohung oder Gewalt: {z['drohung_gewalt']}", f"- With threat or violence: {z['drohung_gewalt']}"))
+    for c in z.get("zaehler") or []:
+        L.append(T(f"- Zähler „{c['name']}“: {c['summe']} im Zeitraum (an {c['tage']} Tagen)", f"- Counter “{c['name']}”: {c['summe']} in the period (on {c['tage']} days)"))
     if z["ohne_zeitpunkt"]:
         L.append(T(f"- Notizen ohne Zeitpunkt: {z['ohne_zeitpunkt']} (nicht in der Zeitachse)", f"- Notes without time: {z['ohne_zeitpunkt']} (not on the timeline)"))
     if z["spaet_notiert"]:
@@ -2523,6 +2726,8 @@ def report_text(rb):
             sub.append(T("Folgen: ", "effects: ") + r["folgen"])
         if r["attest"]:
             sub.append(T("Attest: ", "medical certificate: ") + r["attest"])
+        for f_ in r.get("felder") or []:
+            sub.append(f"{f_['name']}: {f_['text']}")
         if r["geaendert"]:
             sub.append(T("geändert ", "changed ") + r["geaendert"] + T(" (Verlauf im Protokoll)", " (history in the log)"))
         for x in sub:
@@ -2620,7 +2825,7 @@ def backup_write(f, files=True):
     """Sicherung (immer frei): Notizen, Schnellwahl, Personen, Einstellungen, Änderungsprotokoll und Anlagen (files=False: nur das
     Verzeichnis der Anlagen mit Prüfsummen, ohne die Dateien selbst)."""
     with zipfile.ZipFile(f, "w", zipfile.ZIP_DEFLATED) as z:
-        for fn in ("notizen.json", "schnellwahl.json", "personen.json", "einstellungen.json", "notizen_protokoll.jsonl"):
+        for fn in ("notizen.json", "schnellwahl.json", "personen.json", "einstellungen.json", "felder.json", "notizen_protokoll.jsonl"):
             p = os.path.join(DIR, fn)
             if os.path.exists(p):
                 z.write(p, fn)
@@ -2696,7 +2901,39 @@ GROUP_DE = {"src": "Woher", "kind": "Was", "lvl": "Wie stark", "eff": "Folgen", 
 GROUP_EN = {"src": "Source", "kind": "What", "lvl": "How strong", "eff": "Effects", "act": "Actions", "misc": "Other", "own": "Own"}
 GROUP_ICON = {"src": "mdi:compass-outline", "kind": "mdi:volume-high", "lvl": "mdi:signal-cellular-3", "eff": "mdi:sleep-off",
               "act": "mdi:account-voice", "misc": "mdi:dots-horizontal", "own": "mdi:star-outline"}
-FORM = {"text": "", "witness": "", "pick": {g: NONE_OPT for g in GROUPS + [WHEN_G]}}     # Eingaben aus Home Assistant bis „Speichern“
+FORM = {"text": "", "witness": "", "pick": {g: NONE_OPT for g in GROUPS + [WHEN_G]}, "fields": {}}     # Eingaben aus Home Assistant bis „Speichern“
+
+
+def mqtt_fb():
+    """Eigene Felder in Home Assistant, nur wo es einfach geht: Text und Ort als Textfeld, Auswahlliste und Ja/Nein als
+    Auswahl, Zähler als Knopf „+1“. [(Baustein, Art, Kürzel)] – andere Arten (Zahl, Skala, Dauer, Datum, Person) nicht."""
+    out = []
+    for b in fb_defs():
+        if b.get("del") or b.get("hide"):
+            continue
+        h = b["id"][2:]
+        if b["type"] in ("text", "place"):
+            out.append((b, "text", "feld_" + h))
+        elif b["type"] == "select" and not b.get("multi") and b.get("opts"):
+            out.append((b, "select", "feld_" + h))
+        elif b["type"] == "yesno":
+            out.append((b, "select", "feld_" + h))
+        elif b["type"] == "counter":
+            out.append((b, "button", "zaehler_" + h))
+    return out
+
+
+def yesno_opts():
+    return [NONE_OPT, "Ja", "Nein"] if lang() != "en" else [NONE_OPT, "Yes", "No"]
+
+
+def mqtt_fb_val(b):
+    v = FORM["fields"].get(b["id"])
+    if b["type"] == "yesno":
+        return NONE_OPT if v is None else yesno_opts()[1 if v else 2]
+    if b["type"] == "select":
+        return v or NONE_OPT
+    return v or ""
 LAST_N = 10                                                                    # so viele Notizen als Attribut des Sensors
 
 
@@ -2719,6 +2956,10 @@ def mqtt_form_state():
     pub(f"{TOPIC}/zeuge", FORM["witness"], bool(FORM["witness"]))
     for g, slug, _, _ in mqtt_groups():
         pub(f"{TOPIC}/{slug}", FORM["pick"].get(g) or NONE_OPT, True)
+    for b, kind, slug in mqtt_fb():
+        if kind != "button":
+            v = str(mqtt_fb_val(b))
+            pub(f"{TOPIC}/{slug}", v, bool(v))
 
 
 def notes_summary():
@@ -2797,6 +3038,22 @@ def mqtt_announce(client=None, *_):
     for g, o in qt_all()["groups"].items():                     # gelöschte eigene Rubriken: Auswahlliste entfernen
         if isinstance(o, dict) and o.get("del"):
             pub(f"homeassistant/select/{HAID}/rubrik_{g[2:]}/config", "", True)
+    used = set()
+    for b, kind, slug in mqtt_fb():                             # eigene Felder (nur einfache Arten)
+        used.add((kind, slug))
+        if kind == "text":
+            cfg("text", slug, {"name": b["l"], "command_topic": f"{TOPIC}/{slug}/set", "state_topic": f"{TOPIC}/{slug}", "max": 255, "mode": "text",
+                               "icon": "mdi:map-marker-outline" if b["type"] == "place" else "mdi:form-textbox"})
+        elif kind == "select":
+            go = yesno_opts() if b["type"] == "yesno" else [NONE_OPT] + [o for o in b.get("opts") or [] if o != NONE_OPT]
+            cfg("select", slug, {"name": b["l"], "command_topic": f"{TOPIC}/{slug}/set", "state_topic": f"{TOPIC}/{slug}", "options": go,
+                                 "icon": "mdi:toggle-switch-outline" if b["type"] == "yesno" else "mdi:form-dropdown"})
+        else:
+            cfg("button", slug, {"name": b["l"] + " +1", "command_topic": f"{TOPIC}/{slug}/set", "payload_press": "PRESS", "icon": "mdi:counter"})
+    for b in fb_defs():                                         # gelöschte/ausgeblendete Felder: Entitäten entfernen
+        for kind, slug in (("text", "feld_" + b["id"][2:]), ("select", "feld_" + b["id"][2:]), ("button", "zaehler_" + b["id"][2:])):
+            if (kind, slug) not in used:
+                pub(f"homeassistant/{kind}/{HAID}/{slug}/config", "", True)
     cfg("button", "speichern", {"name": "Speichern" if de else "Save", "command_topic": f"{TOPIC}/speichern/set",
                                 "payload_press": "PRESS", "icon": "mdi:content-save-outline"})
     cfg("sensor", "letzte_notiz", {"name": "Letzte Notiz" if de else "Last note", "state_topic": f"{TOPIC}/letzte_notiz",
@@ -2839,9 +3096,10 @@ def form_save(by="homeassistant"):
     if wk:                                                      # „Zeitpunkt“ gewählt: setzt die Zeit der Notiz
         frm, to, notime, approx = when_apply_full(wk)
         extra = {"cap": int(time.time() * 1000), "wk": wk, "wl": lab, "approx": approx}
-    r = note_change("add", dict({"text": FORM["text"], "tags": tags, "witness": FORM["witness"], "from": frm, "to": to, "notime": notime, "typed": True}, **extra), by=by)
+    r = note_change("add", dict({"text": FORM["text"], "tags": tags, "witness": FORM["witness"], "from": frm, "to": to, "notime": notime, "typed": True,
+                                 "fields": dict(FORM["fields"])}, **extra), by=by)
     if r.get("ok"):
-        FORM.update(text="", witness="", pick={g: NONE_OPT for g, _, _, _ in mqtt_groups()})
+        FORM.update(text="", witness="", pick={g: NONE_OPT for g, _, _, _ in mqtt_groups()}, fields={})
         mqtt_form_state()
     log("Notiz aus Home Assistant (Speichern):", "ok" if r.get("ok") else r.get("error"))
     return r
@@ -2873,6 +3131,35 @@ def mqtt_cmd(topic, raw):
         return None
     if topic == f"{TOPIC}/speichern/set":
         return form_save()
+    for b, kind, slug in mqtt_fb():
+        if topic != f"{TOPIC}/{slug}/set":
+            continue
+        if kind == "button":                                    # Zähler +1: eigener Eintrag mit genauer Zeit (oder zur Notiz in Arbeit)
+            if b.get("mode") == "add":
+                FORM["fields"][b["id"]] = int(FORM["fields"].get(b["id"]) or 0) + 1
+                return None
+            r = note_change("add", {"fields": {b["id"]: 1}, "from": now_iso(), "cap": int(time.time() * 1000)}, by="homeassistant")
+            log("Zähler aus Home Assistant:", b["l"], "ok" if r.get("ok") else r.get("error"))
+            return r
+        if b["type"] == "yesno":
+            o = yesno_opts()
+            if raw == NONE_OPT:
+                FORM["fields"].pop(b["id"], None)
+            elif raw in o:
+                FORM["fields"][b["id"]] = raw == o[1]
+        elif b["type"] == "select":
+            if raw == NONE_OPT:
+                FORM["fields"].pop(b["id"], None)
+            elif raw in (b.get("opts") or []):
+                FORM["fields"][b["id"]] = raw
+        else:
+            v = clean_text(raw, 255)
+            if v:
+                FORM["fields"][b["id"]] = v
+            else:
+                FORM["fields"].pop(b["id"], None)
+        v = str(mqtt_fb_val(b)); pub(f"{TOPIC}/{slug}", v, bool(v))
+        return None
     for g, slug, _, _ in mqtt_groups():
         if topic == f"{TOPIC}/{slug}/set":
             if raw == NONE_OPT or raw in [l for _, l in qt_groups().get(g, [])]:
@@ -3085,6 +3372,8 @@ class H(http.server.BaseHTTPRequestHandler):
             return self.js(state())
         if name == "notetags":
             return self.js(qt_state())
+        if name == "felder":                                 # eigene Felder, Vorlage, Zähler heute
+            return self.js(fb_state())
         if name == "notes":
             ia = lambda k: int(g(k)) if re.fullmatch(r"-?\d+", g(k)) else None
             return self.js({"ok": True, "notes": notes_list(ia("from"), ia("to"), g("q"), ia("limit") or 500)})
@@ -3144,6 +3433,8 @@ class H(http.server.BaseHTTPRequestHandler):
             return self.js(note_change(a, d))
         if name == "notetags":
             return self.js(qt_change(d))
+        if name == "felder":                                 # Felder ändern (set) oder Vorlage anwenden (tpl)
+            return self.js(fb_change(d))
         if name == "file":
             return self.js(att_change(d))
         if name == "scan":                                   # Text erkennen (im Hintergrund), danach GET scan
@@ -3420,7 +3711,7 @@ def main():
         log("Datenordner wird schon von einem anderen GReport benutzt:", DIR)
         sys.exit(1)
     log(f"{BRAND} {VERSION} – Daten in {DIR}")
-    notes_all(); qt_all()
+    notes_all(); qt_all(); fb_all()
     mqtt_start()
     threading.Thread(target=card_install, daemon=True).start()
     threading.Thread(target=bg_loop, daemon=True).start()

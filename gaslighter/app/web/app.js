@@ -1575,8 +1575,9 @@ function renderEvents() {
   // Nur neu aufbauen, wenn sich etwas geaendert hat. Der Player ist von der Tabelle getrennt: Wiedergabe laeuft weiter.
   const grpMode = EVVIEW === 'grp';
   const sv = sensVis();
-  const sig = JSON.stringify([useArt, lang, grpMode, evs.map(r => [r.k, r.ha_on, r.raise_on, r.start, r.art, r.art_c, r.art_man, r.video, r.audio, r.datei, r.notes, r.labels, r.kinds, r.prof, r.prof_c, r.prof_ok, r.inc, r.grp, r.lead, r.devs, r.bg, r.mf, r.art_ok]), MF.show, SOURCES.map(x => [x.id, x.name]), sv, [...SHIDE]]);
-  const sig2 = sig + JSON.stringify([(EV.fnotes || []).map(n => [n.id, n.a, n.b, n.text, n.tags, n.witness]), fnShow()]);
+  const sig = JSON.stringify([useArt, lang, grpMode, evs.map(r => [r.k, r.ha_on, r.raise_on, r.start, r.art, r.art_c, r.art_man, r.video, r.audio, r.datei, r.notes, r.labels, r.kinds, r.prof, r.prof_c, r.prof_ok, r.inc, r.grp, r.lead, r.devs, r.bg, r.mf, r.art_ok, r.sc]), MF.show, SOURCES.map(x => [x.id, x.name]), sv, [...SHIDE]]);
+  const sig2 = sig + JSON.stringify([(EV.fnotes || []).map(n => [n.id, n.a, n.b, n.text, n.tags, n.witness]), fnShow(), EV.fn_pre_min, EV.fn_post_min]);
+  const ss = $('scsum'); if (ss) { const tx = scSumTxt(EV.sc_sum); ss.textContent = tx; ss.hidden = !tx; }
   if (sig2 === EVSIG) return;
   EVSIG = sig2;
   evGrid(evs, sv, useArt, grpMode);
@@ -1589,23 +1590,80 @@ const SEL = new Set();                               // ausgewählte Störungen 
 const ek = r => r.k || `${r.start}|${r.quelle_id || 'main'}|${r.datei || ''}|0`;
 function evSrcName(r) { const s = SOURCES.find(x => x.id === (r.quelle_id || 'main')); return r.quelle || (s && s.name) || r.quelle_id || ''; }
 function evTags(r) { const a = []; for (const id of r.mf || []) a.push('⊘ ' + mfInfo(id).name); if (r.prof) a.push('🧩 ' + r.prof); for (const n of r.labels || []) a.push('🏷 ' + n); if (r.art) a.push((ART_ICON[r.art] || '') + ' ' + artName(r.art)); return a; }
-/* Freie Notizen als eigene Zeilen: mit der Störung im Zeitraum verknüpft (Notiz ohne Ende: Störung bis „Notiz zuordnen“ Minuten davor) */
-function fnLink(notes, evs, asg) {
+/* Freie Notizen als eigene Zeilen, automatisch der Störung zugeordnet (ab 1.82): Ereigniszeit der Notiz (nicht die Erfassungszeit)
+   im Fenster [Störungsbeginn − Vorlauf, Störungsende + Nachlauf] (Standard −2 / +15 min), bei mehreren die nächste zum Beginn.
+   Notizen zählen nie als Sensor-Bestätigung. Rückgabe je Notiz: [Notiz, Störung oder null, Abstand ms (Notiz − Störungsbeginn)] */
+const fnWin = j => { j = j || {}; const post = j.fn_post_min != null ? +j.fn_post_min : j.fn_assign_min != null ? +j.fn_assign_min : 15; return [(j.fn_pre_min != null ? +j.fn_pre_min : 2) * 60000, post * 60000]; };
+function fnLink(notes, evs, j) {
   const span = r => { const a = new Date(r.start).getTime(); return [a, a + (+r.dauer_s || 0) * 1000 + 100]; };
-  const lst = (evs || []).map(r => [r, ...span(r)]), win = (asg == null ? 5 : +asg) * 60000;
+  const lst = (evs || []).map(r => [r, ...span(r)]), [pre, post] = fnWin(j);
   return (notes || []).map(n => {
-    const a = n.a, b = Math.max(n.b || a, a), open = !(n.b > n.a);
+    const a = n.a, b = Math.max(n.b || a, a);
     let best = null, bd = 1e18;
     for (const [r, s0, s1] of lst) {
       if ((r.quelle_id || 'main') !== (n.src || 'all') && (n.src || 'all') !== 'all') continue;
-      const hit = s0 <= b && s1 >= a || (open && win > 0 && s0 <= a && a - s0 <= win);
-      if (hit) { const dd = Math.abs(s0 - a); if (dd < bd) { bd = dd; best = r; } }
+      if (a <= s1 + post && b >= s0 - pre) { const dd = Math.abs(s0 - a); if (dd < bd) { bd = dd; best = r; } }
     }
-    return [n, best];
+    return [n, best, best ? a - new Date(best.start).getTime() : null];
   });
 }
+/* „Notiz zugeordnet (5 min danach)“ – automatisch, mit Fenster */
+function fnAsgTxt(dms) { const s = Math.round(Math.abs(dms) / 1000), m = Math.round(s / 60), v = s < 60 ? s + ' s' : m + ' min'; return t('fn_asg', { d: s < 5 ? t('fn_asg_same') : t(dms >= 0 ? 'fn_asg_after' : 'fn_asg_before', { v }) }); }
+function fnAsgHTML(list, j) {
+  if (!list || !list.length) return ''; const [pre, post] = fnWin(j);
+  return list.map(([n, dms]) => `<div class="fnrowt fnon" title="${esc(t('fn_on_ev'))}">📝 <small class="fnasg">${esc(fnAsgTxt(dms))} · ${esc(t('fn_asg_auto', { a: pre / 60000, b: post / 60000 }))}</small> ${fnText(n)}</div>`).join('');
+}
+/* ---------- Sensor-Bestätigung (nur Anzeige, auf dem Server beim Lesen berechnet) ---------- */
+const SC_IC = { ok: '✓', no: '○', nb: '⊘', own: '⌂' }, SC_ST = ['ok', 'no', 'nb', 'own'];
+const scSec = d => { const a = Math.abs(d); return (a < 10 ? numTxt(String(Math.round(a * 10) / 10)) : String(Math.round(a))) + ' s'; };
+const scDt = d => d == null ? '' : Math.abs(d) < 0.5 ? t('sc_same') : t(d > 0 ? 'sc_after' : 'sc_before', { s: scSec(d) });
+const scLabel = st => t('sc_f_' + st);
+function scAria(sc) {
+  if (sc.s === 'ok') return t('sc_a_ok', { n: sc.n, m: sc.m }) + (sc.first ? '; ' + sc.first[0] + ' ' + scDt(sc.first[1]) : '');
+  if (sc.s === 'no') return t('sc_a_no', { m: sc.m });
+  if (sc.s === 'nb') return sc.nb && sc.nb.length ? t('sc_a_nb2', { s: sc.nb.map(x => x[0] + ' ' + t('sc_wy_' + x[1])).join(', ') }) : t('sc_a_nb');
+  return t('sc_a_own', { s: (sc.own || []).map(x => x[0] + (x[1] != null ? ' ' + scDt(x[1]) : '')).join(', ') });
+}
+function scChip(sc) {
+  if (!sc || !sc.s) return '';
+  const lab = sc.s === 'ok' ? t('sc_c_ok', { n: sc.n, m: sc.m }) : sc.s === 'no' ? t('sc_c_no', { m: sc.m }) : t('sc_c_' + sc.s), a = scAria(sc);
+  return `<span class="scc sc-${sc.s}" role="img" aria-label="${esc(a)}" title="${esc(a)}"><span aria-hidden="true">${SC_IC[sc.s]}</span> ${esc(lab)}</span>`;
+}
+function scOf(d) {                                     // Zustand einer Tabellenzeile (Gruppe: der „stärkste“ ihrer Störungen)
+  if (d._t === 'ev') return (d.r.sc || {}).s || '';
+  if (d._t === 'grp') { const ss = (d._children || []).map(scOf); return ['own', 'ok', 'no', 'nb'].find(x => ss.includes(x)) || ''; }
+  return '';
+}
+function scSumTxt(sm) {
+  if (!sm || !sm.n) return '';
+  return t('sc_sum', { n: sm.n, ok: sm.ok, no: sm.no, nb: sm.nb, own: sm.own, chk: sm.chk }) + (sm.exp != null && sm.chk ? ' ' + (sm.exp < 0.1 ? t('sc_sum_exp0') : t('sc_sum_exp', { e: numTxt(String(sm.exp)) })) : '');
+}
+function scPct(p) { if (p == null) return '–'; const v = p * 100; return v < 1 ? t('sc_p_lt1') : t('sc_p_ca', { v: v < 10 ? numTxt(v.toFixed(1)) : Math.round(v) }); }
+const scWin = y => '−' + y.pre + ' / +' + y.post + ' s';
+function scWhy(y) {
+  const w = y.why;
+  if (w === 'offline') return t('sc_w_off', { a: y.off ? fmtWhen(new Date(y.off[0]).toISOString()) : '', b: y.off ? clockOf(new Date(y.off[1]).toISOString()) : '' });
+  if (w === 'lock') return t('sc_w_lock', { s: scSec(y.ago_s), l: y.lock });
+  if (w === 'active') return t('sc_w_active', { s: scSec(y.since_s) });
+  if (w === 'nodata') return t('sc_w_nodata');
+  if (w === 'running') return t('sc_w_running');
+  return '';
+}
+function renderEvSc(sc) {
+  const box = $('evscbox'); if (!box) return;
+  const res = sc && sc.on ? sc.res || [] : [];
+  box.hidden = !res.length; if (!res.length) return;
+  $('evschead').innerHTML = esc(t('sc_head')) + ' ' + scChip(sc.sum);
+  const st = y => t('sc_r_' + y.st), role = y => t('sc_role_' + y.role);
+  $('evsclist').innerHTML = `<table class="sctab"><caption class="sr">${esc(t('sc_head'))}</caption><thead><tr><th scope="col">${esc(t('sc_t_sens'))}</th><th scope="col">${esc(t('sc_t_res'))}</th><th scope="col">Δt</th><th scope="col">${esc(t('sc_t_win'))}</th><th scope="col">${esc(t('sc_t_p'))}</th><th scope="col">${esc(t('sc_t_note'))}</th></tr></thead><tbody>` +
+    res.map(y => `<tr class="sc-${y.st}"><th scope="row">${esc(y.name)}<small>${esc(role(y))}</small></th><td><span class="scc sc-${y.st === 'free' ? 'no' : y.st}"><span aria-hidden="true">${SC_IC[y.st === 'free' ? 'no' : y.st]}</span> ${esc(st(y))}</span></td>
+      <td>${y.dt != null ? esc((y.dt > 0 ? '+' : y.dt < 0 ? '−' : '±') + scSec(y.dt)) : '–'}</td><td>${esc(scWin(y))}${y.lock ? `<small>${esc(t('sc_t_lock', { l: y.lock }))}</small>` : ''}</td>
+      <td>${y.role === 'ok' && (y.st === 'ok' || y.st === 'no') ? esc(scPct(y.p)) + (y.per_h != null ? `<small>${esc(t('sc_rate', { r: numTxt(String(y.per_h)), d: numTxt(String(y.days)) }))}${y.unsure ? ' · ' + esc(t('sc_unsure')) : ''}</small>` : '') : '–'}</td>
+      <td>${esc([scWhy(y), y.near != null ? t('sc_near', { d: (y.near > 0 ? '+' : '−') + scSec(y.near), w: scWin(y) }) : '', y.same && y.role === 'ok' ? t('sc_same_dev') : ''].filter(Boolean).join(' · '))}</td></tr>`).join('') + '</tbody></table>';
+  $('evscrule').textContent = t('sc_rule');
+}
 const fnShow = () => !SHIDE.has('_fn') && (!ARTSEL.size || ARTSEL.has('_notes') || ARTSEL.has('_fn'));
-const fnText = n => `${n.gr ? '<span class="art grsrc" title="' + esc(t('gr_from_tip')) + '">GReport</span>' : ''}${(n.tags || []).map(ntTag).join('')}${n.text ? `<span class="ntt">${esc(n.text)}</span>` : ''}${n.witness ? `<span class="ntw">👤 ${esc(n.witness)}</span>` : ''}`;
+const fnText = n => `${n.gr ? '<span class="art grsrc" title="' + esc(t('gr_from_tip')) + '">GReport</span>' : ''}${(n.tags || []).map(ntTag).join('')}${n.text ? `<span class="ntt">${esc(n.text)}</span>` : ''}${n.witness ? `<span class="ntw">👤 ${esc(n.witness)}</span>` : ''}${fbx(n)}`;
 function evRows(evs, sv, grpMode) {
   const G = EV.grps || {}, out = [], seen = new Map();
   const one = r => ({ _t: 'ev', id: ek(r), r, start: new Date(r.start).getTime(), src: evSrcName(r), tags: evTags(r), dur: +r.dauer_s || 0, pk: r.spitze_dbfs, thr: r.schwelle_dbfs, bg: r.hintergrund_dbfs });
@@ -1619,9 +1677,9 @@ function evRows(evs, sv, grpMode) {
       if (c.pk != null && (p.pk == null || c.pk > p.pk)) p.pk = c.pk;
     } else out.push(one(r));
   }
-  if (fnShow()) for (const [n, ev] of fnLink(EV.fnotes, EV.events, EV.fn_assign_min)) {
-    out.push({ _t: 'note', id: 'n:' + n.id, n, ev, start: n.a, src: (n.src || 'all') === 'all' ? t('all_sources') : viewName(n.src), tags: ['📝 ' + t('fn_row')], dur: Math.max(0, ((n.b || n.a) - n.a) / 1000), pk: null });
-    if (ev) for (const d of out) if (d._t === 'ev' && d.r === ev) (d.fn = d.fn || []).push(n);   // auch an der Störung sichtbar
+  if (fnShow()) for (const [n, ev, dms] of fnLink(EV.fnotes, EV.events, EV)) {
+    out.push({ _t: 'note', id: 'n:' + n.id, n, ev, dms, start: n.a, src: (n.src || 'all') === 'all' ? t('all_sources') : viewName(n.src), tags: ['📝 ' + t('fn_row')], dur: Math.max(0, ((n.b || n.a) - n.a) / 1000), pk: null });
+    if (ev) for (const d of out) if (d._t === 'ev' && d.r === ev) (d.fn = d.fn || []).push([n, dms]);   // auch an der Störung sichtbar, mit Abstand
   }
   for (const x of sv) out.push({ _t: 'sens', id: 's:' + x.key, x, start: x.a, src: x.kind === 'ha' ? 'Home Assistant' : x.name || '', tags: [sensIcon(x.kind) + ' ' + sensLabel(x)], dur: Math.max(0, (x.b - x.a) / 1000), pk: x.peak != null ? x.peak : null });
   out.sort((a, b) => b.start - a.start);
@@ -1638,7 +1696,7 @@ function evGrid(evs, sv, useArt, grpMode) {
   const box = $('events'); if (!box || typeof agGrid === 'undefined') return;
   const data = EVDATA = evRows(evs, sv, grpMode), hasDev = evs.some(r => (r.devs || []).length > 1), hasPlay = evs.some(r => r.play);
   const clipHTML = r => `${r.audio ? `<span class="sndmk" title="${esc(t('snd_mark'))}">🔊</span>` : ''}${r.video ? `<button class="vbtn" type="button" title="${esc(t('vid_open'))}" aria-label="${esc(t('vid_open'))}">🎥</button>` : ''}${r.clip_s && !(r.datei || '').endsWith('.ltv') ? `<span class="cs">${esc(r.clip_s)} s</span>` : ''}`;
-  const hasClip = evs.some(r => clipHTML(r) !== ''), hasKinds = useArt && evs.some(r => kindsHTML(r.kinds, EV.fine) !== '');   // „Spur“ und „Was vorkam“ nur, wenn mindestens eine Zeile dort etwas zeigt
+  const hasSc = evs.some(r => r.sc && r.sc.s), hasClip = evs.some(r => clipHTML(r) !== ''), hasKinds = useArt && evs.some(r => kindsHTML(r.kinds, EV.fine) !== '');   // „Spur“ und „Was vorkam“ nur, wenn mindestens eine Zeile dort etwas zeigt
   const valid = new Set(EV.events.map(ek)); for (const k of [...SEL]) if (!valid.has(k)) SEL.delete(k);
   const nar = matchMedia('(max-width:600px)').matches, key = JSON.stringify([lang, useArt, nar]);
   const chk = d => d._t === 'ev' ? `<input type="checkbox" class="ckc" tabindex="-1"${SEL.has(d.id) ? ' checked' : ''} aria-label="${esc(t('ev_sel'))}">`
@@ -1668,7 +1726,10 @@ function evGrid(evs, sv, useArt, grpMode) {
         if (d._t === 'sens') return `<span class="art sensc">${sensIcon(d.x.kind)} ${esc(sensLabel(d.x))}</span>${d.x.note ? `<div class="hant">📝 ${esc(d.x.note)}</div>` : ''}`;
         if (d._t === 'note') return `<span class="art fnc">📝 ${esc(t('fn_row'))}</span>${d.ev ? `<button type="button" class="chip fnlink" tabindex="-1" title="${esc(t('fn_link_tip'))}">🔗 ${esc(t('fn_link', { c: clockOf(d.ev.start) }))}</button>` : ''}<div class="fnrowt">${fnText(d.n)}</div>`;
         if (d._t === 'grp') return d.g.prof ? `<span class="art prof">🧩 ${esc(d.g.kind)}</span>` : d.g.kind && d.g.kind !== '?' ? artChip(d.g.kind, null, false) : esc(t('art_pending'));
-        const r = d.r; return `${(d.fn || []).map(n => `<div class="fnrowt fnon" title="${esc(t('fn_on_ev'))}">📝 ${fnText(n)}</div>`).join('')}${(r.ha_on || []).filter(n => !SHIDE.has('ha:' + n)).map(n => `<span class="art haon" title="${esc(t('ha_on_tip'))}">📡 ${esc(n)} ${esc(t('ha_on'))}</span>`).join('')}${(r.raise_on || []).map(x => `<span class="art haraisec" title="${esc(t('ha_raise_tip'))}">📈 ${esc(x[0])} +${esc(fmtDb(x[1]))} dB</span>`).join('')}${profChip(r)}${(r.labels || []).map(n => `<span class="art lbl" title="${esc(t('lb_own'))}">🏷 ${esc(n)}</span>`).join('')}${mfChip(r)}${r.art ? artChip(r.art, r.art_c, r.art_man || r.art_ok, CUR && CUR.classify === false ? '' : r.k) : (r.datei && !(r.labels || []).length && !r.prof ? '<span class="noclip" title="' + esc(t('art_pending')) + '">…</span>' : (r.labels || []).length || r.prof ? '' : '<span class="noclip">–</span>')}`; } },
+        const r = d.r; return `${fnAsgHTML(d.fn, EV)}${(r.ha_on || []).filter(n => !SHIDE.has('ha:' + n)).map(n => `<span class="art haon" title="${esc(t('ha_on_tip'))}">📡 ${esc(n)} ${esc(t('ha_on'))}</span>`).join('')}${(r.raise_on || []).map(x => `<span class="art haraisec" title="${esc(t('ha_raise_tip'))}">📈 ${esc(x[0])} +${esc(fmtDb(x[1]))} dB</span>`).join('')}${profChip(r)}${(r.labels || []).map(n => `<span class="art lbl" title="${esc(t('lb_own'))}">🏷 ${esc(n)}</span>`).join('')}${mfChip(r)}${r.art ? artChip(r.art, r.art_c, r.art_man || r.art_ok, CUR && CUR.classify === false ? '' : r.k) : (r.datei && !(r.labels || []).length && !r.prof ? '<span class="noclip" title="' + esc(t('art_pending')) + '">…</span>' : (r.labels || []).length || r.prof ? '' : '<span class="noclip">–</span>')}`; } },
+    { f: 'sc', title: t('sc_col'), minW: 140, vis: hasSc, prio: 3, sort: false, cls: 'scol', flt: 'ms', aria: t('sc_col_a'),
+      vals: () => SC_ST.map(scLabel), fpass: (v, d) => v.includes(scLabel(scOf(d))),
+      html: d => d._t === 'ev' ? scChip(d.r.sc) : '' },
     { f: 'kinds', title: t('kinds_col'), minW: 150, grow: 2, vis: hasKinds, prio: 4, sort: false, cls: 'kinds', html: d => d._t === 'ev' ? kindsHTML(d.r.kinds, EV.fine) : '' },
     { f: 'devs', title: t('devs_col'), minW: 130, vis: hasDev, prio: 5, sort: false, cls: 'devc',
       html: d => { if (d._t !== 'ev') return ''; const x = d.r.devs || []; if (x.length < 2) return '<span class="noclip">–</span>';
@@ -1709,7 +1770,7 @@ function evGrid(evs, sv, useArt, grpMode) {
     TBL._built = true;
   } else {
     TBL.setRows(data);
-    for (const [f, v] of [['play', hasPlay], ['devs', hasDev], ['clip', hasClip], ['kinds', hasKinds]]) TBL.setVis(f, v);
+    for (const [f, v] of [['play', hasPlay], ['devs', hasDev], ['clip', hasClip], ['kinds', hasKinds], ['sc', hasSc]]) TBL.setVis(f, v);
   }
   evCount(TBL.top()); syncDelBar();
 }
@@ -2437,7 +2498,7 @@ async function openEvent(k, seekOff, autoPlay) {
   $('evinfo').innerHTML = [[t('dur'), fmtDur(r.dauer_s)], [t('peak'), fdb(r.spitze_dbfs) + ' dBFS'], [t('thr_col'), fdb(r.schwelle_dbfs) + ' dBFS'],
     [t('bg_col'), fdb(r.hintergrund_dbfs) + ' dBFS'], [t('spur_len'), r.clip_s ? r.clip_s + ' s' : '–']].concat(preInfo(j.graph, parseFloat(r.spitze_dbfs))).concat(haInfo(j.graph)).map(([a, b, tip]) => `<span${tip ? ` title="${esc(tip)}"` : ''}><small>${esc(a)}</small><b>${esc(String(b))}</b></span>`).join('');
   renderEvArt(j); renderEvProf(j);
-  EVV.notes = j.notes || []; if (j.note_tags) NOTE_TAGS = j.note_tags; renderNotes(); renderLabels(); EVV.snote = j.snote || {}; renderSubs(j); enoteShow(j.enote || ''); renderEvLists(j.plists); renderCmp(j); renderEvFn(j.fnotes);
+  EVV.notes = j.notes || []; if (j.note_tags) NOTE_TAGS = j.note_tags; renderNotes(); renderLabels(); EVV.snote = j.snote || {}; renderSubs(j); enoteShow(j.enote || ''); renderEvLists(j.plists); renderCmp(j); renderEvFn(j.fnotes); renderEvSc(j.sc);
   $('evnone').textContent = !j.graph ? t('ev_nograph') : j.graph.final === false ? t('ev_partial') : '';
   document.querySelector('.evcvs').style.display = j.graph ? '' : 'none';
   if (EVV.a) { EVV.a.pause(); EVV.a = null; }
@@ -2815,7 +2876,7 @@ async function ntaLoad() {
   $('ntacount').textContent = t('nt_title', { n: L.length });
   $('ntalist').innerHTML = L.length ? L.map((n, i) => `<div class="ntrow nta" data-i="${i}" tabindex="0"><span class="ntnum" style="background:${noteCol(n)}">▶</span>
       <span class="ntoff" data-clk=" · ${esc(n.clock)}${n.rz ? ' 🌙' : ''}">${esc(fmtDay(n.date || n.start.slice(0, 10)))}</span><span class="ntclk">${esc(n.clock)}${n.rz ? ' 🌙' : ''}</span>
-      <span class="nttx">${(n.tags || []).map(ntTag).join('')}${n.text ? `<span class="ntt">${esc(n.text)}</span>` : ''}${n.witness ? `<span class="ntw">👤 ${esc(n.witness)}</span>` : ''}<span class="ntw">${esc(n.quelle)}</span></span><span></span></div>`).join('')
+      <span class="nttx">${(n.tags || []).map(ntTag).join('')}${n.text ? `<span class="ntt">${esc(n.text)}</span>` : ''}${n.witness ? `<span class="ntw">👤 ${esc(n.witness)}</span>` : ''}${fbx(n)}<span class="ntw">${esc(n.quelle)}</span></span><span></span></div>`).join('')
     : `<div class="ntnone">${esc(t('nt_none_all'))}</div>`;
   $('ntalist').querySelectorAll('.ntrow').forEach(r => { const n = L[+r.dataset.i]; r.onclick = () => { $('ntadlg').close(); if (n.free) fnOpen(n); else openEvent(n.k, n.off); }; r.onkeydown = e => { if (e.key === 'Enter') r.click(); }; });
   ntaLinks();
@@ -2853,7 +2914,7 @@ function ntsApply(j) {
   if (j.tags) NOTE_TAGS = j.tags;
   NTS.own = {}; NTS.del = new Set(); for (const o of j.own || []) { NTS.own[o.k] = o.l; if (o.del) NTS.del.add(o.k); }
   NTS.hide = new Set(j.hide || []); NTS.use = j.use || {}; NTS.sug = j.suggest || [];
-  Object.assign(NTS, { ren: j.ren || {}, grp: j.grp || {}, order: j.order || [], mode: j.mode || 'use', gcol: j.gcol || {}, req: new Set(j.req || []), gall: j.gall || [], max: j.own_max || 40 });
+  Object.assign(NTS, { ren: j.ren || {}, grp: j.grp || {}, order: j.order || [], mode: j.mode || 'use', gcol: j.gcol || {}, req: new Set(j.req || []), gall: j.gall || [], max: j.own_max || 40, gone: new Set(j.gone || []), ghelp: j.ghelp || {} });
   fcColApply();
 }
 async function ntsLoad() { try { ntsApply(await (await fetch('notetags', { cache: 'no-store' })).json()); } catch (e) { } ntsRedraw(); }
@@ -3032,7 +3093,7 @@ function renderNotes() {
   box.innerHTML = (ns.length ? ns.map((n, i) => `<div class="ntrow${EVV.ntHi === n.id ? ' hi' : ''}" data-id="${esc(n.id)}" tabindex="0">
       <span class="ntnum" style="background:${noteCol(n)}">${i + 1}</span>
       <span class="ntoff" data-clk="${n.clock ? ' · ' + esc(n.clock) + (n.approx ? '*' : '') + (n.rz ? ' 🌙' : '') : ''}">${fmtOff(n.off)}</span><span class="ntclk">${esc(n.clock || '')}${n.approx ? '*' : ''}${n.rz ? ' <span class="ntrz" title="' + esc(t('nt_rz_tip')) + '">🌙</span>' : ''}</span>
-      <span class="nttx">${(n.tags || []).map(ntTag).join('')}${n.text ? `<span class="ntt">${esc(n.text)}</span>` : ''}${n.witness ? `<span class="ntw">👤 ${esc(n.witness)}</span>` : ''}</span>
+      <span class="nttx">${(n.tags || []).map(ntTag).join('')}${n.text ? `<span class="ntt">${esc(n.text)}</span>` : ''}${n.witness ? `<span class="ntw">👤 ${esc(n.witness)}</span>` : ''}${fbx(n)}</span>
       <span class="ntact"><button type="button" class="nted1" title="${esc(t('nt_edit'))}" aria-label="${esc(t('nt_edit'))}">✎</button><button type="button" class="ntdel1" title="${esc(t('nt_del'))}" aria-label="${esc(t('nt_del'))}">🗑</button></span></div>`).join('')
     : `<div class="ntnone">${esc(t('nt_none'))}</div>`) +
     (NT_UNDO ? `<div class="ntundo">${esc(t('nt_deleted'))} <button type="button" id="ntundo" class="chip">${esc(t('nt_undo'))}</button></div>` : '');
@@ -3232,6 +3293,43 @@ function haBox() {
   fs.appendChild(el('datalist', { id: 'haents' }));
   haLoad(); haLoadEnts();
   clearInterval(HAR.timer); HAR.timer = setInterval(() => { if (!$('dlg').open || !$('habox')) { clearInterval(HAR.timer); return; } if (!HAR.cal) haLoad(true); }, 5000);
+  return fs;
+}
+/* Sensor-Bestätigung: an/aus, je Sensor Art, Fenster vor/nach, Sperrzeit, Rolle (gespeichert sofort, nur Anzeige) */
+function scBox() {
+  const fs = el('fieldset', { id: 'scbox', className: 'ff' }); fs.dataset.sec = 's_sc';
+  fs.appendChild(el('legend', { textContent: t('s_sc') }));
+  fs.appendChild(el('small', { className: 'schedhelp', textContent: t('h_sc') }));
+  const body = el('div', { className: 'scset' }); fs.appendChild(body);
+  const msg = el('small', { className: 'msg', role: 'status' }); msg.setAttribute('aria-live', 'polite'); fs.appendChild(msg);
+  let D = null;
+  const save = async (patch, focusSel) => {
+    try { const r = await (await fetch('bestaetigung', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(patch) })).json(); if (!r.ok) throw 0; D = r; draw(focusSel); msg.textContent = '✓ ' + t('saved'); EVSIG = ''; }
+    catch (e) { msg.textContent = t('saveerr'); }
+  };
+  const draw = focusSel => {
+    if (!D) return;
+    const opt = (vs, cur, lab) => vs.map(v => `<option value="${v}"${v === cur ? ' selected' : ''}>${esc(lab(v))}</option>`).join('');
+    body.innerHTML = `<label class="check"><input type="checkbox" class="sc_on"${D.on ? ' checked' : ''}> ${esc(t('sc_on'))}</label>` +
+      (D.sensors.length ? `<div class="sctw"><table class="sctab scedit"><caption class="sr">${esc(t('s_sc'))}</caption><thead><tr><th scope="col">${esc(t('sc_t_sens'))}</th><th scope="col">${esc(t('sc_e_type'))}</th><th scope="col">${esc(t('sc_e_role'))}</th><th scope="col">${esc(t('sc_e_pre'))}</th><th scope="col">${esc(t('sc_e_post'))}</th><th scope="col">${esc(t('sc_e_lock'))}</th><th scope="col">${esc(t('sc_e_rate'))}</th></tr></thead><tbody>` +
+        D.sensors.map(x => `<tr data-id="${esc(x.id)}"${x.off ? ' class="off"' : ''}><th scope="row"><label class="check"><input type="checkbox" class="sc_use"${x.off ? '' : ' checked'} aria-label="${esc(t('sc_e_use', { s: x.name }))}"> ${esc(x.name)}</label></th>
+          <td><select class="sc_type" aria-label="${esc(t('sc_e_type') + ': ' + x.name)}">${opt(D.types, x.type, v => t('sc_ty_' + v))}</select></td>
+          <td><select class="sc_role" aria-label="${esc(t('sc_e_role') + ': ' + x.name)}">${opt(D.roles, x.role, v => t('sc_role_' + v))}</select></td>
+          ${['pre', 'post', 'lock'].map(k => `<td><input type="number" class="sc_${k}" min="0" max="${k === 'lock' ? 3600 : 600}" step="1" inputmode="numeric" value="${x[k]}" aria-label="${esc(t('sc_e_' + k) + ': ' + x.name)}"></td>`).join('')}
+          <td>${x.rate != null ? esc(t('sc_rate', { r: numTxt(String(x.rate)), d: numTxt(String(x.days)) })) : '–'}</td></tr>`).join('') + '</tbody></table></div>'
+        : `<p class="hint">${esc(t('sc_none'))}</p>`);
+    body.querySelector('.sc_on').onchange = e => save({ on: e.target.checked }, '.sc_on');
+    body.querySelectorAll('tr[data-id]').forEach(tr => {
+      const id = tr.dataset.id, x = D.sensors.find(y => y.id === id), q = c => tr.querySelector('.' + c);
+      const cur = () => ({ type: q('sc_type').value, role: q('sc_role').value, pre: +q('sc_pre').value, post: +q('sc_post').value, lock: +q('sc_lock').value, off: !q('sc_use').checked });
+      const sel = c => `tr[data-id="${CSS.escape(id)}"] .${c}`;
+      q('sc_type').onchange = () => { const df = D.def[q('sc_type').value] || {}; save({ sens: { [id]: Object.assign(cur(), { pre: df.pre, post: df.post, lock: df.lock, role: df.role }) } }, sel('sc_type')); };   // neue Art: deren Voreinstellung
+      for (const c of ['sc_role', 'sc_use']) q(c).onchange = () => save({ sens: { [id]: cur() } }, sel(c));
+      for (const c of ['sc_pre', 'sc_post', 'sc_lock']) q(c).onchange = () => save({ sens: { [id]: cur() } }, sel(c));
+    });
+    if (focusSel) { const f = body.querySelector(focusSel); if (f) f.focus(); }
+  };
+  fetch('bestaetigung', { cache: 'no-store' }).then(r => r.json()).then(j => { D = j; draw(); }).catch(() => { body.textContent = t('saveerr'); });
   return fs;
 }
 /* Dashboard-Vorlage für Home Assistant (legt nur auf Knopfdruck etwas an) */
@@ -4088,7 +4186,7 @@ const FORM = [
   ['s_keep', [['auto_delete', 'chk'], ['retention_days', 'num', 1, 3650, 1]]],
   ['s_mirror', [['mirror_dir', 'text'], ['mirror_time', 'time'], ['mirror_offload', 'chk']]],
   ['s_misc', [['language', 'sel', ['auto', 'de', 'en'], { auto: 'lauto', de: '#Deutsch', en: '#English' }], ['wheel_zoom', 'sel', ['ctrl', 'always'], { ctrl: 'wz_ctrl', always: 'wz_always' }], ['auto_thr', 'sel', ['thr', 'data'], { thr: 'at_thr', data: 'at_data' }], ['tip_mode', 'sel', ['hover', 'always', 'off'], { hover: 'tm_hover', always: 'tm_always', off: 'tm_off' }]]],
-  ['s_list', [['group_pause_s', 'num', 10, 3600, 10], ['fn_assign_min', 'num', 0, 60, 1]]],
+  ['s_list', [['group_pause_s', 'num', 10, 3600, 10], ['fn_pre_min', 'num', 0, 120, 1], ['fn_post_min', 'num', 0, 120, 1]]],
 ];
 /* Reihenfolge der Kästen je Reiter (nach dem, was man tun will) */
 const SEC_ORDER = ['srcbox', 's_audio', 's_cal', 's_thr', 's_ki', 's_prof', 's_muster', 's_time', 's_quiet', 's_sched', 's_ha',
@@ -4116,7 +4214,7 @@ function fillPorts(sel, dev, val) {
 /* Pro Geraet einstellbare Werte (wie PER_KEYS im Server) */
 const PER = ['thr_mode', 'offset_db', 'thr_fixed_db', 'min_db', 'thr_max_db', 'bg_window', 'bg_unit', 'bg_stat', 'rise_s', 'fall_s',
   'min_event_ms', 'pre_roll_s', 'post_roll_s', 'max_clip_s', 'active_from', 'active_to', 'save_audio', 'audio_novoice', 'day_track', 'day_layers', 'day_spec', 'fp_store'];
-const GLOBAL_ONLY = ['mirror_dir', 'mirror_time', 'mirror_offload', 'retention_days', 'auto_delete', 'classify', 'ki_embed', 'ctx_s', 'co_record', 'group_pause_s', 'fn_assign_min', 'clip_dir', 'video_width', 'video_fps', 'video_crf', 'quiet_from', 'quiet_to', 'quiet_sunday'];
+const GLOBAL_ONLY = ['mirror_dir', 'mirror_time', 'mirror_offload', 'retention_days', 'auto_delete', 'classify', 'ki_embed', 'ctx_s', 'co_record', 'group_pause_s', 'fn_pre_min', 'fn_post_min', 'clip_dir', 'video_width', 'video_fps', 'video_crf', 'quiet_from', 'quiet_to', 'quiet_sunday'];
 let DEV = '';                                  // '' = Alle Geraete (Standard), sonst Quellen-ID
 function srcById(id) { return SOURCES.find(s => s.id === id); }
 /* Geräte zum Ansehen: eingerichtete und ehemalige (Daten vorhanden, Gerät nicht mehr eingerichtet, z. B. nach dem Einspielen) */
@@ -4409,7 +4507,7 @@ function buildForm(base) {
   body.appendChild(musterBox());
   { const rec = body.querySelector('fieldset[data-sec="s_rec"]'); if (rec) rec.appendChild(qtCard(11));                     // kurze Hinweise (💡 Hilfe anzeigen)
     const misc = body.querySelector('fieldset[data-sec="s_misc"]'); if (misc) misc.append(qtCard(14), qtCard(15)); }
-  const timeFs = body.querySelector('fieldset[data-sec="s_time"]'); if (timeFs) timeFs.after(haBox(), hadashBox());
+  const timeFs = body.querySelector('fieldset[data-sec="s_time"]'); if (timeFs) timeFs.after(haBox(), scBox(), hadashBox());
   $('in_thr_mode').addEventListener('change', syncModeRows);
   if ($('in_save_audio')) $('in_save_audio').addEventListener('change', e => {   // Einschalten nur nach Bestaetigung des Hinweises
     if (e.target.checked && !confirm(t('audio_confirm'))) e.target.checked = false;
@@ -4804,7 +4902,7 @@ function renderNight() {
   $('nnotes').hidden = !nn.length && !fl.length && !mo.length;
   {
     const nmv = id => id === 'all' ? t('all_sources') : viewName(id), L = locale(), mk = (m, ic, col) => `<span class="ntnum" style="background:${col}">${ic}</span> `;
-    const tx = n => `${(n.tags || []).map(ntTag).join('')}${n.text ? `<span class="ntt">${esc(n.text)}</span>` : ''}${n.witness ? `<span class="ntw">👤 ${esc(n.witness)}</span>` : ''}`;
+    const tx = n => `${(n.tags || []).map(ntTag).join('')}${n.text ? `<span class="ntt">${esc(n.text)}</span>` : ''}${n.witness ? `<span class="ntw">👤 ${esc(n.witness)}</span>` : ''}${fbx(n)}`;
     const rows = [
       ...nn.map(([ev, n], i) => `<tr data-k="n" data-i="${i}"><td>${mk(0, '📝', noteCol(n))}${esc(t('tp_evnote'))}</td><td>${esc(fmtDay(n.date || d.date))}</td><td>${esc(n.clock)}</td><td>${esc(ev.name)}</td><td>${tx(n)}</td><td class="ntact">▶</td></tr>`),
       ...fl.map((n, i) => `<tr data-k="f" data-i="${i}"><td>${mk(0, '📝', '#7048e8')}${esc(t('tp_note'))}</td><td>${esc(fmtDay(n.date))}</td><td>${esc(n.clock)}${n.to ? '–' + esc(n.clock_to) : ''}${n.rz ? ' 🌙' : ''}</td><td>${esc(nmv(n.src || 'all'))}</td><td>${tx(n)}</td><td class="ntact fned" title="${esc(t('nt_edit'))}">✎</td></tr>`),
@@ -6132,10 +6230,10 @@ function bindLive() {
 }
 /* ================= Dashboard: Ereignisse des Tages als einfache Liste (Spalten und Gerät einstellbar, pro Browser gemerkt) ================= */
 const LEV_RNG = ['vis', 'today', '24h', '7d', '30d', 'custom'];
-const LEV_COLS = ['tm', 'src', 'art', 'kinds', 'devs', 'dur', 'pk', 'thr', 'bg', 'nt'];
+const LEV_COLS = ['tm', 'src', 'art', 'sc', 'kinds', 'devs', 'dur', 'pk', 'thr', 'bg', 'nt'];
 const LEV = (() => { let c = null; try { c = JSON.parse(localStorage.getItem('laerm_lev') || 'null'); } catch (e) { } c = c && typeof c === 'object' ? c : {};
   const rng = LEV_RNG.includes(c.rng) ? c.rng : c.vis === false ? 'today' : 'vis';
-  return { cols: Array.isArray(c.cols) ? c.cols.filter(x => LEV_COLS.includes(x)) : ['tm', 'src', 'art', 'devs', 'dur', 'pk', 'bg', 'nt'], src: c.src === 'sel' ? 'sel' : 'all', rng, cf: c.cf || '', ct: c.ct || '',
+  return { cols: Array.isArray(c.cols) ? c.cols.filter(x => LEV_COLS.includes(x)) : ['tm', 'src', 'art', 'sc', 'devs', 'dur', 'pk', 'bg', 'nt'], src: c.src === 'sel' ? 'sel' : 'all', rng, cf: c.cf || '', ct: c.ct || '',
     get vis() { return this.rng === 'vis'; }, key: '', data: null, req: 0, fa: 0, fb: 0, sig: '' }; })();
 function levSave() { try { localStorage.setItem('laerm_lev', JSON.stringify({ cols: LEV.cols, src: LEV.src, rng: LEV.rng, cf: LEV.cf, ct: LEV.ct })); } catch (e) { } }
 /* Anzeigebereich der Tabelle: sichtbarer Bereich des Graphen, heute, letzte 24 h / 7 / 30 Tage oder eigener Zeitraum */
@@ -6162,7 +6260,7 @@ function levTitleSet() {                              // Überschrift von Panel 
   const h = $('ldevh'); if (h) { h.removeAttribute('data-i'); h.textContent = txt; }
   dashTitle('live', 'ldev', txt);                     // Bereichs-Überschrift: eine eigene (✎) bleibt stehen
 }
-function levHead(c) { return { tm: t('start'), src: t('src_col'), art: t('art_col'), kinds: t('kinds_col'), devs: t('devs_col'), dur: t('dur'), pk: t('peak'), thr: t('thr_col'), bg: t('bg_col'), nt: '📝' }[c]; }
+function levHead(c) { return { tm: t('start'), src: t('src_col'), art: t('art_col'), sc: t('sc_col'), kinds: t('kinds_col'), devs: t('devs_col'), dur: t('dur'), pk: t('peak'), thr: t('thr_col'), bg: t('bg_col'), nt: '📝' }[c]; }
 function levWin() {                                   // im Live-Bild gerade sichtbarer Zeitraum (normales Live-Bild oder Verlauf, auch gezoomt/verschoben)
   if (histOn()) return LDT.data && LDT.data.from ? [LDT.data.from, LDT.data.to] : null;
   return viewRange();
@@ -6197,8 +6295,8 @@ function levRender() {
   const txt = h => { const d = document.createElement('div'); d.innerHTML = h; return d.textContent.trim(); };
   const rows = evs.map(r => ({ id: 'e' + (r.k || r.start), k: r.k || '', start: new Date(r.start).getTime(), src: r.quelle || (SOURCES.find(x => x.id === (r.quelle_id || 'main')) || {}).name || r.quelle_id || '', r,
     tags: [].concat((r.mf || []).map(id => '⊘ ' + mfInfo(id).name), r.prof ? ['🧩 ' + r.prof] : [], (r.labels || []).map(n => '🏷 ' + n)), dur: r.dauer_s, pk: r.spitze_dbfs, thr: r.schwelle_dbfs, bg: r.hintergrund_dbfs, nt: r.notes ? '📝 ' + r.notes : '' }))
-    .concat(fnShow() ? fnLink(j.fnotes, j.events, j.fn_assign_min).map(([n, ev]) => ({ id: 'n' + n.id, k: '', start: n.a, src: (n.src || 'all') === 'all' ? t('all_sources') : viewName(n.src), fn: n, fev: ev,
-      tags: ['📝 ' + t('fn_row')], dur: Math.max(0, ((n.b || n.a) - n.a) / 1000), pk: null, nt: '📝 ' + [n.text, ...(n.tags || []).map(x => ntLabel(x)), n.witness ? '👤 ' + n.witness : ''].filter(Boolean).join(' · ') + (ev ? ' · 🔗 ' + t('fn_link', { c: clockOf(ev.start) }) : '') })) : [])
+    .concat(fnShow() ? fnLink(j.fnotes, j.events, j).map(([n, ev, dms]) => ({ id: 'n' + n.id, k: '', start: n.a, fdms: dms, src: (n.src || 'all') === 'all' ? t('all_sources') : viewName(n.src), fn: n, fev: ev,
+      tags: ['📝 ' + t('fn_row')], dur: Math.max(0, ((n.b || n.a) - n.a) / 1000), pk: null, nt: '📝 ' + [n.text, ...(n.tags || []).map(x => ntLabel(x)), n.witness ? '👤 ' + n.witness : '', ...fbList(n)].filter(Boolean).join(' · ') + (ev ? ' · 🔗 ' + t('fn_link', { c: clockOf(ev.start) }) : '') })) : [])
     .concat(sens.map(x => ({ id: 's' + x.key, k: '', start: x.a, src: x.kind === 'ha' ? 'Home Assistant' : x.name || '', x, tags: [sensIcon(x.kind) + ' ' + sensLabel(x)], dur: Math.max(0, (x.b - x.a) / 1000), pk: x.peak, nt: x.note ? '📝 ' + x.note : '' })));
   const win = LEV.vis ? levWin() : null;
   if (win) {                                          // nur was im sichtbaren Bereich liegt (auch teilweise)
@@ -6213,7 +6311,7 @@ function levRender() {
   if (win && sig === LEV.sig && LTBL) return;          // nichts Neues im Bereich: Tabelle nicht neu aufbauen
   LEV.sig = sig;
   LEV.tot = win ? rows.length : (j.total != null ? j.total : evs.length) + sens.length; LEV.loaded = rows.length;
-  for (const d of rows) if (d.fn && d.fev) { const e = rows.find(x => x.k && x.k === d.fev.k); if (e) e.nt = [e.nt, '📝 ' + (d.fn.text || (d.fn.tags || []).map(x => ntLabel(x)).join(', '))].filter(Boolean).join(' · '); }   // Notiz auch an der Störung
+  for (const d of rows) if (d.fn && d.fev) { const e = rows.find(x => x.k && x.k === d.fev.k); if (e) e.nt = [e.nt, '📝 ' + fnAsgTxt(d.fdms) + ': ' + (d.fn.text || (d.fn.tags || []).map(x => ntLabel(x)).join(', '))].filter(Boolean).join(' · '); }   // Notiz auch an der Störung
   const vals = f => () => [...new Set(rows.flatMap(d => f === 'tags' ? d.tags : [d[f]]).filter(Boolean))].sort((p, q) => String(p).localeCompare(String(q)));
   const ms = f => ({ flt: 'ms', vals: vals(f), fpass: (v, d) => f === 'tags' ? d.tags.some(x => v.includes(x)) : v.includes(d[f]) });
   const num = () => ({ flt: 'num' });
@@ -6222,6 +6320,7 @@ function levRender() {
     tm: { f: 'start', title: levHead('tm'), sort: 'num', minW: 76, prio: 0, flt: 'txt', fpass: (v, d) => hm(d.start).includes(v), html: d => esc(hm(d.start)) },
     src: Object.assign({ f: 'src', title: levHead('src'), minW: 150, grow: 2, prio: 3, cls: 'srcc', html: d => d.fn ? `<span class="si">📝</span><span class="sn"><b>${esc(d.src)}</b></span>` : d.r ? srcCell(d.r).replace(/^<td[^>]*>/, '').replace(/<\/td>$/, '') : `<span class="si">${d.x.kind === 'ha' ? '🏠' : '📱'}</span><span class="sn"><b>${esc(d.src)}</b></span>` }, ms('src')),
     art: Object.assign({ f: 'tags', title: levHead('art'), minW: 120, grow: 2, sort: false, prio: 1, html: d => d.fn ? `<span class="art fnc">📝 ${esc(t('fn_row'))}</span>${d.fev ? `<span class="art fnlk">🔗 ${esc(t('fn_link', { c: clockOf(d.fev.start) }))}</span>` : ''}` : d.r ? `${d.r.prof ? `<span class="art prof${d.r.bg ? ' bgp' : ''}">🧩 ${esc(d.r.prof)}${d.r.prof_ok ? ' ✓' : d.r.prof_c != null ? ` <small>${d.r.prof_c} %</small>` : ''}</span>` : ''}${(d.r.labels || []).map(n => `<span class="art lbl">🏷 ${esc(n)}</span>`).join('')}${mfChip(d.r)}${d.r.art ? artChip(d.r.art, d.r.art_c, d.r.art_man || d.r.art_ok, d.r.k) : ''}` : `<span class="art sensc">${sensIcon(d.x.kind)} ${esc(sensLabel(d.x))}</span>` }, ms('tags')),
+    sc: { f: 'sc', title: levHead('sc'), minW: 130, sort: false, prio: 3, flt: 'ms', aria: t('sc_col_a'), vals: () => SC_ST.map(scLabel), fpass: (v, d) => v.includes(scLabel(d.r ? (d.r.sc || {}).s || '' : '')), html: d => d.r ? scChip(d.r.sc) : '' },
     kinds: { f: 'kinds', title: levHead('kinds'), minW: 140, sort: false, prio: 4, html: d => d.r ? kindsHTML(d.r.kinds, j.fine) : '' },
     devs: { f: 'devs', title: levHead('devs'), minW: 120, sort: false, prio: 6, html: d => d.r && (d.r.devs || []).length > 1 ? d.r.devs.map((x, i) => `<span class="dvp${i === 0 ? ' top' : ''}">${esc(shortName(x[1]))} ${x[2] != null ? x[2].toFixed(0) : '–'}</span>`).join('') : '<span class="noclip">–</span>' },
     dur: Object.assign({ f: 'dur', title: levHead('dur'), sort: 'num', minW: 80, prio: 2, html: d => d.fn && !d.dur ? '–' : esc(fmtDur(d.dur)) }, num()),
@@ -6231,9 +6330,10 @@ function levRender() {
     nt: { f: 'nt', title: '📝', minW: 80, prio: 4, flt: 'txt', html: d => esc(d.nt || '') },
   };
   def.nt.aria = t('col_text');
-  const cols = LEV.cols.filter(c => (useArt || (c !== 'art' && c !== 'kinds')) && (c !== 'devs' || multi)).map(c => Object.assign({}, def[c]));
+  const hasSc = evs.some(r => r.sc && r.sc.s);
+  const cols = LEV.cols.filter(c => (useArt || (c !== 'art' && c !== 'kinds')) && (c !== 'devs' || multi) && (c !== 'sc' || hasSc)).map(c => Object.assign({}, def[c]));
   if (typeof agGrid === 'undefined') return;
-  const key = JSON.stringify([lang, LEV.cols, useArt, multi]);
+  const key = JSON.stringify([lang, LEV.cols, useArt, multi, hasSc]);
   const ph = t(LEV.vis ? 'lev_none' : 'lev_none_rng');
   if (!LTBL || LTBL_KEY !== key) {
     if (LTBL) { LTBL.destroy(); LTBL = null; }
@@ -6599,7 +6699,7 @@ function drawFnLive(cv, t0, t1) {
 function renderEvFn(list) {
   const box = $('evfnbox'); list = list || []; box.hidden = !list.length; if (!list.length) return;
   $('evfnhead').textContent = t('fn_in_ev', { n: list.length });
-  $('evfnlist').innerHTML = list.map((n, i) => `<div class="ntrow" data-i="${i}"><span class="ntnum" style="background:#7048e8">📝</span><span class="ntoff">${esc(n.clock)}${n.to ? '–' + esc(n.clock_to) : ''}</span><span class="nttx">${(n.tags || []).map(ntTag).join('')}${n.text ? `<span class="ntt">${esc(n.text)}</span>` : ''}${n.witness ? `<span class="ntw">👤 ${esc(n.witness)}</span>` : ''}</span><span class="ntact">✎</span></div>`).join('');
+  $('evfnlist').innerHTML = list.map((n, i) => `<div class="ntrow" data-i="${i}"><span class="ntnum" style="background:#7048e8">📝</span><span class="ntoff">${esc(n.clock)}${n.to ? '–' + esc(n.clock_to) : ''}</span><span class="nttx">${(n.tags || []).map(ntTag).join('')}${n.text ? `<span class="ntt">${esc(n.text)}</span>` : ''}${n.witness ? `<span class="ntw">👤 ${esc(n.witness)}</span>` : ''}${fbx(n)}</span><span class="ntact">✎</span></div>`).join('');
   $('evfnlist').querySelectorAll('.ntrow').forEach(r => r.onclick = () => fnOpen(list[+r.dataset.i]));
 }
 /* Notiz-Leiste oben im Live-Bild („Notiz jetzt“): Aufbau wie in GReport – große Uhr, Rubriken mit Farben, Abschnitte ● / ○,
@@ -6633,16 +6733,21 @@ const CAP_DEF = { title: '', sub: '', order: [], hide: [], clock: 'big', dense: 
 let CAP = Object.assign({}, CAP_DEF);
 const SEC_EL = { txt: 'fnptext', tags: 'fnptags', wit: 'secwit', time: 'sectime' };
 const SEC_L = { txt: 'fnp_p_txt', tags: 'fnp_p_tags', wit: 'fnp_p_wit', time: 'fc_p_time' };
-function capOrder() { const o = (CAP.order || []).filter(x => SEC_EL[x]); return o.concat(Object.keys(SEC_EL).filter(x => !o.includes(x))); }
-function secApply(order) { const body = $('fnpbody'); if (!body) return; for (const k of order || capOrder()) { const e = $(SEC_EL[k]); if (e) body.appendChild(e); } }
+/* Reihenfolge der Bereiche: eingebaute und eigene Felder (Kennung b_…) gemeinsam */
+function capOrder(list) {
+  const blocks = (list || Felder.active()).filter(b => !b.del).map(b => b.id), ok = x => SEC_EL[x] || blocks.includes(x);
+  const o = (CAP.order || []).filter(ok); return o.concat(Object.keys(SEC_EL).concat(blocks).filter(x => !o.includes(x)));
+}
+const secEl = k => Felder.isId(k) ? $('fb_' + k) : $(SEC_EL[k]);
+function secApply(order) { const body = $('fnpbody'); if (!body) return; for (const k of order || capOrder()) { const e = secEl(k); if (e) body.appendChild(e); } }
 function capApply() {
-  const sv = LAYOUT.srv && LAYOUT.srv.cap; if (sv) CAP = Object.assign({}, CAP_DEF, sv);
+  const sv = LAYOUT.srv && LAYOUT.srv.cap; if (sv) { CAP = Object.assign({}, CAP_DEF, sv); if (sv.blocks) Felder.S.defs = sv.blocks; Felder.S.sec = sv.sec || {}; if (sv.tpl) Felder.S.tpl = sv.tpl; }
   { let old = null; try { old = localStorage.getItem('laerm_fnphide'); } catch (e) { }      // Abschnitte aus früheren Versionen (nur dieser Browser) einmal übernehmen
     if (old && LAYOUT.srv && !(CAP.hide || []).length) { try { const h = JSON.parse(old).map(x => x === 'ext' ? 'time' : x).filter(x => SEC_EL[x]); if (h.length) capPost({ hide: h }); } catch (e) { } }
     if (old && LAYOUT.srv) try { localStorage.removeItem('laerm_fnphide'); } catch (e) { } }
   const pn = $('fnpanel'); if (!pn) return;
   for (const [k, vs] of [['ck', ['big', 'small', 'off']], ['dn', ['normal', 'compact']], ['ts', ['outline', 'filled']]]) for (const v of vs) pn.classList.toggle(k + '-' + v, CAP[{ ck: 'clock', dn: 'dense', ts: 'style' }[k]] === v);
-  secApply(); secDraw(); fnpShow();
+  fbMount(); secApply(); secDraw(); fnpShow();
 }
 async function capPost(c) {
   Object.assign(CAP, c);
@@ -6652,16 +6757,84 @@ async function capPost(c) {
 }
 function secDraw() {                                   // Abschnitte ein- und ausblenden (● an / ○ aus), auch abgedockt
   const bar = $('secbar'); if (!bar) return; bar.innerHTML = ''; const hid = new Set(CAP.hide || []);
+  if (FCL.on) return;
   for (const k of capOrder()) {
-    const off = hid.has(k), e = $(SEC_EL[k]); if (e) e.hidden = off;
-    const n = off && k === 'tags' && FNP.tags.size ? ' · ' + FNP.tags.size : off && k === 'wit' && $('fnpwit').value.trim() ? ' · 1' : '';
-    const b = el('button', { type: 'button', className: 'secb' + (off ? '' : ' on'), textContent: t(SEC_L[k]) + n });
-    b.setAttribute('aria-pressed', String(!off)); b.title = t(off ? 'fc_sec_show' : 'fc_sec_hide', { s: t(SEC_L[k]) });
-    b.onclick = () => { const h = new Set(CAP.hide || []); off ? h.delete(k) : h.add(k); CAP.hide = [...h]; secDraw(); capPost({ hide: CAP.hide }); const nb = [...bar.children].find(x => x.textContent.startsWith(t(SEC_L[k]))); if (nb) nb.focus(); };
+    const blk = Felder.isId(k), e = secEl(k); if (blk && !e) continue;            // ausgeblendetes Feld: ganz weg
+    const off = hid.has(k), l = secLabel(k); if (e) e.hidden = off;
+    const n = off && k === 'tags' && FNP.tags.size ? ' · ' + FNP.tags.size : off && k === 'wit' && $('fnpwit').value.trim() ? ' · 1' : off && blk && !Felder.isEmpty(FNP.fv[k]) ? ' · 1' : '';
+    const b = el('button', { type: 'button', className: 'secb' + (off ? '' : ' on'), textContent: l + n });
+    b.setAttribute('aria-pressed', String(!off)); b.title = t(off ? 'fc_sec_show' : 'fc_sec_hide', { s: l });
+    b.onclick = () => { const h = new Set(CAP.hide || []); off ? h.delete(k) : h.add(k); CAP.hide = [...h]; secDraw(); capPost({ hide: CAP.hide }); const nb = [...bar.children].find(x => x.textContent.startsWith(l)); if (nb) nb.focus(); };
     bar.appendChild(b);
   }
 }
-const FNP = { from: null, tags: new Set(), tick: null };
+/* ---------- Eigene Felder (Bausteine, wie in GReport): Zähler, Zahl, Ja/Nein, Auswahl, Skala, Dauer, Datum, Ort, Person, Text ----------
+   Definitionen in layout.json (cap.blocks), Werte je freie Notiz in „fields“. Name/Hinweis/Pflicht der eingebauten Bereiche in cap.sec. */
+const FBS = Felder.S;
+const fbList = n => n.fx || Felder.compact(n.fields);
+const fbx = n => fbList(n).map(x => `<span class="ntw fx">${esc(x)}</span>`).join('');
+function secLabel(k, sec, list) {
+  if (Felder.isId(k)) { const b = (list || FBS.defs).find(x => x.id === k); return b ? b.l : k; }
+  return ((sec || FBS.sec)[k] || {}).l || t(SEC_L[k]);
+}
+const capWait = () => (CAP.hide || []).includes('txt') && Felder.visible().some(b => b.type === 'counter') ? t('fb_wait_cnt') : t(matchMedia('(pointer:coarse)').matches ? 'fnp_wait_m' : 'fnp_wait');
+const FBH = { get: id => FNP.fv[id], set: (id, v) => { if (v === undefined) delete FNP.fv[id]; else FNP.fv[id] = v; if ((CAP.hide || []).length) secDraw(); },
+  start: () => fnpStart(), count: (b, d) => fbCount(b, d) };
+function fbMount(list, sec) {                          // list/sec: Entwurf aus „Layout anpassen“ (Vorschau, ausgeblendete blass)
+  const body = $('fnpbody'); if (!body) return;
+  const vis = list ? list.filter(b => !b.del) : Felder.visible(), ids = new Set(vis.map(b => b.id));
+  body.querySelectorAll(':scope > .fbblk').forEach(x => { if (!ids.has(x.dataset.b)) x.remove(); });
+  for (const b of vis) {
+    let box = $('fb_' + b.id);
+    if (!box) { box = body.ownerDocument.createElement('div'); box.id = 'fb_' + b.id; body.appendChild(box); }
+    Felder.render(box, b, FNP.fv[b.id], FBH); box.classList.toggle('layoff', !!(list && b.hide));
+  }
+  secMeta(sec);
+}
+function secMeta(sec) {
+  sec = sec || FBS.sec; const g = k => sec[k] || {}, neutral = FBS.tpl && FBS.tpl !== 'laerm';
+  const tx = $('fnptext'); if (!tx) return;
+  tx.placeholder = g('txt').h || t(neutral ? 'fb_txt_ph' : 'fn_ph');
+  const tl = g('txt').l || t('fc_a_text'); tx.setAttribute('aria-label', tl); tx.title = tl;
+  if (g('txt').req) tx.setAttribute('aria-required', 'true'); else tx.removeAttribute('aria-required');
+  const w = $('fnpwit'), wl = g('wit').l; w.placeholder = wl ? t('fb_wit_ph', { l: wl }) : t('fn_wit'); w.setAttribute('aria-label', wl || t('fc_a_wit')); w.title = wl || t('fc_a_wit');
+  if (g('wit').req) w.setAttribute('aria-required', 'true'); else w.removeAttribute('aria-required');
+  for (const k of ['time', 'wit']) { const h = $('sech' + k); if (h) { h.textContent = g(k).h || ''; h.hidden = !g(k).h; } }
+}
+function fbOut() { const o = {}; for (const [k, v] of Object.entries(FNP.fv || {})) if (!Felder.isEmpty(v)) o[k] = v; return o; }
+function fbReqOk() {
+  const c = Felder.check(FNP.fv, $('fnpbody')), msg = $('fnpmsg'), g = k => FBS.sec[k] || {}, hid = new Set(CAP.hide || []);
+  if (!hid.has('txt') && g('txt').req && !$('fnptext').value.trim()) c.miss.unshift(secLabel('txt'));
+  if (!hid.has('wit') && g('wit').req && !$('fnpwit').value.trim()) c.miss.push(secLabel('wit'));
+  if (c.bad.length) { msg.className = 'msg fnpmsg err'; msg.textContent = t('fb_bad', { l: c.bad.join(', ') }); return false; }
+  const key = c.miss.join('|');
+  if (c.miss.length && FNP.reqWarned !== key) { FNP.reqWarned = key; msg.className = 'msg fnpmsg warn'; msg.textContent = t('fb_req_miss', { l: c.miss.join(', ') }); return false; }
+  return true;
+}
+async function fbCount(b, d) {                          // Zähler: jeder Druck ein eigener Eintrag mit genauer Zeit
+  const now = nowServer(), msg = $('fnpmsg');
+  let r; try { r = await (await fetch('fnote', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ action: 'add', from: dtl(new Date(now)), to: '', src: $('fnpsrc').value, text: '', tags: [], fields: { [b.id]: d } }) })).json(); } catch (e) { r = { ok: false }; }
+  if (!r.ok) { msg.className = 'msg fnpmsg err'; msg.textContent = t('fb_c_err'); return; }
+  FBS.counts[b.id] = (FBS.counts[b.id] || 0) + d; Felder.countShow($('fnpbody'), b);
+  msg.className = 'msg fnpmsg'; msg.textContent = '✓ ' + t('fb_c_done', { l: b.l, v: Felder.fmt(b, d), t: r.note ? r.note.clock : '', n: FBS.counts[b.id] });
+  clearTimeout(fbCount.tm); fbCount.tm = setTimeout(() => { if (msg.textContent.startsWith('✓')) msg.textContent = ''; }, 5000);
+  fnRefresh(); if (histOn()) dtLoad(LDT, true);
+}
+async function fbLoad(quiet) {
+  try { Felder.load(await (await fetch('felder', { cache: 'no-store' })).json()); } catch (e) { }
+  if (quiet) { for (const b of Felder.visible()) if (b.type === 'counter') Felder.countShow($('fnpbody'), b); return; }
+  if (!FCL.on) { fbMount(); secApply(); secDraw(); fnpShow(); }
+}
+Felder.setup({ t, esc, lang: () => lang, fmtDT: ms => { const d = new Date(ms); return pad(d.getDate()) + '.' + pad(d.getMonth() + 1) + '.' + d.getFullYear() + ' ' + pad(d.getHours()) + ':' + pad(d.getMinutes()); }, dtl, dto: d => dtl(d), nowMs: nowServer });
+async function fbTpl(name) {
+  if (!confirm(t('fb_tpl_q', { n: t('fb_tpl_' + name) }))) return;
+  let j; try { j = await (await fetch('felder', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ action: 'tpl', tpl: name }) })).json(); } catch (e) { j = { ok: false }; }
+  if (!j.ok) { toast(t('saveerr')); return; }
+  Felder.load(j); ntsApply(j.qt); if (j.layout) { LAYOUT.srv = j.layout; CAP = Object.assign({}, CAP_DEF, j.layout.cap || {}); }
+  if (FCL.on) fclClose(); else capApply();
+  fnpTags(); ntsRedraw(); toast('✓ ' + t('fb_tpl_done', { n: t('fb_tpl_' + name) }));
+}
+const FNP = { from: null, tags: new Set(), tick: null, fv: {}, reqWarned: null };
 function fnpTags() {
   const box = $('fnptags'); if (!box) return;
   if (FCL.on) { fclDraw(); return; }
@@ -6673,7 +6846,7 @@ function fnpTags() {
     const gi = gInfo(g) || {}, ks = by[g] || []; if (!ks.length && g !== 'own') continue;
     if (gi.hide && !ks.some(k => FNP.tags.has(k))) continue;                 // ausgeblendete Rubrik (gewählte Tasten bleiben sichtbar)
     const rq = NTS.req && NTS.req.has(g);
-    h += `<div class="grp${rq ? ' req' : ''}" data-g="${esc(g)}"><span>${esc(gLabel(g))}${rq ? '<i class="reqm" title="' + esc(t('fc_req_tip')) + '"> *</i>' : ''}</span><div role="group" aria-label="${esc(gLabel(g))}">${ks.map(k => tagBtn(k, FNP.tags.has(k))).join('')}${g === 'own' ? `<button type="button" class="tag add" title="${esc(t('qt_add_tip'))}">＋ ${esc(t('qt_add'))}</button>` : ''}</div></div>`;
+    h += `<div class="grp${rq ? ' req' : ''}" data-g="${esc(g)}"><span>${esc(gLabel(g))}${rq ? '<i class="reqm" title="' + esc(t('fc_req_tip')) + '"> *</i>' : ''}${(NTS.ghelp || {})[g] ? `<small class="ghelp">${esc(NTS.ghelp[g])}</small>` : ''}</span><div role="group" aria-label="${esc(gLabel(g) + (NTS.gone && NTS.gone.has(g) ? ' – ' + t('fb_g_one') : ''))}">${ks.map(k => tagBtn(k, FNP.tags.has(k))).join('')}${g === 'own' ? `<button type="button" class="tag add" title="${esc(t('qt_add_tip'))}">＋ ${esc(t('qt_add'))}</button>` : ''}</div></div>`;
   }
   box.innerHTML = h;
   box.querySelectorAll('.grp>div').forEach(row => {    // Handy: Hinweis rechts, solange die Zeile weitergeht
@@ -6681,7 +6854,9 @@ function fnpTags() {
     row.addEventListener('scroll', upd, { passive: true }); requestAnimationFrame(upd);
   });
   box.querySelectorAll('.tag[data-t]').forEach(b => {
-    b.onclick = () => { const k = b.dataset.t; FNP.tags.has(k) ? FNP.tags.delete(k) : FNP.tags.add(k); b.classList.toggle('on', FNP.tags.has(k)); b.setAttribute('aria-pressed', FNP.tags.has(k)); fnpStart(); reqCheck(); if ((CAP.hide || []).length) secDraw(); };
+    b.onclick = () => { const k = b.dataset.t, g = ntGroup(k);
+      if (NTS.gone && NTS.gone.has(g) && !FNP.tags.has(k)) for (const x of [...FNP.tags]) if (ntGroup(x) === g) { FNP.tags.delete(x); const o = box.querySelector(`.tag[data-t="${CSS.escape(x)}"]`); if (o) { o.classList.remove('on'); o.setAttribute('aria-pressed', 'false'); } }   // nur eine Auswahl
+      FNP.tags.has(k) ? FNP.tags.delete(k) : FNP.tags.add(k); b.classList.toggle('on', FNP.tags.has(k)); b.setAttribute('aria-pressed', FNP.tags.has(k)); fnpStart(); reqCheck(); if ((CAP.hide || []).length) secDraw(); };
     b.oncontextmenu = e => { e.preventDefault(); ntManage(box, b.dataset.t); };
     let lp = 0; b.addEventListener('touchstart', () => { lp = setTimeout(() => { lp = -1; ntManage(box, b.dataset.t); }, 600); }, { passive: true });
     b.addEventListener('touchend', e => { if (lp === -1) e.preventDefault(); clearTimeout(lp); });
@@ -6718,7 +6893,7 @@ function fnpShow() {
   const tg = !$('fnprun').checked && FNP.tgt;           // ohne eigene Zeit: wird der letzten Störung zugeordnet
   if (!FCL.on) {                                       // im Bearbeiten sind Überschrift und Untertitel editierbar – nicht überschreiben
     $('capttl').textContent = CAP.title || t('fn_btn');
-    $('fnpfrom').textContent = FNP.from == null ? (CAP.sub || t(matchMedia('(pointer:coarse)').matches ? 'fnp_wait_m' : 'fnp_wait'))
+    $('fnpfrom').textContent = FNP.from == null ? (CAP.sub || capWait())
       : tg ? t('fnp_to_ev', { t: tg.clock, d: tg.devs.map(d => d[0] + (d[1] != null ? ' ' + d[1].toFixed(0) : '')).join(', '), k: tg.prof ? tg.kind : (tg.kind && tg.kind !== '?' ? artName(tg.kind) : '') })
       : t('fnp_from', { t: hm(FNP.from) }) + ($('fnprun').checked ? ' – ' + hm(nowServer()) : '');
   }
@@ -6730,21 +6905,22 @@ function timeEdit(open) {
   $('fnpext').hidden = !open; $('fnptimebtn').setAttribute('aria-expanded', String(open));
   if (open && !$('fnpfromi').value) $('fnpfromi').value = dtl(new Date(FNP.fixed && FNP.from != null ? FNP.from : nowServer()));
 }
-function fnpReset() { FNP.from = null; FNP.tgt = null; FNP.tags = new Set(); $('fnptext').value = ''; $('fnpwit').value = ''; $('fnpfromi').value = ''; $('fnptoi').value = ''; FNP.fixed = false; $('fnprun').checked = false; timeEdit(false); fnpTags(); fnpShow(); secDraw(); }
+function fnpReset() { FNP.from = null; FNP.tgt = null; FNP.tags = new Set(); FNP.fv = {}; FNP.reqWarned = null; fbMount(); $('fnptext').value = ''; $('fnpwit').value = ''; $('fnpfromi').value = ''; $('fnptoi').value = ''; FNP.fixed = false; $('fnprun').checked = false; timeEdit(false); fnpTags(); fnpShow(); secDraw(); }
 function fnpFold(open) {
   $('fnpbody').hidden = !open; $('fnptog').setAttribute('aria-expanded', open ? 'true' : 'false'); $('fnpanel').classList.toggle('shut', !open);
   try { localStorage.setItem('laerm_fnp', open ? '1' : '0'); } catch (e) { }
 }
 async function fnpSave() {
+  if (!fbReqOk()) return;
   const run = $('fnprun').checked;
   const fixed = FNP.fixed && $('fnpfromi').value, tv = $('fnptoi').value;      // eigene Zeiten („Zeit ändern“); sonst gilt die Uhrzeit beim Speichern
-  const body = { action: 'add', id: '', from: fixed ? $('fnpfromi').value : dtl(new Date(nowServer())), to: tv || (run ? dtl(new Date(nowServer())) : ''), src: $('fnpsrc').value, text: autoText($('fnptext').value, FNP.tags), typed: !!$('fnptext').value.trim(), tags: [...FNP.tags], witness: $('fnpwit').value, auto: !run && !fixed && !tv };
+  const body = { action: 'add', id: '', from: fixed ? $('fnpfromi').value : dtl(new Date(nowServer())), to: tv || (run ? dtl(new Date(nowServer())) : ''), src: $('fnpsrc').value, text: autoText($('fnptext').value, FNP.tags), typed: !!$('fnptext').value.trim(), tags: [...FNP.tags].concat($('fnpwit').value.trim() && !FNP.tags.has('zeuge') ? ['zeuge'] : []), witness: $('fnpwit').value, auto: !run && !fixed && !tv, fields: fbOut() };
   const msg = $('fnpmsg'); msg.className = 'msg fnpmsg';
   try {
     const r = await (await fetch('fnote', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) })).json();
-    if (!r.ok) { msg.textContent = t(r.error === 'empty' ? 'fn_empty' : r.error === 'to' ? 'fn_bad_to' : 'saveerr'); msg.classList.add('err'); return; }
+    if (!r.ok) { msg.textContent = r.error === 'field' ? t('fb_bad', { l: (r.fields || []).map(x => (Felder.byId(x) || {}).l || x).join(', ') }) : t(r.error === 'empty' ? 'fn_empty' : r.error === 'to' ? 'fn_bad_to' : 'saveerr'); msg.classList.add('err'); return; }
     try { localStorage.setItem('laerm_fnsrc', $('fnpsrc').value); } catch (e) { }
-    fnpReset(); ntsLoad(); msg.textContent = '✓ ' + (r.target ? t('fnp_saved_ev', { t: r.target.clock }) : t('fnp_saved')); setTimeout(() => { if (msg.textContent.startsWith('✓')) msg.textContent = ''; }, 4000);
+    const hadF = Object.keys(body.fields || {}).length; fnpReset(); if (hadF) fbLoad(true); ntsLoad(); msg.textContent = '✓ ' + (r.target ? t('fnp_saved_ev', { t: r.target.clock }) : t('fnp_saved')); setTimeout(() => { if (msg.textContent.startsWith('✓')) msg.textContent = ''; }, 4000);
     fnRefresh(); if (histOn()) dtLoad(LDT, true);
   } catch (e) { msg.textContent = t('saveerr'); msg.classList.add('err'); }
 }
@@ -6786,13 +6962,17 @@ const fclFlat = gs => gs.filter(g => !g.del).flatMap(g => g.keys);
 function fclBuild() {
   const groups = gIds().map(g => {
     const gi = gInfo(g) || {}, col = (NTS.gcol || {})[g] || '';
-    return { g, l: gLabel(g), l0: gLabel(g), custom: gCustom(g), hide: !!gi.hide, hide0: !!gi.hide, req: !!(NTS.req && NTS.req.has(g)), req0: !!(NTS.req && NTS.req.has(g)), col, col0: col, isNew: false, del: false,
+    const one = !!(NTS.gone && NTS.gone.has(g)), hp = (NTS.ghelp || {})[g] || '';
+    return { g, l: gLabel(g), l0: gLabel(g), custom: gCustom(g), hide: !!gi.hide, hide0: !!gi.hide, req: !!(NTS.req && NTS.req.has(g)), req0: !!(NTS.req && NTS.req.has(g)), one, one0: one, h: hp, h0: hp, col, col0: col, isNew: false, del: false,
       keys: ntOrdered(ntAll().filter(k => (gIds().includes(ntGroup(k)) ? ntGroup(k) : 'own') === g)) };
   });
   const keys = {};
   for (const gr of groups) for (const k of gr.keys) keys[k] = { k, l: ntLabel(k), l0: ntLabel(k), own: NTS.own[k] != null, hide: NTS.hide.has(k), hide0: NTS.hide.has(k), g0: gr.g, isNew: false, del: false };
   const secs = capOrder();
-  FCL.d = { groups, keys, order0: fclFlat(groups).join(), gorder0: groups.map(g => g.g).join(), secs, secs0: secs.join(), clock: CAP.clock, dense: CAP.dense, style: CAP.style };
+  const fb = JSON.parse(JSON.stringify({ blocks: FBS.defs, sec: FBS.sec })), hide = new Set(CAP.hide || []);
+  for (const k of Object.keys(SEC_EL)) if (hide.has(k)) (fb.sec[k] = fb.sec[k] || {}).hide = true;     // „zeigen“ der eingebauten Bereiche = cap.hide
+  FCL.d = { groups, keys, order0: fclFlat(groups).join(), gorder0: groups.map(g => g.g).join(), secs, secs0: secs.join(), clock: CAP.clock, dense: CAP.dense, style: CAP.style,
+    fb, fb0: JSON.stringify(Felder.strip(fb)) };
 }
 function fclSay(msg) { const e = $('fcllive'); if (e) { e.textContent = ''; setTimeout(() => { e.textContent = msg; }, 30); } }
 function fclOpen() {
@@ -6800,39 +6980,72 @@ function fclOpen() {
   if ($('fnpbody').hidden) fnpFold(true);
   FCL.on = true; fclBuild();
   const pn = $('fnpanel'); pn.classList.add('lay'); $('caplay').setAttribute('aria-pressed', 'true');
-  for (const [id, key, def] of [['capttl', 'title', t('fn_btn')], ['fnpfrom', 'sub', t(matchMedia('(pointer:coarse)').matches ? 'fnp_wait_m' : 'fnp_wait')]]) {
-    const e = $(id); e.textContent = CAP[key] || def; try { e.contentEditable = 'plaintext-only'; } catch (x) { e.contentEditable = 'true'; }
+  for (const [id, key, def] of [['capttl', 'title', t('fn_btn')], ['fnpfrom', 'sub', capWait()]]) {
+    const e = $(id); e.textContent = CAP[key] || def; try { e.contentEditable = 'plaintext-only'; } catch (x) { e.contentEditable = 'true'; }   // def: siehe capWait()
     if (e.contentEditable !== 'plaintext-only') e.contentEditable = 'true';
     e.setAttribute('role', 'textbox'); e.setAttribute('aria-label', t(id === 'capttl' ? 'fc_lay_title' : 'fc_lay_sub')); e.tabIndex = 0; e.dataset.def = def;
     e.onkeydown = ev => { if (ev.key === 'Enter') { ev.preventDefault(); e.blur(); } };
   }
-  fclBar(); fnpTags(); const f = $('caplaybar').querySelector('.laysec'); if (f) f.focus();
+  fclBar(); fnpTags(); fclPreview(); secDraw(); const f = $('caplaybar').querySelector('.laysec'); if (f) f.focus();
 }
 function fclClose() {
   FCL.on = false; FCL.d = null;
   for (const id of ['capttl', 'fnpfrom']) { const e = $(id); e.removeAttribute('contenteditable'); e.removeAttribute('role'); e.removeAttribute('aria-label'); e.removeAttribute('tabindex'); e.onkeydown = null; }
   const pn = $('fnpanel'); pn.classList.remove('lay'); $('caplay').setAttribute('aria-pressed', 'false'); $('caplaybar').hidden = true; $('caplaybar').innerHTML = '';
+  for (const k of Object.keys(SEC_EL)) { const e = $(SEC_EL[k]); if (e) e.classList.remove('layoff'); }
   capApply(); fnpTags(); $('caplay').focus();
 }
 function fclBar() {
   const bar = $('caplaybar'), d = FCL.d; bar.hidden = false;
   const sel = (k, vs) => `<label>${esc(t('fc_o_' + k))} <select data-o="${k}">${vs.map(v => `<option value="${v}"${d[k] === v ? ' selected' : ''}>${esc(t('fc_o_' + k + '_' + v))}</option>`).join('')}</select></label>`;
   bar.innerHTML = `<p class="layhint">${esc(t('fc_lay_hint'))}</p>
-    <div class="laysecs"><span class="laysl" id="fclsl">${esc(t('fc_lay_secs'))}</span><div class="laysbox" role="group" aria-labelledby="fclsl">${d.secs.map((k, i) => `<button type="button" class="laysec" data-sec="${k}" data-drag="sec" aria-label="${esc(t('fc_lay_sec_a', { s: t(SEC_L[k]), i: i + 1, n: d.secs.length }))}"><span aria-hidden="true">⠿</span> ${esc(t(SEC_L[k]))}</button>`).join('')}</div></div>
-    <div class="layopts">${sel('clock', ['big', 'small', 'off'])}${sel('dense', ['normal', 'compact'])}${sel('style', ['outline', 'filled'])}</div>
+    <div class="laysecs"><span class="laysl" id="fclsl">${esc(t('fc_lay_secs'))}</span><div class="laysbox" role="group" aria-labelledby="fclsl"></div></div>
+    <div class="layopts">${sel('clock', ['big', 'small', 'off'])}${sel('dense', ['normal', 'compact'])}${sel('style', ['outline', 'filled'])}<button type="button" class="btn" id="fcltpl" aria-expanded="false" aria-controls="fcltplbox">${esc(t('fb_tpl'))}</button></div>
+    <div id="fcltplbox" class="fbtplbox" hidden></div>
+    <div id="fclfb" class="layfb"></div>
     <div class="laybtns"><button type="button" class="btn" id="fclreset">${esc(t('fc_reset'))}</button><span class="grow"></span><button type="button" class="btn" id="fclcancel">${esc(t('cancel'))}</button><button type="button" class="btn primary" id="fcldone">${esc(t('fc_lay_done'))}</button></div>
     <span class="sr" id="fcllive" aria-live="polite"></span>`;
-  bar.querySelectorAll('.laysec').forEach(b => b.onkeydown = e => {
-    const i = d.secs.indexOf(b.dataset.sec), j = e.key === 'ArrowLeft' || e.key === 'ArrowUp' ? i - 1 : e.key === 'ArrowRight' || e.key === 'ArrowDown' ? i + 1 : -2;
-    if (j === -2) return; e.preventDefault(); if (j < 0 || j >= d.secs.length) return;
-    d.secs.splice(j, 0, d.secs.splice(i, 1)[0]); secApply(d.secs); fclBar(); bar.querySelector(`.laysec[data-sec="${b.dataset.sec}"]`).focus();
-    fclSay(t('fc_lay_moved', { s: t(SEC_L[b.dataset.sec]), i: j + 1, n: d.secs.length }));
-  });
+  fclChips(); fclFb();
+  $('fcltpl').onclick = () => { const box = $('fcltplbox'), o = box.hidden; box.hidden = !o; $('fcltpl').setAttribute('aria-expanded', String(o)); if (o) { Felder.tplBox(box, FBS.tpl || 'laerm', fbTpl); const f = box.querySelector('button'); if (f) f.focus(); } };
   bar.querySelectorAll('select[data-o]').forEach(s => s.onchange = () => {   // Vorschau sofort, gespeichert mit „Fertig“
     d[s.dataset.o] = s.value; const pn = $('fnpanel'), m = { clock: 'ck', dense: 'dn', style: 'ts' }[s.dataset.o];
     [...pn.classList].filter(c => c.startsWith(m + '-')).forEach(c => pn.classList.remove(c)); pn.classList.add(m + '-' + s.value);
   });
   $('fclreset').onclick = fclReset; $('fclcancel').onclick = fclClose; $('fcldone').onclick = fclSave;
+}
+function fclChips(focus) {                             // Bereiche (eingebaute und eigene Felder): Ziehen oder Pfeiltasten
+  const d = FCL.d, box = $('caplaybar').querySelector('.laysbox'); if (!box) return;
+  d.secs = d.secs.filter(k => SEC_EL[k] || d.fb.blocks.some(b => b.id === k && !b.del));
+  const off = k => Felder.isId(k) ? !!(d.fb.blocks.find(b => b.id === k) || {}).hide : !!(d.fb.sec[k] || {}).hide, lab = k => secLabel(k, d.fb.sec, d.fb.blocks);
+  box.innerHTML = d.secs.map((k, i) => `<button type="button" class="laysec${off(k) ? ' off' : ''}" data-sec="${esc(k)}" data-drag="sec" aria-label="${esc(t('fc_lay_sec_a', { s: lab(k), i: i + 1, n: d.secs.length }) + (off(k) ? ', ' + t('fc_lay_hidden') : ''))}"><span aria-hidden="true">⠿</span> ${esc(lab(k))}</button>`).join('');
+  box.querySelectorAll('.laysec').forEach(b => b.onkeydown = e => {
+    const i = d.secs.indexOf(b.dataset.sec), j = e.key === 'ArrowLeft' || e.key === 'ArrowUp' ? i - 1 : e.key === 'ArrowRight' || e.key === 'ArrowDown' ? i + 1 : -2;
+    if (j === -2) return; e.preventDefault(); if (j < 0 || j >= d.secs.length) return;
+    d.secs.splice(j, 0, d.secs.splice(i, 1)[0]); secApply(d.secs); fclChips(b.dataset.sec); fclFb();
+    fclSay(t('fc_lay_moved', { s: lab(b.dataset.sec), i: j + 1, n: d.secs.length }));
+  });
+  if (focus) { const f = box.querySelector(`.laysec[data-sec="${CSS.escape(focus)}"]`); if (f) f.focus(); }
+}
+function fclFb(focusId) {                             // Einstellungen je Bereich/Feld, neue Felder
+  const d = FCL.d, box = $('fclfb'); if (!box) return;
+  const opened = new Set([...box.querySelectorAll('details.fbed[open]')].map(x => x.dataset.id));
+  const items = d.secs.map(k => SEC_EL[k] ? { k, l: t(SEC_L[k]), req: k === 'txt' || k === 'wit', help: k === 'wit' || k === 'time' || k === 'txt' } : { b: d.fb.blocks.find(b => b.id === k) }).filter(x => x.k || (x.b && !x.b.del));
+  Felder.editor(box, d.fb, items, {
+    change: (id, redraw) => { fclChips(); if (redraw) fclFb(); fclPreview(); },
+    say: fclSay,
+    add: (type, b) => { if (type === 'pills') { fclAddGroup(); return; } d.secs.push(b.id); fclChips(); fclFb(b.id); fclPreview(); }
+  });
+  box.querySelectorAll('details.fbed').forEach(x => { if (opened.has(x.dataset.id)) x.open = true; });
+  if (focusId) { const r = box.querySelector(`details.fbed[data-id="${CSS.escape(focusId)}"]`); if (r) { r.open = true; const i = r.querySelector('.fe_l'); i.focus(); i.select(); } }
+}
+function fclPreview() {
+  const d = FCL.d; if (!d) return; fbMount(d.fb.blocks, d.fb.sec); secApply(d.secs);
+  for (const k of Object.keys(SEC_EL)) { const e = $(SEC_EL[k]); if (e) { e.hidden = false; e.classList.toggle('layoff', !!(d.fb.sec[k] || {}).hide); } }
+}
+function fclAddGroup() {
+  const d = FCL.d, l = prompt(t('fc_lay_gname')); if (!l || !l.trim()) return;
+  const g = 'g_' + hex6(); d.groups.splice(d.groups.findIndex(x => x.g === 'own'), 0, { g, l: l.trim().slice(0, 30), l0: '', custom: true, hide: false, hide0: false, req: false, req0: false, one: false, one0: false, h: '', h0: '', col: '', col0: '', isNew: true, del: false, keys: [] });
+  FCL.focus = `.layg[data-g="${g}"] .lgn`; fclDraw(); fclSay(t('fb_ed_added', { l: l.trim() }));
 }
 function fclFind(k) { return FCL.d.groups.find(g => g.keys.includes(k)); }
 function fclDraw() {
@@ -6847,7 +7060,9 @@ function fclDraw() {
         <input type="color" class="lgc" value="${esc(/^#[0-9a-f]{6}$/i.test(col) ? col : '#5f6b78')}" aria-label="${esc(t('fc_gcol', { g: gr.l }))}" title="${esc(t('fc_gcol', { g: gr.l }))}">
         <label class="check"><input type="checkbox" class="lgh"${gr.hide ? '' : ' checked'}> ${esc(t('fc_shown'))}</label>
         <label class="check" title="${esc(t('fc_req_tip'))}"><input type="checkbox" class="lgr"${gr.req ? ' checked' : ''}> ${esc(t('fc_req'))}</label>
+        <label class="check"><input type="checkbox" class="lgo"${gr.one ? ' checked' : ''}> ${esc(t('fb_g_one'))}</label>
         ${gr.custom ? `<button type="button" class="lgd" aria-label="${esc(t('fc_lay_gdel', { g: gr.l }))}" title="${esc(t('fc_lay_gdel', { g: gr.l }))}">🗑</button>` : ''}</div>
+      <div class="laygx"><input type="text" class="lgx" maxlength="160" value="${esc(gr.h || '')}" placeholder="${esc(t('fb_ed_help'))}" aria-label="${esc(t('fb_g_help', { g: gr.l }))}"></div>
       <div class="laykeys">${gr.keys.map(k => d.keys[k]).filter(x => x && !x.del).map(x => `<span class="layk tag ${gAttr(gr.g).replace('"', x.hide ? ' off"' : '"')} data-k="${esc(x.k)}"><button type="button" class="lkn" data-drag="key" aria-label="${esc(t('fc_lay_key_a', { k: x.l, g: gr.l }) + (x.hide ? ', ' + t('fc_lay_hidden') : ''))}">${esc(x.l)}</button><button type="button" class="lkx" aria-label="${esc(t(x.own ? 'fc_lay_kdel' : x.hide ? 'fc_lay_kshow' : 'fc_lay_khide', { k: x.l }))}" title="${esc(t(x.own ? 'fc_lay_kdel' : x.hide ? 'fc_lay_kshow' : 'fc_lay_khide', { k: x.l }))}">${x.own ? '✕' : x.hide ? '○' : '●'}</button></span>`).join('')}<button type="button" class="tag add lka">＋ ${esc(t('fc_lay_kadd'))}</button></div>
     </div>`;
   });
@@ -6859,6 +7074,8 @@ function fclDraw() {
     row.querySelector('.lgc').oninput = e => { gr.col = e.target.value; row.style.setProperty('--gc', gr.col); };
     row.querySelector('.lgh').onchange = e => { gr.hide = !e.target.checked; row.classList.toggle('off', gr.hide); };
     row.querySelector('.lgr').onchange = e => { gr.req = e.target.checked; };
+    row.querySelector('.lgo').onchange = e => { gr.one = e.target.checked; };
+    row.querySelector('.lgx').oninput = e => { gr.h = e.target.value.trim(); };
     const del = row.querySelector('.lgd'); if (del) del.onclick = () => {
       if (!confirm(t('fc_lay_gdel_q', { g: gr.l }))) return;
       const own = d.groups.find(g => g.g === 'own'); own.keys.push(...gr.keys); gr.keys = []; gr.del = true; fclDraw(); fclSay(t('fc_lay_gdeleted', { g: gr.l }));
@@ -6872,11 +7089,7 @@ function fclDraw() {
     nb.onkeydown = e => { if (e.key === 'Delete' || e.key === 'Backspace') { e.preventDefault(); fclKeyX(x); } else fclMoveKey(e, x); };
     chip.querySelector('.lkx').onclick = () => fclKeyX(x);
   });
-  box.querySelector('.lga').onclick = () => {
-    const l = prompt(t('fc_lay_gname')); if (!l || !l.trim()) return;
-    const g = 'g_' + hex6(); d.groups.splice(d.groups.findIndex(x => x.g === 'own'), 0, { g, l: l.trim().slice(0, 30), l0: '', custom: true, hide: false, hide0: false, req: false, req0: false, col: '', col0: '', isNew: true, del: false, keys: [] });
-    FCL.focus = `.layg[data-g="${g}"] .lgn`; fclDraw();
-  };
+  box.querySelector('.lga').onclick = fclAddGroup;
   if (FCL.focus) { const f = box.querySelector(FCL.focus); FCL.focus = null; if (f) f.focus(); }
 }
 function fclKeyX(x) {                                  // eigene Taste löschen, eingebaute ein-/ausblenden
@@ -6962,7 +7175,7 @@ function fclPointer(e) {                               // Ziehen mit Maus, Stift
     win.removeEventListener('pointermove', move); win.removeEventListener('pointerup', end); win.removeEventListener('pointercancel', end);
     if (!on) return;
     item.classList.remove('dragging'); fclFromDom(); FCL.dragged = true; setTimeout(() => { FCL.dragged = false; }, 0);
-    if (kind === 'sec') { secApply(FCL.d.secs); fclBar(); } else fclDraw();
+    if (kind === 'sec') { secApply(FCL.d.secs); fclChips(); fclFb(); } else fclDraw();
   };
   win.addEventListener('pointermove', move, { passive: false }); win.addEventListener('pointerup', end); win.addEventListener('pointercancel', end);
 }
@@ -6980,10 +7193,12 @@ async function fclSave() {
   }
   for (const gr of d.groups) {
     if (gr.del) { if (!gr.isNew) ops.push({ action: 'gdel', g: gr.g }); continue; }
-    if (gr.isNew) { if (gr.hide) ops.push({ action: 'ghide', g: gr.g, on: true }); if (gr.col) ops.push({ action: 'gcol', g: gr.g, c: gr.col }); if (gr.req) ops.push({ action: 'req', g: gr.g, on: true }); continue; }
+    if (gr.isNew) { if (gr.hide) ops.push({ action: 'ghide', g: gr.g, on: true }); if (gr.col) ops.push({ action: 'gcol', g: gr.g, c: gr.col }); if (gr.req) ops.push({ action: 'req', g: gr.g, on: true }); if (gr.one) ops.push({ action: 'gone', g: gr.g, on: true }); if (gr.h) ops.push({ action: 'ghelp', g: gr.g, h: gr.h }); continue; }
     if (gr.l !== gr.l0) ops.push({ action: 'gren', g: gr.g, l: gr.custom || gr.l !== t('fc_g_' + gr.g) ? gr.l : '' });
     if (gr.hide !== gr.hide0) ops.push({ action: 'ghide', g: gr.g, on: gr.hide });
     if (gr.req !== gr.req0) ops.push({ action: 'req', g: gr.g, on: gr.req });
+    if (gr.one !== gr.one0) ops.push({ action: 'gone', g: gr.g, on: gr.one });
+    if (gr.h !== gr.h0) ops.push({ action: 'ghelp', g: gr.g, h: gr.h });
     if (gr.col !== gr.col0) ops.push({ action: 'gcol', g: gr.g, c: gr.col });
   }
   const flat = fclFlat(d.groups).filter(k => !d.keys[k].del);
@@ -6991,7 +7206,14 @@ async function fclSave() {
   const gs = d.groups.filter(g => !g.del).map(g => g.g); if (gs.join() !== d.gorder0) ops.push({ action: 'gorder', groups: gs });
   const tt = $('capttl').textContent.trim(), ts = $('fnpfrom').textContent.trim();
   const cap = { title: tt === $('capttl').dataset.def ? '' : tt.slice(0, 60), sub: ts === $('fnpfrom').dataset.def ? '' : ts.slice(0, 160), clock: d.clock, dense: d.dense, style: d.style };
-  if (d.secs.join() !== d.secs0) cap.order = d.secs;
+  const secs = d.secs.filter(k => SEC_EL[k] || d.fb.blocks.some(b => b.id === k && !b.del));
+  if (secs.join() !== d.secs0) cap.order = secs;
+  const fbNew = Felder.strip(d.fb);
+  if (JSON.stringify(fbNew) !== d.fb0) {                // eigene Felder; „zeigen“ der eingebauten Bereiche geht nach cap.hide
+    const sec = JSON.parse(JSON.stringify(fbNew.sec)), keep = (CAP.hide || []).filter(x => !SEC_EL[x]);
+    cap.hide = keep.concat(Object.keys(SEC_EL).filter(k => (sec[k] || {}).hide)); for (const k in sec) delete sec[k].hide;
+    cap.blocks = fbNew.blocks; cap.sec = sec;
+  }
   try {
     if (ops.length) {
       const j = await (await fetch('notetags', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ action: 'batch', ops }) })).json();
@@ -7000,6 +7222,7 @@ async function fclSave() {
     }
     if (!(await capPost(cap))) throw new Error('cap');
     toast('✓ ' + t('fc_lay_saved'));
+    if (cap.blocks) fbLoad(true);
   } catch (x) { toast(t('saveerr')); return; }
   fclClose(); ntsRedraw();
 }
@@ -7134,7 +7357,7 @@ function initEvView() {
   sync();
 }
 function initFn() {
-  initFnp(); initEvView(); initProf(); ntsLoad();
+  initFnp(); initEvView(); initProf(); ntsLoad(); fbLoad();
   $('fnx').onclick = $('fncancel').onclick = () => $('fndlg').close();
   enterSave($('fntext'), () => fnSave());
   $('fnsave').onclick = () => fnSave(false); $('fndel').onclick = () => fnSave(true);

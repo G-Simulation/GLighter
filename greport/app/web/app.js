@@ -114,7 +114,7 @@ function ntsApply(j) {
   if (j.tags) NOTE_TAGS = j.tags;
   NTS.own = {}; NTS.del = new Set(); for (const o of j.own || []) { NTS.own[o.k] = o.l; if (o.del) NTS.del.add(o.k); }
   Object.assign(NTS, { hide: new Set(j.hide || []), use: j.use || {}, sug: j.suggest || [], max: j.own_max || 5, ren: j.ren || {}, grp: j.grp || {}, order: j.order || [], mode: j.mode || 'use', gcol: j.gcol || {}, req: new Set(j.req || []), limit: j.limit || 5, show: j.show || 0, proMax: j.pro_max || 200,
-    gall: j.gall || [], when: j.when || [], whenMax: j.when_max || 30 });
+    gall: j.gall || [], when: j.when || [], whenMax: j.when_max || 30, gone: new Set(j.gone || []), ghelp: j.ghelp || {} });
   WHEN.clear(); for (const w of NTS.when) WHEN.set(w.k, w);
   gcolApply();
 }
@@ -216,7 +216,7 @@ function extTxt(n) {                                   // kurze Anzeige in Zeitl
 }
 const witTxt = n => { const x = n.ext || {}, r = x.wrole ? t('gr_role_' + x.wrole) : ''; return n.witness + (r || x.wcontact ? ' (' + [r, x.wcontact].filter(Boolean).join(', ') + ')' : ''); };
 /* ---------- Notiz jetzt ---------- */
-const FNP = { from: null, tags: new Set(), edit: null, fixed: false, open: new Set(), notime: false, when: null, approx: false, cap: null, manual: false, pend: null };
+const FNP = { from: null, tags: new Set(), edit: null, fixed: false, open: new Set(), notime: false, when: null, approx: false, cap: null, manual: false, pend: null, fv: {}, reqWarned: null };
 /* Lange drücken (Maus, Stift oder Finger, ~0,55 s ohne zu bewegen) oder Rechtsklick: onHold statt Klick */
 function holdBind(b, onHold) {
   let tm = 0, x0 = 0, y0 = 0, fired = false;
@@ -252,7 +252,7 @@ function fnpTags() {
     const ks = by[g] || []; if (!ks.length && g !== 'own') continue;
     if (gi.hide && !ks.some(k => FNP.tags.has(k))) continue;        // ausgeblendete Rubrik (gewählte Wörter bleiben sichtbar)
     const lim = NTS.show > 0 && !FNP.open.has(g) ? NTS.show : 0, shown = lim ? ks.filter((k, i) => i < lim || FNP.tags.has(k)) : ks, hid = ks.length - shown.length;   // Pro: nur die ersten N je Gruppe
-    h += `<div class="grp${NTS.req && NTS.req.has(g) ? ' req' : ''}" data-g="${g}"><span>${esc(gLabel(g))}${NTS.req && NTS.req.has(g) ? '<i class="reqm" title="' + esc(t('gr_req_tip')) + '"> *</i>' : ''}</span><div>${shown.map(k => tagBtn(k, FNP.tags.has(k))).join('')}${hid > 0 ? `<button type="button" class="tag more" data-g="${g}">${esc(t('gr_more', { n: hid }))}</button>` : FNP.open.has(g) && NTS.show > 0 && ks.length > NTS.show ? `<button type="button" class="tag more less" data-g="${g}">${esc(t('gr_less'))}</button>` : ''}${g === 'own' ? `<button type="button" class="tag add">＋ ${esc(t('qt_add'))}</button>` : ''}</div></div>`;
+    h += `<div class="grp${NTS.req && NTS.req.has(g) ? ' req' : ''}" data-g="${g}"><span>${esc(gLabel(g))}${NTS.req && NTS.req.has(g) ? '<i class="reqm" title="' + esc(t('gr_req_tip')) + '"> *</i>' : ''}${(NTS.ghelp || {})[g] ? `<small class="ghelp">${esc(NTS.ghelp[g])}</small>` : ''}</span><div${NTS.gone && NTS.gone.has(g) ? ` role="group" aria-label="${esc(gLabel(g) + ' – ' + t('fb_g_one'))}"` : ''}>${shown.map(k => tagBtn(k, FNP.tags.has(k))).join('')}${hid > 0 ? `<button type="button" class="tag more" data-g="${g}">${esc(t('gr_more', { n: hid }))}</button>` : FNP.open.has(g) && NTS.show > 0 && ks.length > NTS.show ? `<button type="button" class="tag more less" data-g="${g}">${esc(t('gr_less'))}</button>` : ''}${g === 'own' ? `<button type="button" class="tag add">＋ ${esc(t('qt_add'))}</button>` : ''}</div></div>`;
   }
   box.innerHTML = h;
   box.querySelectorAll('.grp>div').forEach(row => {          // Handy: Hinweis rechts, solange die Zeile weitergeht
@@ -260,7 +260,9 @@ function fnpTags() {
     row.addEventListener('scroll', upd, { passive: true }); requestAnimationFrame(upd);
   });
   box.querySelectorAll('.tag[data-t]').forEach(b => {
-    b.onclick = () => { const k = b.dataset.t; FNP.tags.has(k) ? FNP.tags.delete(k) : FNP.tags.add(k); b.classList.toggle('on', FNP.tags.has(k)); b.setAttribute('aria-pressed', FNP.tags.has(k)); fnpStart(); reqCheck(); if (SECHIDE.size) secDraw(); };
+    b.onclick = () => { const k = b.dataset.t, g = ntGroup(k), one = NTS.gone && NTS.gone.has(g) && !FNP.tags.has(k);
+      if (one) for (const x of [...FNP.tags]) if (ntGroup(x) === g) { FNP.tags.delete(x); const o = box.querySelector(`.tag[data-t="${CSS.escape(x)}"]`); if (o) { o.classList.remove('on'); o.setAttribute('aria-pressed', 'false'); } }   // nur eine Auswahl in dieser Rubrik
+      FNP.tags.has(k) ? FNP.tags.delete(k) : FNP.tags.add(k); b.classList.toggle('on', FNP.tags.has(k)); b.setAttribute('aria-pressed', FNP.tags.has(k)); fnpStart(); reqCheck(); if (SECHIDE.size) secDraw(); };
     holdBind(b, () => layOpenAt(b.dataset.t));
   });
   box.querySelectorAll('.tag[data-w]').forEach(b => b.onclick = () => whenPick(b.dataset.w));
@@ -334,14 +336,17 @@ function fnpShow() {
   const to = $('fnptoi').value, run = $('fnprun').checked;
   if (!LAY.on) {                                       // im Bearbeiten-Modus sind Überschrift und Hinweis editierbar – nicht überschreiben
     // eigener Hinweis ersetzt nur den Ruhezustand; Zustandsmeldungen (ändern, Zeit gesetzt, läuft) bleiben
-    $('fnpfrom').textContent = FNP.edit ? t('gr_editing_s') : FNP.notime ? t('gr_notime') : FNP.fixed ? (FNP.when && FNP.cap ? t('gr_capinfo', { t: fTime(FNP.cap), k: ntLabel(FNP.when) }) : t('gr_t_fixed')) : FNP.from == null ? (PF.cap_sub || t(matchMedia('(pointer:coarse)').matches ? 'gr_wait_m' : 'gr_wait')) : t('gr_t_live');
+    $('fnpfrom').textContent = FNP.edit ? t('gr_editing_s') : FNP.notime ? t('gr_notime') : FNP.fixed ? (FNP.when && FNP.cap ? t('gr_capinfo', { t: fTime(FNP.cap), k: ntLabel(FNP.when) }) : t('gr_t_fixed')) : FNP.from == null ? (PF.cap_sub || capWait()) : t('gr_t_live');
     $('capttl').textContent = FNP.edit ? t('gr_change_ttl') : (PF.cap_title || t('fn_btn'));
   }
   $('fnptimetxt').textContent = FNP.notime ? t('gr_notime') + ' · ' + t('gr_t_change') : (FNP.approx ? '≈ ' : '') + (FNP.fixed || FNP.edit ? t('gr_t_at', { t: fTime(at) }) : t('gr_t_now')) + (to ? ' – ' + fTime(new Date(to).getTime()) : run ? ' – ' + t('gr_t_run') : '') + ' · ' + t('gr_t_change');
 }
+/* Hinweis unter der Überschrift: passt zur Vorlage (ohne Textfeld, mit Zähler: „Taste ＋1 drücken …“) */
+const capWait = () => secHidden('txt') && Felder.visible().some(b => b.type === 'counter') ? t('fb_wait_cnt') : t(matchMedia('(pointer:coarse)').matches ? 'gr_wait_m' : 'gr_wait');
 function fnpReset() {
   FNP.from = null; FNP.tags = new Set(); FNP.edit = null; FNP.fixed = false; Object.assign(FNP, { notime: false, when: null, approx: false, cap: null, manual: false, pend: null });
   $('fnptext').value = ''; $('fnpwit').value = ''; $('fnpfromi').value = ''; $('fnptoi').value = ''; $('fnprun').checked = false;
+  FNP.fv = {}; FNP.reqWarned = null; fbMount();
   $('fnpcancel').hidden = true; $('fnpsave').textContent = t('save'); $('fnpanel').classList.remove('editing');
   ATT.pend = []; attPendDraw();
   extFill(null); timeEdit(false); notimeShow(); fnpTags(); fnpShow(); listDraw(); reqCheck(); secDraw(); tipsDraw();
@@ -352,9 +357,10 @@ function timeEdit(open) {
 }
 async function fnpSave() {
   const fixed = FNP.fixed && $('fnpfromi').value, tv = $('fnptoi').value, run = $('fnprun').checked, ed = FNP.edit;
+  if (!fbReqOk()) return;
   const body = { action: ed ? 'edit' : 'add', id: ed ? ed.id : '', from: fixed ? inIso($('fnpfromi').value, ed && ed.from) : ed ? (ed.from || dto(new Date(ed.a))) : dto(new Date(nowMs())), to: tv ? inIso(tv, ed && ed.to) : run ? dto(new Date(nowMs())) : '',
     src: ed ? (ed.src || 'all') : 'all', text: autoText($('fnptext').value, FNP.tags) || (ATT.pend.length ? t('gr_att_only', { n: ATT.pend.map(p => p.f.name).join(', ') }) : ''), typed: !!$('fnptext').value.trim(), tags: [...FNP.tags], witness: $('fnpwit').value,
-    notime: !!FNP.notime, ext: extRead() };
+    notime: !!FNP.notime, ext: extRead(), fields: fbOut() };
   if (FNP.when) Object.assign(body, { wk: FNP.when, wl: ntLabel(FNP.when), approx: !!FNP.approx, cap: FNP.cap || nowMs() });   // erfasst um … (Taste: …)
   else if (ed && ed.wk && !FNP.timeTouched) Object.assign(body, { wk: ed.wk, wl: ed.wl, approx: !!ed.approx, cap: ed.cap });
   else if (ed && ed.cap) body.cap = ed.cap;                                    // Erfassungszeit bleibt beim Ändern
@@ -362,8 +368,8 @@ async function fnpSave() {
   const msg = $('fnpmsg'); msg.className = 'msg';
   try {
     const r = await post('note', body);
-    if (!r.ok) { msg.textContent = t(r.error === 'empty' ? 'fn_empty' : r.error === 'to' ? 'fn_bad_to' : 'saveerr'); msg.classList.add('err'); return; }
-    const at = r.note && r.note.a, pend = ATT.pend.slice(); fnpReset(); ntsLoad();
+    if (!r.ok) { msg.textContent = r.error === 'field' ? t('fb_bad', { l: (r.fields || []).map(x => (Felder.byId(x) || {}).l || x).join(', ') }) : t(r.error === 'empty' ? 'fn_empty' : r.error === 'to' ? 'fn_bad_to' : 'saveerr'); msg.classList.add('err'); return; }
+    const at = r.note && r.note.a, pend = ATT.pend.slice(), hadF = Object.keys(body.fields || {}).length; fnpReset(); ntsLoad(); if (hadF) fbLoad(true);
     if (pend.length) await attUploadAll(pend, [r.note.id], msg);            // Anlagen an die gerade gespeicherte Notiz
     msg.className = 'msg'; msg.textContent = '✓ ' + t(ed ? 'gr_changed_at' : 'gr_saved_at', { t: at ? fTime(at) : '' }); setTimeout(() => { if (msg.textContent.startsWith('✓')) msg.textContent = ''; }, 5000);
     listLoad();
@@ -373,6 +379,7 @@ function fnpEdit(n) {
   FNP.edit = n; FNP.tags = new Set(n.tags || []); FNP.fixed = false; FNP.from = n.a;
   Object.assign(FNP, { notime: !!n.notime, when: null, approx: !!n.approx, cap: n.cap || null, manual: false, pend: null, timeTouched: false });
   $('fnptext').value = n.text || ''; $('fnpwit').value = n.witness || '';
+  FNP.fv = JSON.parse(JSON.stringify(n.fields || {})); FNP.reqWarned = null; fbMount();      // eigene Felder (auch gelöschte bleiben erhalten)
   $('fnpfromi').value = n.from ? dtl(new Date(n.from)) : ''; $('fnptoi').value = n.to ? dtl(new Date(n.to)) : ''; $('fnprun').checked = false;
   $('fnpcancel').hidden = false; $('fnpsave').textContent = t('gr_change'); $('fnpanel').classList.add('editing');
   extFill(n.ext); attPendDraw(); notimeShow(); fnpTags(); fnpShow(); listDraw(); tipsDraw(); $('fnpanel').scrollIntoView({ block: 'start', behavior: 'smooth' }); $('fnptext').focus({ preventScroll: true });
@@ -435,15 +442,17 @@ async function fnPop() {
   setTimeout(() => { const tx = doc.getElementById('fnptext'); if (tx) tx.focus(); }, 100);
 }
 /* Abschnitte von „Notiz jetzt“ ein- und ausblenden (auch abgedockt), gemerkt pro Browser */
-const SECS = [['txt', 'fnptext', 'fnp_p_txt'], ['tags', 'fnptags', 'fnp_p_tags'], ['wit', 'secwit', 'fnp_p_wit'], ['more', 'secmore', 'gr_more_p'], ['time', 'sectime', 'gr_p_ext']];
 let SECHIDE = new Set(); try { SECHIDE = new Set(JSON.parse(localStorage.getItem('gr_sechide') || '[]')); } catch (e) { }
 function secDraw() {
   const bar = $('secbar'); if (!bar) return; bar.innerHTML = '';
-  for (const [k, id, l] of capOrder().map(x => SECS.find(s => s[0] === x))) {
-    const off = SECHIDE.has(k), e = $(id); if (e) e.hidden = off;
-    const n = off && k === 'tags' && FNP.tags.size ? ' · ' + FNP.tags.size : off && k === 'wit' && $('fnpwit').value.trim() ? ' · 1' : '';
-    const b = el('button', { type: 'button', className: 'secb' + (off ? '' : ' on'), textContent: t(l) + n });
-    b.setAttribute('aria-pressed', String(!off)); b.title = t(off ? 'gr_sec_show' : 'gr_sec_hide', { s: t(l) });
+  if (LAY.on) return;
+  for (const k of capOrder()) {
+    const blk = Felder.isId(k), e = secEl(k);
+    if (blk ? !e : secHidden(k)) { if (e) e.hidden = true; continue; }            // in „Layout anpassen“ ausgeblendet: ganz weg
+    const off = SECHIDE.has(k), l = secLabel(k); if (e) e.hidden = off;
+    const n = off && k === 'tags' && FNP.tags.size ? ' · ' + FNP.tags.size : off && k === 'wit' && $('fnpwit').value.trim() ? ' · 1' : off && blk && !Felder.isEmpty(FNP.fv[k]) ? ' · 1' : '';
+    const b = el('button', { type: 'button', className: 'secb' + (off ? '' : ' on'), textContent: l + n });
+    b.setAttribute('aria-pressed', String(!off)); b.title = t(off ? 'gr_sec_show' : 'gr_sec_hide', { s: l });
     b.onclick = () => { off ? SECHIDE.delete(k) : SECHIDE.add(k); try { localStorage.setItem('gr_sechide', JSON.stringify([...SECHIDE])); } catch (x) { } secDraw(); };
     bar.appendChild(b);
   }
@@ -470,6 +479,96 @@ function initFnp() {
     fnpShow();
   }, 1000);
   if (!matchMedia('(pointer:coarse)').matches) setTimeout(() => $('fnptext').focus({ preventScroll: true }), 300);
+}
+/* ---------- Eigene Felder (Bausteine): Zähler, Zahl, Ja/Nein, Auswahl, Skala, Dauer, Datum, Ort, Person, Text ----------
+   Definitionen in felder.json (Server), Werte je Notiz in „fields“. Eingebaute Bereiche (Text, Schnellwahl, Zeuge, Mehr, Zeitraum)
+   lassen sich umbenennen, mit Hinweis versehen, als Pflicht markieren und ausblenden. */
+const FB = Felder.S;
+const secHidden = (k, sec) => !!(((sec || FB.sec)[k] || {}).hide);
+function secLabel(k, sec, list) {
+  if (Felder.isId(k)) { const b = (list || FB.defs).find(x => x.id === k); return b ? b.l : k; }
+  return ((sec || FB.sec)[k] || {}).l || t(SEC_L[k]);
+}
+const FBH = { get: id => FNP.fv[id], set: (id, v) => { if (v === undefined) delete FNP.fv[id]; else FNP.fv[id] = v; if (SECHIDE.size) secDraw(); },
+  start: () => fnpStart(), count: (b, d) => fbCount(b, d) };
+/* Felder in „Notiz jetzt“ einhängen (list/sec: Entwurf aus „Layout anpassen“ als Vorschau) */
+function fbMount(list, sec) {
+  const body = $('fnpbody'); if (!body) return;
+  const vis = list ? list.filter(b => !b.del) : Felder.visible(), ids = new Set(vis.map(b => b.id));
+  body.querySelectorAll(':scope > .fbblk').forEach(x => { if (!ids.has(x.dataset.b)) x.remove(); });
+  for (const b of vis) {
+    let box = $('fb_' + b.id);
+    if (!box) { box = body.ownerDocument.createElement('div'); box.id = 'fb_' + b.id; body.appendChild(box); }
+    Felder.render(box, b, FNP.fv[b.id], FBH); box.classList.toggle('layoff', !!(list && b.hide));
+  }
+  secMeta(sec);
+  for (const k of Object.keys(SEC_EL)) { const e = $(SEC_EL[k]); if (!e) continue; if (list) e.hidden = false; e.classList.toggle('layoff', !!(list && secHidden(k, sec))); }   // Vorschau: ausgeblendete blass
+}
+/* Namen, Hinweise und Pflicht der eingebauten Bereiche */
+function secMeta(sec) {
+  sec = sec || FB.sec; const g = k => sec[k] || {}, neutral = FB.tpl && FB.tpl !== 'laerm';
+  const tx = $('fnptext'); if (!tx) return;
+  tx.placeholder = g('txt').h || t(neutral ? 'fb_txt_ph' : 'fn_ph');
+  const tl = g('txt').l || t('gr_a_text'); tx.setAttribute('aria-label', tl); tx.title = tl;
+  if (g('txt').req) tx.setAttribute('aria-required', 'true'); else tx.removeAttribute('aria-required');
+  const w = $('fnpwit'), wl = g('wit').l; w.placeholder = wl ? t('fb_wit_ph', { l: wl }) : t('fn_wit'); w.setAttribute('aria-label', wl || t('gr_a_wit')); w.title = wl || t('gr_a_wit');
+  if (g('wit').req) w.setAttribute('aria-required', 'true'); else w.removeAttribute('aria-required');
+  $('secwit').classList.toggle('req', !!g('wit').req);
+  const sm = $('secmore').querySelector('summary'); sm.textContent = g('more').l || t('gr_more_s');
+  for (const k of ['wit', 'more', 'time']) { const h = $('sech' + k); if (h) { h.textContent = g(k).h || ''; h.hidden = !g(k).h; } }
+}
+/* Werte zum Speichern: nur ausgefüllte; Werte gelöschter oder ausgeblendeter Felder einer geänderten Notiz bleiben */
+function fbOut() { const o = {}; for (const [k, v] of Object.entries(FNP.fv || {})) if (!Felder.isEmpty(v)) o[k] = v; return o; }
+/* Pflicht: einmal Hinweis, beim zweiten „Speichern“ wird trotzdem gespeichert (wie bei den Pflicht-Rubriken) */
+function fbReqOk() {
+  const c = Felder.check(FNP.fv, $('fnpbody')), msg = $('fnpmsg'), g = k => FB.sec[k] || {};
+  if (!secHidden('txt') && g('txt').req && !$('fnptext').value.trim()) c.miss.unshift(secLabel('txt'));
+  if (!secHidden('wit') && g('wit').req && !$('fnpwit').value.trim()) c.miss.push(secLabel('wit'));
+  if (c.bad.length) { msg.className = 'msg err'; msg.textContent = t('fb_bad', { l: c.bad.join(', ') }); return false; }
+  const key = c.miss.join('|');
+  if (c.miss.length && FNP.reqWarned !== key) { FNP.reqWarned = key; msg.className = 'msg warn'; msg.textContent = t('fb_req_miss', { l: c.miss.join(', ') }); return false; }
+  return true;
+}
+/* Zähler: jeder Druck ein eigener Eintrag mit genauer Zeit (die Notiz in Arbeit bleibt, wie sie ist) */
+async function fbCount(b, d) {
+  const now = nowMs(), msg = $('fnpmsg');
+  const r = await post('note', { action: 'add', from: dto(new Date(now)), cap: now, text: '', tags: [], src: 'all', fields: { [b.id]: d } }).catch(() => ({ ok: false }));
+  if (!r.ok) { msg.className = 'msg err'; msg.textContent = t('fb_c_err'); return; }
+  FB.counts[b.id] = (FB.counts[b.id] || 0) + d; Felder.countShow($('fnpbody'), b);
+  msg.className = 'msg'; msg.textContent = '✓ ' + t('fb_c_done', { l: b.l, v: Felder.fmt(b, d), t: fTime(r.note.a), n: FB.counts[b.id] });
+  clearTimeout(fbCount.tm); fbCount.tm = setTimeout(() => { if (msg.textContent.startsWith('✓')) msg.textContent = ''; }, 5000);
+  listLoad(); fbLoad(true);
+}
+async function fbLoad(quiet) {
+  try { Felder.load(await (await fetch('felder', { cache: 'no-store' })).json()); } catch (e) { }
+  if (quiet) { statsDraw(); for (const b of Felder.visible()) if (b.type === 'counter') Felder.countShow($('fnpbody'), b); return; }
+  fbApply();
+}
+function fbApply() {
+  if (!LAY.on) { fbMount(); secApply(); secDraw(); }
+  statsDraw(); tplFirst();
+  listDraw();
+}
+/* Statistik: je Zähler die letzten 14 Tage als kleine Balken über der Liste */
+function statsDraw() {
+  const box = document.getElementById('grstats'); if (!box) return;
+  const cs = Felder.active().filter(b => b.type === 'counter' && (!b.hide || (FB.daily[b.id] || []).some(x => x[1])));
+  box.hidden = !cs.length; box.innerHTML = cs.map(Felder.chart).join('');
+}
+/* Vorlagen: beim ersten Start anbieten (nicht aufdringlich, im Erfassen-Bereich) und in „Layout anpassen“ */
+function tplFirst() {
+  const box = $('tplfirst'); if (!box) return;
+  const on = FB.first && !FB.tpl; box.hidden = !on; if (!on) { box.innerHTML = ''; return; }
+  Felder.tplBox(box, null, x => fbTpl(x, false), () => fbTpl('laerm', false));
+}
+async function fbTpl(name, ask) {
+  if (ask && !confirm(t('fb_tpl_q', { n: t('fb_tpl_' + name) }))) return false;
+  const j = await post('felder', { action: 'tpl', tpl: name }).catch(() => ({ ok: false }));
+  if (!j.ok) { toast(t('saveerr')); return false; }
+  Felder.load(j); ntsApply(j.qt); if (j.prefs) PF = j.prefs;
+  if (LAY.on) layClose();
+  fbApply(); fnpTags(); fnpShow(); toast('✓ ' + t('fb_tpl_done', { n: t('fb_tpl_' + name) }));
+  return true;
 }
 /* ---------- Liste: Zeitleiste nach Tagen oder Tabelle (nur Anzeige – gespeichert wird nichts anders) ---------- */
 const cnt = n => t(n === 1 ? 'gr_count_1' : 'gr_count', { n });
@@ -515,7 +614,8 @@ function metaTxt(n) {
   if (n.approx) p.push(t('gr_approx'));
   return p.join(' · ');
 }
-const qMatch = (n, q) => ([n.text || '', n.witness || ''].concat(n.tagl || [], (n.tags || []).map(ntLabel)).join(' ')).toLowerCase().includes(q);
+const qMatch = (n, q) => ([n.text || '', n.witness || ''].concat(n.tagl || [], (n.tags || []).map(ntLabel), Felder.compact(n.fields)).join(' ')).toLowerCase().includes(q);
+const fxHtml = (n, cls) => Felder.compact(n.fields).map(x => `<span class="${cls || 'by fx'}">${esc(x)}</span>`).join('');
 function countShow(n, m, f) {
   const c = document.getElementById('grcount'), s = f ? t('gr_cnt_f', { n, m }) : cnt(m);
   if (c.textContent !== s) c.textContent = s;
@@ -564,7 +664,7 @@ function listDraw() {
       const r = el('div', { className: 'note' + (FNP.edit && FNP.edit.id === n.id ? ' cur' : '') });
       const by = n.by === 'homeassistant' ? '🏠 Home Assistant' : n.by === 'import' ? t('gr_imported') : '';
       r.innerHTML = `<div class="t">${n.notime ? `<small class="nt">${esc(t('gr_notime'))}</small>` : esc((n.approx ? '≈ ' : '') + fTime(n.a))}${n.to ? `<small>${esc(t('gr_until', { t: fTime(n.b) }))}</small>` : ''}</div>
-        <div class="c">${(n.tags || []).filter(k => k !== 'zeuge' || !n.witness).map(tagMk).join('')}${n.text ? `<span class="tx">${esc(n.text)}</span>` : ''}${n.witness ? `<span class="who">👤 ${esc(witTxt(n))}</span>` : ''}${extTxt(n).map(x => `<span class="by ext">${esc(x)}</span>`).join('')}${(n.att || []).length ? `<button type="button" class="by attb" aria-label="${esc(t('gr_att_open') + ': ' + n.att.map(a => a.name).join(', '))}" title="${esc(n.att.map(a => a.name).join(', '))}">📎 ${n.att.length}</button>` : ''}${by ? `<span class="by">${esc(by)}</span>` : ''}${metaTxt(n) ? `<span class="by meta">${esc(metaTxt(n))}</span>` : ''}${n.edited ? `<button type="button" class="by histb" data-h="${esc(n.id)}">${esc(t('gr_edited_at', { t: fDate(Date.parse(n.edited)) + ' ' + fTime(Date.parse(n.edited)) }))}</button>` : ''}</div>
+        <div class="c">${(n.tags || []).filter(k => k !== 'zeuge' || !n.witness).map(tagMk).join('')}${n.text ? `<span class="tx">${esc(n.text)}</span>` : ''}${n.witness ? `<span class="who">👤 ${esc(witTxt(n))}</span>` : ''}${fxHtml(n)}${extTxt(n).map(x => `<span class="by ext">${esc(x)}</span>`).join('')}${(n.att || []).length ? `<button type="button" class="by attb" aria-label="${esc(t('gr_att_open') + ': ' + n.att.map(a => a.name).join(', '))}" title="${esc(n.att.map(a => a.name).join(', '))}">📎 ${n.att.length}</button>` : ''}${by ? `<span class="by">${esc(by)}</span>` : ''}${metaTxt(n) ? `<span class="by meta">${esc(metaTxt(n))}</span>` : ''}${n.edited ? `<button type="button" class="by histb" data-h="${esc(n.id)}">${esc(t('gr_edited_at', { t: fDate(Date.parse(n.edited)) + ' ' + fTime(Date.parse(n.edited)) }))}</button>` : ''}</div>
         <div class="a"><button type="button" class="e" aria-label="${esc(t('nt_edit'))}" title="${esc(t('nt_edit'))}">✎</button><button type="button" class="d" aria-label="${esc(t('nt_del'))}" title="${esc(t('nt_del'))}">🗑</button></div>`;
       r.querySelector('.e').onclick = () => fnpEdit(n);
       r.querySelector('.d').onclick = () => noteDel(n);
@@ -576,18 +676,22 @@ function listDraw() {
 }
 /* Tabelle (AG Grid Community, MIT – liegt der App bei, kein Internet nötig). Farben kommen aus den CSS-Variablen von GReport,
    dadurch folgen hell, dunkel und der Design-Knopf automatisch. */
-let GRID = null, GRID_FMT = '', GRID_EDIT = null;
+let GRID = null, GRID_FMT = '', GRID_EDIT = null, GRID_COLS = '';
 const NARROW = () => matchMedia('(max-width:600px)').matches;
 const COLS = 'day time text tags witness'.split(' ');
+/* eigene Felder als Spalten: alle nicht gelöschten, gelöschte nur, wenn eine Notiz einen Wert hat */
+const fbCols = () => FB.defs.filter(b => !b.del || LST.all.some(n => n.fields && b.id in n.fields));
+const colsAll = () => COLS.concat(fbCols().map(b => b.id));
 const colKey = () => 'gr_cols' + (NARROW() ? '_n' : '');
 function colVisible() {
   const v = NARROW() ? { day: true, time: false, text: true, tags: false, witness: false } : { day: true, time: true, text: true, tags: true, witness: true };
+  for (const b of fbCols()) v[b.id] = !NARROW() && (!b.hide || LST.all.some(n => n.fields && b.id in n.fields));   // ausgeblendet, aber mit Werten: Spalte zeigen
   try { Object.assign(v, JSON.parse(localStorage.getItem(colKey()) || '{}')); } catch (e) { }
   return v;
 }
 function colApply() {
-  if (!GRID) return; const v = colVisible();
-  GRID.setColumnsVisible(COLS.filter(c => v[c]), true); GRID.setColumnsVisible(COLS.filter(c => !v[c]), false);
+  if (!GRID) return; const v = colVisible(), all = colsAll().filter(c => GRID.getColumn(c));
+  GRID.setColumnsVisible(all.filter(c => v[c]), true); GRID.setColumnsVisible(all.filter(c => !v[c]), false);
   GRID.setColumnWidths([{ key: 'act', newWidth: NARROW() ? 80 : 104 }]); GRID.refreshHeader();   // schmal: Aktionen ohne Überschrift
   GRID.refreshCells({ columns: ['day'], force: true });   // ohne Spalte „Uhrzeit“ steht die Uhrzeit unter dem Datum
 }
@@ -627,6 +731,42 @@ class TagFloat {                                       // Kopfzeile: zeigt „Al
   init(p) { this.b = el('button', { type: 'button', className: 'tagff tagw' }); this.b.onclick = () => p.showParentFilter(); this.onParentModelChanged(null); }
   onParentModelChanged(m) { const n = m && m.values ? m.values.length : 0; this.b.textContent = n ? t('gr_f_n', { n }) : t('gr_f_all'); this.b.setAttribute('aria-label', t('gr_c_tags') + ': ' + this.b.textContent); }
   getGui() { return this.b; }
+}
+class ChoiceFilter {                                   // eigene Felder (Auswahl, Ja/Nein): Mehrfachauswahl der Werte
+  init(p) { this.p = p; this.b = p.b; this.sel = new Set(); this.gui = el('div', { className: 'tagf' }); this.draw(); }
+  vals(n) { const v = (n.fields || {})[this.b.id]; return v == null ? [] : Array.isArray(v) ? v.map(String) : [this.b.type === 'yesno' ? (v ? '1' : '0') : String(v)]; }
+  label(x) { return this.b.type === 'yesno' ? t(x === '1' ? 'fb_yes' : 'fb_no') : x; }
+  draw() {
+    const c = {}; for (const n of LST.notes) for (const x of this.vals(n)) c[x] = (c[x] || 0) + 1;
+    for (const x of (this.b.type === 'yesno' ? ['1', '0'] : this.b.opts || []).concat([...this.sel])) c[x] = c[x] || 0;
+    const ws = Object.keys(c);
+    this.gui.innerHTML = `<fieldset><legend>${esc(this.b.l)}</legend>${ws.length ? ws.map(k => `<label class="check"><input type="checkbox" value="${esc(k)}"${this.sel.has(k) ? ' checked' : ''}> ${esc(this.label(k))} <small>${c[k]}</small></label>`).join('') : `<p class="hint">${esc(t('gr_none_q'))}</p>`}</fieldset>
+      <div class="tagfb"><button type="button" class="btn"${this.sel.size ? '' : ' disabled'}>${esc(t('gr_f_none'))}</button></div>`;
+    this.gui.querySelectorAll('input').forEach(i => i.onchange = () => { i.checked ? this.sel.add(i.value) : this.sel.delete(i.value); this.gui.querySelector('.tagfb button').disabled = !this.sel.size; this.p.filterChangedCallback(); });
+    this.gui.querySelector('.tagfb button').onclick = () => { this.sel.clear(); this.draw(); this.p.filterChangedCallback(); };
+  }
+  getGui() { return this.gui; }
+  afterGuiAttached() { this.draw(); const f = this.gui.querySelector('input'); if (f) f.focus(); }
+  isFilterActive() { return this.sel.size > 0; }
+  doesFilterPass(p) { return this.vals(p.data).some(x => this.sel.has(x)); }
+  getModel() { return this.sel.size ? { values: [...this.sel] } : null; }
+  setModel(m) { this.sel = new Set((m && m.values) || []); this.draw(); }
+}
+class ChoiceFloat {
+  init(p) { this.p = p; this.b = el('button', { type: 'button', className: 'tagff' }); this.b.onclick = () => p.showParentFilter(); this.onParentModelChanged(null); }
+  onParentModelChanged(m) { const n = m && m.values ? m.values.length : 0; this.b.textContent = n ? t('gr_f_n', { n }) : t('gr_f_all'); this.b.setAttribute('aria-label', (this.p.b || {}).l + ': ' + this.b.textContent); }
+  getGui() { return this.b; }
+}
+function fbColDef(b, tf) {
+  const num = ['counter', 'number', 'scale', 'duration'].includes(b.type), choice = b.type === 'yesno' || b.type === 'select', val = p => ((p.data && p.data.fields) || {})[b.id];
+  const c = { colId: b.id, headerName: b.l, flex: 1, minWidth: 110, wrapText: true, autoHeight: true, cellDataType: false, sortable: true,
+    valueGetter: p => { const v = val(p); return num ? (typeof v === 'number' ? v : null) : Felder.fmt(b, v); },
+    getQuickFilterText: p => Felder.fmt(b, val(p)) };
+  if (num) Object.assign(c, { cellClass: 'num', valueFormatter: p => p.value == null ? '' : Felder.fmt(b, p.value), filter: 'agNumberColumnFilter',
+    filterParams: { filterOptions: ['greaterThanOrEqual', 'lessThanOrEqual', 'equals', 'inRange', 'blank', 'notBlank'], defaultOption: 'greaterThanOrEqual', maxNumConditions: 1, buttons: ['reset'] } });
+  else if (choice) Object.assign(c, { filter: ChoiceFilter, filterParams: { b }, floatingFilterComponent: ChoiceFloat, floatingFilterComponentParams: { b }, sortable: true });
+  else Object.assign(c, { filter: 'agTextColumnFilter', filterParams: tf });
+  return c;
 }
 class DateFloat {                                     // Kopfzeile Datum: zeigt den gewählten Zeitraum, öffnet den Datumsfilter
   init(p) { this.b = el('button', { type: 'button', className: 'tagff datef' }); this.b.onclick = () => p.showParentFilter(); this.onParentModelChanged(null); }
@@ -670,12 +810,9 @@ function actCell(p) {
   });
   return w;
 }
-function gridOpts() {
+function gridCols() {
   const tf = { maxNumConditions: 1, buttons: ['reset'], filterOptions: ['contains', 'notContains', 'equals', 'startsWith', 'blank', 'notBlank'] };
-  return {
-    theme: gridTheme(), getLocaleText: agText, rowData: [], getRowId: p => String(p.data.id),
-    defaultColDef: { sortable: true, resizable: true, suppressHeaderMenuButton: true, floatingFilter: true, filter: false },
-    columnDefs: [
+  return [
       { colId: 'day', field: 'a', headerName: t('gr_c_day'), sort: 'desc', flex: 1.1, minWidth: 96, filter: 'agDateColumnFilter',
         filterParams: { comparator: (fd, v) => { const d = dayOf(v); return d < fd.getTime() ? -1 : d > fd.getTime() ? 1 : 0; }, filterOptions: ['inRange', 'equals', 'lessThan', 'greaterThan'], defaultOption: 'inRange', inRangeInclusive: true, maxNumConditions: 1, buttons: ['reset'] },
         floatingFilterComponent: DateFloat, cellRenderer: p => `<span>${esc(fDay(p.data.a))}</span>${GRID && !GRID.getColumn('time').isVisible() ? `<small class="tm">${esc(timeTxt(p.data))}</small>` : ''}`,
@@ -689,9 +826,16 @@ function gridOpts() {
         cellRenderer: p => `<div class="mks">${(p.data.tags || []).filter(k => k !== 'zeuge' || !p.data.witness).map(tagMk).join('')}</div>` },
       { colId: 'witness', field: 'witness', headerName: t('gr_c_witness'), flex: 1.2, minWidth: 100, wrapText: true, autoHeight: true, filter: 'agTextColumnFilter', filterParams: tf,
         valueFormatter: p => p.data.witness ? witTxt(p.data) : '' },
+      ...fbCols().map(b => fbColDef(b, tf)),
       { colId: 'act', headerName: t('gr_c_act'), headerValueGetter: () => NARROW() ? '' : t('gr_c_act'), headerTooltip: t('gr_act_tip'), width: NARROW() ? 80 : 104, minWidth: 80, maxWidth: 104, sortable: false, resizable: false, floatingFilter: false, cellClass: 'actc', cellRenderer: actCell,
         suppressKeyboardEvent: p => !!(p.event.target && p.event.target.closest && p.event.target.closest('.acts button')) }
-    ],
+  ];
+}
+function gridOpts() {
+  return {
+    theme: gridTheme(), getLocaleText: agText, rowData: [], getRowId: p => String(p.data.id),
+    defaultColDef: { sortable: true, resizable: true, suppressHeaderMenuButton: true, floatingFilter: true, filter: false },
+    columnDefs: gridCols(),
     rowClassRules: { cur: p => !!(FNP.edit && p.data && FNP.edit.id === p.data.id) },
     tabToNextCell: () => false,                        // Tab verlässt die Tabelle (Pfeiltasten bewegen sich darin)
     tooltipShowDelay: 400, suppressCellFocus: false, animateRows: false, enableCellTextSelection: true, ensureDomOrder: true,
@@ -703,8 +847,9 @@ function gridOpts() {
 }
 function tblCount() { if (GRID) countShow(GRID.getDisplayedRowCount(), LST.all.length, GRID.isAnyFilterPresent() || !!LST.q.trim()); }
 function tblDraw() {
-  if (!GRID) { GRID = agGrid.createGrid(document.getElementById('grgrid'), gridOpts()); colApply(); }
-  const fk = JSON.stringify([PF, lang, NTS.ren, NTS.own, NTS.grp]);
+  if (!GRID) { GRID = agGrid.createGrid(document.getElementById('grgrid'), gridOpts()); GRID_COLS = JSON.stringify(fbCols()); colApply(); }
+  const ck = JSON.stringify(fbCols()); if (ck !== GRID_COLS) { GRID_COLS = ck; GRID.setGridOption('columnDefs', gridCols()); colApply(); }   // eigene Felder geändert
+  const fk = JSON.stringify([PF, lang, NTS.ren, NTS.own, NTS.grp, FB.defs]);
   GRID.setGridOption('rowData', LST.notes);
   if (fk !== GRID_FMT) { GRID_FMT = fk; GRID.refreshCells({ force: true }); }
   const ed = FNP.edit ? FNP.edit.id : null; if (ed !== GRID_EDIT) { GRID_EDIT = ed; GRID.redrawRows(); }
@@ -715,7 +860,7 @@ function colMenu() {
   const m = document.getElementById('grcolm'), b = document.getElementById('grcols');
   if (!m.hidden) { colMenuClose(); return; }
   const v = colVisible();
-  m.innerHTML = `<b class="colttl">${esc(t('gr_cols'))}</b>` + COLS.map(c => `<label class="check"><input type="checkbox" data-c="${c}"${v[c] ? ' checked' : ''}> ${esc(t('gr_c_' + c))}</label>`).join('');
+  m.innerHTML = `<b class="colttl">${esc(t('gr_cols'))}</b>` + colsAll().map(c => `<label class="check"><input type="checkbox" data-c="${c}"${v[c] ? ' checked' : ''}> ${esc(Felder.isId(c) ? (Felder.byId(c) || {}).l || c : t('gr_c_' + c))}</label>`).join('');
   const boxes = [...m.querySelectorAll('input')];
   const lock = () => { const on = boxes.filter(x => x.checked); boxes.forEach(x => { x.disabled = on.length === 1 && x.checked; }); };   // mindestens eine Spalte bleibt
   boxes.forEach(x => x.onchange = () => { const nv = colVisible(); nv[x.dataset.c] = x.checked; try { localStorage.setItem(colKey(), JSON.stringify(nv)); } catch (e) { } colApply(); lock(); });
@@ -912,13 +1057,13 @@ async function trashDraw() {
   const box = document.getElementById('trashbox');
   let j; try { j = await (await fetch('trash', { cache: 'no-store' })).json(); } catch (e) { return; }
   const ns = (j.notes || []).slice().reverse();
-  box.innerHTML = ns.length ? ns.map(n => `<div class="histrow"><span>${esc(fDate(n.a) + ' ' + (n.notime ? t('gr_notime') : fTime(n.a)))} – ${esc(n.text || (n.tagl || []).join(', '))}<small>${esc(t('gr_deleted_at', { t: fIso(n.deleted) }))}</small></span><button type="button" class="btn" data-r="${esc(n.id)}">${esc(t('gr_restore'))}</button></div>`).join('') : `<p class="hint">${esc(t('gr_trash_empty'))}</p>`;
+  box.innerHTML = ns.length ? ns.map(n => `<div class="histrow"><span>${esc(fDate(n.a) + ' ' + (n.notime ? t('gr_notime') : fTime(n.a)))} – ${esc(n.text || (n.tagl || []).join(', ') || Felder.compact(n.fields).join(' · '))}<small>${esc(t('gr_deleted_at', { t: fIso(n.deleted) }))}</small></span><button type="button" class="btn" data-r="${esc(n.id)}">${esc(t('gr_restore'))}</button></div>`).join('') : `<p class="hint">${esc(t('gr_trash_empty'))}</p>`;
   box.querySelectorAll('[data-r]').forEach(b => b.onclick = async () => { const r = await post('note', { action: 'restore', id: b.dataset.r }).catch(() => ({})); if (r.ok) { toast('✓ ' + t('gr_restored')); trashDraw(); listLoad(); } });
 }
 async function histOpen(n) {
   const d = document.getElementById('histdlg'), box = document.getElementById('histbox'); box.textContent = '…'; d.showModal(); tipsDraw(d);
   let j; try { j = await (await fetch('history?id=' + encodeURIComponent(n.id), { cache: 'no-store' })).json(); } catch (e) { box.textContent = t('saveerr'); return; }
-  const ver = x => { if (!x) return ''; const p = Object.assign({ a: Date.parse(x.from) || Date.parse(x.at || x.ts) }, x); return `${esc(fDate(p.a) + ' ' + (p.notime ? t('gr_notime') : fTime(p.a)))}${p.to ? ' – ' + esc(fTime(Date.parse(p.to))) : ''} · ${esc(p.text || '')}${(p.tags || []).length ? ' · ' + esc(p.tags.map(ntLabel).join(', ')) : ''}${p.witness ? ' · 👤 ' + esc(p.witness) : ''}`; };
+  const ver = x => { if (!x) return ''; const p = Object.assign({ a: Date.parse(x.from) || Date.parse(x.at || x.ts) }, x); return `${esc(fDate(p.a) + ' ' + (p.notime ? t('gr_notime') : fTime(p.a)))}${p.to ? ' – ' + esc(fTime(Date.parse(p.to))) : ''} · ${esc(p.text || '')}${(p.tags || []).length ? ' · ' + esc(p.tags.map(ntLabel).join(', ')) : ''}${p.witness ? ' · 👤 ' + esc(p.witness) : ''}${p.fields ? Felder.compact(p.fields).map(x => ' · ' + esc(x)).join('') : ''}`; };
   box.innerHTML = (j.items || []).map(e => {
     const x = e.op === 'start' ? (e.note || null) : e.note;
     return `<div class="histrow"><span><b>${esc(t(OPS[e.op] || 'gr_op_edit'))}</b> · ${esc(fIso(e.iso))}${x ? `<small>${ver(x)}</small>` : ''}${e.prev && e.op !== 'start' ? `<small class="old">${esc(t('gr_hist_before'))}: ${ver(e.prev)}</small>` : ''}</span></div>`;
@@ -1018,17 +1163,23 @@ function initDialogs() {
 const LAY = { on: false, d: null, focus: null };
 const SEC_EL = { txt: 'fnptext', tags: 'fnptags', wit: 'secwit', more: 'secmore', time: 'sectime' };
 const SEC_L = { txt: 'fnp_p_txt', tags: 'fnp_p_tags', wit: 'fnp_p_wit', more: 'gr_more_p', time: 'gr_p_ext' };
-function capOrder() { const o = (PF.cap_order || []).filter(x => SEC_EL[x]); return o.concat(Object.keys(SEC_EL).filter(x => !o.includes(x))); }
+/* Reihenfolge der Bereiche: eingebaute und eigene Felder (Kennung b_…) gemeinsam */
+function capOrder(list) {
+  const blocks = (list || Felder.active()).filter(b => !b.del).map(b => b.id), ok = x => SEC_EL[x] || blocks.includes(x);
+  const o = (PF.cap_order || []).filter(ok); return o.concat(Object.keys(SEC_EL).concat(blocks).filter(x => !o.includes(x)));
+}
+const secEl = k => Felder.isId(k) ? $('fb_' + k) : $(SEC_EL[k]);
 function secApply(order) {
   const body = $('fnpbody'); if (!body) return;
-  for (const k of order || capOrder()) { const e = $(SEC_EL[k]); if (e) body.appendChild(e); }
+  for (const k of order || capOrder()) { const e = secEl(k); if (e) body.appendChild(e); }
 }
 const hex6 = () => Array.from(crypto.getRandomValues(new Uint8Array(3)), b => b.toString(16).padStart(2, '0')).join('');
 const layFlat = gs => gs.filter(g => !g.del).flatMap(g => g.keys);
 function layBuild() {
   const groups = gIds().map(g => {
     const gi = gInfo(g) || {}, col = (NTS.gcol || {})[g] || '';
-    return { g, l: gLabel(g), l0: gLabel(g), custom: gCustom(g), hide: !!gi.hide, hide0: !!gi.hide, col, col0: col, isNew: false, del: false,
+    const rq = !!(NTS.req && NTS.req.has(g)), one = !!(NTS.gone && NTS.gone.has(g)), hp = (NTS.ghelp || {})[g] || '';
+    return { g, l: gLabel(g), l0: gLabel(g), custom: gCustom(g), hide: !!gi.hide, hide0: !!gi.hide, col, col0: col, isNew: false, del: false, req: rq, req0: rq, one, one0: one, h: hp, h0: hp,
       keys: g === 'when' ? whenOrdered() : ntOrdered(ntAll().filter(k => ntGroup(k) === g)) };
   });
   const keys = {};
@@ -1036,8 +1187,9 @@ function layBuild() {
     const w = WHEN.get(k);
     keys[k] = { k, l: ntLabel(k), l0: ntLabel(k), kind: w ? 'when' : 'tag', own: w ? !!w.own : NTS.own[k] != null, hide: w ? !!w.hide : NTS.hide.has(k), hide0: w ? !!w.hide : NTS.hide.has(k), g0: gr.g, isNew: false, del: false };
   }
-  const secs = capOrder();
-  LAY.d = { groups, keys, order0: layFlat(groups).join(), gorder0: groups.map(g => g.g).join(), secs, secs0: secs.join(), title: PF.cap_title || '', sub: PF.cap_sub || '', width: PF.width || 'wide', width0: PF.width || 'wide' };
+  const secs = capOrder(), fb = JSON.parse(JSON.stringify({ blocks: FB.defs, sec: FB.sec }));
+  LAY.d = { groups, keys, order0: layFlat(groups).join(), gorder0: groups.map(g => g.g).join(), secs, secs0: secs.join(), title: PF.cap_title || '', sub: PF.cap_sub || '', width: PF.width || 'wide', width0: PF.width || 'wide',
+    fb, fb0: JSON.stringify(Felder.strip(fb)) };
 }
 function laySay(msg) { const e = $('laylive'); if (e) { e.textContent = ''; setTimeout(() => { e.textContent = msg; }, 30); } }
 function layOpen() {
@@ -1045,36 +1197,66 @@ function layOpen() {
   LAY.on = true; layBuild();
   const pn = $('fnpanel'); pn.classList.add('lay'); $('laybtn').setAttribute('aria-pressed', 'true');
   const ce = 'plaintext-only';
-  for (const [id, key, def] of [['capttl', 'title', t('fn_btn')], ['fnpfrom', 'sub', t(matchMedia('(pointer:coarse)').matches ? 'gr_wait_m' : 'gr_wait')]]) {
+  for (const [id, key, def] of [['capttl', 'title', t('fn_btn')], ['fnpfrom', 'sub', capWait()]]) {
     const e = $(id); e.textContent = LAY.d[key] || def; try { e.contentEditable = ce; } catch (x) { e.contentEditable = 'true'; }
     if (e.contentEditable !== ce) e.contentEditable = 'true';
     e.setAttribute('role', 'textbox'); e.setAttribute('aria-label', t(id === 'capttl' ? 'gr_lay_title' : 'gr_lay_sub')); e.tabIndex = 0; e.dataset.def = def;
     e.onkeydown = ev => { if (ev.key === 'Enter') { ev.preventDefault(); e.blur(); } };
   }
-  layBar(); fnpTags(); $('laybar').querySelector('.laysec').focus();
+  layBar(); fnpTags(); fbPreview(); secDraw(); $('laybar').querySelector('.laysec').focus();
 }
 function layClose() {
   LAY.on = false; LAY.d = null; widthApply();   // Abbrechen: gespeicherte Breite
   for (const id of ['capttl', 'fnpfrom']) { const e = $(id); e.removeAttribute('contenteditable'); e.removeAttribute('role'); e.removeAttribute('aria-label'); e.removeAttribute('tabindex'); e.onkeydown = null; }
   const pn = $('fnpanel'); pn.classList.remove('lay'); $('laybtn').setAttribute('aria-pressed', 'false'); $('laybar').hidden = true; $('laybar').innerHTML = '';
-  secApply(); secDraw(); fnpTags(); fnpShow(); $('laybtn').focus();
+  fbMount(); secApply(); secDraw(); fnpTags(); fnpShow(); $('laybtn').focus();
 }
 function layBar() {
   const bar = $('laybar'), d = LAY.d; bar.hidden = false;
   bar.innerHTML = `<p class="layhint">${esc(t('gr_lay_hint'))}</p>
-    <div class="laysecs"><span class="laysl" id="laysl">${esc(t('gr_lay_secs'))}</span><div class="laysbox" role="group" aria-labelledby="laysl">${d.secs.map((k, i) => `<button type="button" class="laysec" data-sec="${k}" data-drag="sec" aria-label="${esc(t('gr_lay_sec_a', { s: t(SEC_L[k]), i: i + 1, n: d.secs.length }))}"><span aria-hidden="true">⠿</span> ${esc(t(SEC_L[k]))}</button>`).join('')}</div></div>
-    <div class="laywid"><span class="laysl" id="laywl">${esc(t('gr_p_width'))}</span><div class="seg" role="group" aria-labelledby="laywl">${['wide', 'narrow'].map(w => `<button type="button" class="laywb${d.width === w ? ' on' : ''}" data-w="${w}" aria-pressed="${d.width === w}">${esc(t(w === 'wide' ? 'gr_p_wide' : 'gr_p_narrow'))}</button>`).join('')}</div></div>
+    <div class="laysecs"><span class="laysl" id="laysl">${esc(t('gr_lay_secs'))}</span><div class="laysbox" role="group" aria-labelledby="laysl"></div></div>
+    <div class="laywid"><span class="laysl" id="laywl">${esc(t('gr_p_width'))}</span><div class="seg" role="group" aria-labelledby="laywl">${['wide', 'narrow'].map(w => `<button type="button" class="laywb${d.width === w ? ' on' : ''}" data-w="${w}" aria-pressed="${d.width === w}">${esc(t(w === 'wide' ? 'gr_p_wide' : 'gr_p_narrow'))}</button>`).join('')}</div>
+      <span class="grow"></span><button type="button" class="btn" id="laytpl" aria-expanded="false" aria-controls="laytplbox">${esc(t('fb_tpl'))}</button></div>
+    <div id="laytplbox" class="fbtplbox" hidden></div>
+    <div id="layfb" class="layfb"></div>
     <div class="laybtns"><button type="button" class="btn" id="layreset">${esc(t('gr_reset'))}</button><span class="grow"></span><button type="button" class="btn" id="laycancel">${esc(t('cancel'))}</button><button type="button" class="btn primary" id="laydone">${esc(t('gr_lay_done'))}</button></div>
     <span class="sr" id="laylive" aria-live="polite"></span>`;
-  bar.querySelectorAll('.laysec').forEach(b => b.onkeydown = e => {
-    const i = d.secs.indexOf(b.dataset.sec), j = e.key === 'ArrowLeft' || e.key === 'ArrowUp' ? i - 1 : e.key === 'ArrowRight' || e.key === 'ArrowDown' ? i + 1 : -2;
-    if (j === -2) return; e.preventDefault(); if (j < 0 || j >= d.secs.length) return;
-    d.secs.splice(j, 0, d.secs.splice(i, 1)[0]); secApply(d.secs); layBar(); bar.querySelector(`.laysec[data-sec="${b.dataset.sec}"]`).focus();
-    laySay(t('gr_lay_moved', { s: t(SEC_L[b.dataset.sec]), i: j + 1, n: d.secs.length }));
-  });
-  bar.querySelectorAll('.laywb').forEach(b => b.onclick = () => { d.width = b.dataset.w; widthApply(d.width); layBar(); bar.querySelector(`.laywb[data-w="${d.width}"]`).focus(); });   // Vorschau sofort
+  layChips(); layFb();
+  bar.querySelectorAll('.laywb').forEach(b => b.onclick = () => { d.width = b.dataset.w; widthApply(d.width); bar.querySelectorAll('.laywb').forEach(x => { const on = x.dataset.w === d.width; x.classList.toggle('on', on); x.setAttribute('aria-pressed', String(on)); }); });   // Vorschau sofort
+  $('laytpl').onclick = () => { const box = $('laytplbox'), o = box.hidden; box.hidden = !o; $('laytpl').setAttribute('aria-expanded', String(o)); if (o) { Felder.tplBox(box, FB.tpl, x => fbTpl(x, true)); const f = box.querySelector('button'); if (f) f.focus(); } };
   $('layreset').onclick = layReset; $('laycancel').onclick = layClose; $('laydone').onclick = laySave;
 }
+/* Bereiche (eingebaute und eigene Felder) als Chips: Ziehen oder Pfeiltasten */
+function layChips(focus) {
+  const d = LAY.d, box = $('laybar').querySelector('.laysbox'); if (!box) return;
+  d.secs = d.secs.filter(k => SEC_EL[k] || d.fb.blocks.some(b => b.id === k && !b.del));
+  const off = k => Felder.isId(k) ? !!(d.fb.blocks.find(b => b.id === k) || {}).hide : secHidden(k, d.fb.sec);
+  box.innerHTML = d.secs.map((k, i) => `<button type="button" class="laysec${off(k) ? ' off' : ''}" data-sec="${esc(k)}" data-drag="sec" aria-label="${esc(t('gr_lay_sec_a', { s: secLabel(k, d.fb.sec, d.fb.blocks), i: i + 1, n: d.secs.length }) + (off(k) ? ', ' + t('gr_lay_hidden') : ''))}"><span aria-hidden="true">⠿</span> ${esc(secLabel(k, d.fb.sec, d.fb.blocks))}</button>`).join('');
+  box.querySelectorAll('.laysec').forEach(b => b.onkeydown = e => {
+    const i = d.secs.indexOf(b.dataset.sec), j = e.key === 'ArrowLeft' || e.key === 'ArrowUp' ? i - 1 : e.key === 'ArrowRight' || e.key === 'ArrowDown' ? i + 1 : -2;
+    if (j === -2) return; e.preventDefault(); if (j < 0 || j >= d.secs.length) return;
+    d.secs.splice(j, 0, d.secs.splice(i, 1)[0]); secApply(d.secs); layChips(b.dataset.sec); layFb();
+    laySay(t('gr_lay_moved', { s: secLabel(b.dataset.sec, d.fb.sec, d.fb.blocks), i: j + 1, n: d.secs.length }));
+  });
+  if (focus) { const f = box.querySelector(`.laysec[data-sec="${CSS.escape(focus)}"]`); if (f) f.focus(); }
+}
+/* Einstellungen je Bereich/Feld (Name, Hinweis, Pflicht, zeigen, Art-Einstellungen), neue Felder, Vorschau sofort */
+function layFb(focusId) {
+  const d = LAY.d, box = $('layfb'); if (!box) return;
+  const opened = new Set([...box.querySelectorAll('details.fbed[open]')].map(x => x.dataset.id));
+  const items = d.secs.map(k => SEC_EL[k] ? { k, l: t(SEC_L[k]), req: k === 'txt' || k === 'wit', help: k !== 'tags' } : { b: d.fb.blocks.find(b => b.id === k) }).filter(x => x.k || (x.b && !x.b.del));
+  Felder.editor(box, d.fb, items, {
+    change: (id, redraw) => { if (redraw) { layChips(); layFb(); } else layChips(); fbPreview(); },
+    say: laySay,
+    add: (type, b) => {
+      if (type === 'pills') { layAddGroup(); return; }
+      d.secs.push(b.id); layChips(); layFb(b.id); fbPreview();
+    }
+  });
+  box.querySelectorAll('details.fbed').forEach(x => { if (opened.has(x.dataset.id)) x.open = true; });
+  if (focusId) { const r = box.querySelector(`details.fbed[data-id="${CSS.escape(focusId)}"]`); if (r) { r.open = true; const i = r.querySelector('.fe_l'); i.focus(); i.select(); r.scrollIntoView({ block: 'nearest' }); } }
+}
+function fbPreview() { const d = LAY.d; if (!d) return; fbMount(d.fb.blocks, d.fb.sec); secApply(d.secs); }
 function layFind(k) { return LAY.d.groups.find(g => g.keys.includes(k)); }
 function layDraw() {
   const box = $('fnptags'), d = LAY.d; if (!box || !d) return;
@@ -1087,7 +1269,10 @@ function layDraw() {
         <input type="text" class="lgn" maxlength="30" value="${esc(gr.l)}" aria-label="${esc(t('gr_lay_gname'))}">
         <input type="color" class="lgc" value="${esc(/^#[0-9a-f]{6}$/i.test(col) ? col : '#5f6b78')}" aria-label="${esc(t('gr_gcol', { g: gr.l }))}" title="${esc(t('gr_gcol', { g: gr.l }))}">
         <label class="check"><input type="checkbox" class="lgh"${gr.hide ? '' : ' checked'}> ${esc(t('gr_shown'))}</label>
+        <label class="check" title="${esc(t('gr_req_tip'))}"><input type="checkbox" class="lgr"${gr.req ? ' checked' : ''}> ${esc(t('fb_ed_req'))}</label>
+        ${kind === 'when' ? '' : `<label class="check"><input type="checkbox" class="lgo"${gr.one ? ' checked' : ''}> ${esc(t('fb_g_one'))}</label>`}
         ${gr.custom ? `<button type="button" class="lgd" aria-label="${esc(t('gr_lay_gdel', { g: gr.l }))}" title="${esc(t('gr_lay_gdel', { g: gr.l }))}">🗑</button>` : ''}</div>
+      <div class="laygx"><input type="text" class="lgx" maxlength="160" value="${esc(gr.h || '')}" placeholder="${esc(t('fb_ed_help'))}" aria-label="${esc(t('fb_g_help', { g: gr.l }))}"></div>
       <div class="laykeys" data-kind="${kind}">${gr.keys.map(k => d.keys[k]).filter(x => x && !x.del).map(x => `<span class="layk tag ${gAttr(kind === 'when' ? 'when' : gr.g).replace('"', x.hide ? ' off"' : '"')} data-k="${esc(x.k)}"><button type="button" class="lkn" data-drag="key" aria-label="${esc(t('gr_lay_key_a', { k: x.l, g: gr.l }) + (x.hide ? ', ' + t('gr_lay_hidden') : ''))}">${esc(x.l)}</button><button type="button" class="lkx" aria-label="${esc(t(x.own ? 'gr_lay_kdel' : x.hide ? 'gr_lay_kshow' : 'gr_lay_khide', { k: x.l }))}" title="${esc(t(x.own ? 'gr_lay_kdel' : x.hide ? 'gr_lay_kshow' : 'gr_lay_khide', { k: x.l }))}">${x.own ? '✕' : x.hide ? '○' : '●'}</button></span>`).join('')}<button type="button" class="tag add lka">＋ ${esc(t(kind === 'when' ? 'gr_lay_wadd' : 'gr_lay_kadd'))}</button></div>
     </div>`;
   });
@@ -1098,6 +1283,9 @@ function layDraw() {
     row.querySelector('.lgn').onchange = e => { const v = e.target.value.trim(); if (v) gr.l = v; else e.target.value = gr.l; };
     row.querySelector('.lgc').oninput = e => { gr.col = e.target.value; row.style.setProperty('--gc', gr.col); };
     row.querySelector('.lgh').onchange = e => { gr.hide = !e.target.checked; row.classList.toggle('off', gr.hide); };
+    row.querySelector('.lgr').onchange = e => { gr.req = e.target.checked; };
+    const lo = row.querySelector('.lgo'); if (lo) lo.onchange = e => { gr.one = e.target.checked; };
+    row.querySelector('.lgx').oninput = e => { gr.h = e.target.value.trim(); };
     const del = row.querySelector('.lgd'); if (del) del.onclick = () => {
       if (!confirm(t('gr_lay_gdel_q', { g: gr.l }))) return;
       const own = d.groups.find(g => g.g === 'own'); own.keys.push(...gr.keys); gr.keys = []; gr.del = true; layDraw(); laySay(t('gr_lay_gdeleted', { g: gr.l }));
@@ -1112,12 +1300,13 @@ function layDraw() {
     nb.onkeydown = e => { if (e.key === 'Delete' || e.key === 'Backspace') { e.preventDefault(); layKeyX(x); } else layMoveKey(e, x); };
     chip.querySelector('.lkx').onclick = () => layKeyX(x);
   });
-  box.querySelector('.lga').onclick = () => {
-    const l = prompt(t('gr_lay_gname')); if (!l || !l.trim()) return;
-    const g = 'g_' + hex6(); d.groups.splice(d.groups.findIndex(x => x.g === 'own'), 0, { g, l: l.trim().slice(0, 30), l0: '', custom: true, hide: false, hide0: false, col: '', col0: '', isNew: true, del: false, keys: [] });
-    LAY.focus = `.layg[data-g="${g}"] .lgn`; layDraw();
-  };
+  box.querySelector('.lga').onclick = layAddGroup;
   if (LAY.focus) { const f = box.querySelector(LAY.focus); LAY.focus = null; if (f) f.focus(); }
+}
+function layAddGroup() {                              // neue Pillen-Rubrik (auch über „Feld hinzufügen“)
+  const d = LAY.d, l = prompt(t('gr_lay_gname')); if (!l || !l.trim()) return;
+  const g = 'g_' + hex6(); d.groups.splice(d.groups.findIndex(x => x.g === 'own'), 0, { g, l: l.trim().slice(0, 30), l0: '', custom: true, hide: false, hide0: false, col: '', col0: '', isNew: true, del: false, req: false, req0: false, one: false, one0: false, h: '', h0: '', keys: [] });
+  LAY.focus = `.layg[data-g="${g}"] .lgn`; layDraw(); laySay(t('fb_ed_added', { l: l.trim() }));
 }
 function layKeyX(x) {                                  // eigene Taste löschen, eingebaute ein-/ausblenden
   const d = LAY.d;
@@ -1205,7 +1394,7 @@ function layPointer(e) {                               // Ziehen mit Maus, Stift
     removeEventListener('pointermove', move); removeEventListener('pointerup', end); removeEventListener('pointercancel', end);
     if (!on) return;
     item.classList.remove('dragging'); layFromDom(); LAY.dragged = true; setTimeout(() => { LAY.dragged = false; }, 0);
-    if (kind === 'sec') { secApply(LAY.d.secs); layBar(); } else layDraw();
+    if (kind === 'sec') { secApply(LAY.d.secs); layChips(); layFb(); } else layDraw();
   };
   addEventListener('pointermove', move, { passive: false }); addEventListener('pointerup', end); addEventListener('pointercancel', end);
 }
@@ -1222,19 +1411,29 @@ async function laySave() {
     if (x.kind === 'tag' && where[x.k] && where[x.k] !== x.g0) ops.push({ action: 'grp', k: x.k, g: where[x.k] });
   }
   for (const gr of d.groups) {
-    if (gr.isNew) { if (!gr.del && gr.hide) ops.push({ action: 'ghide', g: gr.g, on: true }); if (!gr.del && gr.col) ops.push({ action: 'gcol', g: gr.g, c: gr.col }); continue; }
+    if (gr.isNew) { if (!gr.del) { if (gr.hide) ops.push({ action: 'ghide', g: gr.g, on: true }); if (gr.col) ops.push({ action: 'gcol', g: gr.g, c: gr.col }); if (gr.req) ops.push({ action: 'req', g: gr.g, on: true }); if (gr.one) ops.push({ action: 'gone', g: gr.g, on: true }); if (gr.h) ops.push({ action: 'ghelp', g: gr.g, h: gr.h }); } continue; }
     if (gr.del) { ops.push({ action: 'gdel', g: gr.g }); continue; }
     if (gr.l !== gr.l0) ops.push({ action: 'gren', g: gr.g, l: gr.l });
     if (gr.hide !== gr.hide0) ops.push({ action: 'ghide', g: gr.g, on: gr.hide });
     if (gr.col !== gr.col0) ops.push({ action: 'gcol', g: gr.g, c: gr.col });
+    if (gr.req !== gr.req0) ops.push({ action: 'req', g: gr.g, on: gr.req });
+    if (gr.one !== gr.one0) ops.push({ action: 'gone', g: gr.g, on: gr.one });
+    if (gr.h !== gr.h0) ops.push({ action: 'ghelp', g: gr.g, h: gr.h });
   }
   if (layFlat(d.groups).filter(k => !d.keys[k].del).join() !== d.order0.split(',').filter(k => d.keys[k] && !d.keys[k].del).join()) ops.push({ action: 'order', keys: layFlat(d.groups).filter(k => !d.keys[k].del) });
   const gs = d.groups.filter(g => !g.del).map(g => g.g); if (gs.join() !== d.gorder0) ops.push({ action: 'gorder', groups: gs });
   const tt = $('capttl').textContent.trim(), ts = $('fnpfrom').textContent.trim();
   const pf = { cap_title: tt === $('capttl').dataset.def ? '' : tt.slice(0, 60), cap_sub: ts === $('fnpfrom').dataset.def ? '' : ts.slice(0, 160) };
-  if (d.secs.join() !== d.secs0) pf.cap_order = d.secs;
+  const secs = d.secs.filter(k => SEC_EL[k] || d.fb.blocks.some(b => b.id === k && !b.del));
+  if (secs.join() !== d.secs0) pf.cap_order = secs;
   if (d.width !== d.width0) pf.width = d.width;
+  const fbNew = Felder.strip(d.fb);
   try {
+    if (JSON.stringify(fbNew) !== d.fb0) {                // eigene Felder zuerst (Reihenfolge darf auf neue Felder zeigen)
+      const j = await post('felder', Object.assign({ action: 'set' }, fbNew));
+      if (!j.ok) throw new Error('felder');
+      Felder.load(j); if ((j.errors || []).some(x => /limit/.test(x))) toast(t('fb_ed_limit', { n: FB.max }), 6000);
+    }
     if (ops.length) {
       const j = await post('notetags', { action: 'batch', ops });
       if (j.ok) ntsApply(j);
@@ -1245,15 +1444,16 @@ async function laySave() {
     }
     toast('✓ ' + t('gr_lay_saved'));
   } catch (x) { toast(t('saveerr')); return; }
-  layClose(); listDraw();
+  layClose(); fbApply();
 }
 async function layReset() {
   if (!confirm(t('gr_lay_reset_q'))) return;
   try {
     const j = await post('notetags', { action: 'reset' }); if (j.ok) ntsApply(j);
     const p = await post('prefs', { cap_title: '', cap_sub: '', cap_order: [], width: 'wide' }); if (p.ok) { delete p.ok; PF = p; }
+    const f = await post('felder', { action: 'set', sec: {} }); if (f.ok) Felder.load(f);      // eigene Felder bleiben, eingebaute Bereiche wie geliefert
   } catch (x) { toast(t('saveerr')); return; }
-  secApply(); layBuild(); widthApply();
+  layBuild(); fbPreview(); widthApply();
   for (const [id, def] of [['capttl', $('capttl').dataset.def], ['fnpfrom', $('fnpfrom').dataset.def]]) $(id).textContent = def;
   layBar(); layDraw(); laySay(t('gr_lay_reset_done'));
 }
@@ -1465,7 +1665,8 @@ async function init() {
   document.addEventListener('click', e => { const m = document.getElementById('grmenul'); if (!m.hidden && !e.target.closest('#grmenul')) m.hidden = true; });
   document.addEventListener('keydown', e => { if (e.key === 'Escape') document.getElementById('grmenul').hidden = true; });
   let qt = 0; document.getElementById('grq').addEventListener('input', e => { clearTimeout(qt); qt = setTimeout(() => { LST.q = e.target.value; listDraw(); }, 200); });
-  initDialogs(); initFnp(); extInit(); initAtt(); initDoc(); initList(); initLay(); await ntsLoad(); listLoad(); tipsDraw();
+  Felder.setup({ t, esc, lang: () => lang, fmtDT: ms => fDate(ms) + ' ' + fTime(ms, Object.assign({}, PF, { time: PF.time === 'hms' ? 'hm' : PF.time })), dtl, dto, nowMs });
+  initDialogs(); initFnp(); extInit(); initAtt(); initDoc(); initList(); initLay(); await fbLoad(); await ntsLoad(); listLoad(); tipsDraw();
   setInterval(() => { if (!document.hidden) { stLoad(); if (!FNP.edit) listLoad(); } }, 30000);   // z. B. neue Notiz aus Home Assistant
 }
 init();
