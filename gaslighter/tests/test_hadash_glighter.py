@@ -24,3 +24,38 @@ class Vorlage(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+class Blocktakt(unittest.TestCase):
+    """Ton kommt in Schüben (wie am Server-Mikrofon beobachtet: alle ~15 s 1,3 s auf einmal)."""
+
+    def run_clock(self, arrivals):
+        st, out = None, []
+        for b in arrivals:
+            st = laerm.block_clock(st, b); out.append(st[0])
+        return out
+
+    def test_schuebe_erzeugen_keine_luecke(self):
+        arr = []
+        for i in range(3000):                          # 5 Minuten
+            t = 1000 + i * 0.1
+            lag = 0.03
+            k = i % 150
+            if k < 13:                                  # Schub: 13 Blöcke hängen und kommen dann zusammen
+                lag = (13 - k) * 0.1 + 0.05
+            arr.append(t + lag)
+        ts = self.run_clock(arr)
+        d = [b - a for a, b in zip(ts, ts[1:])]
+        self.assertLess(max(d), 0.3)                   # keine scheinbare Lücke
+        self.assertGreater(min(d), 0.0)
+        true = [1000 + i * 0.1 for i in range(3000)]
+        self.assertLess(max(abs(a - b) for a, b in zip(ts[100:], true[100:])), 0.5)
+
+    def test_echte_luecke_bleibt_luecke(self):
+        arr = [1000 + i * 0.1 + 0.03 for i in range(200)] + [1000 + i * 0.1 + 5.03 for i in range(200, 400)]   # 5 s Ton fehlen
+        ts = self.run_clock(arr)
+        self.assertLess(abs(ts[-1] - arr[-1]), 0.3)    # danach wieder an der echten Zeit
+
+    def test_neustart_sofort(self):
+        ts = self.run_clock([1000.0, 1000.1, 1100.0, 1100.1])
+        self.assertAlmostEqual(ts[2], 1100.0)

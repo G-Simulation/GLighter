@@ -32,7 +32,7 @@ HERE = os.path.dirname(os.path.abspath(__file__))
 WEB = os.path.join(HERE, "web")
 OPTIONS_FILE = os.environ.get("LAERM_OPTIONS", "/data/options.json")
 SETTINGS_FILE = os.environ.get("LAERM_SETTINGS", "/data/settings.json")
-VERSION = "1.77.2"
+VERSION = "1.77.3"
 
 # =====================================================================
 # Einstellungen
@@ -737,6 +737,30 @@ def url_cmd(url, rate, user="", pw=""):
     cmd += ["-probesize", "65536", "-analyzeduration", "1000000", "-fflags", "nobuffer",
             "-i", url, "-vn", "-f", "s16le", "-ac", "1", "-ar", str(rate), "-"]
     return cmd
+
+
+def block_clock(st, bts, step=0.1):
+    """Zeitstempel je 100-ms-Block aus der Tonmenge. bts = Ankunftszeit des Blocks (nie früher als aufgenommen).
+    Rekorder und Relais liefern den Ton oft in Schüben (z. B. 1,3 s auf einmal). Früher sprang die Uhr bei einem
+    verspäteten Schub nach vorn – im Bild entstand eine Lücke, obwohl kein Ton fehlte. Jetzt:
+    - kommt ein Block früher als erwartet, geht die Uhr vor -> sofort zurückholen (Ton kann nicht vor der Aufnahme ankommen),
+    - kommt er später (Verzögerung, Schub), wird nur sehr langsam nachgeführt,
+    - bleibt die Verspätung über 1 s länger als 3 s bestehen, fehlte wirklich Ton -> neu ansetzen (echte Lücke),
+    - Sprünge über 10 s (Neustart des Rekorders, Uhr umgestellt) setzen sofort neu an.
+    st = (Uhr, Zähler „zu spät“) oder None."""
+    if st is None:
+        return (bts, 0)
+    clk, late = st
+    exp = clk + step
+    d = bts - exp
+    if abs(d) > 10.0:
+        return (bts, 0)
+    if d < 0:                                       # früher als erwartet: unsere Uhr geht vor
+        return (max(exp + d * 0.5, clk + step * 0.5), 0)   # zurückholen, aber nie rückwärts
+    late = late + 1 if d > 1.0 else 0
+    if late * step > 3.0:                           # dauerhaft über 1 s hinterher: echte Lücke im Ton
+        return (bts, 0)
+    return (exp + d * 0.01, late)
 
 
 def pipe_blocks(cmd, block, runner):
@@ -7691,7 +7715,7 @@ class Runner:
         sec_max, was_active, was_online = -130.0, None, None
         t = self.topic
         last_ts = 0
-        clk = None
+        clk = None; clk_st = None
         for blk, bts in self.blocks(rate, block):
             if self.relearn.is_set():
                 self.relearn.clear(); bg.reset()
@@ -7717,13 +7741,8 @@ class Runner:
             g = self.src.get("gain_db", 0)
             if g:
                 blk = np.clip(blk.astype(np.float32) * (10 ** (g / 20.0)), -32768, 32767).astype(np.int16)
-            # Gleichmaessiger Takt aus der Tonmenge (100 ms pro Block). Die Ankunftszeit schwankt, weil
-            # Rekorder den Ton in Haeppchen liefern; daran wird nur langsam nachgefuehrt.
-            if clk is None or abs(bts - (clk + 0.1)) > 1.0:
-                clk = bts
-            else:
-                clk += 0.1
-                clk += (bts - clk) * 0.02
+            # Gleichmaessiger Takt aus der Tonmenge (100 ms pro Block), siehe block_clock()
+            clk_st = block_clock(clk_st, bts); clk = clk_st[0]
             ms = max(int(clk * 1000), last_ts + 1)      # streng steigend fuer die Anzeige
             last_ts = ms
             self.relay_ts = bts                     # bis hier verarbeitet (fuer die Uebergabe beim Update)

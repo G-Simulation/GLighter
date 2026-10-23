@@ -1,5 +1,9 @@
 # Changelog
 
+## 1.77.3
+- **Keine scheinbaren Lücken mehr:** Das Server-Mikrofon liefert den Ton oft in Schüben (z. B. 1,3 s auf einmal). Bisher sprang die Uhr bei so einem verspäteten Schub nach vorn – im Verlauf und im Live-Bild entstanden kurze Lücken, obwohl kein Ton fehlte (alle 10 Blöcke pro Sekunde waren da). Jetzt laufen die Zeitstempel gleichmäßig weiter. Echte Lücken (Ton fehlt länger als 3 s, Rekorder neu gestartet) werden weiterhin als Lücke gezeigt.
+- Bereits aufgezeichnete Tage bleiben unverändert (Tagesaufzeichnung und Prüfsummen werden nie nachträglich geändert).
+
 ## 1.77.2
 - **Live-Bild zeigt Lücken wie der Tagesverlauf:** Stand die Aufnahme kurz (mehr als 0,4 Sekunden ohne Messwert), unterbricht das Live-Bild jetzt die Linie, statt sie gerade darüber zu ziehen. Live, angehalten und im Tagesverlauf sieht die Kurve damit gleich aus – in jeder Zoomstufe.
 - Hinweise unter den Grafiken nennen jetzt „Strg + Mausrad“ zum Zoomen.
