@@ -6749,12 +6749,27 @@ async function fnAsgBox(box, key, changed) {
   if (!j.ok) { box.innerHTML = `<h4>${esc(t('fna_head'))}</h4><p class="mut">${esc(t('fna_none_win', { a: '?', b: '?' }))}</p>`; return; }
   const evTx = e => [fmtWhen(e.start), e.src, e.dauer_s != null ? fmtDur(e.dauer_s) : '', e.art ? artName(e.art) : ''].filter(Boolean).join(' · ');
   const dTx = e => fnAsgD(e.d);
-  const cur = j.cur ? `<span>🔗 ${esc(t('fna_cur', { e: evTx(j.cur) }))} <small class="fnasg${j.man ? ' fnman' : ''}">(${esc(dTx(j.cur))} · ${esc(j.man ? t('fn_asg_man') : t('fn_asg_auto', { a: j.pre, b: j.post }))})</small></span>`
-    : `<span>${esc(j.detached ? t('fna_detached') : t('fna_none_win', { a: j.pre, b: j.post }))}</span>`;
-  const btn = (a, l, k) => `<button type="button" class="chip" data-a="${a}"${k ? ` data-k="${esc(k)}"` : ''}>${esc(l)}</button>`;
-  box.innerHTML = `<h4>${esc(t('fna_head'))}</h4><div class="fnac">${cur}${j.cur ? btn('detach', t('fna_detach')) : ''}${j.man ? btn('auto', t('fna_auto')) : ''}</div>`
-    + (j.cand.length ? `<b class="fnacl" id="fnacl_${esc(key.replace(/\W/g, ''))}">${esc(t('fna_more'))}</b><ul aria-labelledby="fnacl_${esc(key.replace(/\W/g, ''))}">${j.cand.map(e => `<li><span>${esc(evTx(e))} <small class="mut">(${esc(dTx(e))})</small></span>${btn('set', t('fna_set'), e.k)}</li>`).join('')}</ul>` : '')
-    + `<small class="mut">${esc(t('fna_hint'))}</small><span class="sr" aria-live="polite"></span>`;
+  const hm = iso => { const d = new Date(iso); return isNaN(d) ? '' : d.toLocaleTimeString(locale(), { hour: '2-digit', minute: '2-digit', second: '2-digit' }); };
+  const meta = e => [e.art ? artName(e.art) : '', e.dauer_s != null ? fmtDur(e.dauer_s) : '', e.src].filter(Boolean).join(' · ');
+  const line = e => `<span class="fnat">${esc(hm(e.start))}</span><span class="fnam">${esc(meta(e))}</span><span class="fnad">${esc(dTx(e))}</span>`;
+  const btn = (a, l) => `<button type="button" class="chip" data-a="${a}">${esc(l)}</button>`;
+  const how = j.man ? t('fn_asg_man') : t('fn_asg_auto', { a: j.pre, b: j.post });
+  const cur = j.cur
+    ? `<div class="fnacur" aria-label="${esc(t('fna_cur', { e: evTx(j.cur) }) + ', ' + dTx(j.cur) + ', ' + how)}">${line(j.cur)}<small class="fnah${j.man ? ' fnman' : ''}">🔗 ${esc(how)}</small></div>`
+    : `<p class="fnanone">${esc(j.detached ? t('fna_detached') : t('fna_none_win', { a: j.pre, b: j.post }))}</p>`;
+  const lid = 'fnacl_' + key.replace(/\W/g, ''), SHOW = 3, nC = j.cand.length;
+  const row = (e, i) => `<li${i >= SHOW ? ' class="fnaxtra" hidden' : ''}><button type="button" class="fnarow" data-a="set" data-k="${esc(e.k)}" aria-label="${esc(t('fna_set') + ': ' + evTx(e) + ', ' + dTx(e))}">${line(e)}</button></li>`;
+  const acts = (j.cur ? btn('detach', t('fna_detach')) : '') + (j.man ? btn('auto', t('fna_auto')) : '');
+  box.innerHTML = `<h4>${esc(t('fna_head'))}</h4>${cur}${acts ? `<div class="fnac">${acts}</div>` : ''}`
+    + (nC ? `<div class="fnacl" id="${esc(lid)}"><b>${esc(t('fna_more'))}</b> <small>(${nC}) · ${esc(t('fna_pick'))}</small></div><ul class="fnalist" aria-labelledby="${esc(lid)}">${j.cand.map(row).join('')}</ul>`
+      + (nC > SHOW ? `<button type="button" class="chip fnamore" aria-expanded="false">${esc(t('fna_all', { n: nC }))}</button>` : '') : '')
+    + `<small class="fnahint">${esc(t('fna_hint'))}</small><span class="sr" aria-live="polite"></span>`;
+  const mb = box.querySelector('.fnamore');
+  if (mb) mb.onclick = () => {
+    const open = mb.getAttribute('aria-expanded') !== 'true';
+    box.querySelectorAll('.fnaxtra').forEach(li => { li.hidden = !open; });
+    mb.setAttribute('aria-expanded', String(open)); mb.textContent = open ? t('fna_less') : t('fna_all', { n: nC });
+  };
   box.querySelectorAll('button[data-a]').forEach(b => b.onclick = async () => {
     let r; try { r = await (await fetch('fnasg', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ id: key, action: b.dataset.a, k: b.dataset.k || '' }) })).json(); } catch (e) { r = { ok: false }; }
     if (!r.ok) { toast(t('saveerr')); return; }
@@ -6765,9 +6780,12 @@ async function fnAsgBox(box, key, changed) {
 }
 function fnAsgDlg(n) {                                // Notiz aus GReport: nur ansehen und zuordnen (geändert wird sie in GReport)
   let d = $('fnadlg'); if (!d) { d = el('dialog', { id: 'fnadlg', className: 'evdlg prognd' }); d.setAttribute('aria-labelledby', 'fnadlgh'); document.body.appendChild(d); }
-  d.innerHTML = `<h3 id="fnadlgh">📝 ${esc(t('fna_gr_title'))}</h3><p><b>${esc(fmtWhen(new Date(n.a).toISOString()))}${n.b > n.a ? '–' + esc(n.clock_to || '') : ''}</b></p><div class="fnrowt">${fnText(n)}</div>
-    <p class="mut">${esc(t('gr_edit_there'))}</p><div class="fnasgbox"></div><div class="ntedbtns"><span style="flex:1"></span><button type="button" class="pri fnadx">${esc(t('a_close'))}</button></div>`;
-  d.querySelector('.fnadx').onclick = () => d.close();
+  d.innerHTML = `<div class="dh"><h3 id="fnadlgh">📝 ${esc(t('fna_gr_title'))}</h3><button type="button" class="fnaxx" aria-label="${esc(t('a_close'))}">✕</button></div>
+    <div class="dbody fnadb"><p class="fnawhen"><b>${esc(fmtWhen(new Date(n.a).toISOString()))}${n.b > n.a ? '–' + esc(n.clock_to || '') : ''}</b></p><div class="fnrowt">${fnText(n)}</div>
+    <p class="mut">${esc(t('gr_edit_there'))}</p><div class="fnasgbox"></div></div>
+    <div class="df"><button type="button" class="pri fnadx">${esc(t('a_close'))}</button></div>`;
+  d.querySelector('.fnadx').onclick = () => d.close(); d.querySelector('.fnaxx').onclick = () => d.close();
+  if (!d.dataset.bd) { d.dataset.bd = 1; d.addEventListener('click', e => { if (e.target === d) d.close(); }); }   // Klick neben den Dialog schließt
   fnAsgBox(d.querySelector('.fnasgbox'), 'g:' + n.id, () => loadEvents());
   d.showModal(); setTimeout(() => d.querySelector('.fnadx').focus(), 50);
 }
