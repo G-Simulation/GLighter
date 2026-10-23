@@ -1,7 +1,7 @@
 /* Texte der Oberfläche (GReport) – Deutsch und Englisch */
 window.I18N = {
  "de": {
-  "gr_p_width": "Breite",
+  "gr_p_width": "Breite der Seite",
   "gr_p_wide": "Ganze Breite (wie die Tabelle)",
   "gr_p_narrow": "Schmale Spalte",
   "gr_a_text": "Notiztext",
@@ -604,7 +604,7 @@ window.I18N = {
   "gr_ver_files_n": "{n} geprüft (davon {a} aktiv)"
  },
  "en": {
-  "gr_p_width": "Width",
+  "gr_p_width": "Page width",
   "gr_p_wide": "Full width (like the table)",
   "gr_p_narrow": "Narrow column",
   "gr_a_text": "Note text",

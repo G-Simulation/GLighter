@@ -505,7 +505,7 @@ function filtDraw() {
   box.querySelectorAll('.tag').forEach(b => b.onclick = () => { LST.tag = LST.tag === b.dataset.t ? '' : b.dataset.t; listDraw(); });
 }
 /* Breite: ganze Breite (Standard, wie die Tabelle) oder schmale Spalte; die Tabelle ist immer breit */
-function widthApply() { document.body.classList.toggle('grwide', (PF && PF.width || 'wide') === 'wide'); }
+function widthApply(w) { document.body.classList.toggle('grwide', (w || (PF && PF.width) || 'wide') === 'wide'); }
 function viewShow() {
   const tb = LST.view === 'tb';
   document.getElementById('grnotes').hidden = tb; document.getElementById('grgrid').hidden = !tb;
@@ -795,14 +795,14 @@ function prefOpen() {
   const ds = document.getElementById('pfdate'), ts = document.getElementById('pftime'), ex = Date.now();
   ds.innerHTML = ''; for (const f of ['dmy4', 'dmy2', 'wdm', 'iso', 'long']) option(ds, f, fDate(ex, Object.assign({}, PF, { date: f, wd: false })));
   ts.innerHTML = ''; for (const f of ['hms', 'hm', 'h12']) option(ts, f, fTime(ex, Object.assign({}, PF, { time: f })));
-  ds.value = PF.date; ts.value = PF.time; document.getElementById('pfwidth').value = PF.width || 'wide'; document.getElementById('pfrel').checked = PF.rel; document.getElementById('pfwd').checked = PF.wd;
+  ds.value = PF.date; ts.value = PF.time; document.getElementById('pfrel').checked = PF.rel; document.getElementById('pfwd').checked = PF.wd;
   document.getElementById('pftips').checked = tipsOn();
   document.getElementById('pftipsr').onclick = () => { TIPX.clear(); try { localStorage.removeItem('gr_tipx'); } catch (e) { } tipsDraw(); toast('✓ ' + t('gr_p_tips_done')); };
   const upd = () => { const p = prefRead(); document.getElementById('pfex').textContent = fDate(ex, p) + ', ' + fTime(ex, p); };
   for (const x of [ds, ts, document.getElementById('pfrel'), document.getElementById('pfwd')]) x.onchange = upd;
   upd(); document.getElementById('prefdlg').showModal();
 }
-const prefRead = () => ({ width: document.getElementById('pfwidth').value, date: document.getElementById('pfdate').value, time: document.getElementById('pftime').value, rel: document.getElementById('pfrel').checked, wd: document.getElementById('pfwd').checked, tips: document.getElementById('pftips').checked });
+const prefRead = () => ({ date: document.getElementById('pfdate').value, time: document.getElementById('pftime').value, rel: document.getElementById('pfrel').checked, wd: document.getElementById('pfwd').checked, tips: document.getElementById('pftips').checked });
 /* ---------- Textdatei & Import/Export (Pro) ---------- */
 const TXT = { st: null, content: null };
 const txtErr = e => { const k = 'gr_err_' + String(e || 'x').replace(/\W/g, '_'); const v = t(k); return v === k ? t('gr_err_x') + (e ? ' (' + e + ')' : '') : v; };
@@ -1011,7 +1011,7 @@ function layBuild() {
     keys[k] = { k, l: ntLabel(k), l0: ntLabel(k), kind: w ? 'when' : 'tag', own: w ? !!w.own : NTS.own[k] != null, hide: w ? !!w.hide : NTS.hide.has(k), hide0: w ? !!w.hide : NTS.hide.has(k), g0: gr.g, isNew: false, del: false };
   }
   const secs = capOrder();
-  LAY.d = { groups, keys, order0: layFlat(groups).join(), gorder0: groups.map(g => g.g).join(), secs, secs0: secs.join(), title: PF.cap_title || '', sub: PF.cap_sub || '' };
+  LAY.d = { groups, keys, order0: layFlat(groups).join(), gorder0: groups.map(g => g.g).join(), secs, secs0: secs.join(), title: PF.cap_title || '', sub: PF.cap_sub || '', width: PF.width || 'wide', width0: PF.width || 'wide' };
 }
 function laySay(msg) { const e = $('laylive'); if (e) { e.textContent = ''; setTimeout(() => { e.textContent = msg; }, 30); } }
 function layOpen() {
@@ -1028,7 +1028,7 @@ function layOpen() {
   layBar(); fnpTags(); $('laybar').querySelector('.laysec').focus();
 }
 function layClose() {
-  LAY.on = false; LAY.d = null;
+  LAY.on = false; LAY.d = null; widthApply();   // Abbrechen: gespeicherte Breite
   for (const id of ['capttl', 'fnpfrom']) { const e = $(id); e.removeAttribute('contenteditable'); e.removeAttribute('role'); e.removeAttribute('aria-label'); e.removeAttribute('tabindex'); e.onkeydown = null; }
   const pn = $('fnpanel'); pn.classList.remove('lay'); $('laybtn').setAttribute('aria-pressed', 'false'); $('laybar').hidden = true; $('laybar').innerHTML = '';
   secApply(); secDraw(); fnpTags(); fnpShow(); $('laybtn').focus();
@@ -1037,6 +1037,7 @@ function layBar() {
   const bar = $('laybar'), d = LAY.d; bar.hidden = false;
   bar.innerHTML = `<p class="layhint">${esc(t('gr_lay_hint'))}</p>
     <div class="laysecs"><span class="laysl" id="laysl">${esc(t('gr_lay_secs'))}</span><div class="laysbox" role="group" aria-labelledby="laysl">${d.secs.map((k, i) => `<button type="button" class="laysec" data-sec="${k}" data-drag="sec" aria-label="${esc(t('gr_lay_sec_a', { s: t(SEC_L[k]), i: i + 1, n: d.secs.length }))}"><span aria-hidden="true">⠿</span> ${esc(t(SEC_L[k]))}</button>`).join('')}</div></div>
+    <div class="laywid"><span class="laysl" id="laywl">${esc(t('gr_p_width'))}</span><div class="seg" role="group" aria-labelledby="laywl">${['wide', 'narrow'].map(w => `<button type="button" class="laywb${d.width === w ? ' on' : ''}" data-w="${w}" aria-pressed="${d.width === w}">${esc(t(w === 'wide' ? 'gr_p_wide' : 'gr_p_narrow'))}</button>`).join('')}</div></div>
     <div class="laybtns"><button type="button" class="btn" id="layreset">${esc(t('gr_reset'))}</button><span class="grow"></span><button type="button" class="btn" id="laycancel">${esc(t('cancel'))}</button><button type="button" class="btn primary" id="laydone">${esc(t('gr_lay_done'))}</button></div>
     <span class="sr" id="laylive" aria-live="polite"></span>`;
   bar.querySelectorAll('.laysec').forEach(b => b.onkeydown = e => {
@@ -1045,6 +1046,7 @@ function layBar() {
     d.secs.splice(j, 0, d.secs.splice(i, 1)[0]); secApply(d.secs); layBar(); bar.querySelector(`.laysec[data-sec="${b.dataset.sec}"]`).focus();
     laySay(t('gr_lay_moved', { s: t(SEC_L[b.dataset.sec]), i: j + 1, n: d.secs.length }));
   });
+  bar.querySelectorAll('.laywb').forEach(b => b.onclick = () => { d.width = b.dataset.w; widthApply(d.width); layBar(); bar.querySelector(`.laywb[data-w="${d.width}"]`).focus(); });   // Vorschau sofort
   $('layreset').onclick = layReset; $('laycancel').onclick = layClose; $('laydone').onclick = laySave;
 }
 function layFind(k) { return LAY.d.groups.find(g => g.keys.includes(k)); }
@@ -1205,13 +1207,14 @@ async function laySave() {
   const tt = $('capttl').textContent.trim(), ts = $('fnpfrom').textContent.trim();
   const pf = { cap_title: tt === $('capttl').dataset.def ? '' : tt.slice(0, 60), cap_sub: ts === $('fnpfrom').dataset.def ? '' : ts.slice(0, 160) };
   if (d.secs.join() !== d.secs0) pf.cap_order = d.secs;
+  if (d.width !== d.width0) pf.width = d.width;
   try {
     if (ops.length) {
       const j = await post('notetags', { action: 'batch', ops });
       if (j.ok) ntsApply(j);
       if (j.errors && j.errors.length) toast(t('gr_lay_errs', { n: j.errors.length }) + (j.errors.some(x => x.error === 'limit_free') ? ' ' + t('gr_qt_limit_free', { n: NTS.max }) : ''), 6000);
     }
-    if (pf.cap_title !== (PF.cap_title || '') || pf.cap_sub !== (PF.cap_sub || '') || pf.cap_order) {
+    if (pf.cap_title !== (PF.cap_title || '') || pf.cap_sub !== (PF.cap_sub || '') || pf.cap_order || pf.width) {
       const j = await post('prefs', pf); if (j.ok) { delete j.ok; PF = j; }
     }
     toast('✓ ' + t('gr_lay_saved'));
@@ -1222,9 +1225,9 @@ async function layReset() {
   if (!confirm(t('gr_lay_reset_q'))) return;
   try {
     const j = await post('notetags', { action: 'reset' }); if (j.ok) ntsApply(j);
-    const p = await post('prefs', { cap_title: '', cap_sub: '', cap_order: [] }); if (p.ok) { delete p.ok; PF = p; }
+    const p = await post('prefs', { cap_title: '', cap_sub: '', cap_order: [], width: 'wide' }); if (p.ok) { delete p.ok; PF = p; }
   } catch (x) { toast(t('saveerr')); return; }
-  secApply(); layBuild();
+  secApply(); layBuild(); widthApply();
   for (const [id, def] of [['capttl', $('capttl').dataset.def], ['fnpfrom', $('fnpfrom').dataset.def]]) $(id).textContent = def;
   layBar(); layDraw(); laySay(t('gr_lay_reset_done'));
 }

@@ -1,6 +1,9 @@
 # Changelog
 
 ## 1.9.1
+- **Ganze Breite:** Erfassung und Liste nutzen jetzt die ganze Breite des Fensters, so breit wie die Tabelle. Einstellbar unter ▦ Layout anpassen → „Breite der Seite“ (ganze Breite oder schmale Spalte), mit Vorschau; „Abbrechen“ lässt alles, wie es war.
+
+## 1.9.1
 - **Ganze Breite:** Erfassung und Liste nutzen jetzt die ganze Breite des Fensters, genauso breit wie die Tabelle. Wer die schmale Spalte lieber mag: ⋯ → Datum und Uhrzeit → „Breite“ → „Schmale Spalte“.
 
 ## 1.9.0

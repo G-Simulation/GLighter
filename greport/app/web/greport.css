@@ -372,3 +372,4 @@ body.pop .capbody{flex:1}
 /* Ganze Breite (Einstellung „Breite“): Erfassung und Liste so breit wie die Tabelle */
 body.grwide .page{max-width:min(1600px,100%)}
 body.grwide .log.tbl{width:auto;margin-left:0}
+.laywid{display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin:8px 0}.laywid .seg button{min-height:32px}
