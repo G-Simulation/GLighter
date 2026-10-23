@@ -1,5 +1,8 @@
 # Changelog
 
+## 1.80.1
+- **Tipps unauffälliger:** Von jedem Tipp ist nur noch ein kleines 💡 zu sehen. Der Text erscheint, wenn die Maus über dem Bereich ist, ein Feld darin ausgewählt ist oder du auf 💡 tippst. Einstellbar unter ⚙ → Allgemein → „Tipps“: nur beim Zeigen (Standard), immer oder aus.
+
 ## 1.80.0
 - **Neue Tabellen-Technik (AG Grid statt Tabulator):** Alle Tabellen in Live, Protokolle und den kleinen Listen (Tage, Notizen, Home-Assistant-Liste, Einpegeln, Geräte-Vergleich, Spitzen, Tonprofil) laufen jetzt mit AG Grid Community (MIT, lokal mitgeliefert, funktioniert ohne Internet). Aussehen und Bedienung bleiben wie gewohnt: Spaltenköpfe, Filterzeile („…“, „alle …“, „≥“), Sortieren, Gruppen zum Aufklappen, Auswahl-Kästchen, Menü ⋮, Spaltenwahl ⚙, Anzeigebereich und Anzahl mit „Filter löschen“.
 - **Tabelle füllt die ganze Breite:** In Protokolle bleibt rechts kein leerer Streifen mehr, das Menü ⋮ steht ganz rechts. Die Spalten „Spur“ und „Was vorkam“ erscheinen nur noch, wenn mindestens eine Zeile dort etwas zeigt.

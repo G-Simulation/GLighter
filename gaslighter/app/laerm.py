@@ -33,7 +33,7 @@ HERE = os.path.dirname(os.path.abspath(__file__))
 WEB = os.path.join(HERE, "web")
 OPTIONS_FILE = os.environ.get("LAERM_OPTIONS", "/data/options.json")
 SETTINGS_FILE = os.environ.get("LAERM_SETTINGS", "/data/settings.json")
-VERSION = "1.80.0"
+VERSION = "1.80.1"
 
 # =====================================================================
 # Einstellungen
@@ -50,7 +50,7 @@ DEFAULTS = {
     "mic_port": "", "classify": True, "ki_embed": False,
     "clip_dir": "", "video_width": 640, "video_fps": 5, "video_crf": 30,
     "quiet_from": "22:00", "quiet_to": "06:00", "quiet_sunday": True, "art_silent": "", "mirror_dir": "", "mirror_time": "03:30", "mirror_offload": False,
-    "wheel_zoom": "ctrl", "auto_thr": "thr",
+    "wheel_zoom": "ctrl", "auto_thr": "thr", "tip_mode": "hover",
 }
 SPEC = {
     # ("num", min, max, Aufloesung): Kommazahlen, auf die Aufloesung gerundet
@@ -65,7 +65,7 @@ SPEC = {
     "language": ("choice", ["auto", "de", "en"]), "mic_port": ("optstr",), "classify": ("bool",), "ki_embed": ("bool",),
     "clip_dir": ("optstr",), "video_width": ("int", 0, 3840), "video_fps": ("int", 1, 30), "video_crf": ("int", 18, 40),
     "quiet_from": ("time",), "quiet_to": ("time",), "quiet_sunday": ("bool",), "art_silent": ("optstr",), "mirror_dir": ("optstr",), "mirror_time": ("time",), "mirror_offload": ("bool",),
-    "wheel_zoom": ("choice", ["ctrl", "always"]), "auto_thr": ("choice", ["thr", "data"]),
+    "wheel_zoom": ("choice", ["ctrl", "always"]), "auto_thr": ("choice", ["thr", "data"]), "tip_mode": ("choice", ["hover", "always", "off"]),
 }
 # Diese Werte erfordern einen Neustart der Aufnahme
 RESTART_KEYS = {"device", "sample_rate"}

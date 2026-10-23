@@ -78,7 +78,7 @@ async function stLoad() {
   try { ST = await (await fetch('state', { cache: 'no-store' })).json(); } catch (e) { }
   if (ST.lang === 'de' || ST.lang === 'en') lang = ST.lang;
   if (ST.prefs) PF = ST.prefs;
-  widthApply();
+  widthApply(); tipModeApply();
   stShow(); witList();
 }
 function stShow() {
@@ -146,7 +146,9 @@ const tagBtn = (tg, on) => `<button type="button" class="tag ${gAttr(ntGroup(tg)
 const tagMk = tg => `<span class="mk ${gAttr(ntGroup(tg))}>${esc(ntLabel(tg))}</span>`;
 /* ---------- Tipps (aus der Rechtsprechung abgeleitet, keine Rechtsberatung): einzeln wegklickbar, global abschaltbar ---------- */
 let TIPX = new Set(); try { TIPX = new Set(JSON.parse(localStorage.getItem('gr_tipx') || '[]')); } catch (e) { }
-const tipsOn = () => PF.tips !== false;
+const tipMode = () => PF.tipmode || (PF.tips === false ? 'off' : 'hover');
+const tipsOn = () => tipMode() !== 'off';
+function tipModeApply() { document.body.classList.toggle('tipshover', tipMode() === 'hover'); }
 function tipsDraw(root) {
   (root || document).querySelectorAll('.tipslot').forEach(sl => {
     const want = sl.dataset.tips === 'cap' ? (FNP.edit ? ['8'] : ['1', '2', '7']) : sl.dataset.tips.split(',');
@@ -154,7 +156,8 @@ function tipsDraw(root) {
     if (sl.dataset.cur === String(n || '') && sl.dataset.lang === lang) return;
     sl.dataset.cur = n || ''; sl.dataset.lang = lang;
     if (!n) { sl.innerHTML = ''; return; }
-    sl.innerHTML = `<div class="tip" role="note"><span class="tipt">💡 ${esc(t('gr_tip_' + n))}</span><details class="why"><summary>${esc(t('gr_tip_why'))}</summary><small>${esc(t('gr_tip_src', { s: t('gr_tip_' + n + '_s') }))}</small></details><button type="button" class="tipx" aria-label="${esc(t('gr_tip_x'))}" title="${esc(t('gr_tip_x'))}">✕</button></div>`;
+    sl.innerHTML = `<div class="tip" role="note"><button type="button" class="tipi" aria-expanded="false" aria-label="${esc(t('gr_tip_show'))}" title="${esc(t('gr_tip_' + n))}">💡</button><span class="tipt">${esc(t('gr_tip_' + n))}</span><details class="why"><summary>${esc(t('gr_tip_why'))}</summary><small>${esc(t('gr_tip_src', { s: t('gr_tip_' + n + '_s') }))}</small></details><button type="button" class="tipx" aria-label="${esc(t('gr_tip_x'))}" title="${esc(t('gr_tip_x'))}">✕</button></div>`;
+    const tb = sl.querySelector('.tipi'); tb.onclick = () => { const o = tb.closest('.tip').classList.toggle('open'); tb.setAttribute('aria-expanded', String(o)); };
     sl.querySelector('.tipx').onclick = () => { TIPX.add(n); try { localStorage.setItem('gr_tipx', JSON.stringify([...TIPX])); } catch (e) { } tipsDraw(); };
   });
 }
@@ -796,13 +799,13 @@ function prefOpen() {
   ds.innerHTML = ''; for (const f of ['dmy4', 'dmy2', 'wdm', 'iso', 'long']) option(ds, f, fDate(ex, Object.assign({}, PF, { date: f, wd: false })));
   ts.innerHTML = ''; for (const f of ['hms', 'hm', 'h12']) option(ts, f, fTime(ex, Object.assign({}, PF, { time: f })));
   ds.value = PF.date; ts.value = PF.time; document.getElementById('pfrel').checked = PF.rel; document.getElementById('pfwd').checked = PF.wd;
-  document.getElementById('pftips').checked = tipsOn();
+  document.getElementById('pftipmode').value = tipMode();
   document.getElementById('pftipsr').onclick = () => { TIPX.clear(); try { localStorage.removeItem('gr_tipx'); } catch (e) { } tipsDraw(); toast('✓ ' + t('gr_p_tips_done')); };
   const upd = () => { const p = prefRead(); document.getElementById('pfex').textContent = fDate(ex, p) + ', ' + fTime(ex, p); };
   for (const x of [ds, ts, document.getElementById('pfrel'), document.getElementById('pfwd')]) x.onchange = upd;
   upd(); document.getElementById('prefdlg').showModal();
 }
-const prefRead = () => ({ date: document.getElementById('pfdate').value, time: document.getElementById('pftime').value, rel: document.getElementById('pfrel').checked, wd: document.getElementById('pfwd').checked, tips: document.getElementById('pftips').checked });
+const prefRead = () => ({ date: document.getElementById('pfdate').value, time: document.getElementById('pftime').value, rel: document.getElementById('pfrel').checked, wd: document.getElementById('pfwd').checked, tipmode: document.getElementById('pftipmode').value, tips: document.getElementById('pftipmode').value !== 'off' });
 /* ---------- Textdatei & Import/Export (Pro) ---------- */
 const TXT = { st: null, content: null };
 const txtErr = e => { const k = 'gr_err_' + String(e || 'x').replace(/\W/g, '_'); const v = t(k); return v === k ? t('gr_err_x') + (e ? ' (' + e + ')' : '') : v; };
@@ -973,7 +976,7 @@ function initDialogs() {
   };
   document.getElementById('pfsave').onclick = async () => {
     const j = await post('prefs', prefRead()).catch(() => ({ ok: false }));
-    if (j.ok) { delete j.ok; PF = j; widthApply(); tipsDraw(); document.getElementById('prefdlg').close(); fnpShow(); listDraw(); } else alert(t('saveerr'));
+    if (j.ok) { delete j.ok; PF = j; widthApply(); tipModeApply(); tipsDraw(); document.getElementById('prefdlg').close(); fnpShow(); listDraw(); } else alert(t('saveerr'));
   };
   document.getElementById('glsave').onclick = async () => {
     const j = await post('prefs', { gl: document.getElementById('glshare').checked }).catch(() => ({ ok: false }));

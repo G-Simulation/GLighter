@@ -1,5 +1,8 @@
 # Changelog
 
+## 1.9.2
+- **Tipps unauffälliger:** Von jedem Tipp ist nur noch ein kleines 💡 zu sehen. Der Text erscheint, wenn die Maus über dem Bereich ist, ein Feld darin ausgewählt ist oder du auf 💡 tippst. Einstellbar unter ⋯ → Datum und Uhrzeit → „Tipps“: nur beim Zeigen (Standard), immer oder aus.
+
 ## 1.9.1
 - **Ganze Breite:** Erfassung und Liste nutzen jetzt die ganze Breite des Fensters, so breit wie die Tabelle. Einstellbar unter ▦ Layout anpassen → „Breite der Seite“ (ganze Breite oder schmale Spalte), mit Vorschau; „Abbrechen“ lässt alles, wie es war.
 

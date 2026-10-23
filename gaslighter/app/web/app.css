@@ -1209,3 +1209,14 @@ button.art.artck:focus-visible{outline:2px solid var(--acc);outline-offset:1px}
 .capture .icon:has(.protag){display:inline-flex;border-radius:999px;gap:4px}
 .capture .check{min-height:28px}
 @media(max-width:420px){.capture .caphead{gap:6px}.capture .clocknum,.capture.dn-compact .clocknum{font-size:28px}.capture .caphead .icon{min-width:32px;height:32px}}
+
+/* Quicktipps „nur beim Zeigen“ (⚙ → Allgemein → Tipps): nur ein kleines 💡, Text bei Maus über dem Bereich, Fokus darin oder Antippen */
+.qtip .qti{border:0;background:transparent;padding:0;font-size:14px;line-height:20px;cursor:pointer;min-width:24px;min-height:24px;border-radius:6px}
+body.qthover .qtip:not(.open){background:transparent;border-color:transparent;padding:0 2px;margin:2px 0}
+body.qthover .qtip:not(.open) .qtt,body.qthover .qtip:not(.open) .qtw,body.qthover .qtip:not(.open) .qtx{display:none}
+body.qthover .qtip .qti{opacity:.55}
+@media (hover:hover){
+body.qthover *:hover > .qtip,body.qthover *:focus-within > .qtip{background:color-mix(in srgb,var(--acc) 8%,transparent);border-color:color-mix(in srgb,var(--acc) 25%,var(--bd));padding:8px 10px;margin:6px 0}
+body.qthover *:hover > .qtip .qti,body.qthover *:focus-within > .qtip .qti{opacity:1}
+body.qthover *:hover > .qtip .qtt,body.qthover *:focus-within > .qtip .qtt,body.qthover *:hover > .qtip .qtw,body.qthover *:focus-within > .qtip .qtw,body.qthover *:hover > .qtip .qtx,body.qthover *:focus-within > .qtip .qtx{display:revert}}
+body.qthover .qtip.open{background:color-mix(in srgb,var(--acc) 8%,transparent);border-color:color-mix(in srgb,var(--acc) 25%,var(--bd));padding:8px 10px;margin:6px 0}

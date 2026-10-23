@@ -1,6 +1,10 @@
 /* Texte der Oberfläche (GReport) – Deutsch und Englisch */
 window.I18N = {
  "de": {
+  "gr_tm_hover": "nur beim Zeigen auf den Bereich (💡)",
+  "gr_tm_always": "immer",
+  "gr_tm_off": "aus",
+  "gr_tip_show": "Tipp zeigen",
   "gr_p_width": "Breite der Seite",
   "gr_p_wide": "Ganze Breite (wie die Tabelle)",
   "gr_p_narrow": "Schmale Spalte",
@@ -500,7 +504,7 @@ window.I18N = {
   "gr_x_pol_s": "Polizei",
   "gr_x_rep_s": "gemeldet",
   "gr_x_attest_s": "Attest",
-  "gr_p_tips": "Tipps zeigen",
+  "gr_p_tips": "Tipps",
   "gr_p_tips_r": "Ausgeblendete Tipps wieder zeigen",
   "gr_p_tips_done": "Alle Tipps werden wieder gezeigt",
   "gr_rep_title": "Bericht für Dritte",
@@ -604,6 +608,10 @@ window.I18N = {
   "gr_ver_files_n": "{n} geprüft (davon {a} aktiv)"
  },
  "en": {
+  "gr_tm_hover": "only when pointing at the area (💡)",
+  "gr_tm_always": "always",
+  "gr_tm_off": "off",
+  "gr_tip_show": "Show tip",
   "gr_p_width": "Page width",
   "gr_p_wide": "Full width (like the table)",
   "gr_p_narrow": "Narrow column",
@@ -1103,7 +1111,7 @@ window.I18N = {
   "gr_x_pol_s": "police",
   "gr_x_rep_s": "reported",
   "gr_x_attest_s": "certificate",
-  "gr_p_tips": "Show tips",
+  "gr_p_tips": "Tips",
   "gr_p_tips_r": "Show hidden tips again",
   "gr_p_tips_done": "All tips are shown again",
   "gr_rep_title": "Report for third parties",

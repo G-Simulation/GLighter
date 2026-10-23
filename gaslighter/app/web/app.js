@@ -4069,7 +4069,7 @@ const FORM = [
   ['s_place', [['clip_dir', 'text']]],
   ['s_keep', [['auto_delete', 'chk'], ['retention_days', 'num', 1, 3650, 1]]],
   ['s_mirror', [['mirror_dir', 'text'], ['mirror_time', 'time'], ['mirror_offload', 'chk']]],
-  ['s_misc', [['language', 'sel', ['auto', 'de', 'en'], { auto: 'lauto', de: '#Deutsch', en: '#English' }], ['wheel_zoom', 'sel', ['ctrl', 'always'], { ctrl: 'wz_ctrl', always: 'wz_always' }], ['auto_thr', 'sel', ['thr', 'data'], { thr: 'at_thr', data: 'at_data' }]]],
+  ['s_misc', [['language', 'sel', ['auto', 'de', 'en'], { auto: 'lauto', de: '#Deutsch', en: '#English' }], ['wheel_zoom', 'sel', ['ctrl', 'always'], { ctrl: 'wz_ctrl', always: 'wz_always' }], ['auto_thr', 'sel', ['thr', 'data'], { thr: 'at_thr', data: 'at_data' }], ['tip_mode', 'sel', ['hover', 'always', 'off'], { hover: 'tm_hover', always: 'tm_always', off: 'tm_off' }]]],
   ['s_list', [['group_pause_s', 'num', 10, 3600, 10], ['fn_assign_min', 'num', 0, 60, 1]]],
 ];
 /* Reihenfolge der Kästen je Reiter (nach dem, was man tun will) */
@@ -4455,7 +4455,7 @@ async function saveSettings() {
     const r = await (await fetch('settings', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(v) })).json();
     if (!r.ok) throw new Error(r.error || 'error');
     CUR = r.settings; renderEvents();
-    if (r.changed.includes('language')) { pickLang(CUR.language); tr(); setLive(view.live); renderEvents(); }
+    if (r.changed.includes('language')) { pickLang(CUR.language); tr(); setLive(view.live); renderEvents(); } if (r.changed.includes('tip_mode')) qtModeApply();
     if (r.changed.length || devChanged) { const sc = $('sbody').scrollTop; buildForm(CUR); buildSources(); $('sbody').scrollTop = sc; }
     if (devChanged || r.changed.some(k => ['bg_window', 'bg_unit', 'bg_stat', 'thr_mode'].includes(k))) yv.auto = true;
     $('smsg').textContent = !r.changed.length && !devChanged ? t('nochange') : !r.changed.length ? (DEV ? t('saved_dev', { n: (srcById(DEV) || {}).name || '' }) : t('saved')) :
@@ -4969,7 +4969,7 @@ function initNight() {
 async function init() {
   applyTheme(); readColors(); buildLUT();
   const layP = Promise.race([layoutFetch(), new Promise(r => setTimeout(r, 2500))]);     // Anordnung vom Server (gleich auf PC und Handy)
-  try { const r = await (await fetch('settings', { cache: 'no-store' })).json(); CUR = r.settings; SRC = r.sources || []; SCHED = r.schedule || []; MIRROR_ST = r.mirror || null; if (r.pro && r.pro.state) PRO = r.pro; } catch (e) { }
+  try { const r = await (await fetch('settings', { cache: 'no-store' })).json(); CUR = r.settings; setTimeout(qtModeApply, 0); SRC = r.sources || []; SCHED = r.schedule || []; MIRROR_ST = r.mirror || null; if (r.pro && r.pro.state) PRO = r.pro; } catch (e) { }
   pickLang(CUR && CUR.language); await layP; dashInit(); capApply(); statLoad(); mfLoad(); setTimeout(qtPlace, 500); tr(); setLive(true); syncRec(null); initHelp();
   proBanner(); setInterval(proLoad, 6 * 3600 * 1000);
   bindCanvas($('main'), false); bindCanvas($('spec'), true); bindChartKeys($('main')); document.querySelectorAll('dialog').forEach((d, i) => { const h = d.querySelector('h3,h2'); if (h && !d.hasAttribute('aria-labelledby')) { h.id = h.id || 'dlgh' + i; d.setAttribute('aria-labelledby', h.id); } }); $('spec').setAttribute('aria-hidden', 'true'); chartLabel(true);
@@ -7264,13 +7264,16 @@ function artConfirmPop(r, x, y) {
 /* ================= Kurze Hinweise (aus der Rechtsrecherche, Quicktipps 9–15): einzeln wegklickbar, gesamt über „💡 Hilfe anzeigen“ ================= */
 const QT_SRC = { 9: 'AG Wolfratshausen 5 C 274/20', 10: 'LG Berlin II 56 S 100/23 WEG', 11: 'BGH VIII ZR 1/16 Rn. 14; § 238 Abs. 2 StGB', 12: 'AG München 472 C 18927/16; OLG Celle 4 U 199/09',
   13: '§ 371 ZPO; Irskens, EDVGT 2024', 14: 'BGH VI ZR 1370/20; BVerfG 1 BvR 1611/96; AG München 173 C 11834/23', 15: 'AG München 173 C 11834/23' };
-function qtOn() { try { return localStorage.getItem('laerm_help') !== '0'; } catch (e) { return true; } }
+function qtMode() { return (CUR && CUR.tip_mode) || 'hover'; }
+function qtOn() { if (qtMode() === 'off') return false; try { return localStorage.getItem('laerm_help') !== '0'; } catch (e) { return true; } }
+function qtModeApply() { document.body.classList.toggle('qthover', qtMode() === 'hover'); qtRefresh(); }
 function qtHidden() { try { return new Set(JSON.parse(localStorage.getItem('gl_qt_hide') || '[]')); } catch (e) { return new Set(); } }
 function qtCard(n) {                                 // Hinweis Nr. n als Element (leer, wenn ausgeblendet)
   const box = el('div', { className: 'qtip' }); box.dataset.qt = n;
   const fill = () => {
     box.hidden = !qtOn() || qtHidden().has(n); if (box.hidden) { box.innerHTML = ''; return; }
-    box.innerHTML = `<span class="qti" aria-hidden="true">💡</span><span class="qtt">${esc(t('qt_' + n))}</span><details class="qtw"><summary>${esc(t('qt_why'))}</summary><small>${esc(t('qt_src', { s: QT_SRC[n] }))}</small></details><button type="button" class="qtx" aria-label="${esc(t('qt_hide'))}" title="${esc(t('qt_hide'))}">✕</button>`;
+    box.innerHTML = `<button type="button" class="qti" aria-expanded="false" aria-label="${esc(t('qt_show'))}" title="${esc(t('qt_' + n))}">💡</button><span class="qtt">${esc(t('qt_' + n))}</span><details class="qtw"><summary>${esc(t('qt_why'))}</summary><small>${esc(t('qt_src', { s: QT_SRC[n] }))}</small></details><button type="button" class="qtx" aria-label="${esc(t('qt_hide'))}" title="${esc(t('qt_hide'))}">✕</button>`;
+    const qb = box.querySelector('.qti'); qb.onclick = () => { const o = box.classList.toggle('open'); qb.setAttribute('aria-expanded', String(o)); };
     box.querySelector('.qtx').onclick = () => { const h = qtHidden(); h.add(n); try { localStorage.setItem('gl_qt_hide', JSON.stringify([...h])); } catch (e) { } box.hidden = true; box.innerHTML = ''; };
   };
   box._fill = fill; fill(); return box;

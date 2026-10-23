@@ -373,3 +373,17 @@ body.pop .capbody{flex:1}
 body.grwide .page{max-width:min(1600px,100%)}
 body.grwide .log.tbl{width:auto;margin-left:0}
 .laywid{display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin:8px 0}.laywid .seg button{min-height:32px}
+.tip .tipi{border:0;background:transparent;padding:0;font-size:14px;line-height:20px;cursor:pointer;min-width:24px;min-height:24px;border-radius:6px}
+/* Tipps „beim Zeigen“: nur ein kleines 💡; der Text erscheint, wenn die Maus über dem Bereich ist, ein Feld darin den Fokus hat oder 💡 angetippt wurde */
+body.tipshover .tip{background:transparent;border-color:transparent;padding:0 2px;margin:2px 0;min-height:0}
+body.tipshover .tip:not(.open) .tipt,body.tipshover .tip:not(.open) .why,body.tipshover .tip:not(.open) .tipx{display:none}
+body.tipshover .tip .tipi{opacity:.55}
+body.tipshover *:hover > .tipslot > .tip .tipi,body.tipshover *:focus-within > .tipslot > .tip .tipi{opacity:1}
+body.tipshover *:hover > .tipslot > .tip,body.tipshover *:focus-within > .tipslot > .tip,body.tipshover .tip.open{background:color-mix(in srgb,var(--acc) 7%,var(--card));border-color:color-mix(in srgb,var(--acc) 25%,var(--line));padding:7px 10px}
+body.tipshover *:hover > .tipslot > .tip .tipt,body.tipshover *:focus-within > .tipslot > .tip .tipt,body.tipshover *:hover > .tipslot > .tip .why,body.tipshover *:focus-within > .tipslot > .tip .why,body.tipshover *:hover > .tipslot > .tip .tipx,body.tipshover *:focus-within > .tipslot > .tip .tipx{display:revert}
+@media (hover:none){body.tipshover *:hover > .tipslot > .tip:not(.open) .tipt,body.tipshover *:hover > .tipslot > .tip:not(.open) .why,body.tipshover *:hover > .tipslot > .tip:not(.open) .tipx{display:none}body.tipshover *:hover > .tipslot > .tip:not(.open){background:transparent;border-color:transparent;padding:0 2px}}
+/* Allgemeiner Tipp im Erfassen-Bereich: das Textfeld hat fast immer den Fokus – deshalb nur beim Zeigen auf den Tipp selbst oder nach Antippen von 💡 */
+body.tipshover *:hover > .tipslot[data-tips="cap"] > .tip:not(.open),body.tipshover *:focus-within > .tipslot[data-tips="cap"] > .tip:not(.open){background:transparent;border-color:transparent;padding:0 2px}
+body.tipshover *:hover > .tipslot[data-tips="cap"] > .tip:not(.open) :is(.tipt,.why,.tipx),body.tipshover *:focus-within > .tipslot[data-tips="cap"] > .tip:not(.open) :is(.tipt,.why,.tipx){display:none}
+@media (hover:hover){body.tipshover .tipslot[data-tips="cap"]:hover > .tip{background:color-mix(in srgb,var(--acc) 7%,var(--card));border-color:color-mix(in srgb,var(--acc) 25%,var(--line));padding:7px 10px}
+body.tipshover .tipslot[data-tips="cap"]:hover > .tip :is(.tipt,.why,.tipx){display:revert}}
