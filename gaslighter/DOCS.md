@@ -698,6 +698,7 @@ Video-Breite, Bilder pro Sekunde, Videoqualität (für IP-Kameras und Handys).
 ### Allgemein
 
 - **Sprache** – Deutsch, Englisch oder wie der Browser.
+- **„Auto“-Höhe im Live-Bild** – „mit Schwelle“ (Standard): Die Schwelle ist immer im Bild. „nur Messwerte“: enger um Pegel und Hintergrund.
 - **Mausrad im Diagramm** – „nur mit Strg“ (Standard): Das Mausrad scrollt die Seite, zum Zoomen Strg gedrückt halten. „Zoomt immer“: wie früher, das Mausrad zoomt direkt.
 - **Protokoll & Notizen** – **Störungen zusammenfassen bei bis zu (s) Abstand** (Gruppen in der Liste), **Notiz gehört zur Störung, wenn bis zu (min) danach**.
 - **GLighter Pro** – siehe Pro.
@@ -1537,6 +1538,7 @@ Video width, frames per second, video quality (for IP cameras and phones).
 ### General
 
 - **Language** – German, English or like the browser.
+- **“Auto” height in the live view** – “with threshold” (default): the threshold is always in view. “measurements only”: tighter around level and background.
 - **Mouse wheel on the chart** – “only with Ctrl” (default): the wheel scrolls the page, hold Ctrl to zoom. “Always zooms”: as before, the wheel zooms directly.
 - **Log & notes** – **Group disturbances up to (s) apart** (groups in the list), **Note belongs to the disturbance if up to (min) after it**.
 - **GLighter Pro** – see Pro.

@@ -341,8 +341,9 @@ function setMode(m) {
 function syncAutoBtn() { if (yv.auto) yv.tlo = yv.thi = null; syncAutoBtn2(); }
 function syncAutoBtn2() { $('zauto').classList.toggle('on', yv.auto); $('main').classList.toggle('yfree', !yv.auto); }
 
-/* Auto-Zoom: Bereich eng um die sichtbaren Werte (Pegel, Hintergrund, Schwelle), mind. minSpan dB.
+/* Auto-Zoom: Bereich eng um die sichtbaren Werte (Pegel, Hintergrund und – Standard – die Schwelle), mind. minSpan dB.
    Mit Hysterese: das Ziel aendert sich nur, wenn Werte herausragen oder der Bereich deutlich zu gross ist. */
+const autoThr = () => !CUR || CUR.auto_thr !== 'data';   // Einstellung „Auto-Höhe“: mit Schwelle (Standard) oder nur Messwerte
 function autoY(mn, mx, minSpan, padF) {
   const sp = Math.max(mx - mn, 0.5), pad = Math.max(0.4, sp * padF);
   let lo = mn - pad, hi = mx + pad;
@@ -702,10 +703,11 @@ function drawLevel(cv, t0, t1) {
   if (i1 >= i0) {
     let mn = 1e9, mx = -1e9;
     const acc = v => { if (v != null && v > -125) { if (v < mn) mn = v; if (v > mx) mx = v; } };
-    for (let i = i0; i <= i1; i++) { const r = recs[i]; if (LAY.lvl) acc(r.l); if (LAY.bg) acc(r.b); accLayers(acc, r, bands); }   // Schwelle zählt nicht (steht sonst am Rand)
+    let tmn = 1e9, tmx = -1e9;
+    for (let i = i0; i <= i1; i++) { const r = recs[i]; if (LAY.lvl) acc(r.l); if (LAY.bg) acc(r.b); accLayers(acc, r, bands); if (r.t != null && r.t > -125) { if (r.t < tmn) tmn = r.t; if (r.t > tmx) tmx = r.t; } }
     if (mn <= mx) {
       yv.dmn = mn; yv.dmx = mx; yv.dmed = recs[Math.min(i1, (i0 + i1) >> 1)].l;
-      if (yv.auto) autoY(mn, mx, 3, 0.08);
+      if (yv.auto) { const w = autoThr() && tmn <= tmx; autoY(w ? Math.min(mn, tmn) : mn, w ? Math.max(mx, tmx) : mx, 3, 0.08); }   // „Auto“ mit Schwelle (einstellbar)
       else if (yv.anchor) {                              // hineingezoomt: unten bündig am tiefsten Wert, nur die Höhe ist gezoomt
         const sp = yv.span || (yv.hi - yv.lo), lo = Math.floor((mn - Math.max(0.3, sp * 0.03)) * 10) / 10, k = smoothK(250);
         yv.lo += (lo - yv.lo) * k; yv.hi += (lo + sp - yv.hi) * k;
@@ -776,8 +778,9 @@ function drawWave(cv, t0, t1) {
   if (i1 >= i0) {                                   // gleiche Auto-Skala wie die Pegelspur, unten etwas Luft
     let mn = 1e9, mx = -1e9;
     const acc = v => { if (v != null && v > -125) { if (v < mn) mn = v; if (v > mx) mx = v; } };
-    for (let i = i0; i <= i1; i++) { const r = recs[i]; acc(r.l); acc(r.b); }
-    if (mn <= mx) { yv.dmn = mn; yv.dmx = mx; yv.dmed = recs[Math.min(i1, (i0 + i1) >> 1)].l; if (yv.auto) autoY(mn - 2, mx, 5, 0.08); }   // leise Balken bleiben sichtbar
+    let tmx = -1e9;
+    for (let i = i0; i <= i1; i++) { const r = recs[i]; acc(r.l); acc(r.b); if (r.t != null && r.t > tmx) tmx = r.t; }
+    if (mn <= mx) { yv.dmn = mn; yv.dmx = mx; yv.dmed = recs[Math.min(i1, (i0 + i1) >> 1)].l; if (yv.auto) autoY(mn - 2, autoThr() && tmx > -125 ? Math.max(mx, tmx) : mx, 5, 0.08); }   // leise Balken bleiben sichtbar
   }
   const F = v => clamp((v - yv.lo) / (yv.hi - yv.lo), 0, 1);      // 0 = unten (leise), 1 = oben (laut)
   const Hh = v => Math.max(1.5 * d, F(v) * ph / 2);
@@ -3687,7 +3690,7 @@ const FORM = [
   ['s_place', [['clip_dir', 'text']]],
   ['s_keep', [['auto_delete', 'chk'], ['retention_days', 'num', 1, 3650, 1]]],
   ['s_mirror', [['mirror_dir', 'text'], ['mirror_time', 'time'], ['mirror_offload', 'chk']]],
-  ['s_misc', [['language', 'sel', ['auto', 'de', 'en'], { auto: 'lauto', de: '#Deutsch', en: '#English' }], ['wheel_zoom', 'sel', ['ctrl', 'always'], { ctrl: 'wz_ctrl', always: 'wz_always' }]]],
+  ['s_misc', [['language', 'sel', ['auto', 'de', 'en'], { auto: 'lauto', de: '#Deutsch', en: '#English' }], ['wheel_zoom', 'sel', ['ctrl', 'always'], { ctrl: 'wz_ctrl', always: 'wz_always' }], ['auto_thr', 'sel', ['thr', 'data'], { thr: 'at_thr', data: 'at_data' }]]],
   ['s_list', [['group_pause_s', 'num', 10, 3600, 10], ['fn_assign_min', 'num', 0, 60, 1]]],
 ];
 /* Reihenfolge der Kästen je Reiter (nach dem, was man tun will) */

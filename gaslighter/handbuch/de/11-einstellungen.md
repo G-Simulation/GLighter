@@ -76,6 +76,7 @@ Video-Breite, Bilder pro Sekunde, Videoqualität (für IP-Kameras und Handys).
 ## Allgemein {#allgemein}
 
 - **Sprache** {#s_misc} – Deutsch, Englisch oder wie der Browser.
+- **„Auto“-Höhe im Live-Bild** – „mit Schwelle“ (Standard): Die Schwelle ist immer im Bild. „nur Messwerte“: enger um Pegel und Hintergrund.
 - **Mausrad im Diagramm** – „nur mit Strg“ (Standard): Das Mausrad scrollt die Seite, zum Zoomen Strg gedrückt halten. „Zoomt immer“: wie früher, das Mausrad zoomt direkt.
 - **Protokoll & Notizen** {#s_list} – **Störungen zusammenfassen bei bis zu (s) Abstand** (Gruppen in der Liste), **Notiz gehört zur Störung, wenn bis zu (min) danach**.
 - **GLighter Pro** – siehe [Pro](#pro).

@@ -76,6 +76,7 @@ Video width, frames per second, video quality (for IP cameras and phones).
 ## General {#allgemein}
 
 - **Language** {#s_misc} – German, English or like the browser.
+- **“Auto” height in the live view** – “with threshold” (default): the threshold is always in view. “measurements only”: tighter around level and background.
 - **Mouse wheel on the chart** – “only with Ctrl” (default): the wheel scrolls the page, hold Ctrl to zoom. “Always zooms”: as before, the wheel zooms directly.
 - **Log & notes** {#s_list} – **Group disturbances up to (s) apart** (groups in the list), **Note belongs to the disturbance if up to (min) after it**.
 - **GLighter Pro** – see [Pro](#pro).

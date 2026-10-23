@@ -1,5 +1,8 @@
 # Changelog
 
+## 1.78.0
+- **„Auto“ zeigt die Schwelle mit:** Im Live-Bild (Pegelspur und Lautstärke-Balken) bezieht die Auto-Höhe jetzt die Schwelle ein. So siehst du immer, wie weit ein Geräusch noch von einer Meldung entfernt ist. Wer es enger um die Messwerte möchte: ⚙ → Allgemein → „„Auto“-Höhe im Live-Bild“ → „nur Messwerte“.
+
 ## 1.77.3
 - **Keine scheinbaren Lücken mehr:** Das Server-Mikrofon liefert den Ton oft in Schüben (z. B. 1,3 s auf einmal). Bisher sprang die Uhr bei so einem verspäteten Schub nach vorn – im Verlauf und im Live-Bild entstanden kurze Lücken, obwohl kein Ton fehlte (alle 10 Blöcke pro Sekunde waren da). Jetzt laufen die Zeitstempel gleichmäßig weiter. Echte Lücken (Ton fehlt länger als 3 s, Rekorder neu gestartet) werden weiterhin als Lücke gezeigt.
 - Bereits aufgezeichnete Tage bleiben unverändert (Tagesaufzeichnung und Prüfsummen werden nie nachträglich geändert).
