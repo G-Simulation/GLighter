@@ -15,21 +15,58 @@ The **Logs** tab shows a period completely: summary, week strip, history of all 
 Live and Logs consist of **sections** (overview, interruptions, history, events by hour, per day, events in the period, notes and motion, sensors in the period). Each section has a bar at the top:
 
 - **▾ / ▸** collapses and expands (also double-click on the bar).
-- **✕** hides it. Switch it on again under **▦ Customise layout**.
+- **✕** hides it. Insert it again via **▦ Customise layout** → **＋ Add section**.
 - **⌖ visible range only** (events, sensors): only shows what is currently visible in the history – drag e.g. 20:00–22:00 in the history and the table or list shows only that time.
 
-**▦ Customise layout:** move sections by the ⠿ handle, drag the side to make them narrower or wider (e.g. two side by side), switch sections on and off. **Done** saves, **↺ Reset** restores the default arrangement. The height follows the content. On phones all sections are stacked. The arrangement applies to this browser.
+### ▦ Customise layout (designer) {#designer}
+
+**▦ Customise layout** switches Live and Logs into edit mode – much like editing a dashboard in Home Assistant:
+
+- **Move:** drag the ⠿ handle or use **↑ / ↓** in a section's bar to move it one place up or down.
+- **Width:** drag the left or right edge (e.g. two sections side by side). The height follows the content.
+- **✎ Change title:** your own name for the section or tile. Leave it empty to restore the original.
+- **▾ / ▸** collapses and expands, **✕** takes the section out of the view.
+- **＋ Add section** opens the library: all sections of this view (shown or hidden) to insert or remove, plus **new tiles** and **ready-made templates** (see below). You can also reset the remembered **table column widths** there.
+- **↺ Reset** restores the default arrangement of this view after asking. **Done** ends editing.
+
+**With the keyboard:** in edit mode pick a section with Tab (it gets a clear frame), then
+
+| Key | Effect |
+|---|---|
+| ↑ / ↓ | one place up / down |
+| ← / → | one column left / right |
+| Shift + ← / → | narrower / wider |
+| Shift + ↑ / ↓ | collapse / expand |
+| F2 | change title |
+| Delete | remove (after asking) |
+
+Screen readers read the name of every section and announce the new position after each change.
+
+**On phones** all sections are stacked. Change the order in edit mode with **↑ / ↓** – the arrangement on the PC is kept.
+
+**Stored on the server:** arrangement, widths, collapsed and hidden sections, your own titles and the hand-dragged **table column widths** are kept in `layout.json` next to `sources.json`. PC, tablet and phone therefore show the same. If the server had no arrangement yet, GLighter takes the one saved in the browser the first time it opens. `layout.json` is part of the backup (ZIP) and comes back with “Take over settings and devices”. The layout never changes data.
 
 “Sensors in the period” is hidden at first: sensor events (“as event”) are already in the table, “only record state” (e.g. TV) appears as a 📡 hint on every disturbance that falls into that time.
 
-### 📊 Custom statistics {#statistik}
+### 📊 Tiles (custom statistics) {#statistik}
 
-**📊 ＋ Statistic** (above the areas, in Live and Logs) adds a statistic as its own area – move, widen, collapse and hide it like the others.
+**📊 ＋ Tile** (above the sections, in Live and Logs) or, in edit mode, **＋ Add section** → **New tile** adds a tile as its own section – move, widen, rename, collapse and hide it like the others.
 
-- **Templates (free for everyone):** e.g. “Disturbances per hour (night)”, “Types compared”, “Trend per week”, “Per weekday”, “Total duration per day”, “Disturbances today”, “Sensors per day”, “Notes by button”.
-- **Configure your own (Pro):** *what to count* (disturbances – also just one type or sound profile –, sensors, notes with a quick-select button), *measure* (count, total duration, avg or highest peak), *split by* (hour, weekday, day, week, month, type, device, note button, sensor), *display* (bars, line, big number, table), *period* (selected period or today, last 24 h / 7 / 30 / 90 / 365 days), *device* and *night only / quiet hours only / weekend only*. The preview shows the result right away.
-- **Clicking a bar** (or a table row) filters the event table to it; click again or **✕** to remove the filter.
-- **⚙** configures or deletes. Statistics only read – they never change data. Stored in `clips/statistik.json`, included in the backup.
+**Kinds of tiles:**
+
+- **Number** – big number with a label, e.g. disturbances today, disturbances in the last 7 days, average peak.
+- **Trend** – line over days, weeks or months.
+- **Bars** – e.g. per hour, weekday or day.
+- **List** – the most frequent types, devices, sensors or note buttons (3 to 20 entries).
+- **Table** – all values to sort and filter (like the other tables).
+
+**Configuring:**
+
+- **Templates (free for everyone):** e.g. “Disturbances today”, “Disturbances, last 7 days”, “Average peak (7 days)”, “Disturbance time today”, “Most frequent types (7 days)”, “Disturbances per device (30 days)”, “Trend per day (30 days)”, “Disturbances per hour (night)”, “Types compared”, “Trend per week”, “Per weekday”, “Total duration per day”, “Sensors per day”, “Notes by button”. A template goes into the view where you click it.
+- **Configure your own (Pro):** *name*, *what to count* (disturbances – also just one type or sound profile –, sensors, notes with a quick-select button), *measure* (count, total duration, avg or highest peak), *split by* (hour, weekday, day, week, month, type, device, note button, sensor), *display* (number, line, bars, list, table), *period* (selected period, today, last 24 h / 7 / 30 / 90 / 365 days or a **custom period** from–to), *device*, **thresholds** (*only from peak* in dBFS, *only from duration* in seconds) and *night only / quiet hours only / weekend only*. The preview shows the result right away.
+- **Clicking a bar**, a list entry or a table row (also with Enter or Space) filters the event table to it; click again or **✕** to remove the filter.
+- **⚙** configures or deletes. Tiles only read – they never change data. Stored in `clips/statistik.json`, included in the backup.
+- Every tile also appears **in Home Assistant** as a sensor (see [Home Assistant → Tiles](#home-assistant/kacheln)).
 
 ## Summary and week strip {#wochenleiste}
 
@@ -76,6 +113,14 @@ The type comes from the disturbance if the peak lies in one, otherwise from the 
 - Click = jump there in the history, double click or ▶ = [open the event](#ereignis), ⋮ = more actions (download noise track, re-evaluate, delete).
 - Select, then **Add to list** or delete. Deleted entries are kept in a recycle bin for safety; the day recording stays.
 - **📝 All notes**, **🔎 Check a sound** (analyse your own audio file, not stored), **🧩 Profiles & re-scan**, **Download log.csv**.
+
+### Confirm or correct the sound type {#art-bestaetigen}
+
+The detected type is shown as a coloured box in the **Type** column. Until you confirm it, it is a **“suggestion of the detection (confidence x %)”** – that is also how it appears in the noise log, the print and the raw data. **Click the box** (or ⋮ → Confirm sound type): **Correct** confirms the suggestion, another type corrects it, **Withdraw confirmation** undoes it. Your confirmation is kept in a separate file (`bestaetigt.json`); the detection's estimate, `log.csv` and the day recording stay unchanged. The detection says nothing about which flat a sound comes from.
+
+### Filter out known sounds {#muster}
+
+⋮ → **Filter out as pattern …** creates a [pattern](#einstellungen/muster) from the disturbance (device, type, time, duration and peak prefilled, with the preview “matches N disturbances of the last 30 days”). Filtered disturbances are then missing from the list; the count names them (“N filtered out by pattern”), **⊘ show filtered** brings them back with a mark.
 
 ### Notes in the table {#notizzeilen}
 

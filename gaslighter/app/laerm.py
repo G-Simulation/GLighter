@@ -15,6 +15,7 @@ import urllib.error
 import io
 import warnings
 import zlib
+import traceback
 import base64, collections, csv, datetime as dt, glob, gzip, hashlib, hmac, json, math, mimetypes, os, re, secrets, select, shutil, signal, socket, ssl, struct, subprocess, sys, threading, time, urllib.request, wave
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from urllib.parse import parse_qs
@@ -32,7 +33,7 @@ HERE = os.path.dirname(os.path.abspath(__file__))
 WEB = os.path.join(HERE, "web")
 OPTIONS_FILE = os.environ.get("LAERM_OPTIONS", "/data/options.json")
 SETTINGS_FILE = os.environ.get("LAERM_SETTINGS", "/data/settings.json")
-VERSION = "1.79.0"
+VERSION = "1.80.0"
 
 # =====================================================================
 # Einstellungen
@@ -2150,7 +2151,7 @@ def ha_test(entity, states):
 import hadash
 
 HADASH_FILE = os.path.join(os.path.dirname(SOURCES_FILE), "hadash.json")
-HADASH_PARTS = ("live", "verlauf", "notiz", "ruhe", "pause", "quellen", "oeffnen")
+HADASH_PARTS = ("live", "verlauf", "notiz", "ruhe", "pause", "quellen", "kacheln", "oeffnen")
 
 
 def HADASH_GUESS():
@@ -2159,7 +2160,12 @@ def HADASH_GUESS():
            "events_today": "sensor", "last_event": "sensor", "note": "text", "mark": "button", "quiet_minutes": "number",
            "quiet_start": "button", "quiet_stop": "button", "quiet_until": "sensor", "recording": "switch", "pause15": "button",
            "pause60": "button", "resume": "button", "pause_until": "sensor"}
-    return {f"{HAID}_{k}": f"{v}.{HAID}_{k}" for k, v in dom.items()}
+    out = {f"{HAID}_{k}": f"{v}.{HAID}_{k}" for k, v in dom.items()}
+    try:
+        out.update({f"{HAID}_tile_{x['id']}": f"sensor.{HAID}_tile_{x['id']}" for x in stat_list()})
+    except Exception:
+        pass
+    return out
 
 
 def hadash_prefs():
@@ -2250,12 +2256,49 @@ def hadash_config(d, ents):
             if lv:
                 cards.append(t(lv, f"{r.name}: " + T("Pegel", "level")))
         secs.append(hadash.section(cards))
+    if "kacheln" in parts:
+        cards = hadash_tiles(ents, T)
+        if cards:
+            secs.append(hadash.section([hadash.heading(T("Eigene Kacheln", "Own tiles"), "mdi:view-dashboard-variant")] + cards))
     if "oeffnen" in parts:
         secs.append(hadash.section([
             hadash.heading(BRAND, "mdi:open-in-app"),
             hadash.open_button(T(f"{BRAND} öffnen", f"Open {BRAND}"), hadash.self_slug("local_" + HAID), "mdi:ear-hearing"),
         ]))
     return hadash.board(d["title"], secs)
+
+
+def hadash_tiles(ents, T):
+    """Karten für die eigenen Kacheln: Zahl = Kachel, Trend = Statistik-Grafik, Balken = Verlauf, Liste/Tabelle = Text."""
+    cards = []
+    try:
+        lst = stat_list()
+    except Exception:
+        lst = []
+    for d in lst:
+        eid = ents.get(f"{HAID}_tile_{d['id']}")
+        if not eid:
+            continue
+        nm = tile_title(d["id"], d)
+        try:
+            days = 1 if d.get("range") in ("sel", "today", "1") else max(1, min(365, int(d.get("range")))) if str(d.get("range")).isdigit() else 7
+        except (TypeError, ValueError):
+            days = 7
+        sh = d.get("show")
+        if sh == "num" or (d.get("by") == "none" and sh not in ("list", "table")):
+            cards.append(hadash.tile(eid, nm))
+        elif sh == "line":
+            cards.append({"type": "statistics-graph", "title": nm, "entities": [eid], "chart_type": "line", "period": "hour" if days <= 2 else "day",
+                          "days_to_show": max(2, days), "stat_types": ["mean", "max"], "grid_options": {"columns": "full"}})
+        elif sh == "bar":
+            cards.append({"type": "history-graph", "title": nm, "hours_to_show": min(24 * 30, 24 * max(1, days)), "entities": [eid], "grid_options": {"columns": "full"}})
+        else:
+            att = T("eintraege", "items")
+            row = "| {{ x.name }} | {{ x.wert }} |" if sh == "table" else "- {{ x.name }}: **{{ x.wert }}**"
+            head = "| | |\n|---|---:|\n" if sh == "table" else ""
+            cards.append({"type": "markdown", "title": nm, "grid_options": {"columns": "full"},
+                          "content": head + "{% for x in state_attr('" + eid + "', '" + att + "') or [] %}" + row + "\n{% endfor %}"})
+    return cards
 
 
 def hadash_state(data=None):
@@ -2401,6 +2444,12 @@ def clean_source(d, existing=None):
         s["refs"] = clean_refs(d["refs"])
     if "plists" in d:                                  # Protokolllisten, in die dieses Geraet eintraegt (je mit Uhrzeit)
         s["plists"] = clean_plist_rules(d["plists"])
+    if "place" in d:                                   # Messangaben fürs Lärmprotokoll: Messort im Raum, Fenster
+        s["place"] = re.sub(r"[\x00-\x1f<>]", "", str(d["place"] or "")).strip()[:120]
+    if "window" in d:
+        s["window"] = d["window"] if d["window"] in ("open", "closed", "mixed") else ""
+    if "win_rule" in d:                                # Fenstersensor: Regel „nur festhalten“ aus Home Assistant
+        s["win_rule"] = re.sub(r"[^A-Za-z0-9_\-]", "", str(d["win_rule"] or ""))[:40]
     if "rec_only" in d:                                # nur aufzeichnen: Pegel in die Tagesaufzeichnung, keine Erkennung
         s["rec_only"] = d["rec_only"] in (True, "true", "on", 1, "1")
     if "hum" in d:
@@ -3022,6 +3071,7 @@ def announce(client=None, *_):
     if STATE["last"]:
         pub(f"{TOPIC}/last_event", STATE["last"], True)
         pub(f"{TOPIC}/last_event_attr", STATE["attr"], True)
+    threading.Thread(target=lambda: tiles_publish(force=True), daemon=True).start()     # eigene Kacheln als Sensoren (neu melden)
 
 
 def mqtt_start():
@@ -3220,10 +3270,15 @@ def art_group(e):
 def art_fields(datei):
     e = art_all().get(datei) if datei else None
     if not e:
-        return {"art": "", "art_c": None, "art_man": False, "kinds": [], "prof": "", "prof_c": None, "prof_ok": False, "bg": False}
+        b_ = best_of(datei)
+        return {"art": b_["g"] if b_ else "", "art_c": None, "art_man": False, "kinds": [], "prof": "", "prof_c": None, "prof_ok": False, "bg": False, **({"art_ok": True} if b_ else {})}
     p_ = e.get("p") or ["", None, ""]
-    return {"art": art_group(e), "art_c": None if e.get("man") else e.get("c"), "art_man": bool(e.get("man")), "kinds": e.get("k") or [],
-            "prof": p_[0] or "", "prof_c": p_[1] if p_[0] else None, "prof_ok": p_[2] == "ok", "bg": bool(p_[0]) and profile_bg(p_[0])}
+    out = {"art": art_group(e), "art_c": None if e.get("man") else e.get("c"), "art_man": bool(e.get("man")), "kinds": e.get("k") or [],
+           "prof": p_[0] or "", "prof_c": p_[1] if p_[0] else None, "prof_ok": p_[2] == "ok", "bg": bool(p_[0]) and profile_bg(p_[0])}
+    b_ = best_of(datei)                                  # eigene Bestätigung bzw. Korrektur (bestaetigt.json) geht vor, art.json bleibt unverändert
+    if b_:
+        out.update(art=b_["g"], art_ok=True, art_ki=e.get("g") or "", art_ki_c=e.get("c"))
+    return out
 
 
 def art_silent_set():
@@ -5063,6 +5118,7 @@ def log_event_row(runner, start, dur, ev, fname, span_s):
     pub(f"{TOPIC}/events_today", str(STATE["count"]), True)
     pub(f"{TOPIC}/last_event", STATE["last"], True)
     pub(f"{TOPIC}/last_event_attr", STATE["attr"], True)
+    tiles_kick()                                          # Kacheln in Home Assistant nachziehen
     pub(f"{TOPIC}/event", json.dumps({"event_type": "stoerung", "quelle": runner.name, "quelle_id": runner.id, "zeit": STATE["last"],
                                       "dauer_s": round(dur, 2), "spitze_dbfs": round(ev["peak"], 1), "datei": fname}, ensure_ascii=False))
     pub_trigger(runner, "ende", zeit=STATE["last"], dauer_s=round(dur, 2), spitze_dbfs=round(ev["peak"], 1), schwelle_dbfs=round(ev["thr"], 1),
@@ -5470,6 +5526,7 @@ def recount():
     else:
         STATE["last"], STATE["attr"] = None, None
     pub(f"{TOPIC}/events_today", str(STATE["count"]), True)
+    tiles_kick()
     pub(f"{TOPIC}/last_event", STATE["last"] or "", True)
     pub(f"{TOPIC}/last_event_attr", STATE["attr"] or "{}", True)
 
@@ -5770,7 +5827,42 @@ def qt_all():
         return QT["data"]
 
 
+# Notiz-Erfassung anpassen (ab 1.80, wie in GReport, aber nur für GLighter): zusätzliche Schlüssel in schnellwahl.json,
+# nur vorhanden, wenn benutzt (ältere Versionen lesen die Datei unverändert):
+#   ren = {eingebaut: Name}, grp = {Taste: Rubrik}, gcol = {Rubrik: "#rrggbb"}, req = {Rubrik: true},
+#   groups = {"g_xxxxxx": {"l", "ts", "del"}} eigene Rubriken, gren = {Rubrik: Name}, ghide = {Rubrik: true},
+#   order = [Tasten] (fest angeordnet), gorder = [Rubriken], mode = "use" | "fixed"
+QT_GROUPS = ["src", "kind", "lvl", "eff", "act", "misc", "own"]
+
+
+def qt_x(k, kind=dict):
+    v = qt_all().get(k)
+    return v if isinstance(v, kind) else kind()
+
+
+def qt_xset(k, v):
+    qt_all()[k] = v
+    return v
+
+
+def qt_group_custom():
+    return {g: o for g, o in qt_x("groups").items() if isinstance(o, dict) and not o.get("del") and re.fullmatch(r"g_[0-9a-f]{6}", g)}
+
+
+def qt_word_groups():
+    return QT_GROUPS + list(qt_group_custom())
+
+
+def qt_groups_all():
+    base = QT_GROUPS[:-1] + list(qt_group_custom()) + ["own"]
+    pos = {g: i for i, g in enumerate(qt_x("gorder", list))}
+    return sorted(base, key=lambda g: (pos.get(g, 10 ** 6), base.index(g)))
+
+
 def qt_save():
+    if QT.get("batch"):                                  # mehrere Änderungen auf einmal: erst am Ende speichern
+        QT["dirty"] = True
+        return
     with QT_LOCK:
         if QT["data"] is None:
             return
@@ -5806,6 +5898,8 @@ def tag_label(t):
     o = qt_all()["own"].get(t)
     if isinstance(o, dict):
         return o.get("l") or t
+    if qt_x("ren").get(t) and t in NOTE_TAG_SET:          # eingebaute Taste umbenannt (alte Notizen behalten den Schlüssel)
+        return qt_x("ren")[t]
     return NOTE_TAG_DE.get(t, t)
 
 
@@ -5844,7 +5938,16 @@ def qt_state():
         labels = {(o.get("l") or "").lower() for o in d["own"].values() if isinstance(o, dict) and not o.get("del")}
         sug = sorted(((k, e) for k, e in d["words"].items() if isinstance(e, dict) and int(e.get("n") or 0) >= QT_SUGGEST_N
                       and not d["nope"].get(k) and k not in labels), key=lambda x: -int(x[1].get("n") or 0))
-        return {"ok": True, "tags": NOTE_TAGS,
+        gc = qt_group_custom()
+        return {"ok": True, "tags": NOTE_TAGS, "groups": QT_GROUPS,
+                "ren": {k: v for k, v in qt_x("ren").items() if k in NOTE_TAG_SET and isinstance(v, str) and v},
+                "grp": {k: v for k, v in qt_x("grp").items() if v in qt_word_groups()},
+                "order": [k for k in qt_x("order", list) if tag_known(k)], "mode": "fixed" if d.get("mode") == "fixed" else "use",
+                "gcol": {g: c for g, c in qt_x("gcol").items() if g in qt_groups_all() and re.fullmatch(r"#[0-9a-fA-F]{6}", str(c))},
+                "req": sorted(g for g, v in qt_x("req").items() if v and g in qt_groups_all()),
+                "gall": [{"g": g, "l": (gc[g].get("l") or g) if g in gc else str(qt_x("gren").get(g) or ""), "custom": g in gc,
+                          "hide": bool(qt_x("ghide").get(g)), "renamed": bool(qt_x("gren").get(g))} for g in qt_groups_all()],
+                "own_max": QT_OWN_MAX,
                 "own": [{"k": k, "l": o.get("l") or k, "del": bool(o.get("del"))} for k, o in d["own"].items() if isinstance(o, dict)],
                 "hide": sorted(k for k, v in d["hide"].items() if v and k in NOTE_TAG_SET),
                 "use": {k: int(v or 0) for k, v in d["use"].items() if isinstance(v, (int, float))},
@@ -5852,11 +5955,128 @@ def qt_state():
 
 
 def qt_change(data):
-    """Schnellwahl verwalten: add (l), ren (k, l), del (k), undel (k), hide (k, on), nope (w)."""
+    """Mehrere Änderungen in einem Rutsch (action „batch“, ops = Liste; „Layout anpassen“ → Fertig) – gespeichert wird einmal am Ende."""
+    if str(data.get("action") or "") == "batch":
+        ops = data.get("ops") if isinstance(data.get("ops"), list) else []
+        errs = []
+        with QT_LOCK:
+            QT["batch"] = True; QT["dirty"] = False
+            try:
+                for i, op in enumerate(ops[:600]):
+                    if not isinstance(op, dict) or op.get("action") == "batch":
+                        continue
+                    r = qt_change_one(op)
+                    if not r.get("ok"):
+                        errs.append({"i": i, "action": op.get("action"), "error": r.get("error")})
+            finally:
+                QT["batch"] = False
+            if QT.pop("dirty", False):
+                qt_save()
+        return dict(qt_state(), errors=errs)
+    return qt_change_one(data)
+
+
+def qt_change_one(data):
+    """Schnellwahl verwalten: add (l, k, g), ren (k, l – auch eingebaute), del (k), undel (k), hide (k, on), nope (w),
+    grp (k, g), order (keys), mode (use|fixed), gcol (g, c), req (g, on), gadd (g, l), gren (g, l), gdel (g), ghide (g, on),
+    gorder (groups), reset (eingebaute Tasten, Reihenfolge, Rubriken auf Standard; eigene Tasten und Rubriken bleiben)."""
     a = str(data.get("action") or "")
     with QT_LOCK:
         d = qt_all()
         k = str(data.get("k") or "")
+        if a == "grp":
+            g = data.get("g")
+            if not tag_known(k) or g not in qt_word_groups():
+                return {"ok": False, "error": "not found"}
+            dflt = next((x for x, v in NOTE_TAGS.items() if k in v), "own")
+            if g == dflt:
+                qt_x("grp").pop(k, None)
+            else:
+                qt_xset("grp", qt_x("grp"))[k] = g
+            qt_save()
+            return qt_state()
+        if a == "order":
+            keys = [x for x in data.get("keys") if tag_known(x)] if isinstance(data.get("keys"), list) else None
+            if keys is None:
+                return {"ok": False, "error": "bad request"}
+            d["order"] = list(dict.fromkeys(keys))[:200]; d["mode"] = "fixed"
+            qt_save()
+            return qt_state()
+        if a == "mode":
+            d["mode"] = "fixed" if data.get("mode") == "fixed" else "use"
+            qt_save()
+            return qt_state()
+        if a in ("gcol", "req", "gren", "gdel", "ghide"):
+            g = str(data.get("g") or "")
+            if g not in qt_groups_all():
+                return {"ok": False, "error": "not found"}
+            if a == "gcol":
+                c = str(data.get("c") or "")
+                if re.fullmatch(r"#[0-9a-fA-F]{6}", c):
+                    qt_xset("gcol", qt_x("gcol"))[g] = c.lower()
+                else:
+                    qt_x("gcol").pop(g, None)
+            elif a in ("req", "ghide"):
+                if data.get("on"):
+                    qt_xset(a, qt_x(a))[g] = True
+                else:
+                    qt_x(a).pop(g, None)
+            elif a == "gren":
+                l = qt_clean_label(data.get("l"))
+                if g in qt_group_custom():
+                    if not l:
+                        return {"ok": False, "error": "empty"}
+                    qt_x("groups")[g]["l"] = l
+                elif l:
+                    qt_xset("gren", qt_x("gren"))[g] = l
+                else:
+                    qt_x("gren").pop(g, None)
+            else:                                            # gdel: nur eigene Rubriken; ihre Tasten kommen nach „Eigene“
+                if g not in qt_group_custom():
+                    return {"ok": False, "error": "not found"}
+                qt_x("groups")[g]["del"] = True
+                d["grp"] = {k_: v for k_, v in qt_x("grp").items() if v != g}
+            qt_save()
+            return qt_state()
+        if a == "gadd":
+            l = qt_clean_label(data.get("l"))
+            if not l:
+                return {"ok": False, "error": "empty"}
+            if len(qt_group_custom()) >= 20:
+                return {"ok": False, "error": "limit"}
+            g = str(data.get("g") or "")
+            gs = qt_xset("groups", qt_x("groups"))
+            if not re.fullmatch(r"g_[0-9a-f]{6}", g) or g in gs:
+                g = "g_" + secrets.token_hex(3)
+            gs[g] = {"l": l, "ts": dt.datetime.now().astimezone().isoformat(timespec="seconds")}
+            qt_save()
+            return dict(qt_state(), g=g)
+        if a == "gorder":
+            gs = data.get("groups")
+            if not isinstance(gs, list):
+                return {"ok": False, "error": "bad request"}
+            ok = set(qt_groups_all())
+            d["gorder"] = list(dict.fromkeys(g for g in gs if g in ok))
+            qt_save()
+            return qt_state()
+        if a == "reset":
+            for x in ("ren", "hide", "gren", "ghide", "gcol", "req"):
+                d.pop(x, None)
+            d["hide"] = {}
+            if isinstance(d.get("grp"), dict):
+                d["grp"] = {k_: v for k_, v in d["grp"].items() if k_ not in NOTE_TAG_SET}
+            for x in ("order", "gorder", "mode"):
+                d.pop(x, None)
+            qt_save()
+            return qt_state()
+        if a == "ren" and k in NOTE_TAG_SET:                 # eingebaute Taste umbenennen
+            l = qt_clean_label(data.get("l"))
+            if not l or l == NOTE_TAG_DE.get(k):
+                qt_x("ren").pop(k, None)
+            else:
+                qt_xset("ren", qt_x("ren"))[k] = l
+            qt_save()
+            return qt_state()
         if a == "add":
             l = qt_clean_label(data.get("l"))
             if not l:
@@ -5867,8 +6087,14 @@ def qt_change(data):
             else:
                 if sum(1 for o in d["own"].values() if isinstance(o, dict) and not o.get("del")) >= QT_OWN_MAX:
                     return {"ok": False, "error": "limit"}
-                k_ = "c_" + secrets.token_hex(3)
+                k_ = str(data.get("k") or "")                  # „Layout anpassen“ vergibt die Kennung schon vorher
+                if not re.fullmatch(r"c_[0-9a-f]{6}", k_) or k_ in d["own"]:
+                    k_ = "c_" + secrets.token_hex(3)
                 d["own"][k_] = {"l": l, "ts": dt.datetime.now().astimezone().isoformat(timespec="seconds")}
+                if d.get("mode") == "fixed":
+                    qt_xset("order", qt_x("order", list)).append(k_)
+            if data.get("g") in qt_word_groups() and data.get("g") != "own":
+                qt_xset("grp", qt_x("grp"))[k_] = data["g"]
             d["words"].pop(l.lower(), None)
             qt_save()
             return dict(qt_state(), k=k_)
@@ -6812,6 +7038,352 @@ def proto_track(sid, a, b, n, evmap):
     return out
 
 
+# =====================================================================
+# Lärmprotokoll und Rohdaten: Messangaben, Impulse, Zeitachse (nur lesen)
+# =====================================================================
+WIN_TXT = {"open": ("meist offen", "mostly open"), "closed": ("meist geschlossen", "mostly closed"), "mixed": ("wechselnd", "changing")}
+
+
+def method_info(src="all", de=True):
+    """Methodenblock: Gerät/Mikrofon, App-Version, Messort, Fenster, Kalibrierung, Ton. Liste von (Überschrift, Text)."""
+    with SRC_LOCK:
+        rs = [r for r in RUNNERS.values() if src == "all" or r.id == src]
+    devs = []
+    for r in rs:
+        typ = {"local": "Mikrofon am Server" if de else "server microphone", "phone": "Handy" if de else "phone", "url": "Netzwerk-Kamera/IP-Webcam" if de else "network camera"}.get(r.src.get("type"), r.src.get("type") or "")
+        mic = (CFG.get("device") or "") if r.src.get("type") == "local" else (r.src.get("device_info") or "")
+        place = r.src.get("place") or ""
+        win = WIN_TXT.get(r.src.get("window") or "", ("", ""))[0 if de else 1]
+        wr = r.src.get("win_rule") or ""
+        if wr:
+            nm = next((x.get("label") or x.get("entity") or wr for x in list(HA_RULES) if x.get("id") == wr), wr)
+            win = (win + "; " if win else "") + (f"Fenstersensor „{nm}“ (Zustand je Störung im Protokoll)" if de else f"window sensor “{nm}” (state per disturbance in the log)")
+        try:
+            gain = float(r.src.get("gain_db") or 0)
+        except (TypeError, ValueError):
+            gain = 0.0
+        devs.append({"id": r.id, "name": r.name, "type": typ, "mic": mic, "place": place, "window": win, "gain": gain,
+                     "audio": bool((r.cfg() if hasattr(r, "cfg") else CFG).get("save_audio"))})
+    audio_any = any(d["audio"] for d in devs)
+    out = {"version": VERSION, "devices": devs, "audio": audio_any,
+           "calib": ("Mikrofon nicht kalibriert: Werte sind Indizien und ersetzen kein Gutachten. Pegel sind relative Werte (dBFS), keine Messung in dB(A)."
+                     if de else "Microphone not calibrated: values are indications and do not replace an expert report. Levels are relative values (dBFS), not a measurement in dB(A)."),
+           "audio_txt": (("Ton wird nur bei eingeschalteter Option „Echten Ton speichern“ gespeichert (an für: " + ", ".join(d["name"] for d in devs if d["audio"]) + ")."
+                          if de else "Audio is only stored with the option “Store real audio” switched on (on for: " + ", ".join(d["name"] for d in devs if d["audio"]) + ").")
+                         if audio_any else ("Es wird kein Ton gespeichert, nur Pegel- und Frequenzwerte." if de else "No audio is stored, only level and frequency values.")),
+           "art_txt": ("Die Geräuschart ist ein Vorschlag der automatischen Erkennung, solange sie nicht bestätigt ist. Sie belegt nicht, woher ein Geräusch kommt."
+                       if de else "The sound type is a suggestion of the automatic detection unless it was confirmed. It does not show where a sound comes from.")}
+    return out
+
+
+def impulses(r):
+    """Anzahl der Impulse einer Störung: wie oft die Spitze (je 125 ms) über die Schwelle steigt. None, wenn keine Tagesaufzeichnung."""
+    a, b = row_core(r)
+    if a is None:
+        return None
+    try:
+        fr = day_frames(r.get("quelle_id") or "main", a - 250, b + 250)
+    except Exception:
+        return None
+    if not fr:
+        return None
+    n, up = 0, False
+    for f in fr:
+        pk, thr = f[1], f[4]
+        if pk is None or thr is None:
+            continue
+        if pk > thr and not up:
+            n += 1; up = True
+        elif pk <= thr - 1.0:                          # 1 dB Abstand gegen Flattern an der Schwelle
+            up = False
+    return max(1, n)
+
+
+def export_rows(q):
+    """Störungen fürs Lärmprotokoll und die Rohdaten (CSV): je Gerät eine Zeile, mit Art, Muster und Impulsen."""
+    g = lambda k, d="": (q.get(k) or [d])[0]
+    try:
+        d0 = dt.date.fromisoformat(g("from")) if g("from") else None
+        d1 = dt.date.fromisoformat(g("to")) if g("to") else None
+    except ValueError:
+        d0 = d1 = None
+    src = re.sub(r"[^a-z0-9_]", "", g("src", "all"))[:16] or "all"
+    rows = read_log(); keys = row_keys(rows)
+    lo_ = d0.isoformat() if d0 else ""; hi_ = (d1 + dt.timedelta(days=1)).isoformat() if d1 else "9999"
+    keyed = sorted([dict(r, k=k) for r, k in zip(rows, keys) if lo_ <= (r.get("start") or "")[:10] < hi_], key=lambda x: x.get("start") or "")
+    by_k, I, _ = incidents(keyed)
+    MF = muster_map(keyed, inc=(by_k, I))
+    names = muster_names()
+    out = []
+    for r in keyed:
+        if src != "all" and r["quelle_id"] != src:
+            continue
+        af = art_fields(r["datei"] or event_stem(r, int(r["k"].rsplit("|", 1)[1] or 0)))
+        ig = by_k.get(r["k"])
+        out.append({"r": r, "af": af, "inc": ig[0] if ig else None, "lead": (I[ig[0]]["lead"] == r["k"]) if ig else True, "bg": bool(ig and I[ig[0]]["bg"]),
+                    "mf": [names.get(x, {}).get("name", x) for x in MF.get(r["k"], [])]})
+    return out, d0, d1, src
+
+
+def export_csv(q):
+    """Rohdaten zum Lärmprotokoll als CSV (Semikolon, UTF-8 mit BOM). log.csv bleibt unverändert."""
+    rows, _d0, _d1, _src = export_rows(q)
+    de = CFG.get("language") != "en"
+    omit = (q.get("mfo") or ["0"])[0] == "1"
+    buf = io.StringIO()
+    w = csv.writer(buf, delimiter=";")
+    w.writerow(["beginn", "dauer_s", "spitze_dbfs", "hintergrund_dbfs", "schwelle_dbfs", "ueber_schwelle_db", "impulse", "geraet", "geraet_id", "stoerung_nr", "fuehrendes_geraet",
+                "art", "art_status", "art_konfidenz_pct", "tonprofil", "hintergrund_profil", "ruhezeit", "nach_muster_ausgefiltert", "datei"])
+    n = 0
+    for x in rows:
+        r, af = x["r"], x["af"]
+        if omit and x["mf"]:
+            continue
+        pk, thr = fnum(r.get("spitze_dbfs")), fnum(r.get("schwelle_dbfs"))
+        try:
+            rz = is_quiet_time(aware(dt.datetime.fromisoformat(r["start"])))
+        except ValueError:
+            rz = False
+        imp = impulses(r) if n < 5000 else None
+        st_ = "bestaetigt" if af.get("art_ok") or af.get("art_man") else ("vorschlag" if af.get("art") else "")
+        w.writerow([r["start"], r["dauer_s"], r["spitze_dbfs"], r["hintergrund_dbfs"], r["schwelle_dbfs"],
+                    "" if pk is None or thr is None else round(pk - thr, 1), "" if imp is None else imp, r.get("quelle") or "", r.get("quelle_id") or "",
+                    "" if x["inc"] is None else x["inc"] + 1, "ja" if x["lead"] else "nein",
+                    art_label(af["art"], de) if af.get("art") else "", st_, "" if af.get("art_c") is None or st_ == "bestaetigt" else round(af["art_c"]),
+                    af.get("prof") or "", "ja" if x["bg"] else "", "ja" if rz else "", ", ".join(x["mf"]), r.get("datei") or ""])
+        n += 1
+    return ("﻿" + buf.getvalue()).encode("utf-8")
+
+
+DUR_BUCKETS = ((5, ("unter 5 s", "under 5 s")), (60, ("5 s bis 1 Min.", "5 s to 1 min")), (600, ("1 bis 10 Min.", "1 to 10 min")), (None, ("über 10 Min.", "over 10 min")))
+OVER_BUCKETS = ((3, ("bis 3 dB über der Schwelle", "up to 3 dB above the threshold")), (10, ("3 bis 10 dB darüber", "3 to 10 dB above")), (None, ("mehr als 10 dB darüber", "more than 10 dB above")))
+
+
+def evidence_core(a_dt, b_dt, srcs=None, mfo=False, de=True, with_chains=True):
+    """Belegdaten für Ausdruck, Lärmprotokoll und Beweispaket (nur lesen): Zusammenfassung nach Zeitpunkt, Art, Intensität, Dauer und Häufigkeit,
+    lückenlose Zeitachse (auch Tage ohne Störung), Prüfsummen je Tag und Gerät, Musterfilter-Vermerk. a_dt/b_dt: lokale Zeit (ohne Zone), b exklusiv.
+    Gezählt wird je Störung (mehrere Geräte = eine), Hintergrund-Profile nicht; mfo = nach Muster ausgefilterte weglassen."""
+    L = 0 if de else 1
+    a_s, b_s = a_dt.strftime("%Y-%m-%dT%H:%M:%S"), b_dt.strftime("%Y-%m-%dT%H:%M:%S")
+    allrows = read_log()
+    keyed = sorted((dict(r, k=k) for r, k in zip(allrows, row_keys(allrows)) if a_s <= (r.get("start") or "")[:19] < b_s), key=lambda r: r.get("start") or "")
+    by_k, I, _G = incidents(keyed)
+    MF = muster_map(keyed, inc=(by_k, I))
+    names = muster_names()
+    byk = {r["k"]: r for r in keyed}
+    per_day, per_hour, per_wd, per_art = collections.Counter(), collections.Counter(), collections.Counter(), collections.Counter()
+    dur_b, over_b, mf_used = collections.Counter(), collections.Counter(), collections.Counter()
+    pks, durs, n, bg_n, rz_n, night_n, imp_n, imp_sum = [], [], 0, 0, 0, 0, 0, 0
+    for i, inc in sorted(I.items()):
+        rs = [byk[d[3]] for d in inc["devs"] if d[3] in byk and (srcs is None or (byk[d[3]].get("quelle_id") or "main") in srcs)]
+        if not rs:
+            continue
+        r = byk.get(inc["lead"]) if byk.get(inc["lead"]) in rs else rs[0]
+        if inc["bg"]:
+            bg_n += 1; continue
+        if r["k"] in MF:
+            for x in MF[r["k"]]:
+                mf_used[x] += 1
+            if mfo:
+                continue
+        n += 1
+        try:
+            t = dt.datetime.fromisoformat(r["start"])
+        except ValueError:
+            continue
+        per_day[t.date().isoformat()] += 1; per_hour[t.hour] += 1; per_wd[t.weekday()] += 1
+        if t.hour >= 22 or t.hour < 6:
+            night_n += 1
+        try:
+            if is_quiet_time(aware(t)):
+                rz_n += 1
+        except Exception:
+            pass
+        af = art_fields(r.get("datei") or event_stem(r, int(r["k"].rsplit("|", 1)[1] or 0)))
+        per_art[("🧩 " + af["prof"]) if af.get("prof") else (art_label(af["art"], de) + ("" if af.get("art_ok") or af.get("art_man") else (" (Vorschlag)" if de else " (suggestion)")))
+                if af.get("art") else ("noch nicht eingeordnet" if de else "not yet classified")] += 1
+        pk, thr, du = fnum(r.get("spitze_dbfs")), fnum(r.get("schwelle_dbfs")), fnum(r.get("dauer_s")) or 0.0
+        if pk is not None:
+            pks.append(pk)
+        durs.append(du)
+        dur_b[next(j for j, (lim, _l) in enumerate(DUR_BUCKETS) if lim is None or du < lim)] += 1
+        if pk is not None and thr is not None:
+            ov = pk - thr
+            over_b[next(j for j, (lim, _l) in enumerate(OVER_BUCKETS) if lim is None or ov <= lim)] += 1
+        if n <= 1500:
+            im = impulses(r)
+            if im:
+                imp_n += 1; imp_sum += im
+    # lückenlose Zeitachse: jeder Tag, auch ohne Störung, mit „aufgezeichnet“ (es gibt eine Tagesaufzeichnung)
+    d_a = a_dt.date(); d_b = (b_dt - dt.timedelta(seconds=1)).date()
+    if keyed and (d_b - d_a).days > 400:
+        d_a = max(d_a, d_b - dt.timedelta(days=399))
+    rec = collections.defaultdict(set)
+    for f_ in glob.glob(os.path.join(day_dir(), "*" + DAY_EXT)):
+        b_ = os.path.basename(f_)
+        sid_ = b_[11:-len(DAY_EXT)]
+        if srcs is None or sid_ in srcs:
+            rec[b_[:10]].add(sid_)
+    days = []
+    x = d_a
+    while x <= d_b and len(days) < 400:
+        days.append({"day": x.isoformat(), "n": per_day.get(x.isoformat(), 0), "rec": sorted(rec.get(x.isoformat(), ()))})
+        x += dt.timedelta(days=1)
+    nd = len(days); wd_n = sum(1 for d in days if d["n"]); rec_n = sum(1 for d in days if d["rec"])
+    quiet_rec = sum(1 for d in days if d["rec"] and not d["n"])
+    sp = sorted(pks); sd = sorted(durs)
+    summ = {"n": n, "bg_n": bg_n, "rz_n": rz_n, "night_n": night_n, "days": nd, "days_with": wd_n, "days_rec": rec_n, "days_quiet_rec": quiet_rec,
+            "per_day_avg": round(n / nd, 2) if nd else 0, "per_day_max": max(per_day.values()) if per_day else 0,
+            "per_week_avg": round(n / max(1.0, nd / 7.0), 1) if nd else 0,
+            "hours": [per_hour.get(h, 0) for h in range(24)], "wd": [per_wd.get(w, 0) for w in range(7)],
+            "top_hours": [[h, c] for h, c in sorted(per_hour.items(), key=lambda kv: -kv[1])[:4]],
+            "arts": per_art.most_common(),
+            "peak": {"min": sp[0], "med": sp[len(sp) // 2], "max": sp[-1]} if sp else None,
+            "over": [[OVER_BUCKETS[j][1][L], over_b.get(j, 0)] for j in range(len(OVER_BUCKETS))],
+            "dur": {"sum": round(sum(sd), 1), "med": sd[len(sd) // 2], "max": sd[-1]} if sd else None,
+            "dur_b": [[DUR_BUCKETS[j][1][L], dur_b.get(j, 0)] for j in range(len(DUR_BUCKETS))],
+            "impulses": {"events": imp_n, "sum": imp_sum} if imp_n else None}
+    mf = {"omit": bool(mfo), "used": [[names.get(k_, {}).get("name", k_), c] for k_, c in mf_used.most_common()], "n": sum(1 for k_ in MF if k_ in byk and (
+        srcs is None or (byk[k_].get("quelle_id") or "main") in srcs) and (k_ not in by_k or I[by_k[k_][0]]["lead"] == k_))}
+    chains = []
+    if with_chains:
+        try:
+            ri_ = runtime_info(int(aware(a_dt).timestamp() * 1000), int(aware(b_dt).timestamp() * 1000) - 1)
+            chains = [{"day": c["day"], "sid": c["sid"], "name": c.get("name") or c["sid"], "res": chain_result_text(c, de), "head": c.get("head") or "",
+                       "ok": c.get("ok"), "n": c.get("n", 0), "nokey": bool(c.get("nokey"))}
+                      for c in ri_["chains"] if srcs is None or c["sid"] in srcs]
+        except Exception as e:
+            log("Belegdaten: Prüfsummen nicht gelesen:", e)
+    mf_ev = []                                           # Störungen mit Musterfilter (für die Kennzeichnung im Ausdruck): [Beginn ms, Gerät, Namen]
+    for k_, ids_ in MF.items():
+        r_ = byk.get(k_)
+        if r_ and (srcs is None or (r_.get("quelle_id") or "main") in srcs) and len(mf_ev) < 5000:
+            a_ms = ms_of(r_.get("start"))
+            if a_ms is not None:
+                mf_ev.append([a_ms, r_.get("quelle_id") or "main", [names.get(x, {}).get("name", x) for x in ids_]])
+    return {"ok": True, "summary": summ, "timeline": days, "chains": chains, "muster": mf, "mf_ev": mf_ev,
+            "method": method_info("all" if srcs is None or len(srcs) != 1 else next(iter(srcs)), de),
+            "howto": CHAIN_HOWTO[L], "limits": EVIDENCE_LIMITS[L], "from": a_dt.isoformat(timespec="seconds"), "to": b_dt.isoformat(timespec="seconds")}
+
+
+def chain_result_text(c, de=True):
+    """Ergebnis der Kettenprüfung eines Tages als kurzer Text (Lärmprotokoll, Beweispaket, Ausdruck)."""
+    if c.get("nokey"):
+        return (f"Kette vollständig ({c.get('n', 0)} Minuten), Schlüssel fehlt: Echtheit nur mit Originalgerät prüfbar" if de else
+                f"chain complete ({c.get('n', 0)} minutes), key missing: authenticity can only be checked with the original device")
+    if c.get("ok"):
+        mac_ = {"hmac": ", HMAC", "alt": (", alte Kette nur SHA-256" if de else ", old chain SHA-256 only"), "gemischt": (", teils alte Kette nur SHA-256" if de else ", partly old chain")}.get(c.get("mac"), "")
+        if c.get("fremd"):
+            mac_ += ", Schlüssel aus Sicherung" if de else ", key from backup"
+        if c.get("explained"):
+            mac_ += (f", {c['explained']} Minute(n) beim Stromausfall nur halb geschrieben" if de else f", {c['explained']} minute(s) cut off by power loss")
+        return (f"vollständig und unverändert ({c.get('n', 0)} Minuten{mac_})" if de else f"complete and unchanged ({c.get('n', 0)} minutes{mac_})")
+    if c.get("ok") is None or c.get("none"):
+        return "keine Prüfsummen (vor 1.40)" if de else "no checksums (before 1.40)"
+    at = dt.datetime.fromtimestamp(c["bad"] / 1000.0).strftime("%H:%M") if c.get("bad") else "?"
+    return ("ABWEICHUNG ab " + at) if de else ("MISMATCH from " + at)
+
+
+CHAIN_HOWTO = ("So wird geprüft: Für jede Minute der Tagesaufzeichnung entsteht eine Prüfsumme, die auf der vorherigen aufbaut (Kette, HMAC-SHA256 mit einem "
+               "geheimen Schlüssel dieser Installation; ältere Tage SHA-256). GLighter rechnet die Kette aus den gespeicherten Minuten neu und vergleicht jede Summe. "
+               "„vollständig und unverändert“ heißt: alle Minuten passen. Wird ein Wert geändert oder eine Minute entfernt, passt die Kette ab dieser Stelle nicht mehr. "
+               "Fehlt der Schlüssel (Sicherung ohne Umzug), lässt sich nur die Vollständigkeit prüfen. Die letzte Summe wird zusätzlich stündlich an Home Assistant gemeldet. "
+               "Prüfsummen belegen die Unverändertheit der Daten; sie sind keine elektronische Signatur.",
+               "How it is checked: every minute of the day recording gets a checksum built on the previous one (chain, HMAC-SHA256 with a secret key of this "
+               "installation; older days SHA-256). GLighter recomputes the chain from the stored minutes and compares every sum. “complete and unchanged” means all "
+               "minutes match. If a value is changed or a minute removed, the chain no longer matches from that point. Without the key (backup without move) only "
+               "completeness can be checked. The last sum is also reported to Home Assistant every hour. Checksums show the data is unchanged; they are not an electronic signature.")
+
+EVIDENCE_LIMITS = ("Was die Aufzeichnung belegt: wann es wie lange und wie laut (relativ, dBFS) war, wie oft und zu welchen Zeiten – auch, dass an ruhigen Tagen gemessen wurde. "
+                   "Was sie nicht belegt: aus welcher Wohnung ein Geräusch kommt, wer es verursacht hat und wie laut es in dB(A) war. Die Geräuschart ist ein Vorschlag der "
+                   "Erkennung, solange du sie nicht bestätigt hast. Das Mikrofon ist nicht kalibriert: Werte sind Indizien und ersetzen kein Gutachten. "
+                   "Zeugen, Meldungen an Hausverwaltung oder Polizei und ein Gutachten wiegen schwerer. Keine Rechtsberatung.",
+                   "What the recording shows: when, how long and how loud (relative, dBFS) it was, how often and at what times – and that quiet days were measured too. "
+                   "What it does not show: which flat a sound comes from, who caused it and how loud it was in dB(A). The sound type is a suggestion of the detection "
+                   "unless you confirmed it. The microphone is not calibrated: values are indications and do not replace an expert report. "
+                   "Witnesses, reports to the property management or police and an expert report carry more weight. No legal advice.")
+
+
+def evidence_text(ev, de=True):
+    """Zusammenfassung, Methode und Musterfilter als Text (für das Beweispaket)."""
+    s, m, mf = ev["summary"], ev["method"], ev["muster"]
+    f1 = (lambda v: f"{v:.1f}".replace(".", ",")) if de else (lambda v: f"{v:.1f}")
+    T = (lambda a, b: a) if de else (lambda a, b: b)
+    o = [T("Lärmprotokoll – Zusammenfassung", "Noise log – summary"), "=" * 40,
+         T(f"Zeitraum: {ev['from'][:10]} bis {ev['to'][:10]} (bis ausschließlich)", f"Period: {ev['from'][:10]} to {ev['to'][:10]} (exclusive)"), ""]
+    o.append(T(f"Störungen: {s['n']} (je Störung einmal, auch wenn mehrere Geräte sie hörten)", f"Disturbances: {s['n']} (each once, even if several devices heard it)"))
+    if s["bg_n"]:
+        o.append(T(f"Nicht mitgezählt: {s['bg_n']} Hintergrund (eigene Geräte)", f"Not counted: {s['bg_n']} background (own devices)"))
+    if mf["used"]:
+        o.append(T("Musterfilter: ", "Pattern filter: ") + ("; ".join(f"„{a}“ {c}×" for a, c in mf["used"])) +
+                 (T(" – in diesen Unterlagen weggelassen", " – left out of these documents") if mf["omit"] else T(" – enthalten und gekennzeichnet", " – included and marked")))
+    o += ["", T("Zeitpunkt", "Time"), T(f"  davon nachts (22–6 Uhr): {s['night_n']}, in der Ruhezeit: {s['rz_n']}", f"  at night (22–6): {s['night_n']}, in quiet hours: {s['rz_n']}"),
+          T("  häufigste Uhrzeiten: ", "  most frequent hours: ") + ", ".join(f"{h:02d}–{(h + 1) % 24:02d} ({c}×)" for h, c in s["top_hours"])]
+    wdn = ("Mo", "Di", "Mi", "Do", "Fr", "Sa", "So") if de else ("Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun")
+    o.append(T("  nach Wochentag: ", "  by weekday: ") + ", ".join(f"{wdn[i]} {c}" for i, c in enumerate(s["wd"])))
+    o += ["", T("Art", "Type")] + [f"  {a}: {c}" for a, c in s["arts"]]
+    o += ["", T("Intensität (Spitze, dBFS relativ, nicht dB(A))", "Intensity (peak, dBFS relative, not dB(A))")]
+    if s["peak"]:
+        o.append(T(f"  leiseste {f1(s['peak']['min'])} · mittlere {f1(s['peak']['med'])} · lauteste {f1(s['peak']['max'])}",
+                   f"  quietest {f1(s['peak']['min'])} · median {f1(s['peak']['med'])} · loudest {f1(s['peak']['max'])}"))
+    o += [f"  {a}: {c}" for a, c in s["over"]]
+    o += ["", T("Dauer", "Duration")]
+    if s["dur"]:
+        o.append(T(f"  zusammen {fmt_dur(s['dur']['sum'])} · meist {fmt_dur(s['dur']['med'])} · längste {fmt_dur(s['dur']['max'])}",
+                   f"  total {fmt_dur(s['dur']['sum'])} · median {fmt_dur(s['dur']['med'])} · longest {fmt_dur(s['dur']['max'])}"))
+    o += [f"  {a}: {c}" for a, c in s["dur_b"]]
+    if s["impulses"]:
+        o.append(T(f"  Impulse (Anstiege über die Schwelle): {s['impulses']['sum']} in {s['impulses']['events']} Störungen",
+                   f"  impulses (rises above the threshold): {s['impulses']['sum']} in {s['impulses']['events']} disturbances"))
+    o += ["", T("Häufigkeit", "Frequency"),
+          T(f"  an {s['days_with']} von {s['days']} Tagen · im Schnitt {f1(s['per_day_avg'])} je Tag, {f1(s['per_week_avg'])} je Woche · höchstens {s['per_day_max']} an einem Tag",
+            f"  on {s['days_with']} of {s['days']} days · on average {f1(s['per_day_avg'])} per day, {f1(s['per_week_avg'])} per week · at most {s['per_day_max']} on one day"),
+          T(f"  aufgezeichnet an {s['days_rec']} Tagen, davon {s['days_quiet_rec']} ohne Störung (ruhige Tage)",
+            f"  recorded on {s['days_rec']} days, {s['days_quiet_rec']} of them without disturbance (quiet days)"), ""]
+    o += [T("Messmethode", "Method"), "=" * 40, f"GLighter {m['version']}"]
+    for d_ in m["devices"]:
+        o.append(f"- {d_['name']}: {d_['type']}" + (f" · {d_['mic']}" if d_["mic"] else "") + T(" · Messort: ", " · place: ") + (d_["place"] or T("nicht angegeben", "not given"))
+                 + T(" · Fenster: ", " · window: ") + (d_["window"] or T("nicht angegeben", "not given")))
+    o += [m["calib"], m["audio_txt"], m["art_txt"], "", T("Prüfsummen", "Checksums"), "=" * 40, CHAIN_HOWTO[0 if de else 1], "",
+          T("Was die Aufzeichnung belegt und was nicht", "What the recording shows and what not"), "=" * 40, EVIDENCE_LIMITS[0 if de else 1], ""]
+    return "\n".join(o)
+
+
+def evidence_zip(q):
+    """Beweispaket (ZIP): Lärmprotokoll (HTML zum Drucken), Rohdaten der Störungen (CSV), Notizen (CSV), Zeitachse (CSV), Prüfsummen (CSV),
+    Zusammenfassung mit Methode (TXT). Nur lesen, gespeicherte Daten bleiben unverändert."""
+    g = lambda k, d="": (q.get(k) or [d])[0]
+    de = CFG.get("language") != "en"
+    try:
+        d0 = dt.date.fromisoformat(g("from")) if g("from") else None
+        d1 = dt.date.fromisoformat(g("to")) if g("to") else None
+    except ValueError:
+        d0 = d1 = None
+    src = re.sub(r"[^a-z0-9_]", "", g("src", "all"))[:16] or "all"
+    if d0 is None:
+        st_ = [r.get("start") or "" for r in read_log() if r.get("start")]
+        d0 = dt.date.fromisoformat(min(st_)[:10]) if st_ else dt.date.today()
+    d1 = d1 or dt.date.today()
+    ev = evidence_core(dt.datetime.combine(d0, dt.time()), dt.datetime.combine(d1 + dt.timedelta(days=1), dt.time()), None if src == "all" else {src}, g("mfo") == "1", de)
+    buf = io.BytesIO()
+    with zipfile.ZipFile(buf, "w", zipfile.ZIP_DEFLATED) as zf:
+        zf.writestr("laermprotokoll.html", protocol_html(q))
+        zf.writestr("ereignisse_rohdaten.csv", export_csv(q))
+        zf.writestr("notizen.csv", notes_csv(q))
+        b1 = io.StringIO(); w = csv.writer(b1, delimiter=";")
+        w.writerow(["tag", "stoerungen", "aufgezeichnet", "geraete"])
+        for d_ in ev["timeline"]:
+            w.writerow([d_["day"], d_["n"], "ja" if d_["rec"] else "nein", ", ".join(d_["rec"])])
+        zf.writestr("zeitachse.csv", "﻿" + b1.getvalue())
+        b2 = io.StringIO(); w = csv.writer(b2, delimiter=";")
+        w.writerow(["tag", "geraet", "geraet_id", "pruefung", "minuten", "letzte_pruefsumme"])
+        for c in ev["chains"]:
+            w.writerow([c["day"], c["name"], c["sid"], c["res"], c["n"], c["head"]])
+        zf.writestr("pruefsummen.csv", "﻿" + b2.getvalue())
+        zf.writestr("zusammenfassung_und_methode.txt", evidence_text(ev, de))
+    return buf.getvalue()
+
+
 def protocol_html(q):
     """Druckbares Laermprotokoll (im Browser als PDF speichern). Sachlich, mit Pruefsummen der Clips."""
     g = lambda k, d="": (q.get(k) or [d])[0]
@@ -6848,15 +7420,28 @@ def protocol_html(q):
     lo_ = (d0.isoformat() if d0 else ""); hi_ = ((d1 + dt.timedelta(days=1)).isoformat() if d1 else "9999")
     allk = sorted([dict(r, k=k) for r, k in zip(rows, keys) if lo_ <= (r.get("start") or "")[:10] < hi_], key=lambda x: x.get("start") or "")
     inc_by, INC, GRP = incidents(allk)
+    MF = muster_map(allk, inc=(inc_by, INC))         # Musterfilter: Standard alles mit Hinweis, auf Wunsch ausgefilterte weglassen (mit Vermerk)
+    mf_names = muster_names(); mfo = g("mfo") == "1"
+    mf_used = collections.Counter(x for k_ in {k for _r, k in evs if k in MF} for x in MF[k_])
+    if mfo:
+        evs = [(r, k) for r, k in evs if k not in MF]
     lead_of = {k_: INC[i_]["lead"] for k_, (i_, _g) in inc_by.items()}
     in_evs = {k for _r, k in evs}
     evs = [(r, k) for r, k in evs if lead_of.get(k, k) == k or lead_of.get(k) not in in_evs]   # andere Geraete derselben Stoerung nicht doppelt
     bg_n = sum(1 for _r, k in evs if k in inc_by and INC[inc_by[k][0]]["bg"])
     total = len(evs) - bg_n
-    rz_n = 0; per_hour = collections.Counter(); per_wd = collections.Counter()
+    rz_n = 0; per_hour = collections.Counter(); per_wd = collections.Counter(); per_art = collections.Counter(); per_day = collections.Counter()
+    pks, durs = [], []
+    mf_in = sum(1 for _r, k in evs if k in MF and not (k in inc_by and INC[inc_by[k][0]]["bg"]))
     for r, k in evs:
         if k in inc_by and INC[inc_by[k][0]]["bg"]:
             continue
+        af_ = art_fields(r["datei"] or event_stem(r, int(k.rsplit("|", 1)[1] or 0)))
+        per_art[("Profil " + af_["prof"]) if af_.get("prof") else (art_label(af_["art"], True) if af_.get("art") else "noch nicht eingeordnet")] += 1
+        per_day[r["start"][:10]] += 1
+        if fnum(r.get("spitze_dbfs")) is not None:
+            pks.append(fnum(r["spitze_dbfs"]))
+        durs.append(fnum(r.get("dauer_s")) or 0)
         try:
             t = aware(dt.datetime.fromisoformat(r["start"]))
             rz_n += 1 if is_quiet_time(t) else 0; per_hour[t.hour] += 1; per_wd[t.weekday()] += 1
@@ -6881,6 +7466,7 @@ def protocol_html(q):
          'table{border-collapse:collapse;width:100%}th,td{border:1px solid #bbb;padding:4px 6px;text-align:left;vertical-align:top}th{background:#eee}',
          '.ev td{background:#f6f6f6;font-weight:600}.sub td:nth-child(3){padding-left:22px}.sub td{font-size:12px}.en td{font-style:italic}.mut{color:#555}.rz{font-weight:700}.small{font-size:11px}.mono{font-family:Consolas,Menlo,monospace;font-size:10px;word-break:break-all}',
          '.bar{display:inline-block;height:8px;background:#555;vertical-align:middle}.noprint{margin:12px 0}@media print{.noprint{display:none}body{margin:0}h2{break-after:avoid}tr{break-inside:avoid}}',
+         '.qtp{margin:6px 0;padding:6px 8px;border:1px solid #9ec5fe;border-radius:8px;background:#eef5ff;font-size:12.5px}.qtp button{border:0;background:none;cursor:pointer}',
          '.sig{margin-top:40px;display:flex;gap:60px}.sig div{border-top:1px solid #000;padding-top:4px;min-width:220px}',
          '.pgd{break-inside:avoid;margin:0 0 8px}.pgd .pgh{font-size:11.5px;font-weight:600;margin:2px 0}.pgd .pgh small{font-weight:400;color:#555}svg.pg{display:block;width:100%;height:118px}svg.pg.mini{width:330px;height:62px}',
          '.pgleg{font-size:10.5px;color:#555;margin:0 0 6px}.pgleg i{display:inline-block;width:14px;height:7px;margin:0 4px 0 10px;vertical-align:middle}',
@@ -6888,13 +7474,36 @@ def protocol_html(q):
          '<div class="noprint"><button onclick="print()">🖨 Drucken / als PDF speichern</button>'
          f'<label style="margin-left:16px"><input type="checkbox" id="og"{" checked" if g("g", "1") != "0" else ""}> Tagesgrafik</label>'
          f'<label style="margin-left:12px"><input type="checkbox" id="oge"{" checked" if g("ge") == "1" else ""}> Grafik je Störung (nur mit Notiz bzw. aus der Liste)</label>'
-         '<script>for(const[i,k]of[["og","g"],["oge","ge"]])document.getElementById(i).onchange=e=>{const u=new URLSearchParams(location.search);u.set(k,e.target.checked?"1":"0");location.search=u.toString()}</script></div>',
+         f'<label style="margin-left:12px"><input type="checkbox" id="omf"{" checked" if mfo else ""}> nach Muster ausgefilterte weglassen</label>'
+         '<a id="ocsv" style="margin-left:16px" href="#">⬇ Rohdaten (CSV)</a><a id="ozip" style="margin-left:12px" href="#">⬇ Beweispaket (ZIP)</a>'
+         '<script>for(const[i,k]of[["og","g"],["oge","ge"],["omf","mfo"]])document.getElementById(i).onchange=e=>{const u=new URLSearchParams(location.search);u.set(k,e.target.checked?"1":"0");location.search=u.toString()};'
+         'document.getElementById("ocsv").href="ereignisse.csv"+location.search;document.getElementById("ozip").href="protokoll.zip"+location.search</script>'
+         '<div class="qtp" data-qt="12">💡 Gib die Messwerte als Indiz weiter und rege bei Streit ein Gutachten an. Gerichte holen in strittigen Fällen eigene Gutachten ein. '
+         '<small class="mut">(Warum? AG München 472 C 18927/16; OLG Celle 4 U 199/09 – keine Rechtsberatung)</small> <button type="button" aria-label="Hinweis ausblenden">✕</button></div>'
+         '<div class="qtp" data-qt="13">💡 Leg die Rohdaten (CSV) und die Prüfsummen bei. Digitale Daten haben vor Gericht keine Echtheitsvermutung. '
+         '<small class="mut">(Warum? § 371 ZPO; Irskens, EDVGT 2024 – keine Rechtsberatung)</small> <button type="button" aria-label="Hinweis ausblenden">✕</button></div>'
+         '<script>(function(){let on=true,hid=[];try{on=localStorage.getItem("laerm_help")!=="0";hid=JSON.parse(localStorage.getItem("gl_qt_hide")||"[]")}catch(e){}'
+         'document.querySelectorAll(".qtp").forEach(d=>{const n=+d.dataset.qt;if(!on||hid.includes(n)){d.remove();return}d.querySelector("button").onclick=()=>{hid.push(n);try{localStorage.setItem("gl_qt_hide",JSON.stringify(hid))}catch(e){}d.remove()}})})()</script></div>',
          f'<h1>Lärmprotokoll{(" – " + h(pl["name"])) if pl else ""}</h1><div class="mut">Zeitraum: {h(period)} · Gerät: {h(devname)} · erstellt am {dt.datetime.now():%d.%m.%Y %H:%M}</div>']
     if pl and pl.get("note"):
         o.append('<p style="white-space:pre-line;margin:8px 0 0">' + h(pl["note"]) + '</p>')
     if name or addr or flat:
         o.append('<table style="margin-top:10px"><tr><th style="width:160px">Name</th><td>' + h(name) + '</td></tr><tr><th>Anschrift</th><td>' + h(addr) +
                  '</td></tr><tr><th>Lage der Wohnung / Raum</th><td>' + h(flat) + '</td></tr></table>')
+    mi_ = method_info(src, True)                     # Messmethode: so wurde gemessen (Nachvollziehbarkeit für Dritte)
+    o.append('<h2>Messmethode</h2><table><tr><th style="width:260px">Programm</th><td>GLighter ' + h(mi_["version"]) + ' (Lärmprotokoll aus der eigenen Aufzeichnung)</td></tr>')
+    for d_ in mi_["devices"]:
+        o.append(f'<tr><th>Gerät: {h(d_["name"])}</th><td>{h(d_["type"])}{(" · Mikrofon/Gerät: " + h(d_["mic"])) if d_["mic"] else ""}'
+                 f'{(" · Verstärkung " + h(f'{d_["gain"]:+g}'.replace(".", ",")) + " dB") if d_["gain"] else ""}'
+                 f' · Messort: {h(d_["place"]) if d_["place"] else "nicht angegeben"} · Fenster: {h(d_["window"]) if d_["window"] else "nicht angegeben"}</td></tr>')
+    o.append('<tr><th>Kalibrierung</th><td>' + h(mi_["calib"]) + '</td></tr><tr><th>Ton</th><td>' + h(mi_["audio_txt"]) + '</td></tr>'
+             '<tr><th>Geräuschart</th><td>' + h(mi_["art_txt"]) + '</td></tr>'
+             '<tr><th>Rohdaten</th><td>Alle Messwerte der Störungen stehen maschinenlesbar in „ereignisse_rohdaten.csv“ (⬇ Rohdaten oben, auch im Beweispaket mit Zeitachse und Prüfsummen); die Tagesaufzeichnung je Gerät liegt in der Sicherung.</td></tr>'
+             '<tr><th>Was die Aufzeichnung belegt</th><td>' + h(EVIDENCE_LIMITS[0]) + '</td></tr></table>')
+    if mf_used:
+        o.append('<div class="small" style="margin-top:6px"><b>Musterfilter:</b> ' + ("Nach Muster ausgefilterte Störungen sind in diesem Protokoll <b>weggelassen</b>: " if mfo else
+                 "Bekannte, wiederkehrende Geräusche sind gekennzeichnet („nach Muster … ausgefiltert“) und stehen weiter in der Aufstellung: ")
+                 + h("; ".join(f'„{mf_names.get(x, {}).get("name", x)}“ {n}×' for x, n in mf_used.most_common())) + '. Gespeicherte Daten bleiben dabei unverändert.</div>')
     o.append('<h2>Zusammenfassung</h2><table>')
     o.append(f'<tr><th style="width:260px">Störungen im Protokoll</th><td>{total}' + ('' if with_all else ' (nur Störungen mit Notiz)')
              + (' · eine Störung, die mehrere Geräte gehört haben, zählt einmal' if len(INC) and any(len(v["devs"]) > 1 for v in INC.values()) else '') + '</td></tr>')
@@ -6902,6 +7511,16 @@ def protocol_html(q):
         o.append(f'<tr><th>Hintergrund (eigene Geräte)</th><td>{bg_n} – erkannt als eigenes Gerät/Hintergrund (z. B. eigener Fernseher), nicht mitgezählt</td></tr>')
     o.append(f'<tr><th>davon in der Ruhezeit</th><td>{rz_n} ({round(100 * rz_n / total) if total else 0} %) · Ruhezeit {h(CFG.get("quiet_from"))}–{h(CFG.get("quiet_to"))} Uhr'
              + (' und sonntags' if CFG.get("quiet_sunday", True) else '') + '</td></tr>')
+    if mf_in and not mfo:
+        o.append(f'<tr><th>davon nach Muster ausgefiltert</th><td>{mf_in} – bekannte, wiederkehrende Geräusche (gekennzeichnet in der Aufstellung)</td></tr>')
+    if per_art:
+        o.append('<tr><th>Nach Art</th><td>' + h(", ".join(f'{a_} {n}×' for a_, n in per_art.most_common())) + '</td></tr>')
+    if pks:
+        sp_ = sorted(pks)
+        o.append(f'<tr><th>Intensität (Spitze, dBFS relativ)</th><td>leiseste {sp_[0]:.1f} · mittlere {sp_[len(sp_) // 2]:.1f} · lauteste {sp_[-1]:.1f}</td></tr>'.replace(".", ","))
+    if durs:
+        sd_ = sorted(durs)
+        o.append(f'<tr><th>Dauer</th><td>zusammen {h(fmt_dur(sum(sd_)))} · meist {h(fmt_dur(sd_[len(sd_) // 2]))} · längste {h(fmt_dur(sd_[-1]))}</td></tr>')
     o.append(f'<tr><th>Notizen</th><td>{len(notes)}</td></tr>')
     if per_wd:
         mx = max(per_wd.values())
@@ -6909,6 +7528,22 @@ def protocol_html(q):
     if per_hour:
         top = sorted(per_hour.items(), key=lambda kv: -kv[1])[:4]
         o.append('<tr><th>Häufigste Uhrzeiten</th><td>' + ", ".join(f'{hh:02d}–{(hh + 1) % 24:02d} Uhr ({n}×)' for hh, n in top) + '</td></tr>')
+    if (d0 or evs) and total:                        # Häufigkeit und lückenlose Zeitachse (auch Tage ohne Vorfall)
+        tA = d0 or dt.date.fromisoformat(evs[0][0]["start"][:10]); tB = d1 or dt.date.today()
+        alld = []
+        while tA <= tB and len(alld) < 400:
+            alld.append(tA); tA += dt.timedelta(days=1)
+        wd_ = sum(1 for x in alld if per_day.get(x.isoformat()))
+        o.append(f'<tr><th>Häufigkeit</th><td>an {wd_} von {len(alld)} Tagen ({round(100 * wd_ / max(1, len(alld)))} %) · im Schnitt {str(round(total / max(1, len(alld)), 1)).replace(".", ",")} je Tag</td></tr>')
+        o.append('</table>')
+        rec_ = {os.path.basename(f_)[:10] for f_ in glob.glob(os.path.join(day_dir(), "*" + DAY_EXT))}
+        o.append('<h2>Zeitachse</h2><div class="small mut">Jeder Tag des Zeitraums, auch Tage ohne Störung. „aufgezeichnet“ = es gibt eine Tagesaufzeichnung, an ruhigen Tagen lief die Messung also.</div>'
+                 '<table><tr><th style="width:120px">Tag</th><th style="width:90px">Störungen</th><th style="width:120px">Aufzeichnung</th><th></th></tr>')
+        mx_ = max(per_day.values()) if per_day else 1
+        for x in alld[-400:]:
+            n_ = per_day.get(x.isoformat(), 0)
+            o.append(f'<tr><td>{wdn[x.weekday()]} {x:%d.%m.%Y}</td><td>{n_ if n_ else "keine"}</td><td>{"aufgezeichnet" if x.isoformat() in rec_ else "keine Aufzeichnung"}</td>'
+                     f'<td>{f"<span class=bar style=width:{max(2, int(160 * n_ / mx_))}px></span>" if n_ else ""}</td></tr>')
     o.append('</table>')
     # Grafiken: Tagesverlauf je Tag und Geraet (gleiche Skala je Geraet), auf Wunsch eine kleine Grafik je Stoerung
     show_day, show_ev = g("g", "1") != "0", g("ge") == "1"
@@ -7008,7 +7643,7 @@ def protocol_html(q):
             o.append(f'<tr class="en"><td>{wdn[ga.weekday()]} {ga:%d.%m.%Y}</td><td>{ga:%H:%M:%S}</td><td colspan="2"><b>Folge: {h(kind_)}</b> – {gr_["n"]} Störungen von {ga:%H:%M:%S} bis {gb:%H:%M:%S} ({h(fmt_dur(gr_["dur"]))}){" · Hintergrund" if gr_["bg"] else ""}</td></tr>')
         last_grp = ig_[1] if ig_ else None
         a = art_fields(r["datei"] or event_stem(r, int(k.rsplit("|", 1)[1] or 0)))
-        art = (art_label(a["art"], True) + (" (bestätigt)" if a["art_man"] else " (KI-Vorschlag)")) if a["art"] else ""
+        art = art_text(a, True)
         bn = labels_for(event_stem(r, int(k.rsplit("|", 1)[1] or 0)))["l"]
         if bn:
             art += (" · " if art else "") + "von Hand benannt: " + ", ".join(sorted({x["name"] for x in bn}))
@@ -7026,8 +7661,11 @@ def protocol_html(q):
         kinds = kinds_summary(None, None, subs) if subs else []
         kname = lambda kk: "Unbekannt" if kk == "unknown" else (classify.FINE[kk][0] if classify is not None and kk in classify.FINE else kk)
         ktxt = ", ".join(f'{kname(kk)} ×{n}' if n is not None else f'{kname(kk)} {fmt_dur(d)}' for kk, n, d in kinds)
+        imp_ = impulses(r) if len(evs) <= 2000 else None
+        if k in MF:
+            art += (" · " if art else "") + "nach Muster " + ", ".join(f'„{mf_names.get(x, {}).get("name", x)}“' for x in MF[k]) + " ausgefiltert"
         o.append(f'<tr class="ev"><td>{wdn[t.weekday()]} {t:%d.%m.%Y}</td><td>{t:%H:%M:%S}</td><td>Störung · {h(r["quelle"])} · Dauer {h(fmt_dur(fnum(r["dauer_s"]) or 0))}'
-                 f' · Spitze {h(r["spitze_dbfs"])} dBFS (relativ)</td><td>{h(art)}{(" · " + h(ktxt)) if ktxt else ""}{" · <span class=rz>Ruhezeit</span>" if rz else ""}{(" · " + h(ptxt)) if ptxt else ""}</td></tr>')
+                 f' · Spitze {h(r["spitze_dbfs"])} dBFS (relativ){(" · " + str(imp_) + (" Impuls" if imp_ == 1 else " Impulse")) if imp_ else ""}</td><td>{h(art)}{(" · " + h(ktxt)) if ktxt else ""}{" · <span class=rz>Ruhezeit</span>" if rz else ""}{(" · " + h(ptxt)) if ptxt else ""}</td></tr>')
         if inc_ and len(inc_["devs"]) > 1:                    # dieselbe Stoerung an mehreren Geraeten
             ds_ = [d_ for d_ in inc_["devs"] if d_[2] is not None]
             ctx_ = ("Gehört von: " + " · ".join(f'{d_[1]} {d_[2]:.1f}' for d_ in ds_) + " dBFS → am lautesten: " + ds_[0][1]) if ds_ else ""
@@ -7127,12 +7765,13 @@ def protocol_html(q):
                      'durchgehenden Tagesaufzeichnung je Gerät (Pegel je 125 ms, Terzbänder, kein Ton). Jede geschriebene Minute bekommt eine SHA-256-Prüfsumme, die auf der '
                      'vorherigen aufbaut; seit der Umstellung auf HMAC-SHA256 zusätzlich mit einem geheimen Schlüssel dieser Installation, der nicht bei den Daten liegt '
                      '(„alte Kette nur SHA-256“ = Tage davor). Wird nachträglich ein Wert geändert oder eine Minute entfernt, passt die Kette ab dieser Stelle nicht mehr. Die letzte Summe wird '
-                     'zusätzlich stündlich an Home Assistant gemeldet und dort unabhängig gespeichert.</div>'
+                     'zusätzlich stündlich an Home Assistant gemeldet und dort unabhängig gespeichert. <b>Prüfverfahren:</b> GLighter rechnet für jeden Tag die Kette aus den '
+                     'gespeicherten Minuten neu und vergleicht jede Summe mit der gespeicherten; „vollständig und unverändert“ heißt, alle Minuten passen. Fehlt der Schlüssel '
+                     '(z. B. nach einem Umzug ohne Schlüssel), lässt sich nur die Vollständigkeit prüfen, die Echtheit nur mit dem Originalgerät. Die Prüfsummen belegen die '
+                     'Unverändertheit der Daten, sie sind keine elektronische Signatur.</div>'
                      '<table><tr><th style="width:90px">Tag</th><th style="width:150px">Gerät</th><th style="width:170px">Prüfung</th><th>letzte Prüfsumme</th></tr>')
             for c in chs:
-                mac_ = {"hmac": ", HMAC", "alt": ", alte Kette nur SHA-256", "gemischt": ", teils alte Kette nur SHA-256"}.get(c.get("mac"), "")
-                res_ = ("vollständig und unverändert (" + str(c["n"]) + " Minuten" + mac_ + (", Schlüssel aus Sicherung" if c.get("fremd") else "") + ")") if c.get("ok") else ("keine Prüfsummen (vor 1.40)" if c.get("ok") is None or c.get("none")
-                        else "ABWEICHUNG ab " + (dt.datetime.fromtimestamp(c["bad"] / 1000.0).strftime("%H:%M") if c.get("bad") else "?"))
+                res_ = chain_result_text(c, True)
                 o.append(f'<tr><td>{h(dmy(c["day"]))}</td><td>{h(c["name"])}</td><td>{h(res_)}</td><td class="mono">{h(c.get("head") or "–")}</td></tr>')
             o.append('</table>')
         rev_ = [e for e in ri_["events"] if e.get("kind") in ("down", "update", "fallback")]
@@ -7256,11 +7895,20 @@ def night_data(date, src="all", start=None, end=None, plist="", art=""):
     a_iso, b_iso = start.strftime("%Y-%m-%dT%H:%M:%S"), end.strftime("%Y-%m-%dT%H:%M:%S")
     inr = sorted([dict(rr, k=kk) for rr, kk in zip(allrows, row_keys(allrows)) if a_iso <= (rr.get("start") or "")[:19] < b_iso], key=lambda x: x.get("start") or "")
     ib_, II_, _G = incidents(inr)
+    MF = muster_map(inr, inc=(ib_, II_))             # Musterfilter: gekennzeichnet, nicht mitgezählt (nichts wird entfernt)
+    for e in events:
+        if e["k"] in MF:
+            e["mf"] = MF[e["k"]]
+    mf_evs = [(t, r) for t, r in evs if keymap.get(id(r)) in MF]
+    evs_all = evs
+    evs = [(t, r) for t, r in evs if keymap.get(id(r)) not in MF]
     nb_evs = [(t, r) for t, r in evs if not (keymap.get(id(r)) in ib_ and II_[ib_[keymap.get(id(r))][0]]["bg"])]
     sm = night_summary(nb_evs, start, end, covered)
     seen_ = {ib_[keymap.get(id(r))][0] for t, r in nb_evs if keymap.get(id(r)) in ib_}
     sm["count"] = len(seen_) + sum(1 for t, r in nb_evs if keymap.get(id(r)) not in ib_)
     sm["bg_n"] = len(evs) - len(nb_evs)
+    sm["mf_n"] = len({ib_[keymap.get(id(r))][0] if keymap.get(id(r)) in ib_ else keymap.get(id(r)) for t, r in mf_evs})
+    evs = evs_all
     if (end - start).total_seconds() > 26 * 3600 and sm.get("loudest_at"):          # mehrere Tage: Datum dazu
         lt = max(((t, r) for t, r in evs if fnum(r["spitze_dbfs"]) == sm["loudest"]), default=None, key=lambda x: 0)
         if lt:
@@ -7271,7 +7919,8 @@ def night_data(date, src="all", start=None, end=None, plist="", art=""):
             "fnotes": fnotes_in(int(start.timestamp() * 1000), int(end.timestamp() * 1000), src),
             "motion": motion_rows(int(start.timestamp() * 1000), int(end.timestamp() * 1000), src),
             "ha": ha_intervals("*" if src == "all" else src, int(start.timestamp() * 1000), int(end.timestamp() * 1000)),
-            "summary": dict(sm, arts=dict(collections.Counter(e["art"] for e in events if e["art"])),
+            "muster": muster_names() if MF else {},
+            "summary": dict(sm, arts=dict(collections.Counter(e["art"] for e in events if e["art"] and not e.get("mf"))),
                             notes_n=sum(len(e["notes"]) for e in events))}
 
 
@@ -7956,7 +8605,7 @@ class Runner:
             log(f"[{self.name}] Minutenwert nicht gespeichert:", e)
 
     def public(self):
-        s = {k: v for k, v in self.src.items() if k not in ("token", "password")}     # Passwort nie zurueckschicken
+        s = {k: v for k, v in self.src.items() if k not in ("token", "password", "secret_removed")}     # Passwort nie zurueckschicken
         if self.src["type"] == "url":
             s["has_password"] = bool(self.src.get("password"))
         s["hum_ok"] = sps is not None
@@ -7967,6 +8616,7 @@ class Runner:
                  count_today=self.count_today, count_total=self.count_total, pro_lock=bool(self.src.get("type") != "local" and not pro_ok()))
         if self.src["type"] == "phone":
             s["has_token"] = True
+            s["disturbed"] = phone_disturbed(self)
         if self.src["type"] in ("phone", "url"):
             mc = motion_cfg(self.src); ms = getattr(self, "motion", None) or {}
             if self.src["type"] == "url":
@@ -8190,6 +8840,7 @@ def main():
     threading.Thread(target=mirror_watch, daemon=True).start()
     threading.Thread(target=ha_watch, daemon=True).start()
     threading.Thread(target=gr_hello, daemon=True).start()
+    threading.Thread(target=tiles_watch, daemon=True).start()
     if classify is not None:
         threading.Thread(target=art_worker, daemon=True).start()
         threading.Thread(target=live_art_worker, daemon=True).start()
@@ -8732,7 +9383,43 @@ def chain_keys_merge(inc):
 def chain_keys_tag():
     """Kurzer Fingerabdruck der Schlüssel (ändert den Zwischenspeicher der Prüfung, wenn Schlüssel dazukommen)."""
     k = chain_keys()
-    return "k2:" + (hashlib.sha256("|".join([k["own"]] + k["known"]).encode()).hexdigest()[:12] if k else "-")
+    return "k2:" + (hashlib.sha256("|".join([k["own"]] + k["known"]).encode()).hexdigest()[:12] if k else "-") + ":f" + str(len(chain_foreign()))
+
+
+# Tage, die aus einer Sicherung eingespielt wurden (eigene Datei kette_fremd.json, die Tagesdateien bleiben unverändert).
+# Fehlt deren Schlüssel (Sicherung ohne Umzug), prüft GLighter dort nur die Vollständigkeit der Kette:
+# „Kette vollständig, Schlüssel fehlt: Echtheit nur mit Originalgerät prüfbar“. Auf dem eigenen Gerät aufgezeichnete Tage bleiben streng geprüft.
+CHAIN_FOREIGN = {"p": None, "s": set()}
+
+
+def chain_foreign_path():
+    return os.path.join(DATA_DIR, "kette_fremd.json")
+
+
+def chain_foreign():
+    p = chain_foreign_path()
+    if CHAIN_FOREIGN["p"] != p:
+        s = set()
+        try:
+            with open(p, encoding="utf-8") as f:
+                d = json.load(f)
+            s = {(str(x[0]), str(x[1])) for x in d.get("days") or [] if isinstance(x, list) and len(x) == 2}
+        except (OSError, ValueError, AttributeError):
+            pass
+        CHAIN_FOREIGN.update(p=p, s=s)
+    return CHAIN_FOREIGN["s"]
+
+
+def chain_foreign_add(days):
+    days = {(str(a), str(b)) for a, b in days} - chain_foreign()
+    if not days:
+        return 0
+    s = chain_foreign() | days
+    with open(chain_foreign_path() + ".tmp", "w", encoding="utf-8") as f:
+        json.dump({"days": sorted([list(x) for x in s])}, f)
+    os.replace(chain_foreign_path() + ".tmp", chain_foreign_path())
+    CHAIN_FOREIGN["s"] = s; CHAIN_CK.clear()
+    return len(days)
 
 
 def chain_mac(key_hex, prev, line, spec):
@@ -8872,6 +9559,7 @@ def chain_check_full(sid, day):
     prev = chain_seed(sid, day)
     keys = chain_keys(); since = keys["since"] if keys else None
     seg_key = None; n_mac = n_old = 0; foreign = False; seg_r = False
+    nokey = nokey_seg = False                          # Schlüssel einer anderen Installation fehlt (Umzug ohne Schlüssel): nur Vollständigkeit prüfbar
     n = 0; li = k0; segs = 1; first_miss = None; miss = 0; miss_list = []
     lm = []                                            # Minute je Zeile (fuer den Beginn eines Abschnitts)
     for l_ in lines:
@@ -8879,7 +9567,7 @@ def chain_check_full(sid, day):
     for i, lk in enumerate(links):
         m_s, h_s = lk[0], lk[1]
         if i and "R" in lk[2:]:                        # eingespielter Abschnitt: eigene Kette ab dem Startwert
-            prev = chain_seed(sid, day); segs += 1; seg_key = None; seg_r = True
+            prev = chain_seed(sid, day); segs += 1; seg_key = None; seg_r = True; nokey_seg = False
             j = next((x for x in range(li, len(lines)) if lm[x] == int(m_s)), None)
             if j is None:
                 return {"ok": False, "n": n, "bad": int(m_s), "head": links[-1][1], "none": False, "missing": True, "segs": segs}
@@ -8905,10 +9593,14 @@ def chain_check_full(sid, day):
             prev = h_s; miss += 1
             continue
         need_mac = since is not None and int(m_s) >= since and not seg_r   # nach der Umstellung: nur HMAC zählt (kein Zurückstufen auf SHA-256);
-        if "H" in lk[2:] or need_mac:                   # ohne „H“ nur, wenn die Markierung beim Stromausfall abgeschnitten wurde
+        if nokey_seg:                                   # ohne Schlüssel: Minute und Reihenfolge prüfen, die Summe selbst nicht
+            h = h_s; n_mac += 1
+        elif "H" in lk[2:] or need_mac:                 # ohne „H“ nur, wenn die Markierung beim Stromausfall abgeschnitten wurde
             cand = [seg_key] if seg_key else ([keys["own"]] + keys["known"] if keys else [])
             h = next((x for x in (chain_mac(c_, prev, line, spec) for c_ in cand) if hmac.compare_digest(x, h_s)), None)
-            if h is not None and seg_key is None:
+            if h is None and seg_key is None and "H" in lk[2:] and (seg_r or since is None or int(m_s) < since or (sid, day) in chain_foreign()):
+                h = h_s; nokey = nokey_seg = True          # Abschnitt einer anderen Installation (eingespielt bzw. vor dem eigenen Schlüssel), deren Schlüssel nicht hier ist
+            elif h is not None and seg_key is None:
                 seg_key = next(c_ for c_ in cand if chain_mac(c_, prev, line, spec) == h)
                 foreign = foreign or seg_key != keys["own"]
             n_mac += 1
@@ -8923,7 +9615,10 @@ def chain_check_full(sid, day):
         return {"ok": False, "n": n, "bad": first_miss, "head": prev, "none": False, "missing": True, "lost": miss, "miss_list": miss_list, "segs": segs,
                 "mac": mac, "fremd": foreign}
     extra = len(lines) - k0 - n
-    return {"ok": True, "n": n, "bad": None, "head": prev, "none": False, "extra": max(0, extra), "segs": segs, "mac": mac, "fremd": foreign}
+    out = {"ok": True, "n": n, "bad": None, "head": prev, "none": False, "extra": max(0, extra), "segs": segs, "mac": mac, "fremd": foreign}
+    if nokey:
+        out["nokey"] = True
+    return out
 
 
 def _day_parse(text_lines):
@@ -9270,9 +9965,16 @@ def day_track(sid, day, t_from=None, t_to=None, n=1200, free=False, spec=True):
         except Exception:
             nt_ = 0
         out["ev"].append([t, dur_, fnum(r["spitze_dbfs"]), {"th": fnum(r.get("schwelle_dbfs")), "bg": fnum(r.get("hintergrund_dbfs")),   # Einzelheiten fuer den Tooltip
-                          "a": a_["art"] if art_enabled() else "", "ac": a_["art_c"], "am": a_["art_man"], "p": a_["prof"], "pc": a_["prof_c"], "pbg": a_["bg"], "nt": nt_}])
+                          "a": a_["art"] if art_enabled() else "", "ac": a_["art_c"], "am": bool(a_["art_man"] or a_.get("art_ok")), "p": a_["prof"], "pc": a_["prof_c"], "pbg": a_["bg"], "nt": nt_}])
+        if free and len(out["ev"]) <= 400:                  # Ausdruck: Anzahl der Impulse je Störung (aus der Tagesaufzeichnung)
+            try:
+                im_ = impulses(r)
+            except Exception:
+                im_ = None
+            if im_:
+                out["ev"][-1][3]["imp"] = im_
         if a_["art"] or a_["prof"]:
-            out["art"].append([t, a_["art"] or "other", bool(a_["art_man"]), a_["prof"], a_["bg"]])
+            out["art"].append([t, a_["art"] or "other", bool(a_["art_man"] or a_.get("art_ok")), a_["prof"], a_["bg"]])
         if t_to - t_from <= 3 * 3600000 and len(out["subs"]) < 3000 and ((r.get("datei") or "").endswith(SPUR_EXT) or m_):
             st_ = os.path.splitext(os.path.basename(r["datei"]))[0]
             ki_ = ki_load(st_) or {}
@@ -9623,10 +10325,12 @@ def backup_items():
     out, clips, _ = paths()
     items = []
     for name, f in (("data/settings.json", None), ("data/sources.json", SOURCES_FILE), ("data/schedule.json", SCHED_FILE), ("data/ha_rules.json", HA_FILE),
-                    ("data/laufzeit.jsonl", os.path.join(DATA_DIR, "laufzeit.jsonl")), ("data/unterbrechung_notizen.json", run_notes_path()), ("data/ha_notizen.json", ha_notes_path())):
+                    ("data/laufzeit.jsonl", os.path.join(DATA_DIR, "laufzeit.jsonl")), ("data/unterbrechung_notizen.json", run_notes_path()), ("data/ha_notizen.json", ha_notes_path()),
+                    ("data/layout.json", LAYOUT_FILE)):
         if f and os.path.isfile(f):
             items.append((name, f))
-    skip = lambda fn: fn.endswith(".tmp") or fn.startswith(".import_")
+    secret_files = {os.path.realpath(chain_key_path()), os.path.realpath(SOURCES_FILE), os.path.realpath(os.path.join(DATA_DIR, "lizenz.json"))}
+    skip = lambda fn: fn.endswith(".tmp") or fn.startswith(".import_") or fn.startswith(".mirror_") or fn == "kette_schluessel.json"
     co = os.path.realpath(clips)
     for base, arc in ((out, "out"), (clips, "clips")):
         if not os.path.isdir(base):
@@ -9639,6 +10343,8 @@ def backup_items():
                 if skip(fn):
                     continue
                 f = os.path.join(root, fn)
+                if os.path.realpath(f) in secret_files:      # Kettenschlüssel und Zugangsdaten nie über den Datenordner mitnehmen
+                    continue
                 items.append((arc + "/" + os.path.relpath(f, base).replace(os.sep, "/"), f))
     with SRC_LOCK:
         vds = [(r.id, safe_dir(r.src.get("video_dir"))) for r in RUNNERS.values()]
@@ -9653,16 +10359,128 @@ def backup_items():
     return items
 
 
-def backup_write(stream):
+# =====================================================================
+# Sicherung ohne Geheimnisse; Umzug mit Passphrase (nur Standardbibliothek)
+#   Standard-ZIP und tägliche Sicherung: ohne Kettenschlüssel, ohne Passwörter und Handy-Kennungen.
+#   „Umzug auf neues Gerät (mit Schlüssel)“: Schlüssel und Geheimnisse verschlüsselt in data/umzug.enc.
+#   Verfahren: scrypt (N=2^14, r=8, p=1) -> 64 Byte; HMAC-SHA256 im Zählermodus als Strom, HMAC-SHA256 über alles (erst verschlüsseln, dann prüfen).
+# =====================================================================
+SECRET_KEYS = ("password", "token")
+MOVE_FMT = "glighter-umzug-1"
+MOVE_TOKENS = {}                     # Einmal-Kennung -> (Passphrase, gültig bis)
+ZIP_MAX_ENTRIES = 300000
+
+
+def _kdf(passphrase, salt, n=2 ** 14, r=8, p=1):
+    return hashlib.scrypt(passphrase.encode("utf-8"), salt=salt, n=n, r=r, p=p, maxmem=64 * 1024 * 1024, dklen=64)
+
+
+def _stream(key, nonce, length):
+    out = bytearray(); i = 0
+    while len(out) < length:
+        out += hmac.new(key, nonce + i.to_bytes(8, "big"), hashlib.sha256).digest(); i += 1
+    return bytes(out[:length])
+
+
+def seal(data, passphrase):
+    """bytes -> JSON-Text (verschlüsselt und gegen Verändern gesichert)."""
+    if not passphrase or len(passphrase) < 8:
+        raise ValueError("passphrase")
+    salt, nonce = secrets.token_bytes(16), secrets.token_bytes(16)
+    k = _kdf(passphrase, salt); ek, mk = k[:32], k[32:]
+    ct = bytes(a ^ b for a, b in zip(data, _stream(ek, nonce, len(data))))
+    head = {"fmt": MOVE_FMT, "kdf": "scrypt", "n": 2 ** 14, "r": 8, "p": 1, "salt": base64.b64encode(salt).decode(), "nonce": base64.b64encode(nonce).decode()}
+    tag = hmac.new(mk, json.dumps(head, sort_keys=True).encode() + nonce + ct, hashlib.sha256).hexdigest()
+    return json.dumps(dict(head, ct=base64.b64encode(ct).decode(), tag=tag))
+
+
+def unseal(text, passphrase):
+    """Umkehrung von seal; ValueError bei falscher Passphrase oder veränderten Daten."""
+    try:
+        d = json.loads(text)
+        head = {k: d[k] for k in ("fmt", "kdf", "n", "r", "p", "salt", "nonce")}
+        if head["fmt"] != MOVE_FMT or head["kdf"] != "scrypt" or not (2 ** 10 <= int(head["n"]) <= 2 ** 16):
+            raise ValueError("fmt")
+        salt, nonce, ct = base64.b64decode(head["salt"]), base64.b64decode(head["nonce"]), base64.b64decode(d["ct"])
+    except (KeyError, TypeError, ValueError, json.JSONDecodeError):
+        raise ValueError("bad file")
+    k = _kdf(passphrase or "", salt, int(head["n"]), int(head["r"]), int(head["p"])); ek, mk = k[:32], k[32:]
+    tag = hmac.new(mk, json.dumps(head, sort_keys=True).encode() + nonce + ct, hashlib.sha256).hexdigest()
+    if not hmac.compare_digest(tag, str(d.get("tag") or "")):
+        raise ValueError("passphrase")
+    return bytes(a ^ b for a, b in zip(ct, _stream(ek, nonce, len(ct))))
+
+
+def sources_public_json():
+    """sources.json ohne Passwörter und Handy-Kennungen (für Sicherung und Spiegel)."""
+    try:
+        with open(SOURCES_FILE, encoding="utf-8") as f:
+            d = json.load(f)
+    except (OSError, ValueError):
+        return json.dumps({"sources": []})
+    for s_ in (d.get("sources") or []) if isinstance(d, dict) else []:
+        if isinstance(s_, dict):
+            for k in SECRET_KEYS:
+                if s_.get(k):
+                    s_[k] = ""; s_["secret_removed"] = True
+    return json.dumps(d, ensure_ascii=False, indent=1)
+
+
+def move_secrets():
+    with SRC_LOCK:
+        sec = {r.id: {k: r.src[k] for k in SECRET_KEYS if r.src.get(k)} for r in RUNNERS.values()}
+    out = {"secrets": {k: v for k, v in sec.items() if v}}
+    if os.path.isfile(chain_key_path()):
+        try:
+            with open(chain_key_path(), encoding="utf-8") as f:
+                out["chain_key"] = json.load(f)
+        except (OSError, ValueError):
+            pass
+    return out
+
+
+def move_token(passphrase):
+    if not isinstance(passphrase, str) or len(passphrase) < 8:
+        return {"ok": False, "error": "short"}
+    now = time.time()
+    for k in [k for k, v in MOVE_TOKENS.items() if v[1] < now]:
+        MOVE_TOKENS.pop(k, None)
+    tk = secrets.token_hex(16); MOVE_TOKENS[tk] = (passphrase, now + 600)
+    return {"ok": True, "token": tk}
+
+
+def zip_guard(zf, dest):
+    """Vor dem Entpacken: Anzahl der Einträge begrenzen und den ausgepackten Platz gegen den freien prüfen (Zip-Bombe)."""
+    infos = zf.infolist()
+    if len(infos) > ZIP_MAX_ENTRIES:
+        raise ValueError("zu viele Einträge in der Sicherung" if CFG.get("language") != "en" else "too many entries in the backup")
+    need = sum(max(0, i.file_size) for i in infos)
+    try:
+        os.makedirs(dest, exist_ok=True)
+        free = shutil.disk_usage(dest).free
+    except OSError:
+        return need
+    if need + 50 * 1024 * 1024 > free:
+        raise ValueError(("zu wenig freier Speicher zum Einspielen (nötig: %d MB, frei: %d MB)" if CFG.get("language") != "en" else
+                          "not enough free space to restore (needed: %d MB, free: %d MB)") % (need // 1048576, free // 1048576))
+    return need
+
+
+def backup_write(stream, move_pass=None):
+    """Sicherung als ZIP. Ohne Kettenschlüssel, Passwörter und Handy-Kennungen; nur beim Umzug (move_pass) kommen sie verschlüsselt mit."""
     zf = zipfile.ZipFile(stream, "w", zipfile.ZIP_DEFLATED, allowZip64=True)
     items = backup_items(); n = 0
-    man = {"fmt": BACKUP_FMT, "v": 1, "app": VERSION, "created": dt.datetime.now().astimezone().isoformat(timespec="seconds"), "files": len(items)}
+    man = {"fmt": BACKUP_FMT, "v": 1, "app": VERSION, "created": dt.datetime.now().astimezone().isoformat(timespec="seconds"), "files": len(items),
+           "secrets": "move" if move_pass else "none"}
     zf.writestr("manifest.json", json.dumps(man, ensure_ascii=False, indent=1))
     zf.writestr("data/settings.json", json.dumps(public_settings(), ensure_ascii=False, indent=1))
-    if os.path.isfile(chain_key_path()):               # Schlüssel der Datenkette nur in die heruntergeladene ZIP (zum Prüfen nach einem Umzug),
-        zf.write(chain_key_path(), "data/kette_schluessel.json")   # nie in die tägliche Sicherung auf Netzlaufwerk/NAS
+    if move_pass:                                       # Umzug: Kettenschlüssel und Zugangsdaten, mit der Passphrase verschlüsselt
+        zf.writestr("data/umzug.enc", seal(json.dumps(move_secrets()).encode("utf-8"), move_pass))
     for arc, f in items:
         if f is None:
+            continue
+        if arc == "data/sources.json":                  # Geräte ohne Passwörter und Handy-Kennungen
+            zf.writestr(arc, sources_public_json()); n += 1
             continue
         try:
             zf.write(f, arc, compress_type=zipfile.ZIP_STORED if f.endswith(BK_STORED) else zipfile.ZIP_DEFLATED)
@@ -9670,7 +10488,7 @@ def backup_write(stream):
         except (OSError, ValueError) as e:              # Datei waehrend der Sicherung geloescht o. ae.
             log("Sicherung: Datei uebersprungen:", arc, e)
     zf.close()
-    log(f"Sicherung heruntergeladen: {n} Dateien")
+    log(f"Sicherung heruntergeladen: {n} Dateien" + (" (Umzug, Schlüssel verschlüsselt)" if move_pass else ""))
 
 
 # =====================================================================
@@ -9768,6 +10586,11 @@ def mirror_run(reason="täglich"):
                 with open(tmpf, "w", encoding="utf-8") as fo:
                     json.dump(public_settings(), fo, ensure_ascii=False, indent=1)
                 f = tmpf
+            elif arc == "data/sources.json":            # Geräte ohne Passwörter und Handy-Kennungen
+                tmpf = os.path.join(DATA_DIR, ".mirror_sources.json")
+                with open(tmpf, "w", encoding="utf-8") as fo:
+                    fo.write(sources_public_json())
+                f = tmpf
             if os.path.islink(f):
                 continue                                 # schon ausgelagert: liegt nur noch im Ziel
             try:
@@ -9786,8 +10609,8 @@ def mirror_run(reason="täglich"):
                 if old and old.get("sha") == sha:
                     os.remove(tmp); idx[arc] = {"sig": sig, "sha": sha, "f": f, "at": old.get("at")}; continue
                 # schon gesicherte, inzwischen geänderte Datei: alte Fassung bleibt erhalten (wachsende Datei von heute ausgenommen)
-                if old and old.get("sha") and time.time() - os.path.getmtime(dst) > 86400:
-                    os.replace(dst, dst + ".alt-" + stamp)
+                if old and old.get("sha") and time.time() - os.path.getmtime(dst) > 86400 and arc not in ("data/sources.json", "data/settings.json"):
+                    os.replace(dst, dst + ".alt-" + stamp)      # (Geräte und Einstellungen nicht: frühere Fassungen könnten noch Zugangsdaten enthalten)
             os.replace(tmp, dst)
             try:
                 os.utime(dst, ns=(st.st_atime_ns, st.st_mtime_ns))   # Zeitstempel wie im Original
@@ -10111,6 +10934,10 @@ def backup_preview(path):
             man = {}
         if man.get("fmt") != BACKUP_FMT:
             raise ValueError("keine Sicherung dieser App" if CFG.get("language") != "en" else "not a backup of this app")
+        if len(zf.infolist()) > ZIP_MAX_ENTRIES:
+            raise ValueError("zu viele Einträge in der Sicherung" if CFG.get("language") != "en" else "too many entries in the backup")
+        unpacked = sum(max(0, i.file_size) for i in zf.infolist())
+        move_ = "data/umzug.enc" in zf.namelist()
         rd = lambda n: json.loads(zf.read(n)) if n in zf.namelist() else None
         sr = rd("data/sources.json") or {}; st_ = rd("data/settings.json") or {}
     with SRC_LOCK:
@@ -10125,9 +10952,14 @@ def backup_preview(path):
     ids = {x["id"] for x in devs}
     dev_ = str(st_.get("device") or "default") if isinstance(st_, dict) else "default"
     names_ = {x["name"] for x in list_sources()[0]}
-    return {"ok": True, "app": man.get("app", ""), "created": man.get("created", ""), "files": man.get("files", 0), "devices": devs,
+    return {"ok": True, "app": man.get("app", ""), "created": man.get("created", ""), "files": man.get("files", 0), "devices": devs, "move": move_,
+            "unpacked_mb": round(unpacked / 1048576),
             "keep": [{"id": k, "name": v} for k, v in cur.items() if k not in ids],
             "mic": {"device": dev_, "found": dev_ in ("default", "pulse", "") or dev_ in names_}}
+
+
+RESTORE_INFO = {}
+RESTORE_TOTAL = {}                   # Upload-Kennung -> Gesamtgröße, festgelegt mit dem ersten Teil
 
 
 def restore_sources(raw, idmap, pick=None, off=None):
@@ -10148,6 +10980,18 @@ def restore_sources(raw, idmap, pick=None, off=None):
         if off and sid in off:
             s_["enabled"] = False; s_["check"] = True
         s_ = pro_strip_source(s_, out[pos[sid]] if sid in pos else None)   # kostenloser Import: keine Pro-Werte
+        old_ = out[pos[sid]] if sid in pos else {}
+        rm_ = s_.pop("secret_removed", False)
+        if s_.get("type") == "phone" and not s_.get("token"):           # Sicherung ohne Handy-Kennung: vorhandene behalten, sonst neue (Handy neu koppeln)
+            if old_.get("token"):
+                s_["token"] = old_["token"]
+            else:
+                s_["token"] = secrets.token_hex(16); RESTORE_INFO.setdefault("pair", []).append(str(s_.get("name") or sid))
+        if s_.get("type") == "url" and s_.get("user") and not s_.get("password") and (rm_ or old_.get("password")):
+            if old_.get("password"):
+                s_["password"] = old_["password"]
+            else:
+                RESTORE_INFO.setdefault("pw", []).append(str(s_.get("name") or sid)); s_["check"] = True
         if sid in pos:
             out[pos[sid]] = s_
         elif len(out) < 9:
@@ -10172,7 +11016,7 @@ def restore_sources(raw, idmap, pick=None, off=None):
     return taken
 
 
-def restore_run(path, with_settings, pick=None, off=None):
+def restore_run(path, with_settings, pick=None, off=None, move_pass=None):
     out, clips, _ = paths()
     st = {"new": 0, "same": 0, "merged": 0, "lists": 0, "rows": 0}
     try:
@@ -10183,6 +11027,15 @@ def restore_run(path, with_settings, pick=None, off=None):
                 man = {}
             if man.get("fmt") != BACKUP_FMT:
                 raise ValueError("keine Sicherung dieser App" if CFG.get("language") != "en" else "not a backup of this app")
+            zip_guard(zf, out)                          # Anzahl und ausgepackte Größe prüfen, bevor etwas geschrieben wird
+            move = None
+            if "data/umzug.enc" in zf.namelist() and move_pass:      # Umzug: Passphrase zuerst prüfen (falsch = nichts wird eingespielt)
+                try:
+                    move = json.loads(unseal(zf.read("data/umzug.enc").decode("utf-8"), move_pass))
+                except ValueError:
+                    raise ValueError("Kennwort für den Umzug stimmt nicht" if CFG.get("language") != "en" else "wrong password for the move")
+            elif "data/umzug.enc" in zf.namelist():
+                st["move_skipped"] = True               # ohne Passphrase: wie eine normale Sicherung (ohne Schlüssel)
             names = [i for i in zf.infolist() if not i.is_dir()]
             BK_STATE.update(total=len(names), done=0)
             idmap = {}
@@ -10209,9 +11062,22 @@ def restore_run(path, with_settings, pick=None, off=None):
                 ha = rd("data/ha_rules.json")
                 if isinstance(ha, dict):
                     save_ha_rules(ha.get("rules"))
+                lo = rd("data/layout.json")                 # Anordnung der Ansichten und Spaltenbreiten (ab 1.80)
+                if isinstance(lo, dict):
+                    layout_restore(lo)
                 sr = rd("data/sources.json")
                 if isinstance(sr, dict):
+                    if move and isinstance(move.get("secrets"), dict):     # Umzug: Passwörter und Handy-Kennungen wieder einsetzen
+                        for s_ in sr.get("sources") or []:
+                            sec_ = move["secrets"].get(str(s_.get("id"))) if isinstance(s_, dict) else None
+                            if isinstance(sec_, dict):
+                                s_.update({k: str(v) for k, v in sec_.items() if k in SECRET_KEYS}); s_.pop("secret_removed", None)
+                    RESTORE_INFO.clear()
                     st["devices"] = restore_sources(sr, idmap, pick, off)
+                    if RESTORE_INFO.get("pair"):
+                        st["pair_again"] = RESTORE_INFO["pair"]       # Handys mit neuer Kennung: neu koppeln
+                    if RESTORE_INFO.get("pw"):
+                        st["password_missing"] = RESTORE_INFO["pw"]
                     st["devices_off"] = sorted(off or [])
                 BK_STATE["restart"] = True
             with SRC_LOCK:
@@ -10226,7 +11092,16 @@ def restore_run(path, with_settings, pick=None, off=None):
             except OSError:
                 pass
             stores = {"notes.json": (NOTES_LOCK, notes_all, notes_save), "bereiche.json": (LABELS_LOCK, labels_all, labels_save),
-                      "art.json": (ART_LOCK, art_all, art_save), "schnellwahl.json": (QT_LOCK, qt_all, qt_save), "statistik.json": (STAT_LOCK, stat_all, stat_save)}
+                      "art.json": (ART_LOCK, art_all, art_save), "schnellwahl.json": (QT_LOCK, qt_all, qt_save), "statistik.json": (STAT_LOCK, stat_all, stat_save),
+                      "muster.json": (MUSTER_LOCK, muster_all, muster_save), "bestaetigt.json": (BEST_LOCK, best_all, best_save)}
+            foreign_days = set()
+            key_in = "data/kette_schluessel.json" in zf.namelist()         # ältere Sicherung (bis 1.79) mit Schlüssel: wird weiter angenommen
+            if move and isinstance(move.get("chain_key"), dict):         # Umzug: Schlüssel der Datenkette zum Prüfen übernehmen
+                key_in = True
+                try:
+                    st["chain_keys"] = chain_keys_merge(move["chain_key"])
+                except (ValueError, OSError):
+                    pass
             for i in names:
                 BK_STATE["done"] += 1
                 a = i.filename
@@ -10366,6 +11241,8 @@ def restore_run(path, with_settings, pick=None, off=None):
                 with zf.open(i) as src, open(dst + ".tmp", "wb") as f:
                     shutil.copyfileobj(src, f, 1 << 20)
                 os.replace(dst + ".tmp", dst)
+                if gm and gm.group(3) == ".chk":               # Kette eines anderen Geräts: merken (die Datei selbst bleibt, wie sie ist)
+                    foreign_days.add((gm.group(2), gm.group(1)))
                 if i.date_time:
                     try:
                         ts = time.mktime(i.date_time + (0, 0, -1)); os.utime(dst, (ts, ts))
@@ -10385,6 +11262,15 @@ def restore_run(path, with_settings, pick=None, off=None):
                     st["same"] += 1
                 else:
                     st["days_skipped"].append([day_, sid_, res_])
+            if foreign_days:
+                try:
+                    chain_foreign_add(foreign_days)
+                except OSError as e:
+                    log("Sicherung: eingespielte Tage nicht vermerkt:", e)
+                if not key_in:                          # ohne Schlüssel: Vollständigkeit prüfen und so melden
+                    nk = sum(1 for sid_, day_ in sorted(foreign_days)[-120:] if chain_check(sid_, day_).get("nokey"))
+                    if nk:
+                        st["chain_nokey"] = nk
         LOG_CACHE["key"] = None; PROTO_CACHE.clear(); LEVEL_CACHE.clear()
         BK_STATE.update(state="done", stats=st, msg="")
         log("Sicherung eingespielt:", json.dumps(st), "mit Einstellungen" if with_settings else "")
@@ -10514,6 +11400,7 @@ def events_summary(src="all", n=200, plist="", rng=None, art=""):
         keyed = [r for r in keyed if a_ <= (r.get("start") or "")[:19] < b_]
     keyed = sorted(keyed, key=lambda r: r.get("start") or "")
     by_k, I, G = incidents(keyed)                    # ueber alle Geraete (auch wenn unten nach einem Geraet gefiltert wird)
+    MF = muster_map(keyed, inc=(by_k, I))           # Musterfilter: nur Kennzeichen, nichts wird entfernt
     rows = keyed if src == "all" else [r for r in keyed if r["quelle_id"] == src]
     if plist or art:                                 # Protokollliste, Art
         rows = [r for r in rows if ev_match(r, r["k"], plist, art)]
@@ -10521,8 +11408,8 @@ def events_summary(src="all", n=200, plist="", rng=None, art=""):
     # Fuer die Liste nach Beginn sortieren (stabil, gleiche Startzeit behaelt die Dateireihenfolge).
     hours = [0] * 24
     days = collections.Counter()
-    seen, bg_n = set(), 0
-    for r in rows:                                   # gezaehlt wird je Stoerung (nicht je Geraet), Hintergrund-Profile nicht
+    seen, bg_n, mf_n = set(), 0, 0
+    for r in rows:                                   # gezaehlt wird je Stoerung (nicht je Geraet), Hintergrund-Profile und ausgefilterte Muster nicht
         ig = by_k.get(r["k"])
         if ig is not None:
             if ig[0] in seen:
@@ -10530,6 +11417,8 @@ def events_summary(src="all", n=200, plist="", rng=None, art=""):
             seen.add(ig[0])
             if I[ig[0]]["bg"]:
                 bg_n += 1; continue
+        if r["k"] in MF:
+            mf_n += 1; continue
         try:
             days[r["start"][:10]] += 1; hours[int(r["start"][11:13])] += 1
         except (ValueError, IndexError):
@@ -10541,6 +11430,8 @@ def events_summary(src="all", n=200, plist="", rng=None, art=""):
         if ig is not None:
             inc = I[ig[0]]
             e.update(inc=ig[0], grp=ig[1], lead=inc["lead"] == r["k"], devs=inc["devs"], inc_bg=inc["bg"])
+        if r["k"] in MF:
+            e["mf"] = MF[r["k"]]
         out_rows.append(e)
     if out_rows:                                     # Regeln „nur festhalten“ (z. B. Fernseher): bei jeder Störung vermerken, was gerade an war
         try:
@@ -10565,7 +11456,7 @@ def events_summary(src="all", n=200, plist="", rng=None, art=""):
             if rs_:
                 e["raise_on"] = [[k, v] for k, v in sorted(rs_.items())]
     used_i = {e["inc"] for e in out_rows if "inc" in e}; used_g = {e["grp"] for e in out_rows if "grp" in e}
-    return {"total": sum(days.values()), "rows": len(rows), "bg_n": bg_n, "today": days.get(dt.date.today().isoformat(), 0), "hours": hours,
+    return {"total": sum(days.values()), "rows": len(rows), "bg_n": bg_n, "mf_n": mf_n, "muster": muster_names() if MF else {}, "today": days.get(dt.date.today().isoformat(), 0), "hours": hours,
             "days": sorted(days.items(), reverse=True)[:(62 if rng else 14)], "n": n,
             "events": out_rows, "grps": {str(k): v for k, v in G.items() if k in used_g},
             "sens": _sens_for(src, rng), "ha_names": ha_rule_names(), "fnotes": _fnotes_for(src, rng), "fn_assign_min": CFG.get("fn_assign_min", 5),
@@ -10582,8 +11473,8 @@ STAT_MAX = 40
 STAT_SRC = ("ev", "sens", "note")
 STAT_METRIC = ("n", "dur", "pk_avg", "pk_max")
 STAT_BY = ("none", "hour", "wd", "day", "week", "month", "art", "dev", "tag", "sens")
-STAT_SHOW = ("bar", "line", "num", "table")
-STAT_RANGE = ("sel", "1", "7", "30", "90", "365")
+STAT_SHOW = ("bar", "line", "num", "table", "list")
+STAT_RANGE = ("sel", "1", "7", "30", "90", "365", "today", "custom")
 STAT_TPLS = [   # Vorlagen (frei): Name je Sprache
     {"tpl": "night_hours", "name": ["Störungen pro Stunde (nachts)", "Disturbances per hour (night)"], "view": "prot", "src": "ev", "metric": "n", "by": "hour", "show": "bar", "range": "sel", "night": True},
     {"tpl": "arts", "name": ["Arten im Vergleich", "Types compared"], "view": "prot", "src": "ev", "metric": "n", "by": "art", "show": "bar", "range": "sel"},
@@ -10593,7 +11484,15 @@ STAT_TPLS = [   # Vorlagen (frei): Name je Sprache
     {"tpl": "today", "name": ["Störungen heute", "Disturbances today"], "view": "live", "src": "ev", "metric": "n", "by": "none", "show": "num", "range": "sel"},
     {"tpl": "sens_day", "name": ["Sensoren pro Tag", "Sensors per day"], "view": "prot", "src": "sens", "metric": "n", "by": "day", "show": "bar", "range": "30"},
     {"tpl": "notes_tag", "name": ["Notizen nach Taste", "Notes by button"], "view": "prot", "src": "note", "metric": "n", "by": "tag", "show": "bar", "range": "sel"},
+    # Kacheln (1.80): große Zahlen, Liste, Tabelle, Trend – ebenfalls frei
+    {"tpl": "week_n", "name": ["Störungen der letzten 7 Tage", "Disturbances, last 7 days"], "view": "live", "src": "ev", "metric": "n", "by": "none", "show": "num", "range": "7"},
+    {"tpl": "pk_avg7", "name": ["Ø Spitze (7 Tage)", "Average peak (7 days)"], "view": "live", "src": "ev", "metric": "pk_avg", "by": "none", "show": "num", "range": "7"},
+    {"tpl": "dur_today", "name": ["Dauer der Störungen heute", "Disturbance time today"], "view": "live", "src": "ev", "metric": "dur", "by": "none", "show": "num", "range": "today"},
+    {"tpl": "top_arts", "name": ["Häufigste Arten (7 Tage)", "Most frequent types (7 days)"], "view": "prot", "src": "ev", "metric": "n", "by": "art", "show": "list", "range": "7"},
+    {"tpl": "dev_table", "name": ["Störungen je Gerät (30 Tage)", "Disturbances per device (30 days)"], "view": "prot", "src": "ev", "metric": "n", "by": "dev", "show": "table", "range": "30"},
+    {"tpl": "trend_day", "name": ["Trend pro Tag (30 Tage)", "Trend per day (30 days)"], "view": "prot", "src": "ev", "metric": "n", "by": "day", "show": "line", "range": "30"},
 ]
+STAT_TOP = 5                 # Liste: so viele Einträge (einstellbar 3–20)
 
 
 def stat_path():
@@ -10629,9 +11528,28 @@ def stat_clean(d):
     out = {"name": txt("name", 60), "view": "live" if d.get("view") == "live" else "prot", "src": pick("src", STAT_SRC), "metric": pick("metric", STAT_METRIC),
            "by": pick("by", STAT_BY), "show": pick("show", STAT_SHOW), "range": pick("range", STAT_RANGE),
            "art": txt("art", 60), "sens": txt("sens", 80), "tag": txt("tag", 12), "dev": re.sub(r"[^a-z0-9_]", "", str(d.get("dev") or ""))[:16],
-           "night": d.get("night") is True, "quiet": d.get("quiet") is True, "wkend": d.get("wkend") is True}
+           "night": d.get("night") is True, "quiet": d.get("quiet") is True, "wkend": d.get("wkend") is True, "mf_show": d.get("mf_show") is True}
     if out["src"] != "ev" and out["metric"] in ("pk_avg", "pk_max") and out["src"] == "note":
         out["metric"] = "n"
+    day = lambda k: str(d.get(k) or "") if re.fullmatch(r"\d{4}-\d{2}-\d{2}", str(d.get(k) or "")) else ""
+    out["from_d"], out["to_d"] = day("from_d"), day("to_d")
+    if out["range"] == "custom" and not (out["from_d"] and out["to_d"]):
+        out["range"] = "7"                                  # eigener Zeitraum ohne Daten: letzte 7 Tage
+    if out["from_d"] and out["to_d"] and out["from_d"] > out["to_d"]:
+        out["from_d"], out["to_d"] = out["to_d"], out["from_d"]
+
+    def num(k, lo, hi):
+        try:
+            v = float(d.get(k))
+        except (TypeError, ValueError):
+            return None
+        return round(v, 1) if math.isfinite(v) and lo <= v <= hi else None
+    out["min_pk"] = num("min_pk", -200, 200)               # nur Störungen ab dieser Spitze (dBFS)
+    out["min_dur"] = num("min_dur", 0, 86400)              # nur Einträge ab dieser Dauer (s)
+    try:
+        out["top"] = max(3, min(20, int(d.get("top") or STAT_TOP)))
+    except (TypeError, ValueError):
+        out["top"] = STAT_TOP
     return out
 
 
@@ -10653,7 +11571,9 @@ def stat_change(data):
                 t_ = next((x for x in STAT_TPLS if x["tpl"] == data.get("tpl")), None)
                 if not t_:
                     return {"ok": False, "error": "not found"}
-                d = stat_clean(dict(t_, name=t_["name"][1 if CFG.get("language") == "en" else 0])); d["tpl"] = t_["tpl"]
+                vw = data.get("view") if data.get("view") in ("live", "prot") else t_["view"]       # Vorlage in die gewünschte Ansicht (Kachel-Bibliothek)
+                rg = "today" if vw == "prot" and t_["view"] != "prot" and t_["range"] == "sel" else t_["range"]     # „heute“ bleibt heute, auch in Protokolle
+                d = stat_clean(dict(t_, name=t_["name"][1 if CFG.get("language") == "en" else 0], view=vw, range=rg)); d["tpl"] = t_["tpl"]
             else:
                 if not pro_ok():
                     return {"ok": False, "error": "pro"}
@@ -10661,6 +11581,7 @@ def stat_change(data):
             d["ts"] = dt.datetime.now().astimezone().isoformat(timespec="seconds")
             k = "s_" + secrets.token_hex(4); S[k] = d
             stat_save()
+            tiles_kick()
             return {"ok": True, "id": k, "list": stat_list()}
         k = str(data.get("id") or "")
         if k not in S:
@@ -10675,6 +11596,7 @@ def stat_change(data):
         else:
             return {"ok": False, "error": "bad action"}
         stat_save()
+        tiles_kick()
         return {"ok": True, "list": stat_list()}
 
 
@@ -10690,11 +11612,14 @@ def stat_items(d, a_ms, b_ms):
         a_s = dt.datetime.fromtimestamp(a_ms / 1000.0).strftime("%Y-%m-%dT%H:%M:%S")
         b_s = dt.datetime.fromtimestamp(b_ms / 1000.0).strftime("%Y-%m-%dT%H:%M:%S")
         keyed = sorted((dict(r, k=k) for r, k in zip(allrows, row_keys(allrows)) if a_s <= (r.get("start") or "")[:19] < b_s), key=lambda r: r.get("start") or "")
-        _, I, _ = incidents(keyed)
+        bk_, I, _ = incidents(keyed)
+        MF = {} if d.get("mf_show") else muster_map(keyed, inc=(bk_, I))
         byk = {r["k"]: r for r in keyed}
         for inc in I.values():
             if inc["bg"]:
                 continue                                 # Hintergrund-Profile zaehlen nicht (wie ueberall)
+            if inc["lead"] in MF:
+                continue                                 # nach Muster ausgefiltert (Schalter „ausgefilterte zeigen“ in der Kachel)
             lr = byk.get(inc["lead"]) or {}
             af = art_fields(lr.get("datei") or "")
             kind = ("p:" + af["prof"]) if af.get("prof") else (af.get("art") or "?")
@@ -10719,6 +11644,10 @@ def stat_items(d, a_ms, b_ms):
     res = []
     for it in out:
         if not (a_ms <= it[0] < b_ms):
+            continue
+        if d.get("min_dur") is not None and (it[1] or 0) < d["min_dur"]:
+            continue
+        if d.get("min_pk") is not None and d["src"] == "ev" and (it[2] is None or it[2] < d["min_pk"]):
             continue
         t = dt.datetime.fromtimestamp(it[0] / 1000.0)
         if d["night"] and not (t.hour >= 22 or t.hour < 6):
@@ -10790,6 +11719,685 @@ def stat_meta():
     except Exception:
         pf = []
     return {"sens": sn[:100], "profiles": pf[:100]}
+
+
+# =====================================================================
+# Layout der Ansichten Live und Protokolle (layout.json neben sources.json): Anordnung, Breite,
+# eingeklappt, ausgeblendet, eigene Überschriften und Spaltenbreiten der Tabellen. PC und Handy
+# sehen dasselbe. Nur Anzeige – ändert nie Daten.
+# =====================================================================
+LAYOUT_FILE = os.path.join(DATA_DIR, "layout.json")
+LAYOUT_LOCK = threading.RLock()
+LAYOUT = {"data": None}
+LAYOUT_VIEWS = ("live", "prot")
+LAYOUT_MAX_PANELS = 80
+LAYOUT_MAX_TABLES = 40
+_LAY_ID = re.compile(r"^[A-Za-z0-9_]{1,40}$")
+
+
+def layout_all():
+    with LAYOUT_LOCK:
+        if LAYOUT["data"] is None:
+            d = read_json(LAYOUT_FILE) if os.path.exists(LAYOUT_FILE) else {}
+            LAYOUT["data"] = layout_clean(d) if isinstance(d, dict) else layout_clean({})
+        return LAYOUT["data"]
+
+
+def layout_exists():
+    return os.path.exists(LAYOUT_FILE)
+
+
+def layout_save():
+    with LAYOUT_LOCK:
+        d = layout_all()
+        d["ts"] = dt.datetime.now().astimezone().isoformat(timespec="seconds")
+        os.makedirs(os.path.dirname(LAYOUT_FILE) or ".", exist_ok=True)
+        tmp = LAYOUT_FILE + ".tmp"
+        with open(tmp, "w", encoding="utf-8") as f:
+            json.dump(d, f, ensure_ascii=False, separators=(",", ":"))
+        os.replace(tmp, LAYOUT_FILE)
+
+
+def _lay_int(v, lo, hi):
+    try:
+        v = int(v)
+    except (TypeError, ValueError):
+        return None
+    return v if lo <= v <= hi else None
+
+
+def layout_view_clean(v):
+    """Eine Ansicht prüfen: lay [{id,x,y,w}], col {id: bool}, off [id], vis {id: bool}, ttl {id: Text}. Unbekanntes fällt weg."""
+    v = v if isinstance(v, dict) else {}
+    out = {"lay": [], "col": {}, "off": [], "vis": {}, "ttl": {}}
+    seen = set()
+    for x in (v.get("lay") if isinstance(v.get("lay"), list) else [])[:LAYOUT_MAX_PANELS]:
+        if not isinstance(x, dict) or not _LAY_ID.match(str(x.get("id") or "")) or x["id"] in seen:
+            continue
+        xx, yy, ww = _lay_int(x.get("x"), 0, 11), _lay_int(x.get("y"), 0, 100000), _lay_int(x.get("w"), 1, 12)
+        if xx is None or yy is None or ww is None:
+            continue
+        seen.add(x["id"]); out["lay"].append({"id": x["id"], "x": xx, "y": yy, "w": min(ww, 12 - xx) or 1})
+    for k in ("col", "vis"):
+        src = v.get(k) if isinstance(v.get(k), dict) else {}
+        out[k] = {i: True for i, b in list(src.items())[:LAYOUT_MAX_PANELS] if _LAY_ID.match(str(i)) and b is True}
+    out["off"] = list(dict.fromkeys(i for i in (v.get("off") if isinstance(v.get("off"), list) else [])[:LAYOUT_MAX_PANELS] if isinstance(i, str) and _LAY_ID.match(i)))
+    src = v.get("ttl") if isinstance(v.get("ttl"), dict) else {}
+    for i, txt in list(src.items())[:LAYOUT_MAX_PANELS]:
+        if _LAY_ID.match(str(i)) and isinstance(txt, str):
+            txt = re.sub(r"[\x00-\x1f<>]", "", txt).strip()[:60]
+            if txt:
+                out["ttl"][i] = txt
+    return out
+
+
+def layout_cols_clean(c):
+    """Spaltenbreiten: {Tabelle: {Spalte: Breite px}}."""
+    out = {}
+    for tk, cols in (list(c.items()) if isinstance(c, dict) else [])[:LAYOUT_MAX_TABLES]:
+        if not _LAY_ID.match(str(tk)) or not isinstance(cols, dict):
+            continue
+        cc = {}
+        for ck, w in list(cols.items())[:40]:
+            w = _lay_int(round(w) if isinstance(w, float) else w, 30, 2000) if not isinstance(w, bool) else None
+            if _LAY_ID.match(str(ck)) and w is not None:
+                cc[ck] = w
+        if cc:
+            out[tk] = cc
+    return out
+
+
+LAYOUT_CAP_SECS = ("txt", "tags", "wit", "time")
+
+
+def layout_cap_clean(c):
+    """Notiz-Erfassung: Überschrift, Untertitel, Reihenfolge und ausgeblendete Bereiche, Uhr, Dichte, Tasten-Stil."""
+    c = c if isinstance(c, dict) else {}
+    txt = lambda v, n: re.sub(r"[\x00-\x1f<>]", "", v).strip()[:n] if isinstance(v, str) else ""
+    sec = lambda v: list(dict.fromkeys(x for x in v if x in LAYOUT_CAP_SECS)) if isinstance(v, list) else []
+    out = {"title": txt(c.get("title"), 60), "sub": txt(c.get("sub"), 160), "order": sec(c.get("order")), "hide": sec(c.get("hide")),
+           "clock": c.get("clock") if c.get("clock") in ("big", "small", "off") else "big",
+           "dense": c.get("dense") if c.get("dense") in ("normal", "compact") else "normal",
+           "style": c.get("style") if c.get("style") in ("outline", "filled") else "outline"}
+    return out
+
+
+def layout_clean(d):
+    d = d if isinstance(d, dict) else {}
+    vs = d.get("views") if isinstance(d.get("views"), dict) else {}
+    out = {"v": 1, "views": {k: layout_view_clean(vs[k]) for k in LAYOUT_VIEWS if k in vs}, "cols": layout_cols_clean(d.get("cols"))}
+    ht = d.get("ha_tiles")
+    out["ha_tiles"] = sorted({x for x in ht if isinstance(x, str) and _LAY_ID.match(x)}) if isinstance(ht, list) else []
+    if isinstance(d.get("cap"), dict):
+        out["cap"] = layout_cap_clean(d["cap"])
+    if isinstance(d.get("ts"), str):
+        out["ts"] = d["ts"][:40]
+    return out
+
+
+def layout_public():
+    with LAYOUT_LOCK:
+        d = layout_all()
+        return {"ok": True, "exists": layout_exists(), "layout": {"views": json.loads(json.dumps(d["views"])), "cols": json.loads(json.dumps(d["cols"])),
+                                                              "cap": layout_cap_clean(d.get("cap"))}}
+
+
+def layout_change(data):
+    """views: {Ansicht: Stand} ersetzt diese Ansichten; cols: {Tabelle: {Spalte: Breite}} ergänzt (null = Tabelle zurücksetzen);
+    reset: Ansicht (oder "cols" für alle Spaltenbreiten) auf Standard."""
+    if not isinstance(data, dict):
+        return {"ok": False, "error": "bad request"}
+    with LAYOUT_LOCK:
+        d = layout_all()
+        rs = data.get("reset")
+        if rs in LAYOUT_VIEWS:
+            d["views"].pop(rs, None)
+        elif rs == "cols":
+            d["cols"] = {}
+        elif rs == "cap":
+            d.pop("cap", None)
+        elif rs is not None:
+            return {"ok": False, "error": "bad reset"}
+        if isinstance(data.get("cap"), dict):                  # Notiz-Erfassung: geänderte Felder übernehmen
+            d["cap"] = layout_cap_clean(dict(d.get("cap") or {}, **data["cap"]))
+        vs = data.get("views")
+        if isinstance(vs, dict):
+            for k in LAYOUT_VIEWS:
+                if k in vs and isinstance(vs[k], dict):
+                    d["views"][k] = layout_view_clean(vs[k])
+        cs = data.get("cols")
+        if isinstance(cs, dict):
+            for tk, cols in list(cs.items())[:LAYOUT_MAX_TABLES]:
+                if not _LAY_ID.match(str(tk)):
+                    continue
+                if cols is None:
+                    d["cols"].pop(tk, None); continue
+                new = layout_cols_clean({tk: cols}).get(tk) or {}
+                if new:
+                    d["cols"][tk] = dict(d["cols"].get(tk) or {}, **new)
+            if len(d["cols"]) > LAYOUT_MAX_TABLES:
+                for k in list(d["cols"])[:len(d["cols"]) - LAYOUT_MAX_TABLES]:
+                    d["cols"].pop(k, None)
+        layout_save()
+    tiles_kick()                                           # eigene Überschrift einer Kachel: Name in Home Assistant mitziehen
+    return layout_public()
+
+
+def layout_restore(raw):
+    """Aus einer Sicherung (Einstellungen mit einspielen): Ansichten und Spaltenbreiten übernehmen."""
+    if not isinstance(raw, dict):
+        return False
+    inc = layout_clean(raw)
+    with LAYOUT_LOCK:
+        d = layout_all()
+        d["views"].update(inc["views"]); d["cols"].update(inc["cols"])
+        if inc.get("cap"):
+            d["cap"] = inc["cap"]
+        layout_save()
+    return True
+
+
+# =====================================================================
+# Kacheln (= eigene Statistiken) als Sensoren in Home Assistant (MQTT-Discovery)
+#   unique_id <HAID>_tile_<id>, Zustand = Hauptwert, Attribute = Einzelwerte / Verlauf.
+#   Wird jede Minute und nach neuen Störungen aktualisiert; nur geänderte Werte werden gesendet.
+#   Nur lesen über log.csv, Sensoren und Notizen – ändert nie Daten.
+# =====================================================================
+TILES = {"kick": threading.Event(), "last": {}, "conf": {}, "busy": threading.Lock()}
+TILE_WD = (("Mo", "Di", "Mi", "Do", "Fr", "Sa", "So"), ("Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"))
+TILE_TAG = {"tuer": "Tür", "moebel": "Möbel", "draussen": "draußen", "kind_geweckt": "Kind geweckt", "kein_schlaf": "kein Schlaf"}
+
+
+def tiles_kick():
+    TILES["kick"].set()
+
+
+def tile_range(d, now_ms=None):
+    """Zeitraum einer Kachel ohne Browser: „gewählter Zeitraum“ = heute."""
+    now_ms = int(now_ms if now_ms is not None else time.time() * 1000)
+    r = d.get("range")
+    if r in ("sel", "today"):
+        t0 = dt.datetime.fromtimestamp(now_ms / 1000.0).replace(hour=0, minute=0, second=0, microsecond=0)
+        return int(t0.timestamp() * 1000), now_ms + 1000
+    if r == "custom" and d.get("from_d") and d.get("to_d"):
+        a = dt.datetime.fromisoformat(d["from_d"]); b = dt.datetime.fromisoformat(d["to_d"]) + dt.timedelta(days=1)
+        a = max(a, b - dt.timedelta(days=400))
+        return int(a.timestamp() * 1000), int(b.timestamp() * 1000)
+    try:
+        n = float(r)
+    except (TypeError, ValueError):
+        n = 7
+    return now_ms - int(n * 86400000), now_ms + 1000
+
+
+def tile_key_label(d, k, de=True):
+    by = d.get("by")
+    if by == "hour":
+        return f"{int(k):02d}:00" if str(k).isdigit() else str(k)
+    if by == "wd":
+        return TILE_WD[0 if de else 1][int(k)] if str(k).isdigit() and int(k) < 7 else str(k)
+    if by == "day" and re.fullmatch(r"\d{4}-\d{2}-\d{2}", str(k)):
+        return f"{k[8:10]}.{k[5:7]}." if de else f"{k[8:10]}/{k[5:7]}"
+    if by == "week" and re.fullmatch(r"\d{4}-\d{2}-\d{2}", str(k)):
+        return ("Wo. " if de else "Wk ") + (f"{k[8:10]}.{k[5:7]}." if de else f"{k[8:10]}/{k[5:7]}")
+    if by == "art":
+        if str(k).startswith("p:"):
+            return k[2:]
+        lb = ART_LABEL.get(k)
+        return lb[0 if de else 1] if lb else ("unbekannt" if de else "unknown") if k == "?" else str(k)
+    if by == "dev":
+        if k == "all":
+            return "alle Geräte" if de else "all devices"
+        if k == "ha":
+            return "Home Assistant"
+        return src_name(k) or str(k)
+    if by == "tag":
+        if k == "-":
+            return "ohne Taste" if de else "no button"
+        try:
+            own = (qt_all().get("own") or {}).get(k)
+            if isinstance(own, dict) and own.get("l"):
+                return own["l"]
+        except Exception:
+            pass
+        return TILE_TAG.get(k, str(k).replace("_", " "))
+    if by == "none":
+        return "gesamt" if de else "total"
+    return str(k)
+
+
+def tile_unit(d):
+    if d.get("metric") == "dur":
+        return "s"
+    if d.get("metric", "").startswith("pk"):
+        return "dBFS" if d.get("src") == "ev" else ""
+    return ""
+
+
+def tile_title(tid, d):
+    with LAYOUT_LOCK:
+        for v in layout_all()["views"].values():
+            if v.get("ttl", {}).get("st_" + tid):
+                return v["ttl"]["st_" + tid]
+    return d.get("name") or ("Kachel" if CFG.get("language") != "en" else "Tile")
+
+
+def tile_value(d, now_ms=None):
+    """(Zustand, Attribute) einer Kachel – Zustand ist der Hauptwert (Anzahl, Sekunden oder dBFS)."""
+    de = CFG.get("language") != "en"
+    a, b = tile_range(d, now_ms)
+    j = stat_compute(d, a, b)
+    if not j.get("ok"):
+        return None, {"fehler" if de else "error": j.get("error") or "?"}
+    tot = j["total"]
+    keys, vals = j["keys"], j["vals"]
+    items = [{"name": tile_key_label(d, k, de), "schluessel": k, "wert": v} for k, v in zip(keys, vals)]
+    if d.get("show") == "list" or d.get("by") in ("art", "dev", "tag", "sens"):
+        items = [x for x in items if x["wert"]][:max(3, int(d.get("top") or STAT_TOP)) if d.get("show") == "list" else 40]
+    att = {"zeitraum" if de else "period": d.get("range"), "von" if de else "from": dt.datetime.fromtimestamp(a / 1000.0).astimezone().isoformat(timespec="seconds"),
+           "bis" if de else "to": dt.datetime.fromtimestamp(min(b, time.time() * 1000) / 1000.0).astimezone().isoformat(timespec="seconds"),
+           "anzahl" if de else "count": j["n"], "darstellung" if de else "display": d.get("show"), "aufteilung" if de else "split": d.get("by"),
+           "kennzahl" if de else "metric": d.get("metric"), "eintraege" if de else "items": items[:60]}
+    if d.get("by") in ("hour", "wd", "day", "week", "month"):
+        att["verlauf" if de else "series"] = [[x["name"], x["wert"]] for x in items[-60:]]
+    return tot, att
+
+
+def tile_config(tid, d, de=None):
+    de = CFG.get("language") != "en" if de is None else de
+    unit = tile_unit(d)
+    c = {"name": tile_title(tid, d), "unique_id": f"{HAID}_tile_{tid}", "object_id": f"{HAID}_tile_{tid}",
+         "state_topic": f"{TOPIC}/tile/{tid}", "json_attributes_topic": f"{TOPIC}/tile/{tid}/attr",
+         "availability_topic": f"{TOPIC}/status", "state_class": "measurement",
+         "icon": {"num": "mdi:numeric", "line": "mdi:chart-line", "bar": "mdi:chart-bar", "list": "mdi:format-list-numbered", "table": "mdi:table"}.get(d.get("show"), "mdi:chart-box"),
+         "device": {"identifiers": [HAID], "name": BRAND, "manufacturer": "Local", "sw_version": VERSION}}
+    if unit:
+        c["unit_of_measurement"] = unit
+    if unit == "s":
+        c["device_class"] = "duration"
+    return c
+
+
+def tiles_publish(force=False):
+    """Discovery für neue/geänderte Kacheln, leere Discovery für gelöschte, Werte nur bei Änderung."""
+    if mq is None:
+        return 0
+    if not TILES["busy"].acquire(blocking=False):
+        return 0
+    try:
+        lst = {x["id"]: x for x in stat_list()}
+        with LAYOUT_LOCK:
+            known = set(layout_all().get("ha_tiles") or [])
+        n = 0
+        for tid in sorted(known - set(lst)):                  # gelöscht: Entität in Home Assistant entfernen
+            pub(f"homeassistant/sensor/{HAID}/tile_{tid}/config", "", True)
+            pub(f"{TOPIC}/tile/{tid}", "", True); pub(f"{TOPIC}/tile/{tid}/attr", "", True)
+            TILES["conf"].pop(tid, None); TILES["last"].pop(tid, None)
+        for tid, d in lst.items():
+            cf = json.dumps(tile_config(tid, d), ensure_ascii=False, sort_keys=True)
+            if force or TILES["conf"].get(tid) != cf:
+                pub(f"homeassistant/sensor/{HAID}/tile_{tid}/config", cf, True); TILES["conf"][tid] = cf
+            try:
+                st, att = tile_value(d)
+            except Exception as e:
+                log("Kachel", tid, "nicht berechnet:", e); continue
+            val = "" if st is None else str(st)
+            pl = (val, json.dumps(att, ensure_ascii=False, sort_keys=True))
+            if force or TILES["last"].get(tid) != pl:
+                pub(f"{TOPIC}/tile/{tid}", val, True); pub(f"{TOPIC}/tile/{tid}/attr", pl[1], True)
+                TILES["last"][tid] = pl; n += 1
+        if known != set(lst):
+            with LAYOUT_LOCK:
+                layout_all()["ha_tiles"] = sorted(lst)
+                try:
+                    layout_save()
+                except OSError:
+                    pass
+        return n
+    finally:
+        TILES["busy"].release()
+
+
+def tiles_watch():
+    """Jede Minute, nach neuen Störungen und nach Änderungen (kurz gesammelt)."""
+    nxt = 0.0
+    while True:
+        hit = TILES["kick"].wait(max(1.0, nxt - time.time()))
+        if hit:
+            TILES["kick"].clear(); time.sleep(3)              # mehrere Änderungen auf einmal: einmal rechnen
+            TILES["kick"].clear()
+        try:
+            tiles_publish()
+        except Exception as e:
+            log("Kacheln für Home Assistant:", e)
+        nxt = time.time() + 60
+
+
+# =====================================================================
+# Eigene Bestätigung der Geräuschart (bestaetigt.json neben den Clips, kommt so in die Sicherung).
+# Die Einordnung der KI (art.json) bleibt unverändert; die Bestätigung bzw. Korrektur liegt daneben.
+# =====================================================================
+BEST_LOCK = threading.RLock()
+BEST = {"data": None}
+
+
+def best_path():
+    return os.path.join(paths()[1], "bestaetigt.json")
+
+
+def best_all():
+    with BEST_LOCK:
+        if BEST["data"] is None:
+            d = read_json(best_path()) if os.path.exists(best_path()) else {}
+            BEST["data"] = d if isinstance(d, dict) else {}
+        if not isinstance(BEST["data"].get("a"), dict):
+            BEST["data"]["a"] = {}
+        return BEST["data"]
+
+
+def best_save():
+    with BEST_LOCK:
+        if BEST["data"] is None:
+            return
+        os.makedirs(os.path.dirname(best_path()), exist_ok=True)
+        tmp = best_path() + ".tmp"
+        with open(tmp, "w", encoding="utf-8") as f:
+            json.dump(best_all(), f, ensure_ascii=False, separators=(",", ":"))
+        os.replace(tmp, best_path())
+
+
+def best_of(datei):
+    if not datei:
+        return None
+    try:
+        e = best_all()["a"].get(datei)
+    except Exception:
+        return None
+    return e if isinstance(e, dict) and e.get("g") in ART_LABEL else None
+
+
+def art_confirm(key, group="", undo=False):
+    """Geräuschart einer Störung bestätigen (group leer = Vorschlag der Erkennung stimmt) oder korrigieren (group = Art).
+    undo: eigene Bestätigung zurücknehmen. Ändert nichts an art.json oder log.csv."""
+    rows = read_log()
+    for r, k in zip(rows, row_keys(rows)):
+        if k != key:
+            continue
+        d = r["datei"] or event_stem(r, int(k.rsplit("|", 1)[1] or 0))
+        with BEST_LOCK:
+            A = best_all()["a"]
+            if undo:
+                A.pop(d, None)
+            else:
+                e = art_all().get(d) or {}
+                ki = art_group(e)
+                g = group or ki
+                if g not in ART_LABEL:
+                    return {"ok": False, "error": "bad group"}
+                A[d] = {"g": g, "ki": e.get("g") or "", "c": e.get("c"), "ts": dt.datetime.now().astimezone().isoformat(timespec="seconds")}
+            best_save()
+        tiles_kick()
+        return {"ok": True, **art_fields(d)}
+    return {"ok": False, "error": "not found"}
+
+
+def art_text(af, de=True):
+    """Geräuschart für Export und Druck: bestätigt / von Hand / „Vorschlag der Erkennung (Konfidenz x %)“."""
+    if not af or not af.get("art"):
+        return ""
+    lb = art_label(af["art"], de)
+    if af.get("art_ok") or af.get("art_man"):
+        return lb + (" (bestätigt)" if de else " (confirmed)")
+    c = af.get("art_c")
+    return (f"{lb} – Vorschlag der Erkennung" + (f" (Konfidenz {round(c)} %)" if c is not None else "")) if de else \
+           (f"{lb} – suggestion of the detection" + (f" (confidence {round(c)} %)" if c is not None else ""))
+
+
+# =====================================================================
+# Musterfilter (muster.json neben den Clips, kommt so in die Sicherung): bekannte, wiederkehrende Geräusche
+# (Kühlschrank, Heizung, Uhrschlag, Wecker, eigener Fernseher) ausfiltern – NUR in der Anzeige.
+# log.csv, Tagesaufzeichnung, Prüfsummen und Ereignisdateien bleiben unverändert; ausgefilterte lassen sich jederzeit zeigen.
+# Ein Muster frei, mehrere mit Pro (ohne Pro bleiben weitere gespeichert, es gilt nur das erste).
+# =====================================================================
+MUSTER_LOCK = threading.RLock()
+MUSTER = {"data": None, "v": 0}
+MUSTER_MAX = 30
+MUSTER_FREE = 1
+_HM = re.compile(r"^([01]\d|2[0-3]):[0-5]\d$")
+
+
+def muster_path():
+    return os.path.join(paths()[1], "muster.json")
+
+
+def muster_all():
+    with MUSTER_LOCK:
+        if MUSTER["data"] is None:
+            d = read_json(muster_path()) if os.path.exists(muster_path()) else {}
+            MUSTER["data"] = d if isinstance(d, dict) else {}
+        if not isinstance(MUSTER["data"].get("m"), dict):
+            MUSTER["data"]["m"] = {}
+        return MUSTER["data"]
+
+
+def muster_save():
+    with MUSTER_LOCK:
+        if MUSTER["data"] is None:
+            return
+        os.makedirs(os.path.dirname(muster_path()), exist_ok=True)
+        tmp = muster_path() + ".tmp"
+        with open(tmp, "w", encoding="utf-8") as f:
+            json.dump(muster_all(), f, ensure_ascii=False, separators=(",", ":"))
+        os.replace(tmp, muster_path())
+        MUSTER["v"] += 1
+
+
+def muster_clean(d):
+    d = d if isinstance(d, dict) else {}
+    txt = lambda k, n: re.sub(r"[\x00-\x1f<>]", "", str(d.get(k) or "")).strip()[:n]
+
+    def num(k, lo, hi):
+        try:
+            v = float(str(d.get(k)).replace(",", "."))
+        except (TypeError, ValueError):
+            return None
+        return round(v, 1) if math.isfinite(v) and lo <= v <= hi else None
+
+    def inum(k, lo, hi, dflt):
+        v = num(k, lo, hi)
+        return int(v) if v is not None else dflt
+    col = str(d.get("color") or "")
+    wd = sorted({int(x) for x in (d.get("wd") or []) if str(x).isdigit() and 0 <= int(x) <= 6}) if isinstance(d.get("wd"), list) else []
+    art = txt("art", 60)
+    out = {"name": txt("name", 60) or ("Muster" if CFG.get("language") != "en" else "Pattern"),
+           "color": col if re.fullmatch(r"#[0-9a-fA-F]{6}", col) else "#868e96", "on": d.get("on") is not False,
+           "dev": re.sub(r"[^a-z0-9_]", "", str(d.get("dev") or ""))[:16], "art": art,
+           "t_from": d.get("t_from") if _HM.match(str(d.get("t_from") or "")) else "", "t_to": d.get("t_to") if _HM.match(str(d.get("t_to") or "")) else "",
+           "wd": wd if len(wd) < 7 else [],
+           "dur_min": num("dur_min", 0, 86400), "dur_max": num("dur_max", 0, 86400),
+           "pk_min": num("pk_min", -200, 50), "pk_max": num("pk_max", -200, 50),
+           "over_min": num("over_min", -100, 150), "over_max": num("over_max", -100, 150),
+           "rep_every": inum("rep_every", 0, 1440, 0), "rep_off": inum("rep_off", 0, 1439, 0), "rep_tol": inum("rep_tol", 0, 120, 2),
+           "ha": re.sub(r"[^A-Za-z0-9_\-]", "", str(d.get("ha") or ""))[:40]}
+    if not (out["t_from"] and out["t_to"]):
+        out["t_from"] = out["t_to"] = ""
+    for a, b in (("dur_min", "dur_max"), ("pk_min", "pk_max"), ("over_min", "over_max")):
+        if out[a] is not None and out[b] is not None and out[a] > out[b]:
+            out[a], out[b] = out[b], out[a]
+    if out["rep_every"] and out["rep_every"] < 2:
+        out["rep_every"] = 0
+    return out
+
+
+def muster_list():
+    with MUSTER_LOCK:
+        L = [dict(v, id=k) for k, v in muster_all()["m"].items() if isinstance(v, dict)]
+    return sorted(L, key=lambda x: x.get("ts") or "")
+
+
+def muster_active():
+    """Muster, die gerade gelten: eingeschaltet; ohne Pro nur das erste."""
+    L = muster_list()
+    if not pro_ok():
+        L = L[:MUSTER_FREE]
+    return [m for m in L if m.get("on")]
+
+
+def muster_change(data):
+    """add (def), edit (id, def), del (id), on (id, on). Ein Muster frei, weitere mit Pro."""
+    a = str(data.get("action") or "")
+    with MUSTER_LOCK:
+        M = muster_all()["m"]
+        if a == "add":
+            if len(M) >= MUSTER_MAX:
+                return {"ok": False, "error": "limit"}
+            if len(M) >= MUSTER_FREE and not pro_ok():
+                return {"ok": False, "error": "pro"}
+            d = muster_clean(data.get("def")); d["ts"] = dt.datetime.now().astimezone().isoformat(timespec="seconds")
+            k = "m_" + secrets.token_hex(4); M[k] = d
+        else:
+            k = str(data.get("id") or "")
+            if k not in M:
+                return {"ok": False, "error": "not found"}
+            if a == "edit":
+                d = muster_clean(data.get("def")); d["ts"] = M[k].get("ts") or ""
+                M[k] = d
+            elif a == "on":
+                M[k]["on"] = bool(data.get("on"))
+            elif a == "del":
+                M.pop(k, None)
+            else:
+                return {"ok": False, "error": "bad action"}
+        muster_save()
+    tiles_kick()
+    return dict(muster_state(), ok=True, id=k)
+
+
+def muster_state():
+    L = muster_list(); act = {m["id"] for m in muster_active()}
+    try:
+        rules = [{"id": r["id"], "name": r.get("label") or (HA_STATE.get(r["id"]) or {}).get("name") or r.get("entity") or r["id"], "mode": r.get("mode")}
+                 for r in list(HA_RULES)]
+    except Exception:
+        rules = []
+    try:
+        pf = sorted(profiles_all().keys())
+    except Exception:
+        pf = []
+    return {"ok": True, "list": [dict(m, active=m["id"] in act) for m in L], "pro": pro_ok(), "free": MUSTER_FREE, "max": MUSTER_MAX,
+            "rules": rules, "profiles": pf}
+
+
+def muster_match(m, e):
+    """Trifft Muster m auf Ereignis e zu? e: {t (datetime), dur (s), pk, thr (dBFS), kind (Art bzw. p:Profil), dev, bg, ha (Regel-Kennungen an)}."""
+    t = e["t"]
+    if m.get("dev") and m["dev"] != e.get("dev"):
+        return False
+    if m.get("art"):
+        if m["art"] == "bg":
+            if not e.get("bg"):
+                return False
+        elif m["art"] != e.get("kind"):
+            return False
+    if m.get("wd") and t.weekday() not in m["wd"]:
+        return False
+    mi = t.hour * 60 + t.minute + t.second / 60.0
+    if m.get("t_from") and m.get("t_to"):
+        a = int(m["t_from"][:2]) * 60 + int(m["t_from"][3:]); b = int(m["t_to"][:2]) * 60 + int(m["t_to"][3:])
+        inside = a <= mi <= b if a <= b else (mi >= a or mi <= b)     # über Mitternacht
+        if not inside:
+            return False
+    if m.get("rep_every"):
+        E = m["rep_every"]; x = (mi - (m.get("rep_off") or 0)) % E
+        if min(x, E - x) > (m.get("rep_tol") if m.get("rep_tol") is not None else 2):
+            return False
+    dur, pk, thr = e.get("dur"), e.get("pk"), e.get("thr")
+    if m.get("dur_min") is not None and (dur is None or dur < m["dur_min"]):
+        return False
+    if m.get("dur_max") is not None and (dur is None or dur > m["dur_max"]):
+        return False
+    if m.get("pk_min") is not None and (pk is None or pk < m["pk_min"]):
+        return False
+    if m.get("pk_max") is not None and (pk is None or pk > m["pk_max"]):
+        return False
+    if m.get("over_min") is not None or m.get("over_max") is not None:
+        if pk is None or thr is None:
+            return False
+        ov = pk - thr
+        if m.get("over_min") is not None and ov < m["over_min"]:
+            return False
+        if m.get("over_max") is not None and ov > m["over_max"]:
+            return False
+    if m.get("ha") and m["ha"] not in (e.get("ha") or ()):
+        return False
+    return True
+
+
+def muster_map(keyed, pats=None, inc=None):
+    """{k: [Muster-Kennungen]} für Zeilen aus log.csv (mit k, nach Beginn sortiert). Nur lesen. inc = schon berechnete incidents(keyed)."""
+    pats = muster_active() if pats is None else pats
+    if not pats or not keyed:
+        return {}
+    by_k, I = (inc[0], inc[1]) if inc else incidents(keyed)[:2]
+    need_ha = any(p.get("ha") for p in pats)
+    hv = []
+    spans = []
+    for r in keyed:
+        try:
+            t = dt.datetime.fromisoformat(r["start"])
+        except (ValueError, KeyError, TypeError):
+            spans.append(None); continue
+        spans.append(t)
+    if need_ha:
+        ts = [int(aware(t).timestamp() * 1000) for t in spans if t is not None]
+        if ts:
+            try:
+                hv = ha_intervals("*", min(ts) - 1000, max(ts) + 86400000)
+            except Exception:
+                hv = []
+    out = {}
+    for r, t in zip(keyed, spans):
+        if t is None:
+            continue
+        af = art_fields(r.get("datei") or "")
+        ig = by_k.get(r["k"])
+        bg = bool(af.get("bg")) or (ig is not None and I[ig[0]]["bg"])
+        dur = fnum(r.get("dauer_s"))
+        e = {"t": t.replace(tzinfo=None) if t.tzinfo is None else t.astimezone().replace(tzinfo=None), "dur": dur, "pk": fnum(r.get("spitze_dbfs")),
+             "thr": fnum(r.get("schwelle_dbfs")), "kind": ("p:" + af["prof"]) if af.get("prof") else (af.get("art") or ""), "dev": r.get("quelle_id") or "main", "bg": bg}
+        if need_ha:
+            a0 = int(aware(t).timestamp() * 1000); b0 = a0 + int((dur or 0) * 1000)
+            e["ha"] = {x[3] for x in hv if x[0] <= b0 and x[1] >= a0}
+        hit = [p["id"] for p in pats if muster_match(p, e)]
+        if hit:
+            out[r["k"]] = hit
+    # gleiche Störung an mehreren Geräten: gilt das Muster für das führende Gerät, ist die ganze Störung ausgefiltert
+    for ig in {v[0] for v in by_k.values()}:
+        lead = I[ig]["lead"]
+        if lead in out:
+            for d in I[ig]["devs"]:
+                out.setdefault(d[3], out[lead])
+    return out
+
+
+def muster_names():
+    return {m["id"]: {"name": m["name"], "color": m["color"]} for m in muster_list()}
+
+
+def muster_preview(d, days=30):
+    """Wie viele Störungen der letzten 30 Tage träfe das Muster? (je Störung einmal, Hintergrund zählt mit) – nur lesen."""
+    m = dict(muster_clean(d), id="_preview")
+    now = dt.datetime.now()
+    a_s = (now - dt.timedelta(days=days)).strftime("%Y-%m-%dT%H:%M:%S")
+    allrows = read_log()
+    keyed = sorted((dict(r, k=k) for r, k in zip(allrows, row_keys(allrows)) if (r.get("start") or "")[:19] >= a_s), key=lambda r: r.get("start") or "")
+    mp = muster_map(keyed, [m])
+    by_k, I, _ = incidents(keyed)
+    inc = {by_k[k][0] if k in by_k else k for k in mp}
+    tot = len({by_k[r["k"]][0] if r["k"] in by_k else r["k"] for r in keyed})
+    ex = [r for r in keyed if r["k"] in mp and (r["k"] not in by_k or I[by_k[r["k"]][0]]["lead"] == r["k"])][-5:]
+    return {"ok": True, "n": len(inc), "of": tot, "days": days,
+            "examples": [{"start": r["start"], "dev": r.get("quelle") or r.get("quelle_id"), "dur": fnum(r.get("dauer_s")), "pk": fnum(r.get("spitze_dbfs"))} for r in ex[::-1]]}
 
 
 def ev_row(r):
@@ -10869,7 +12477,7 @@ def sources_payload():
 
 # Nur Home Assistant (Ingress-Proxy) darf zugreifen; zum Testen mit LAERM_ALLOW_ALL=1 abschaltbar
 ALLOWED = {"172.30.32.2", "127.0.0.1", "::1"}
-RESTRICT = bool(os.environ.get("SUPERVISOR_TOKEN")) and not os.environ.get("LAERM_ALLOW_ALL")
+RESTRICT = bool(os.environ.get("SUPERVISOR_TOKEN")) and os.environ.get("LAERM_ALLOW_ALL") != "1"   # nur genau "1" schaltet ab
 MAX_BODY = 65536
 UPLOAD_MAX = 30 * 1024 * 1024        # Datei zum Pruefen (Geraeusch pruefen)
 
@@ -10952,12 +12560,20 @@ class BaseHandler(BaseHTTPRequestHandler):
                 self.wfile.write(chunk); left -= len(chunk)
 
     def fail(self, e):
-        if isinstance(e, (BrokenPipeError, ConnectionResetError)):
-            self.close_connection = True
-            return
+        """Unerwarteter Fehler: Einzelheiten nur ins Protokoll, an den Browser eine kurze Meldung mit Kennung (keine Pfade, kein Stacktrace)."""
         self.close_connection = True
+        if isinstance(e, (BrokenPipeError, ConnectionResetError, socket.timeout, TimeoutError)):
+            return
+        ref = secrets.token_hex(3)
         try:
-            self.send(500, "text/plain; charset=utf-8", str(e).encode())
+            log(f"Fehler {ref} bei {self.command} {self.path.split('?')[0][:120]}: {type(e).__name__}: {e}")
+            log("".join(traceback.format_exception(type(e), e, e.__traceback__)[-3:]).rstrip())
+        except Exception:
+            pass
+        msg = (f"Interner Fehler (Kennung {ref}, Einzelheiten im Protokoll der App)" if CFG.get("language") != "en" else
+               f"Internal error (reference {ref}, details in the app log)")
+        try:
+            self.send(500, "text/plain; charset=utf-8", msg.encode())
         except Exception:
             pass
 
@@ -10965,10 +12581,12 @@ class BaseHandler(BaseHTTPRequestHandler):
         self.do_GET()
 
 
-STATIC = {"app.js", "hadash-ui.js", "app.css", "i18n.js", "qrcode.js", "druck.js", "uplot.min.js", "uplot.min.css", "tabulator.min.js", "tabulator.min.css", "gridstack-all.js", "gridstack.min.css", "handbuch.js", "hb_inhalt.js"}   # uPlot (MIT, github.com/leeoniya/uPlot): Kurven und Balken
+STATIC = {"app.js", "hadash-ui.js", "app.css", "i18n.js", "qrcode.js", "druck.js", "uplot.min.js", "uplot.min.css", "ag-grid-community.min.js", "gridstack-all.js", "gridstack.min.css", "handbuch.js", "hb_inhalt.js"}   # uPlot (MIT, github.com/leeoniya/uPlot): Kurven und Balken
 
 
 class Handler(BaseHandler):
+    timeout = 30                                         # je Lese-/Schreibvorgang; reicht für Uploads in Teilen (8 MB) und lange Downloads
+
     def allowed(self):
         if not RESTRICT or self.client_address[0] in ALLOWED:
             return True
@@ -11138,6 +12756,11 @@ class Handler(BaseHandler):
             if name == "backup_status":
                 return self.js(dict(BK_STATE))
             if name == "backup.zip":                   # komplette Sicherung, wird beim Herunterladen erzeugt
+                mv_ = None
+                if q.get("move"):                      # Umzug: Einmal-Kennung aus backup_move (Passphrase nie in der Adresse)
+                    mv_ = MOVE_TOKENS.pop(q["move"][0], None)
+                    if not mv_ or mv_[1] < time.time():
+                        return self.send(410, "text/plain; charset=utf-8", "Link abgelaufen – bitte neu anfordern".encode())
                 self.close_connection = True
                 self.send_response(200)
                 self.send_header("Content-Type", "application/zip")
@@ -11147,7 +12770,7 @@ class Handler(BaseHandler):
                 self.end_headers()
                 if self.command == "HEAD":
                     return
-                co = ChunkedOut(self.wfile); backup_write(co); co.close()
+                co = ChunkedOut(self.wfile); backup_write(co, mv_[0] if mv_ else None); co.close()
                 return
             if name == "ha_rules":
                 return self.js(ha_rules_payload())
@@ -11183,6 +12806,25 @@ class Handler(BaseHandler):
                 return self.js({"ok": True, "notes": fnotes_in(a_, b_, re.sub(r"[^a-z0-9_]", "", (q.get("src") or ["all"])[0])[:16] or "all")})
             if name == "stats":                       # eigene Statistiken: Liste, Vorlagen, Pro, Auswahl
                 return self.js(dict({"ok": True, "list": stat_list(), "pro": pro_ok(), "tpls": STAT_TPLS}, **stat_meta()))
+            if name == "layout":                      # Anordnung der Ansichten und Spaltenbreiten (für alle Browser gleich)
+                return self.js(layout_public())
+            if name == "methode":                     # Messmethode für Ausdruck und Lärmprotokoll
+                return self.js({"ok": True, "info": method_info((q.get("src") or ["all"])[0], CFG.get("language") != "en")})
+            if name == "muster":                      # Musterfilter: Liste, Pro, Regeln und Profile für die Auswahl
+                return self.js(muster_state())
+            if name == "protokoll.zip":               # Beweispaket: Protokoll, Rohdaten, Zeitachse, Prüfsummen, Methode (nur lesen)
+                return self.send(200, "application/zip", evidence_zip(q), {"Content-Disposition": 'attachment; filename="laermprotokoll_beweispaket.zip"'})
+            if name == "beleg":                       # Belegdaten für „Verlauf drucken“: Zusammenfassung, Zeitachse, Prüfsummen, Methode
+                try:
+                    a_ = dt.datetime.fromtimestamp(int((q.get("from") or ["0"])[0]) / 1000.0); b_ = dt.datetime.fromtimestamp(int((q.get("to") or ["0"])[0]) / 1000.0)
+                except (ValueError, OverflowError, OSError):
+                    return self.js({"ok": False, "error": "bad request"}, 400)
+                if not b_ > a_:
+                    return self.js({"ok": False, "error": "bad request"}, 400)
+                ss_ = {x for x in (q.get("srcs") or [""])[0].split(",") if re.fullmatch(r"[a-z0-9_]{1,16}", x)} or None
+                return self.js(evidence_core(max(a_, b_ - dt.timedelta(days=400)), b_, ss_, (q.get("mfo") or ["0"])[0] == "1", CFG.get("language") != "en"))
+            if name == "ereignisse.csv":              # Rohdaten zum Lärmprotokoll (log.csv bleibt unverändert)
+                return self.send(200, "text/csv; charset=utf-8", export_csv(q), {"Content-Disposition": 'attachment; filename="ereignisse_rohdaten.csv"'})
             if name == "notetags":                    # Schnellwahl: eingebaute + eigene Tasten, Reihenfolge, Vorschlaege
                 return self.js(qt_state())
             if name == "notes":
@@ -11303,11 +12945,16 @@ class Handler(BaseHandler):
             return self.js({"ok": False, "error": "bad request"}, 400)
         out = paths()[0]
         tmp = os.path.join(out, ".import_" + uid + ".zip")
+        if off > 0 and RESTORE_TOTAL.get(uid) != total:  # Gesamtgröße gilt ab dem ersten Teil (sonst ließe sich die Platzprüfung umgehen)
+            return self.js({"ok": False, "error": "bad request"}, 400)
         try:
             if off == 0:
                 with BK_LOCK:
                     if BK_STATE["state"] == "running":
                         return self.js({"ok": False, "error": "busy"}, 409)
+                for k_ in list(RESTORE_TOTAL)[:-8]:
+                    RESTORE_TOTAL.pop(k_, None)
+                RESTORE_TOTAL[uid] = total
                 os.makedirs(out, exist_ok=True)
                 free = shutil.disk_usage(out).free
                 if free < 2 * total + 50 * 1024 * 1024:
@@ -11334,6 +12981,7 @@ class Handler(BaseHandler):
                 return self.js({"ok": False, "error": "incomplete"}, 400)
             if off + n < total:
                 return self.js({"ok": True, "got": off + n})
+            RESTORE_TOTAL.pop(uid, None)
             old_ = BK_PENDING.get("path")
             if old_ and old_ != tmp and os.path.exists(old_):
                 os.remove(old_)
@@ -11428,7 +13076,8 @@ class Handler(BaseHandler):
                 pro_import_mark()
                 cl = lambda v: {str(x) for x in v if re.fullmatch(r"[a-z0-9_]{1,16}", str(x))} if isinstance(v, list) else None
                 BK_PENDING.update(path=None)
-                threading.Thread(target=restore_run, args=(pth, bool(data.get("settings")), cl(data.get("pick")), cl(data.get("off")) or set()), daemon=True).start()
+                mp_ = data.get("move_pass") if isinstance(data.get("move_pass"), str) and data.get("move_pass") else None
+                threading.Thread(target=restore_run, args=(pth, bool(data.get("settings")), cl(data.get("pick")), cl(data.get("off")) or set(), mp_), daemon=True).start()
                 return self.js({"ok": True})
             if name == "sidx_clear":                     # Suchverzeichnis leeren (wird im Hintergrund neu aufgebaut; Originale unberuehrt)
                 ok_ = SIDX.clear() if SIDX is not None else False
@@ -11505,6 +13154,29 @@ class Handler(BaseHandler):
                 if not isinstance(data, dict):
                     return self.js({"ok": False, "error": "bad request"}, 400)
                 return self.js(stat_change(data))
+            if name == "backup_move":                   # Umzug: Passphrase merken (10 Minuten), dafür eine Einmal-Kennung für backup.zip?move=
+                data = json.loads(body or b"{}")
+                if not isinstance(data, dict):
+                    return self.js({"ok": False, "error": "bad request"}, 400)
+                return self.js(move_token(data.get("pass")))
+            if name == "muster":                        # Musterfilter anlegen/ändern/löschen, Vorschau (nur lesen)
+                data = json.loads(body or b"{}")
+                if not isinstance(data, dict):
+                    return self.js({"ok": False, "error": "bad request"}, 400)
+                if data.get("action") == "preview":
+                    return self.js(muster_preview(data.get("def")))
+                return self.js(muster_change(data))
+            if name == "art_confirm":                   # Geräuschart bestätigen / korrigieren (eigene Datei, art.json bleibt)
+                data = json.loads(body or b"{}")
+                if not isinstance(data, dict):
+                    return self.js({"ok": False, "error": "bad request"}, 400)
+                g_ = str(data.get("group") or "")
+                return self.js(art_confirm(str(data.get("k", "")), g_ if g_ in ART_LABEL else "", bool(data.get("undo"))))
+            if name == "layout":                        # Anordnung speichern / zurücksetzen (nur Anzeige)
+                data = json.loads(body or b"{}")
+                if not isinstance(data, dict):
+                    return self.js({"ok": False, "error": "bad request"}, 400)
+                return self.js(layout_change(data))
             if name == "stat_data":                     # Werte einer Statistik (auch Vorschau beim Einstellen) - nur lesen
                 data = json.loads(body or b"{}")
                 if not isinstance(data, dict):
@@ -11708,6 +13380,7 @@ class PhoneHandler(BaseHandler):
                 except (TypeError, ValueError):
                     return d
             seq, first, age = qi("seq", 0), qi("first"), qi("age", 0)
+            r.phone_ip = self.client_address[0] if self.client_address else None      # für „Aufzeichnung gestört“ (abgewiesene Verbindungen)
             sess = (q.get("sid") or [""])[0][:32]
             enabled = src_runs(r.src)
             res = r.push.push(sess, first, seq, body, age) if enabled else "off"
@@ -11756,36 +13429,96 @@ class Server(ThreadingHTTPServer):
         pass       # abgebrochene Verbindungen und TLS-Fehler (Zertifikat abgelehnt) nicht protokollieren
 
 
+PHONE_DROPS = {}                 # IP -> [zuletzt (s), Grund, Anzahl] – abgewiesene Verbindungen (Handy zeigt dann „Aufzeichnung gestört“)
+PHONE_DROP_SHOW_S = 120
+
+
+def phone_drop(ip, why):
+    d = PHONE_DROPS.get(ip)
+    if d and time.time() - d[0] < 600:
+        d[0], d[1], d[2] = time.time(), why, d[2] + 1
+    else:
+        PHONE_DROPS[ip] = [time.time(), why, 1]
+    if len(PHONE_DROPS) > 256:
+        for k in sorted(PHONE_DROPS, key=lambda k: PHONE_DROPS[k][0])[:64]:
+            PHONE_DROPS.pop(k, None)
+
+
+def phone_disturbed(r):
+    """Für Handy-Geräte: Verbindungen von seiner Adresse wurden in den letzten 2 Minuten abgewiesen -> {Grund, Anzahl, seit}."""
+    ip = getattr(r, "phone_ip", None)
+    d = PHONE_DROPS.get(ip) if ip else None
+    if not d or time.time() - d[0] > PHONE_DROP_SHOW_S:
+        return None
+    return {"why": d[1], "n": d[2], "at": int(d[0] * 1000)}
+
+
 class TLSServer(Server):
-    """TLS-Handshake erst im Verbindungs-Thread, damit ein langsames Handy den Server nicht blockiert."""
+    """TLS-Handshake erst im Verbindungs-Thread, damit ein langsames Handy den Server nicht blockiert.
+    Schutz: höchstens 4 gleichzeitige Verbindungen je Adresse, 3 s für den Handshake, 32 insgesamt."""
 
     MAX_CONN = 32
+    MAX_PER_IP = 4
+    HANDSHAKE_S = 3.0
+    IO_S = 10
 
     def __init__(self, addr, handler, ctx):
         super().__init__(addr, handler)
         self.ctx = ctx
         self.slots = threading.BoundedSemaphore(self.MAX_CONN)
+        self.per_ip = collections.Counter()
+        self.ip_lock = threading.Lock()
 
     def get_request(self):
         sock, addr = self.socket.accept()
-        sock.settimeout(10)
+        sock.settimeout(self.HANDSHAKE_S)
         return self.ctx.wrap_socket(sock, server_side=True, do_handshake_on_connect=False), addr
 
+    def ip_take(self, ip):
+        with self.ip_lock:
+            if self.per_ip[ip] >= self.MAX_PER_IP:
+                return False
+            self.per_ip[ip] += 1
+            return True
+
+    def ip_give(self, ip):
+        with self.ip_lock:
+            self.per_ip[ip] -= 1
+            if self.per_ip[ip] <= 0:
+                self.per_ip.pop(ip, None)
+
     def process_request(self, request, client_address):
-        if not self.slots.acquire(blocking=False):      # zu viele Verbindungen: sofort schliessen
+        ip = client_address[0] if client_address else ""
+        if not self.ip_take(ip):                        # zu viele Verbindungen von dieser Adresse: sofort schliessen
+            phone_drop(ip, "limit")
+            self.shutdown_request(request)
+            return
+        if not self.slots.acquire(blocking=False):      # zu viele Verbindungen insgesamt: sofort schliessen
+            self.ip_give(ip); phone_drop(ip, "busy")
             self.shutdown_request(request)
             return
         try:
             super().process_request(request, client_address)
         except Exception:
-            self.slots.release()
+            self.slots.release(); self.ip_give(ip)
             raise
 
     def process_request_thread(self, request, client_address):
+        ip = client_address[0] if client_address else ""
         try:
+            try:
+                request.do_handshake()                  # höchstens HANDSHAKE_S Sekunden, danach normale Zeitgrenze
+                request.settimeout(self.IO_S)
+            except (socket.timeout, TimeoutError):
+                phone_drop(ip, "handshake")
+                self.shutdown_request(request)
+                return
+            except (ssl.SSLError, OSError):             # z. B. Zertifikat im Browser noch nicht bestätigt: kein Störungsfall
+                self.shutdown_request(request)
+                return
             super().process_request_thread(request, client_address)
         finally:
-            self.slots.release()
+            self.slots.release(); self.ip_give(ip)
 
 
 def ensure_cert():

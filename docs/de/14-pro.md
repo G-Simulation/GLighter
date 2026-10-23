@@ -11,6 +11,7 @@ Die Jahreslizenz **GLighter Pro** schaltet zusätzlich frei:
 | Externe Geräte: Handy im Browser, Handy-App / Stream-URL, IP-Kamera | gesperrt | bis zu 8 zusätzliche Geräte |
 | Handy als Bewegungsmelder (Erschütterung, Bewegung im Bild) | gesperrt | ✔ |
 | 📊 Eigene Statistiken selbst einstellen ([Statistiken](03-protokolle.md#statistik)) | Vorlagen | frei einstellbar |
+| ⊘ Muster ausfiltern ([Muster](11-einstellungen.md#muster)) | 1 Muster | bis zu 30 Muster |
 | Tägliche Sicherung auf Netzlaufwerk/NAS/USB und „Platz sparen“ ([Sicherung](09-sicherung.md#ziel)) | „⬇ Sicherung herunterladen“ von Hand | jeden Tag automatisch, geprüft |
 
 Das Server-Mikrofon (am Home-Assistant-Rechner) funktioniert immer ohne Pro.
@@ -50,6 +51,7 @@ Zum Verlängern eine neue Lizenz kaufen und den neuen Schlüssel eintragen.
 ## Umzug auf einen neuen Rechner
 
 Sicherung auf dem alten Rechner herunterladen, GLighter auf dem neuen installieren und die Sicherung einspielen – der **erste Import ist kostenlos**. Danach den Pro-Schlüssel wieder eintragen.
+Damit auch der Schlüssel der Prüfkette und die Zugangsdaten mitkommen, die [Umzugs-Sicherung mit Kennwort](09-sicherung.md#umzug) verwenden.
 
 ---
 [← Fehlerbehebung und häufige Fragen](13-fehlerbehebung.md) · [Inhalt](README.md) · [Glossar →](15-glossar.md)

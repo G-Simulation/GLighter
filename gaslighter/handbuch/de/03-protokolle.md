@@ -15,21 +15,58 @@ Der Reiter **Protokolle** zeigt einen Zeitraum vollständig: Zusammenfassung, Wo
 Live und Protokolle bestehen aus **Bereichen** (Übersicht, Unterbrechungen, Verlauf, Ereignisse nach Uhrzeit, je Tag, Ereignisse im Zeitraum, Notizen und Bewegung, Sensoren im Zeitraum). Jeder Bereich hat oben eine Leiste:
 
 - **▾ / ▸** klappt ein und aus (auch Doppelklick auf die Leiste).
-- **✕** blendet aus. Wieder einschalten unter **▦ Layout anpassen**.
+- **✕** blendet aus. Wieder einfügen über **▦ Layout anpassen** → **＋ Bereich hinzufügen**.
 - **⌖ nur sichtbarer Bereich** (Ereignisse, Sensoren): zeigt nur, was im Verlauf gerade zu sehen ist – zieh im Verlauf z. B. 20:00–22:00 auf, dann zeigen Tabelle bzw. Liste nur diese Zeit.
 
-**▦ Layout anpassen:** Bereiche am Griff ⠿ verschieben, an der Seite schmaler oder breiter ziehen (z. B. zwei nebeneinander), Bereiche ein- und ausschalten. **Fertig** speichert, **↺ Zurücksetzen** stellt die Standardanordnung wieder her. Die Höhe richtet sich nach dem Inhalt. Am Handy stehen alle Bereiche untereinander. Die Anordnung gilt für diesen Browser.
+### ▦ Layout anpassen {#designer}
+
+**▦ Layout anpassen** schaltet Live und Protokolle in den Bearbeiten-Modus – ähnlich wie das Bearbeiten eines Dashboards in Home Assistant:
+
+- **Verschieben:** am Griff ⠿ ziehen oder mit **↑ / ↓** in der Leiste eines Bereichs eine Stelle nach oben oder unten.
+- **Breite:** an der linken oder rechten Kante ziehen (z. B. zwei Bereiche nebeneinander). Die Höhe richtet sich nach dem Inhalt.
+- **✎ Überschrift ändern:** eigener Name für den Bereich oder die Kachel. Leer lassen stellt den ursprünglichen wieder her.
+- **▾ / ▸** klappt ein und aus, **✕** nimmt den Bereich aus der Ansicht.
+- **＋ Bereich hinzufügen** öffnet die Bibliothek: alle Bereiche dieser Ansicht (angezeigt oder ausgeblendet) zum Einfügen und Entfernen, darunter **neue Kacheln** und **fertige Vorlagen** (siehe unten). Dort lassen sich auch die gemerkten **Spaltenbreiten der Tabellen** zurücksetzen.
+- **↺ Zurücksetzen** stellt nach einer Rückfrage die Standardanordnung dieser Ansicht wieder her. **Fertig** beendet das Bearbeiten.
+
+**Mit der Tastatur:** im Bearbeiten mit Tab einen Bereich wählen (er bekommt einen deutlichen Rahmen), dann
+
+| Taste | Wirkung |
+|---|---|
+| ↑ / ↓ | eine Stelle nach oben / unten |
+| ← / → | eine Spalte nach links / rechts |
+| Umschalt + ← / → | schmaler / breiter |
+| Umschalt + ↑ / ↓ | einklappen / aufklappen |
+| F2 | Überschrift ändern |
+| Entf | entfernen (mit Rückfrage) |
+
+Screenreader lesen den Namen jedes Bereichs und nach jeder Änderung die neue Stelle vor.
+
+**Am Handy** stehen alle Bereiche untereinander. Die Reihenfolge änderst du im Bearbeiten mit **↑ / ↓** – die Anordnung am PC bleibt dabei erhalten.
+
+**Gespeichert auf dem Server:** Anordnung, Breiten, Einklappen, Ausblenden, eigene Überschriften und die von Hand gezogenen **Spaltenbreiten der Tabellen** liegen in `layout.json` neben `sources.json`. PC, Tablet und Handy zeigen deshalb dasselbe. Gab es auf dem Server noch keine Anordnung, übernimmt GLighter beim ersten Öffnen die bisher im Browser gespeicherte. `layout.json` ist in der Sicherung (ZIP) enthalten und kommt mit „Einstellungen und Geräte übernehmen“ zurück. Das Layout ändert nie Daten.
 
 „Sensoren im Zeitraum“ ist anfangs ausgeblendet: Sensor-Ereignisse („als Ereignis“) stehen schon in der Tabelle, „nur festhalten“ (z. B. Fernseher) steht als 📡-Hinweis bei jeder Störung, die in die Zeit fällt.
 
-### 📊 Eigene Statistiken {#statistik}
+### 📊 Kacheln (eigene Statistiken) {#statistik}
 
-**📊 ＋ Statistik** (oben über den Bereichen, in Live und Protokolle) legt eine Statistik als eigenen Bereich an – verschieben, breiter ziehen, einklappen und ausblenden wie die anderen.
+**📊 ＋ Kachel** (oben über den Bereichen, in Live und Protokolle) bzw. im Bearbeiten **＋ Bereich hinzufügen** → **Neue Kachel** legt eine Kachel als eigenen Bereich an – verschieben, breiter ziehen, umbenennen, einklappen und ausblenden wie die anderen.
 
-- **Vorlagen (für alle frei):** z. B. „Störungen pro Stunde (nachts)“, „Arten im Vergleich“, „Trend pro Woche“, „Pro Wochentag“, „Gesamtdauer pro Tag“, „Störungen heute“, „Sensoren pro Tag“, „Notizen nach Taste“.
-- **Selbst einstellen (Pro):** *Was zählen* (Störungen – auch nur eine Art oder ein Tonprofil –, Sensoren, Notizen mit einer Schnellwahl-Taste), *Kennzahl* (Anzahl, Gesamtdauer, Ø oder höchste Spitze), *aufgeteilt nach* (Stunde, Wochentag, Tag, Woche, Monat, Art, Gerät, Notiz-Taste, Sensor), *Darstellung* (Balken, Linie, große Zahl, Tabelle), *Zeitraum* (gewählter Zeitraum bzw. heute, letzte 24 h / 7 / 30 / 90 / 365 Tage), *Gerät* und *nur nachts / nur Ruhezeit / nur Wochenende*. Die Vorschau zeigt sofort das Ergebnis.
-- **Klick auf einen Balken** (oder eine Tabellenzeile) filtert die Ereignis-Tabelle darauf, nochmal klicken oder **✕** hebt den Filter auf.
-- **⚙** stellt ein oder löscht. Statistiken lesen nur – sie ändern nie Daten. Gespeichert in `clips/statistik.json`, mit in der Sicherung.
+**Arten von Kacheln:**
+
+- **Zahl** – große Zahl mit Beschriftung, z. B. Störungen heute, Störungen der letzten 7 Tage, Ø Spitze.
+- **Trend** – Linie über Tage, Wochen oder Monate.
+- **Balken** – z. B. pro Stunde, Wochentag oder Tag.
+- **Liste** – die häufigsten Arten, Geräte, Sensoren oder Notiz-Tasten (3 bis 20 Einträge).
+- **Tabelle** – alle Werte zum Sortieren und Filtern (wie die anderen Tabellen).
+
+**Einstellen:**
+
+- **Vorlagen (für alle frei):** z. B. „Störungen heute“, „Störungen der letzten 7 Tage“, „Ø Spitze (7 Tage)“, „Dauer der Störungen heute“, „Häufigste Arten (7 Tage)“, „Störungen je Gerät (30 Tage)“, „Trend pro Tag (30 Tage)“, „Störungen pro Stunde (nachts)“, „Arten im Vergleich“, „Trend pro Woche“, „Pro Wochentag“, „Gesamtdauer pro Tag“, „Sensoren pro Tag“, „Notizen nach Taste“. Eine Vorlage kommt in die Ansicht, in der du sie anklickst.
+- **Selbst einstellen (Pro):** *Name*, *Was zählen* (Störungen – auch nur eine Art oder ein Tonprofil –, Sensoren, Notizen mit einer Schnellwahl-Taste), *Kennzahl* (Anzahl, Gesamtdauer, Ø oder höchste Spitze), *aufgeteilt nach* (Stunde, Wochentag, Tag, Woche, Monat, Art, Gerät, Notiz-Taste, Sensor), *Darstellung* (Zahl, Linie, Balken, Liste, Tabelle), *Zeitraum* (gewählter Zeitraum, heute, letzte 24 h / 7 / 30 / 90 / 365 Tage oder **eigener Zeitraum** von–bis), *Gerät*, **Schwellen** (*nur ab Spitze* in dBFS, *nur ab Dauer* in Sekunden) und *nur nachts / nur Ruhezeit / nur Wochenende*. Die Vorschau zeigt sofort das Ergebnis.
+- **Klick auf einen Balken**, einen Listeneintrag oder eine Tabellenzeile (auch mit Eingabe oder Leertaste) filtert die Ereignis-Tabelle darauf, nochmal klicken oder **✕** hebt den Filter auf.
+- **⚙** stellt ein oder löscht. Kacheln lesen nur – sie ändern nie Daten. Gespeichert in `clips/statistik.json`, mit in der Sicherung.
+- Jede Kachel erscheint auch **in Home Assistant** als Sensor (siehe [Home Assistant → Kacheln](#home-assistant/kacheln)).
 
 ## Zusammenfassung und Wochenleiste {#wochenleiste}
 
@@ -76,6 +113,14 @@ Die Art kommt aus der Störung, wenn die Spitze in einer liegt, sonst aus dem ge
 - Klick = im Verlauf hinspringen, Doppelklick oder ▶ = [Ereignis öffnen](#ereignis), ⋮ = weitere Aktionen (Lärmspur herunterladen, KI neu bewerten, löschen).
 - Markieren, dann **In Liste übernehmen** oder löschen. Gelöschte Einträge landen zur Sicherheit im Papierkorb; die Tagesaufzeichnung bleibt.
 - **📝 Alle Notizen**, **🔎 Geräusch prüfen** (eigene Audiodatei auswerten, wird nicht gespeichert), **🧩 Profile & neu untersuchen**, **log.csv herunterladen**.
+
+### Geräuschart bestätigen oder korrigieren {#art-bestaetigen}
+
+Die erkannte Art steht als farbiges Kästchen in der Spalte **Art**. Solange du sie nicht bestätigt hast, ist sie ein **„Vorschlag der Erkennung (Konfidenz x %)“** – so steht es auch in Lärmprotokoll, Ausdruck und Rohdaten. **Klick auf das Kästchen** (oder ⋮ → Geräuschart bestätigen): **Stimmt** bestätigt den Vorschlag, eine andere Art korrigiert ihn, **Bestätigung zurücknehmen** macht es rückgängig. Deine Bestätigung liegt in einer eigenen Datei (`bestaetigt.json`); die Einschätzung der Erkennung, `log.csv` und die Tagesaufzeichnung bleiben unverändert. Die Erkennung sagt nichts darüber, aus welcher Wohnung ein Geräusch kommt.
+
+### Bekannte Geräusche ausfiltern {#muster}
+
+⋮ → **Als Muster ausfiltern …** legt aus der Störung ein [Muster](#einstellungen/muster) an (Gerät, Art, Uhrzeit, Dauer und Spitze vorbelegt, mit Vorschau „trifft auf N Störungen der letzten 30 Tage zu“). Ausgefilterte fehlen danach in der Liste; die Anzahl nennt sie („N nach Muster ausgefiltert“), **⊘ ausgefilterte zeigen** holt sie gekennzeichnet zurück.
 
 ### Notizen in der Tabelle {#notizzeilen}
 

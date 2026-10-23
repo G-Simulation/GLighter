@@ -93,6 +93,46 @@ def main():
             pg.click("#txtdlg .dlgx"); pg.wait_for_timeout(200)
             if any(k in pg.locator("body").inner_text() for k in ("gr_", "fnp_", "qt_", "nt_")):
                 fails.append("Text-Schlüssel statt Text sichtbar")
+            # Zeit-Tasten: gerechnet ab dem ersten Tippen; zweite Taste wieder ab dort; von Hand gesetzte Zeit erst nach Hinweis ersetzen
+            pg.fill("#fnptext", "Tür knallt"); pg.wait_for_timeout(1300)
+            cap = pg.evaluate("() => FNP.cap")
+            pg.click('#fnptags .tag[data-w="w_5"]'); pg.wait_for_timeout(100)
+            want = lambda m: pg.evaluate("([c, m]) => dtl(new Date(c - m * 60000))", [cap, m])
+            if pg.input_value("#fnpfromi") != want(5):
+                fails.append("Zeit-Taste rechnet nicht ab Erfassungsbeginn: " + pg.input_value("#fnpfromi") + " statt " + want(5))
+            pg.wait_for_timeout(1100); pg.click('#fnptags .tag[data-w="w_15"]'); pg.wait_for_timeout(100)
+            if pg.input_value("#fnpfromi") != want(15):
+                fails.append("zweite Zeit-Taste rechnet nicht ab Erfassungsbeginn")
+            pg.fill("#fnpfromi", "2026-01-02T03:04:05"); pg.click('#fnptags .tag[data-w="w_5"]'); pg.wait_for_timeout(100)
+            if pg.input_value("#fnpfromi") != "2026-01-02T03:04:05" or "warn" not in (pg.locator("#fnpmsg").get_attribute("class") or ""):
+                fails.append("von Hand gesetzte Zeit wird ohne Hinweis ersetzt")
+            pg.click('#fnptags .tag[data-w="w_5"]'); pg.wait_for_timeout(100)
+            if pg.input_value("#fnpfromi") != want(5):
+                fails.append("zweites Tippen ersetzt die von Hand gesetzte Zeit nicht")
+            # Anlage beim Notieren, 📎 in der Liste, Vorschläge aus dem Dokument (ansehen frei, übernehmen Pro)
+            pg.set_input_files("#attf", files=[{"name": "protokoll.txt", "mimeType": "text/plain", "buffer": "12.03.2025\n23:15 Bass dröhnt von oben.\n".encode()}])
+            pg.wait_for_timeout(200)
+            if "protokoll.txt" not in pg.locator("#fnpatts").inner_text():
+                fails.append("vorgemerkte Anlage fehlt")
+            pg.click("#fnpsave"); pg.wait_for_timeout(1200)
+            if "Taste: vor 5 Min." not in pg.locator("#grnotes").inner_text():
+                fails.append("„erfasst …, Taste: …“ fehlt in der Liste")
+            if not pg.locator("#grnotes .attb").count():
+                fails.append("📎 an der Notiz fehlt")
+            else:
+                pg.locator("#grnotes .attb").first.click(); pg.wait_for_timeout(500)
+                if "protokoll.txt" not in pg.locator("#attlist").inner_text():
+                    fails.append("Anlage nicht im Dialog")
+                pg.locator('#attlist [data-a="scan"]').first.click(); pg.wait_for_timeout(2500)
+                if not pg.locator("#doclist .docrow").count() or "Pro" not in pg.locator("#docgo").inner_text():
+                    fails.append("Vorschläge aus dem Dokument fehlen: " + pg.locator("#docst").inner_text())
+                pg.click("#docdlg .dlghead .dlgx"); pg.click("#attdlg .dlgx"); pg.wait_for_timeout(200)
+            # Überschrift im Layout-Modus ändern (in den Einstellungen gespeichert)
+            pg.click("#laybtn"); pg.wait_for_timeout(300)
+            pg.evaluate("() => { const e = document.getElementById('capttl'); e.textContent = 'Lärm notieren'; }")
+            pg.click("#laydone"); pg.wait_for_timeout(800); pg.reload(); pg.wait_for_selector("#fnptags .tag[data-t]"); pg.wait_for_timeout(400)
+            if pg.locator("#capttl").inner_text().strip() != "Lärm notieren":
+                fails.append("eigene Überschrift bleibt nicht")
             mp = b.new_context(locale="de-DE", viewport={"width": 375, "height": 760}, is_mobile=True, has_touch=True).new_page()
             mp.on("pageerror", lambda e: errors.append("pageerror (Handy): " + str(e)))
             mp.goto(url); mp.wait_for_selector("#fnptags .tag"); mp.wait_for_timeout(500)

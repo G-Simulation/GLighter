@@ -30,7 +30,7 @@ class OhneGrenze(Berlin):
         t0 = G.ms_of("2025-01-01T00:00:00+01:00")
         notes = [{"id": f"n{i}", "from": G.iso_of(t0 + i * 3600000), "text": f"Notiz {i}"} for i in range(6000)]
         self.assertEqual(G.notes_import({"notes": notes})["n"], 6000)
-        rows = G.export_csv().decode("utf-8").strip().splitlines()
+        rows = [r for r in G.export_csv().decode("utf-8").strip().splitlines() if not r.startswith("#")]   # ohne Prüfblock am Ende
         self.assertEqual(len(rows), 6001)                               # Kopfzeile + alle 6000
         self.assertIn("Notiz 0", rows[1])                               # die älteste ist dabei
         txt = G.export_text("txt")

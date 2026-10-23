@@ -125,6 +125,12 @@ Die Liste unten zeigt alle Störungen des Tages (alle Geräte oder das gewählte
 
 **Nur sichtbarer Bereich** (Standard: an): Die Tabelle zeigt nur, was im Graphen darüber gerade zu sehen ist. Sie läuft live mit und folgt dem Zoomen und Verschieben. Aus: alle Ereignisse ab dem Anfang des Graphen.
 
+**Spaltenbreiten:** Ziehst du eine Spalte am Rand im Kopf breiter oder schmaler, merkt sich GLighter die Breite (auf dem Server, für alle Browser gleich). Zurücksetzen über **▦ Layout anpassen** → **＋ Bereich hinzufügen** → **Spaltenbreiten der Tabellen zurücksetzen**.
+
+### Anordnen und eigene Kacheln
+
+Auch die Live-Ansicht besteht aus Bereichen (Notiz, Live-Bild, Ereignisse). Mit **▦ Layout anpassen** verschiebst du sie, änderst die Breite, benennst sie um oder blendest sie aus – mit der Maus, mit **↑ / ↓** (auch am Handy) oder mit der Tastatur. **📊 ＋ Kachel** legt eine Kachel an, z. B. „Störungen heute“ als große Zahl. Alles dazu unter Protokolle → Layout anpassen und Kacheln.
+
 ## 3. Protokolle
 
 Der Reiter **Protokolle** zeigt einen Zeitraum vollständig: Zusammenfassung, Wochenleiste, Verlauf aller Geräte, Auswertungen und die Liste aller Störungen.
@@ -140,21 +146,58 @@ Der Reiter **Protokolle** zeigt einen Zeitraum vollständig: Zusammenfassung, Wo
 Live und Protokolle bestehen aus **Bereichen** (Übersicht, Unterbrechungen, Verlauf, Ereignisse nach Uhrzeit, je Tag, Ereignisse im Zeitraum, Notizen und Bewegung, Sensoren im Zeitraum). Jeder Bereich hat oben eine Leiste:
 
 - **▾ / ▸** klappt ein und aus (auch Doppelklick auf die Leiste).
-- **✕** blendet aus. Wieder einschalten unter **▦ Layout anpassen**.
+- **✕** blendet aus. Wieder einfügen über **▦ Layout anpassen** → **＋ Bereich hinzufügen**.
 - **⌖ nur sichtbarer Bereich** (Ereignisse, Sensoren): zeigt nur, was im Verlauf gerade zu sehen ist – zieh im Verlauf z. B. 20:00–22:00 auf, dann zeigen Tabelle bzw. Liste nur diese Zeit.
 
-**▦ Layout anpassen:** Bereiche am Griff ⠿ verschieben, an der Seite schmaler oder breiter ziehen (z. B. zwei nebeneinander), Bereiche ein- und ausschalten. **Fertig** speichert, **↺ Zurücksetzen** stellt die Standardanordnung wieder her. Die Höhe richtet sich nach dem Inhalt. Am Handy stehen alle Bereiche untereinander. Die Anordnung gilt für diesen Browser.
+### ▦ Layout anpassen
+
+**▦ Layout anpassen** schaltet Live und Protokolle in den Bearbeiten-Modus – ähnlich wie das Bearbeiten eines Dashboards in Home Assistant:
+
+- **Verschieben:** am Griff ⠿ ziehen oder mit **↑ / ↓** in der Leiste eines Bereichs eine Stelle nach oben oder unten.
+- **Breite:** an der linken oder rechten Kante ziehen (z. B. zwei Bereiche nebeneinander). Die Höhe richtet sich nach dem Inhalt.
+- **✎ Überschrift ändern:** eigener Name für den Bereich oder die Kachel. Leer lassen stellt den ursprünglichen wieder her.
+- **▾ / ▸** klappt ein und aus, **✕** nimmt den Bereich aus der Ansicht.
+- **＋ Bereich hinzufügen** öffnet die Bibliothek: alle Bereiche dieser Ansicht (angezeigt oder ausgeblendet) zum Einfügen und Entfernen, darunter **neue Kacheln** und **fertige Vorlagen** (siehe unten). Dort lassen sich auch die gemerkten **Spaltenbreiten der Tabellen** zurücksetzen.
+- **↺ Zurücksetzen** stellt nach einer Rückfrage die Standardanordnung dieser Ansicht wieder her. **Fertig** beendet das Bearbeiten.
+
+**Mit der Tastatur:** im Bearbeiten mit Tab einen Bereich wählen (er bekommt einen deutlichen Rahmen), dann
+
+| Taste | Wirkung |
+|---|---|
+| ↑ / ↓ | eine Stelle nach oben / unten |
+| ← / → | eine Spalte nach links / rechts |
+| Umschalt + ← / → | schmaler / breiter |
+| Umschalt + ↑ / ↓ | einklappen / aufklappen |
+| F2 | Überschrift ändern |
+| Entf | entfernen (mit Rückfrage) |
+
+Screenreader lesen den Namen jedes Bereichs und nach jeder Änderung die neue Stelle vor.
+
+**Am Handy** stehen alle Bereiche untereinander. Die Reihenfolge änderst du im Bearbeiten mit **↑ / ↓** – die Anordnung am PC bleibt dabei erhalten.
+
+**Gespeichert auf dem Server:** Anordnung, Breiten, Einklappen, Ausblenden, eigene Überschriften und die von Hand gezogenen **Spaltenbreiten der Tabellen** liegen in `layout.json` neben `sources.json`. PC, Tablet und Handy zeigen deshalb dasselbe. Gab es auf dem Server noch keine Anordnung, übernimmt GLighter beim ersten Öffnen die bisher im Browser gespeicherte. `layout.json` ist in der Sicherung (ZIP) enthalten und kommt mit „Einstellungen und Geräte übernehmen“ zurück. Das Layout ändert nie Daten.
 
 „Sensoren im Zeitraum“ ist anfangs ausgeblendet: Sensor-Ereignisse („als Ereignis“) stehen schon in der Tabelle, „nur festhalten“ (z. B. Fernseher) steht als 📡-Hinweis bei jeder Störung, die in die Zeit fällt.
 
-### 📊 Eigene Statistiken
+### 📊 Kacheln (eigene Statistiken)
 
-**📊 ＋ Statistik** (oben über den Bereichen, in Live und Protokolle) legt eine Statistik als eigenen Bereich an – verschieben, breiter ziehen, einklappen und ausblenden wie die anderen.
+**📊 ＋ Kachel** (oben über den Bereichen, in Live und Protokolle) bzw. im Bearbeiten **＋ Bereich hinzufügen** → **Neue Kachel** legt eine Kachel als eigenen Bereich an – verschieben, breiter ziehen, umbenennen, einklappen und ausblenden wie die anderen.
 
-- **Vorlagen (für alle frei):** z. B. „Störungen pro Stunde (nachts)“, „Arten im Vergleich“, „Trend pro Woche“, „Pro Wochentag“, „Gesamtdauer pro Tag“, „Störungen heute“, „Sensoren pro Tag“, „Notizen nach Taste“.
-- **Selbst einstellen (Pro):** *Was zählen* (Störungen – auch nur eine Art oder ein Tonprofil –, Sensoren, Notizen mit einer Schnellwahl-Taste), *Kennzahl* (Anzahl, Gesamtdauer, Ø oder höchste Spitze), *aufgeteilt nach* (Stunde, Wochentag, Tag, Woche, Monat, Art, Gerät, Notiz-Taste, Sensor), *Darstellung* (Balken, Linie, große Zahl, Tabelle), *Zeitraum* (gewählter Zeitraum bzw. heute, letzte 24 h / 7 / 30 / 90 / 365 Tage), *Gerät* und *nur nachts / nur Ruhezeit / nur Wochenende*. Die Vorschau zeigt sofort das Ergebnis.
-- **Klick auf einen Balken** (oder eine Tabellenzeile) filtert die Ereignis-Tabelle darauf, nochmal klicken oder **✕** hebt den Filter auf.
-- **⚙** stellt ein oder löscht. Statistiken lesen nur – sie ändern nie Daten. Gespeichert in `clips/statistik.json`, mit in der Sicherung.
+**Arten von Kacheln:**
+
+- **Zahl** – große Zahl mit Beschriftung, z. B. Störungen heute, Störungen der letzten 7 Tage, Ø Spitze.
+- **Trend** – Linie über Tage, Wochen oder Monate.
+- **Balken** – z. B. pro Stunde, Wochentag oder Tag.
+- **Liste** – die häufigsten Arten, Geräte, Sensoren oder Notiz-Tasten (3 bis 20 Einträge).
+- **Tabelle** – alle Werte zum Sortieren und Filtern (wie die anderen Tabellen).
+
+**Einstellen:**
+
+- **Vorlagen (für alle frei):** z. B. „Störungen heute“, „Störungen der letzten 7 Tage“, „Ø Spitze (7 Tage)“, „Dauer der Störungen heute“, „Häufigste Arten (7 Tage)“, „Störungen je Gerät (30 Tage)“, „Trend pro Tag (30 Tage)“, „Störungen pro Stunde (nachts)“, „Arten im Vergleich“, „Trend pro Woche“, „Pro Wochentag“, „Gesamtdauer pro Tag“, „Sensoren pro Tag“, „Notizen nach Taste“. Eine Vorlage kommt in die Ansicht, in der du sie anklickst.
+- **Selbst einstellen (Pro):** *Name*, *Was zählen* (Störungen – auch nur eine Art oder ein Tonprofil –, Sensoren, Notizen mit einer Schnellwahl-Taste), *Kennzahl* (Anzahl, Gesamtdauer, Ø oder höchste Spitze), *aufgeteilt nach* (Stunde, Wochentag, Tag, Woche, Monat, Art, Gerät, Notiz-Taste, Sensor), *Darstellung* (Zahl, Linie, Balken, Liste, Tabelle), *Zeitraum* (gewählter Zeitraum, heute, letzte 24 h / 7 / 30 / 90 / 365 Tage oder **eigener Zeitraum** von–bis), *Gerät*, **Schwellen** (*nur ab Spitze* in dBFS, *nur ab Dauer* in Sekunden) und *nur nachts / nur Ruhezeit / nur Wochenende*. Die Vorschau zeigt sofort das Ergebnis.
+- **Klick auf einen Balken**, einen Listeneintrag oder eine Tabellenzeile (auch mit Eingabe oder Leertaste) filtert die Ereignis-Tabelle darauf, nochmal klicken oder **✕** hebt den Filter auf.
+- **⚙** stellt ein oder löscht. Kacheln lesen nur – sie ändern nie Daten. Gespeichert in `clips/statistik.json`, mit in der Sicherung.
+- Jede Kachel erscheint auch **in Home Assistant** als Sensor (siehe Home Assistant → Kacheln).
 
 ### Zusammenfassung und Wochenleiste
 
@@ -195,6 +238,14 @@ Die Art kommt aus der Störung, wenn die Spitze in einer liegt, sonst aus dem ge
 - Klick = im Verlauf hinspringen, Doppelklick oder ▶ = Ereignis öffnen, ⋮ = weitere Aktionen (Lärmspur herunterladen, KI neu bewerten, löschen).
 - Markieren, dann **In Liste übernehmen** oder löschen. Gelöschte Einträge landen zur Sicherheit im Papierkorb; die Tagesaufzeichnung bleibt.
 - **📝 Alle Notizen**, **🔎 Geräusch prüfen** (eigene Audiodatei auswerten, wird nicht gespeichert), **🧩 Profile & neu untersuchen**, **log.csv herunterladen**.
+
+### Geräuschart bestätigen oder korrigieren
+
+Die erkannte Art steht als farbiges Kästchen in der Spalte **Art**. Solange du sie nicht bestätigt hast, ist sie ein **„Vorschlag der Erkennung (Konfidenz x %)“** – so steht es auch in Lärmprotokoll, Ausdruck und Rohdaten. **Klick auf das Kästchen** (oder ⋮ → Geräuschart bestätigen): **Stimmt** bestätigt den Vorschlag, eine andere Art korrigiert ihn, **Bestätigung zurücknehmen** macht es rückgängig. Deine Bestätigung liegt in einer eigenen Datei (`bestaetigt.json`); die Einschätzung der Erkennung, `log.csv` und die Tagesaufzeichnung bleiben unverändert. Die Erkennung sagt nichts darüber, aus welcher Wohnung ein Geräusch kommt.
+
+### Bekannte Geräusche ausfiltern
+
+⋮ → **Als Muster ausfiltern …** legt aus der Störung ein Muster an (Gerät, Art, Uhrzeit, Dauer und Spitze vorbelegt, mit Vorschau „trifft auf N Störungen der letzten 30 Tage zu“). Ausgefilterte fehlen danach in der Liste; die Anzahl nennt sie („N nach Muster ausgefiltert“), **⊘ ausgefilterte zeigen** holt sie gekennzeichnet zurück.
 
 ### Notizen in der Tabelle
 
@@ -465,13 +516,25 @@ Manchmal soll eine Störung nicht gemeldet werden, der Graph aber trotzdem weite
 - **Vorlauf (s), z. B. für einen Sprachassistenten:** Das Rufwort („Hey Jarvis“) kommt, *bevor* der Assistent auf „hört zu“ wechselt. Mit **Vorlauf** zählt auch eine Störung nicht, die bis zu so viele Sekunden vor dem Einschalten der Regel begann. Dafür hält GLighter jede Störung so lange (Vorlauf + 2 s) zurück, bevor sie gemeldet wird. Pegel und Graph bleiben unverändert; im Protokoll steht „nicht gezählt“. **Einrichten:** Regel hinzufügen, Entität `assist_satellite.…` wählen – Zustände `!idle`, „keine Störung melden“, Vorlauf 3 s und Nachlauf 0,5 min werden vorbelegt. So zählen Rufwort, Befehl und die Antwort aus dem Lautsprecher nicht.
 - **Als Knopf im Dashboard:** Am Gerät „GLighter“ gibt es **„Keine Störung melden (Dauer starten)“**, **„Störungen wieder melden“**, die einstellbare **Dauer** (1–240 Minuten, Standard 10) und **„Keine Störungsmeldung bis“**. Lege sie auf dein Dashboard. Ein Tipp auf den Knopf startet die eingestellte Dauer.
 
+### Kacheln als Sensoren
+
+Jede Kachel, die du in GLighter angelegt hast (Live oder Protokolle, siehe Kacheln), erscheint mit MQTT im Gerät **GLighter** als eigener Sensor, z. B. `sensor.gaslighter_tile_s_1a2b3c4d` (eindeutige Kennung `gaslighter_tile_<Kennung>`).
+
+- **Zustand** ist der Hauptwert der Kachel: Anzahl, Gesamtdauer in Sekunden oder Spitze in dBFS. Der Name ist der Name der Kachel bzw. die eigene Überschrift aus **✎**.
+- **Attribute:** Zeitraum (von, bis), Anzahl der Einträge, Darstellung, Aufteilung, Kennzahl, `eintraege` (Name und Wert je Balken, Listen- oder Tabellenzeile) und bei Aufteilung nach Zeit `verlauf` (Werte für Grafiken).
+- Aktualisiert wird jede Minute und kurz nach jeder neuen Störung – gesendet wird nur, was sich geändert hat.
+- „Gewählter Zeitraum“ gilt in Home Assistant als **heute**.
+- Löschst du eine Kachel, verschwindet auch der Sensor aus Home Assistant.
+
+Im **Dashboard in Home Assistant** (siehe unten) setzt der Bereich **Eigene Kacheln** diese Sensoren passend ein: Zahlen als Kachel-Karte, Trends als Statistik-Grafik, Balken als Verlaufs-Grafik, Listen und Tabellen als Text-Karte.
+
 ### Dashboard in Home Assistant anlegen
 
 ⚙ Einstellungen → Reiter **Regeln** → **Dashboard in Home Assistant**. GLighter legt dort mit einem Klick ein fertiges Dashboard mit seinen Entitäten an. Du wählst:
 
 - **Name** und **Adresse** (z. B. `gsim-glighter`, steht danach in der Adresszeile von Home Assistant),
 - ob es in der **Seitenleiste** steht und ob es **nur für Administratoren** sichtbar ist,
-- welche **Bereiche** hinein sollen: Jetzt (Störung, Pegel, heute), Pegel der letzten 24 Stunden, Störung erfassen, Keine Störung melden, Aufzeichnung und Pause, weitere Mikrofone, Knopf „GLighter öffnen“.
+- welche **Bereiche** hinein sollen: Jetzt (Störung, Pegel, heute), Pegel der letzten 24 Stunden, Störung erfassen, Keine Störung melden, Aufzeichnung und Pause, weitere Mikrofone, **eigene Kacheln**, Knopf „GLighter öffnen“.
 
 **In Home Assistant anlegen** erstellt das Dashboard. Gibt es unter der Adresse schon eins, fragt GLighter nach, bevor es ersetzt wird (Änderungen, die du dort gemacht hast, gehen dabei verloren). Ohne Klick ändert GLighter in Home Assistant nichts.
 
@@ -491,6 +554,15 @@ Reiter Protokolle → **🖨 Protokoll** (für Zeitraum, Gerät und Liste) oder 
 - Ruhezeiten (🌙), Gegenmaßnahmen, Einpegeln der Geräte,
 - **Unterbrechungen und Updates** mit Ursache und deinem Kommentar,
 - die **Datenkette** je Gerät und Tag mit Prüfsumme.
+- die **Messmethode**: Programm und Version, je Gerät Art, Mikrofon/Modell, Messort und Fenster, „Mikrofon nicht kalibriert: Werte sind Indizien und ersetzen kein Gutachten“, ob Ton gespeichert wird („Es wird kein Ton gespeichert“, wenn „Echten Ton speichern“ aus ist) und dass die Geräuschart ein Vorschlag der Erkennung ist, solange du sie nicht bestätigt hast,
+- eine **Zusammenfassung** nach Zeitpunkt (Uhrzeiten, Wochentage, Ruhezeit), Art, Intensität (Spitze), Dauer und Häufigkeit (an wie vielen Tagen, im Schnitt je Tag),
+- je Störung **Spitze, Dauer und Anzahl der Impulse** (wie oft der Pegel über die Schwelle stieg, aus der Tagesaufzeichnung),
+- eine **lückenlose Zeitachse**: jeder Tag des Zeitraums, auch Tage ohne Störung, mit „aufgezeichnet“ oder „keine Aufzeichnung“,
+- zur Datenkette eine kurze **Erklärung des Prüfverfahrens**.
+
+Oben auf der Seite gibt es außerdem **⬇ Rohdaten (CSV)** (alle Messwerte der Störungen, für Sachverständige) und **⬇ Beweispaket (ZIP)**: Lärmprotokoll (HTML), Rohdaten, Notizen, Zeitachse und Prüfsummen als CSV und eine Zusammenfassung mit Messmethode als Text. Beides gibt es auch unter 📝 Alle Notizen → Protokoll.
+
+**Musterfilter:** Standardmäßig sind alle Störungen enthalten; nach Muster ausgefilterte stehen mit dem Vermerk „nach Muster … ausgefiltert“ darin. Mit **nach Muster ausgefilterte weglassen** fehlen sie, und oben steht, welche Muster wie viele entfernt haben.
 
 Oben auf der Seite (wird nicht mitgedruckt) wählst du **Tagesgrafik** (Standard an) und **Grafik je Störung** (Standard aus): eine kleine Grafik mit Umfeld unter jeder Störung, die eine Notiz hat oder aus der gewählten Liste stammt (höchstens 300).
 
@@ -506,6 +578,8 @@ Im Verlauf **🖨 Drucken**:
 - **Zeit je Zeile**: 1 min bis 1 h (Standard 10 min – ein ganzer Tag sind 144 Zeilen).
 - **Geräte** untereinander, **Inhalt** (Pegelspur, Spektrogramm, Störungs-Infos und Notizen), **Zeilen ohne Aufzeichnung zusammenfassen** (Standard an).
 - **Skala**: gleich für alle Zeilen (vergleichbar) oder je Zeile angepasst (mehr Einzelheiten); **A4 quer** oder **hoch**.
+- **Belege (Zusammenfassung, Zeitachse, Prüfsummen)** (Standard an): oben eine Zusammenfassung nach Zeitpunkt, Art, Intensität, Dauer und Häufigkeit, unten Messmethode, Zeitachse mit allen Tagen, Prüfsummen mit Erklärung und der Link zu den Rohdaten (CSV). Bei jeder Störung stehen Impulse und, falls nicht bestätigt, „Vorschlag der Erkennung (Konfidenz x %)“.
+- **nach Muster ausgefilterte weglassen**: wie beim Lärmprotokoll.
 
 Der Dialog schätzt Zeilen und Seiten. **Vorschau öffnen** baut die Seiten in einem neuen Fenster auf; dort **Drucken** oder als PDF speichern. Eine aktive Prüf-Schwelle wird mitgedruckt, mit Zählung je Zeile.
 
@@ -513,9 +587,17 @@ Der Dialog schätzt Zeilen und Seiten. **Vorschau öffnen** baut die Seiten in e
 
 ### Sicherung herunterladen
 
-⚙ Einstellungen → Speichern & Sicherung → **Sicherung herunterladen / einspielen (ZIP)** → **⬇ Sicherung herunterladen**. Die ZIP-Datei enthält alles: Einstellungen, Geräte, Zeitprofile, Regeln, `log.csv` und alle Protokolldateien, Tagesaufzeichnungen mit Prüfsummen, KI-Ergebnisse, Tonprofile, Notizen, Kommentare zu Unterbrechungen, benannte Bereiche, Listen, Videos und – falls gespeichert – Ton.
+⚙ Einstellungen → Speichern & Sicherung → **Sicherung herunterladen / einspielen (ZIP)** → **⬇ Sicherung herunterladen**. Die ZIP-Datei enthält alles: Einstellungen, Geräte, Zeitprofile, Regeln, `log.csv` und alle Protokolldateien, Tagesaufzeichnungen mit Prüfsummen, KI-Ergebnisse, Tonprofile, Notizen, Kommentare zu Unterbrechungen, benannte Bereiche, Listen, Kacheln, Anordnung der Ansichten (`layout.json`), Videos und – falls gespeichert – Ton.
 
 > Die Datei kann groß werden (Hunderte MB). Am besten regelmäßig herunterladen und an einem anderen Ort aufbewahren.
+
+**Ohne Geheimnisse:** Die normale Sicherung und die tägliche Sicherung auf Netzlaufwerk/NAS enthalten **nicht** den geheimen Schlüssel der Prüfkette (`kette_schluessel.json`), keine Passwörter von Netzwerk-Kameras und keine Handy-Kennungen. So taugt eine verlorene Sicherung nicht dazu, Daten unbemerkt neu durchzurechnen oder sich als dein Handy auszugeben.
+
+### Umzug auf ein neues Gerät (mit Schlüssel)
+
+Unter **🔑 Umzug auf neues Gerät (mit Schlüssel)** ein Kennwort (mindestens 8 Zeichen, zweimal) eingeben und **⬇ Umzugs-Sicherung herunterladen**. Die ZIP enthält zusätzlich den Kettenschlüssel und die Zugangsdaten – **verschlüsselt** mit dem Kennwort (scrypt und HMAC-SHA256, verschlüsseln und danach gegen Verändern sichern). Ohne das Kennwort lassen sie sich nicht lesen. Das Kennwort wandert nie in die Adresse und wird nicht gespeichert; bewahre es getrennt von der Datei auf.
+
+Beim Einspielen fragt die Vorschau nach dem Kennwort. Ein falsches Kennwort bricht ab, bevor etwas eingespielt wird. Ohne Kennwort wird die Datei wie eine normale Sicherung eingespielt.
 
 Zum Weiterverarbeiten gibt es außerdem `log.csv` (Reiter Protokolle), die Notizen als CSV (📝 Alle Notizen) und das Lärmprotokoll als PDF.
 
@@ -532,6 +614,12 @@ Zum Weiterverarbeiten gibt es außerdem `log.csv` (Reiter Protokolle), die Notiz
 3. Häkchen setzen oder entfernen und **Jetzt einspielen**.
 
 Danach steht ein Bericht da: neue Dateien, zusammengeführte Tage, übersprungene Tage und übernommene Geräte.
+
+**Ohne Schlüssel** (normale Sicherung auf einem anderen Gerät) bleiben die eingespielten Tage prüfbar: Der Bericht und das Lärmprotokoll sagen „Kette vollständig, Schlüssel fehlt: Echtheit nur mit Originalgerät prüfbar“ – geprüft wird, dass keine Minute fehlt und die Reihenfolge stimmt. Prüfsummen und Tagesdateien werden dabei nie verändert; welche Tage eingespielt wurden, steht in einer eigenen Datei (`kette_fremd.json`). Ältere Sicherungen (bis 1.79), die den Schlüssel noch enthalten, werden weiter angenommen.
+
+**Handys** bekommen ohne Umzug eine neue Kennung – der Bericht nennt sie, die Handys müssen neu gekoppelt werden (Link oder QR-Code in der Gerätekarte). Fehlt das Passwort einer Netzwerk-Kamera, steht das Gerät auf „bitte prüfen“.
+
+**Grenzen beim Einspielen:** GLighter prüft vor dem Auspacken die Anzahl der Einträge (höchstens 300 000) und den Platz, den die ausgepackten Dateien brauchen, gegen den freien Speicher. Die Gesamtgröße eines Uploads gilt ab dem ersten Teil.
 
 ### Tägliche Sicherung auf Netzlaufwerk, NAS oder USB
 
@@ -633,6 +721,7 @@ Ganz oben wählst du **Alle Geräte** oder ein einzelnes Gerät. Beim Gerät las
 - **Quellen (Mikrofone)** – siehe Geräte.
 - **Geräte einpegeln (gleich laut stellen)** – siehe Einpegeln.
 - **Mikrofon** – Eingang am Server, Buchse, Lautstärke, Tonqualität (16000 Hz reicht für Klopfen).
+- **Messort und Fenster** – je Gerät in der Gerätekarte: wo im Raum gemessen wird (z. B. „Schlafzimmer, Regal an der Wand zum Nachbarn“) und ob das Fenster **meist offen**, **meist geschlossen** oder **wechselnd** ist. Optional ein Fenstersensor aus Home Assistant (Regel „nur festhalten“). Beides steht in der Messmethode von Lärmprotokoll, Ausdruck und Beweispaket.
 
 ### Erkennung
 
@@ -656,6 +745,30 @@ Ganz oben wählst du **Alle Geräte** oder ein einzelnes Gerät. Beim Gerät las
 **Geräuschart erkennen (lokale KI)** – ordnet Störungen ein (Tür, Klopfen, Musik …), kein Ton wird gespeichert. **KI-Fingerabdruck zu jeder Störung speichern** – bessere Unterscheidung beim Lernen und „Neu bewerten“ ohne Ton. **KI-Fingerabdruck auch zwischen den Störungen speichern** – durchgehend, für „Neu untersuchen“; siehe KI-Fingerabdruck.
 
 **Tonprofile** – siehe KI. **Andere Werte zu bestimmten Uhrzeiten** (Zeitprofile) – z. B. nachts empfindlicher, allgemein oder je Gerät.
+
+### Muster ausfiltern
+
+Bekannte, wiederkehrende Geräusche (Uhrschlag zur vollen Stunde, Kühlschrank, Heizung, Wecker, eigener Fernseher) lassen sich **in der Anzeige** ausblenden. Ein Muster verbindet beliebig viele Bedingungen:
+
+| Bedingung | Beispiel |
+|---|---|
+| Gerät | nur das Mikrofon im Flur |
+| Art oder Tonprofil | „Signal“, Tonprofil „Kühlschrank“ oder „Hintergrund (eigenes Gerät)“ |
+| Uhrzeit von–bis, Wochentage | 06:00–06:20, Mo–Fr (auch über Mitternacht) |
+| Dauer von–bis, Spitze von–bis (dBFS) | 2–8 s, −45 bis −30 dBFS |
+| Abstand zur Schwelle | 0 bis 4 dB über der Schwelle |
+| Wiederholung | alle 60 Minuten ab Minute 0, ± 2 Minuten (= jede volle Stunde) |
+| Zustand in Home Assistant | nur wenn die Regel „Fernseher an“ gerade greift |
+
+Dazu ein Name und eine Farbe. **Anlegen:** hier mit **＋ Muster anlegen** oder in der Ereignisliste über **⋮ → Als Muster ausfiltern …** – dann sind Gerät, Art, Uhrzeit (± 15 Min.), Dauer und Spitze aus der Störung vorbelegt. Vor dem Speichern steht, wie viele Störungen der letzten 30 Tage das Muster träfe, mit Beispielen.
+
+**Wirkung:** Passende Störungen fehlen in Listen, Zählern, Kacheln, in den Kachel-Sensoren für Home Assistant und sind in Grafiken nur noch blass zu sehen. Die Anzahl sagt dann z. B. „(12 nach Muster ausgefiltert)“. Der Schalter **⊘ ausgefilterte zeigen** über den Bereichen holt sie zurück, gekennzeichnet mit dem Namen des Musters.
+
+**Gespeichert wird nichts anders:** Die Muster liegen in `muster.json` (in der Sicherung enthalten). `log.csv`, Tagesaufzeichnung, Prüfsummen und Ereignisdateien bleiben unverändert – ein Muster löschen zeigt alles wieder wie vorher.
+
+**Lärmprotokoll, Ausdruck und Export** enthalten standardmäßig **alle** Störungen, ausgefilterte mit dem Vermerk „nach Muster … ausgefiltert“ (in der CSV-Spalte `nach_muster_ausgefiltert`). Mit **nach Muster ausgefilterte weglassen** fehlen sie, und oben steht, welche Muster wie viele Störungen entfernt haben.
+
+> **🔒 Pro:** Ein Muster ist frei, mehrere gehen mit GLighter Pro. Ohne Pro bleiben weitere Muster gespeichert, es gilt nur das erste.
 
 ### Zeiten & Pausen
 
@@ -733,6 +846,36 @@ Kameraaufnahmen in Wohnungen können nach § 201a StGB problematisch sein. Nur e
 - Überzeugend ist ein Protokoll, das **regelmäßig** geführt wird, **nachvollziehbar** ist (Uhrzeit, Dauer, Art, Auswirkung, Zeugen) und **unverändert** ist (Datenkette).
 - Eigene Notizen („aufgewacht“, „Kind geweckt“) und Zeugen machen den Unterschied.
 
+### Was die Aufzeichnung belegt und was nicht
+
+> **Keine Rechtsberatung.** Die folgenden Punkte sind sachliche Hinweise aus veröffentlichten Entscheidungen und Fachbeiträgen. Sie versprechen keinen Erfolg vor Gericht. Für den Einzelfall eine Anwältin oder einen Anwalt, den Mieterverein oder eine Opferberatung fragen.
+
+**Belegt werden kann:** wann es wie lange und wie laut (relativ, dBFS) war, wie oft und zu welchen Uhrzeiten – über Wochen und Monate, auch dass an ruhigen Tagen gemessen wurde. Dazu, dass die Tagesaufzeichnung seither unverändert ist (Prüfsummen).
+
+**Nicht belegt werden kann:**
+
+- **woher** ein Geräusch kommt und wer es verursacht – die Erkennung „Klopfen“ sagt nicht, aus welcher Wohnung,
+- **wie laut in dB(A)** – das Mikrofon ist nicht kalibriert: Werte sind Indizien und ersetzen kein Gutachten,
+- dass die **Geräuschart** stimmt, solange sie ein „Vorschlag der Erkennung“ ist – prüfe sie und bestätige oder korrigiere sie mit einem Klick in der Ereignisliste. Deine Bestätigung liegt getrennt (`bestaetigt.json`), die Einschätzung der Erkennung bleibt gespeichert.
+
+**Was hilft:** Zeugen (Nachbarn, Hausverwaltung, Polizei), zeitnahe Notizen mit Zeitpunkt, Art, Intensität, Dauer und Häufigkeit, Meldungen mit Datum und Vorgangsnummer. In strittigen Fällen holen Gerichte eigene Gutachten ein – die Aufzeichnung kann zeigen, wann sich eine Messung lohnt.
+
+**Prüfsummen** zeigen, dass die Daten seit der Aufzeichnung nicht verändert wurden; sie sind keine elektronische Signatur. Digitale Daten haben vor Gericht keine Echtheitsvermutung – lege deshalb Rohdaten (CSV) und Prüfsummen bei (Beweispaket, siehe Drucken).
+
+### Kurze Hinweise in der App
+
+Mit **💡 Hilfe anzeigen** (⚙ Einstellungen → Allgemein) erscheinen an einigen Stellen kurze Hinweise. Jeder lässt sich mit ✕ einzeln ausblenden; „Hilfe anzeigen“ aus blendet alle aus. **Warum?** nennt die Quelle.
+
+| Wo | Hinweis | Quelle |
+|---|---|---|
+| Geräte (Einrichtung) | An einem festen Ort messen und eintragen, ob das Fenster offen oder geschlossen ist. | AG Wolfratshausen 5 C 274/20 |
+| Ereignisliste | Erkannte Geräuscharten prüfen und bestätigen oder korrigieren; die Erkennung zeigt nicht, aus welcher Wohnung es kommt. | LG Berlin II 56 S 100/23 WEG |
+| Aufzeichnung, Live | Auch an ruhigen Tagen messen – eine lückenlose Zeitreihe zeigt Häufigkeit und Muster glaubwürdiger. | BGH VIII ZR 1/16 Rn. 14; § 238 Abs. 2 StGB |
+| Export, Lärmprotokoll | Messwerte als Indiz weitergeben und bei Streit ein Gutachten anregen. | AG München 472 C 18927/16; OLG Celle 4 U 199/09 |
+| Export, Lärmprotokoll | Rohdaten (CSV) und Prüfsummen beilegen. | § 371 ZPO; Irskens, EDVGT 2024 |
+| Allgemein | Keine heimlichen Ton- oder Videoaufnahmen von Nachbarn ergänzen. | BGH VI ZR 1370/20; BVerfG 1 BvR 1611/96; AG München 173 C 11834/23 |
+| Allgemein | Nicht mit Gegenlärm antworten, sondern dokumentieren und den Rechtsweg gehen. | AG München 173 C 11834/23 |
+
 ## 13. Fehlerbehebung und häufige Fragen
 
 ### „Das Signal ist sehr leise“
@@ -786,6 +929,7 @@ Die Jahreslizenz **GLighter Pro** schaltet zusätzlich frei:
 | Externe Geräte: Handy im Browser, Handy-App / Stream-URL, IP-Kamera | gesperrt | bis zu 8 zusätzliche Geräte |
 | Handy als Bewegungsmelder (Erschütterung, Bewegung im Bild) | gesperrt | ✔ |
 | 📊 Eigene Statistiken selbst einstellen (Statistiken) | Vorlagen | frei einstellbar |
+| ⊘ Muster ausfiltern (Muster) | 1 Muster | bis zu 30 Muster |
 | Tägliche Sicherung auf Netzlaufwerk/NAS/USB und „Platz sparen“ (Sicherung) | „⬇ Sicherung herunterladen“ von Hand | jeden Tag automatisch, geprüft |
 
 Das Server-Mikrofon (am Home-Assistant-Rechner) funktioniert immer ohne Pro.
@@ -817,6 +961,7 @@ Zum Verlängern eine neue Lizenz kaufen und den neuen Schlüssel eintragen.
 ### Umzug auf einen neuen Rechner
 
 Sicherung auf dem alten Rechner herunterladen, GLighter auf dem neuen installieren und die Sicherung einspielen – der **erste Import ist kostenlos**. Danach den Pro-Schlüssel wieder eintragen.
+Damit auch der Schlüssel der Prüfkette und die Zugangsdaten mitkommen, die Umzugs-Sicherung mit Kennwort verwenden.
 
 ## 15. Glossar
 
@@ -964,6 +1109,12 @@ The list at the bottom shows all disturbances of the day (all devices or the sel
 
 **Visible range only** (default: on): the table only shows what the chart above currently shows. It follows live, zooming and panning. Off: all events from the start of the chart.
 
+**Column widths:** if you drag a column edge in the header to make it wider or narrower, GLighter remembers the width (on the server, the same for every browser). Reset via **▦ Customise layout** → **＋ Add section** → **Reset table column widths**.
+
+### Arranging and own tiles
+
+The Live view also consists of sections (note, live chart, events). With **▦ Customise layout** you move them, change their width, rename or hide them – with the mouse, with **↑ / ↓** (also on phones) or with the keyboard. **📊 ＋ Tile** adds a tile, e.g. “Disturbances today” as a big number. Details under Logs → Customise layout and Tiles.
+
 ## 3. Logs
 
 The **Logs** tab shows a period completely: summary, week strip, history of all devices, statistics and the list of all disturbances.
@@ -979,21 +1130,58 @@ The **Logs** tab shows a period completely: summary, week strip, history of all 
 Live and Logs consist of **sections** (overview, interruptions, history, events by hour, per day, events in the period, notes and motion, sensors in the period). Each section has a bar at the top:
 
 - **▾ / ▸** collapses and expands (also double-click on the bar).
-- **✕** hides it. Switch it on again under **▦ Customise layout**.
+- **✕** hides it. Insert it again via **▦ Customise layout** → **＋ Add section**.
 - **⌖ visible range only** (events, sensors): only shows what is currently visible in the history – drag e.g. 20:00–22:00 in the history and the table or list shows only that time.
 
-**▦ Customise layout:** move sections by the ⠿ handle, drag the side to make them narrower or wider (e.g. two side by side), switch sections on and off. **Done** saves, **↺ Reset** restores the default arrangement. The height follows the content. On phones all sections are stacked. The arrangement applies to this browser.
+### ▦ Customise layout (designer)
+
+**▦ Customise layout** switches Live and Logs into edit mode – much like editing a dashboard in Home Assistant:
+
+- **Move:** drag the ⠿ handle or use **↑ / ↓** in a section's bar to move it one place up or down.
+- **Width:** drag the left or right edge (e.g. two sections side by side). The height follows the content.
+- **✎ Change title:** your own name for the section or tile. Leave it empty to restore the original.
+- **▾ / ▸** collapses and expands, **✕** takes the section out of the view.
+- **＋ Add section** opens the library: all sections of this view (shown or hidden) to insert or remove, plus **new tiles** and **ready-made templates** (see below). You can also reset the remembered **table column widths** there.
+- **↺ Reset** restores the default arrangement of this view after asking. **Done** ends editing.
+
+**With the keyboard:** in edit mode pick a section with Tab (it gets a clear frame), then
+
+| Key | Effect |
+|---|---|
+| ↑ / ↓ | one place up / down |
+| ← / → | one column left / right |
+| Shift + ← / → | narrower / wider |
+| Shift + ↑ / ↓ | collapse / expand |
+| F2 | change title |
+| Delete | remove (after asking) |
+
+Screen readers read the name of every section and announce the new position after each change.
+
+**On phones** all sections are stacked. Change the order in edit mode with **↑ / ↓** – the arrangement on the PC is kept.
+
+**Stored on the server:** arrangement, widths, collapsed and hidden sections, your own titles and the hand-dragged **table column widths** are kept in `layout.json` next to `sources.json`. PC, tablet and phone therefore show the same. If the server had no arrangement yet, GLighter takes the one saved in the browser the first time it opens. `layout.json` is part of the backup (ZIP) and comes back with “Take over settings and devices”. The layout never changes data.
 
 “Sensors in the period” is hidden at first: sensor events (“as event”) are already in the table, “only record state” (e.g. TV) appears as a 📡 hint on every disturbance that falls into that time.
 
-### 📊 Custom statistics
+### 📊 Tiles (custom statistics)
 
-**📊 ＋ Statistic** (above the areas, in Live and Logs) adds a statistic as its own area – move, widen, collapse and hide it like the others.
+**📊 ＋ Tile** (above the sections, in Live and Logs) or, in edit mode, **＋ Add section** → **New tile** adds a tile as its own section – move, widen, rename, collapse and hide it like the others.
 
-- **Templates (free for everyone):** e.g. “Disturbances per hour (night)”, “Types compared”, “Trend per week”, “Per weekday”, “Total duration per day”, “Disturbances today”, “Sensors per day”, “Notes by button”.
-- **Configure your own (Pro):** *what to count* (disturbances – also just one type or sound profile –, sensors, notes with a quick-select button), *measure* (count, total duration, avg or highest peak), *split by* (hour, weekday, day, week, month, type, device, note button, sensor), *display* (bars, line, big number, table), *period* (selected period or today, last 24 h / 7 / 30 / 90 / 365 days), *device* and *night only / quiet hours only / weekend only*. The preview shows the result right away.
-- **Clicking a bar** (or a table row) filters the event table to it; click again or **✕** to remove the filter.
-- **⚙** configures or deletes. Statistics only read – they never change data. Stored in `clips/statistik.json`, included in the backup.
+**Kinds of tiles:**
+
+- **Number** – big number with a label, e.g. disturbances today, disturbances in the last 7 days, average peak.
+- **Trend** – line over days, weeks or months.
+- **Bars** – e.g. per hour, weekday or day.
+- **List** – the most frequent types, devices, sensors or note buttons (3 to 20 entries).
+- **Table** – all values to sort and filter (like the other tables).
+
+**Configuring:**
+
+- **Templates (free for everyone):** e.g. “Disturbances today”, “Disturbances, last 7 days”, “Average peak (7 days)”, “Disturbance time today”, “Most frequent types (7 days)”, “Disturbances per device (30 days)”, “Trend per day (30 days)”, “Disturbances per hour (night)”, “Types compared”, “Trend per week”, “Per weekday”, “Total duration per day”, “Sensors per day”, “Notes by button”. A template goes into the view where you click it.
+- **Configure your own (Pro):** *name*, *what to count* (disturbances – also just one type or sound profile –, sensors, notes with a quick-select button), *measure* (count, total duration, avg or highest peak), *split by* (hour, weekday, day, week, month, type, device, note button, sensor), *display* (number, line, bars, list, table), *period* (selected period, today, last 24 h / 7 / 30 / 90 / 365 days or a **custom period** from–to), *device*, **thresholds** (*only from peak* in dBFS, *only from duration* in seconds) and *night only / quiet hours only / weekend only*. The preview shows the result right away.
+- **Clicking a bar**, a list entry or a table row (also with Enter or Space) filters the event table to it; click again or **✕** to remove the filter.
+- **⚙** configures or deletes. Tiles only read – they never change data. Stored in `clips/statistik.json`, included in the backup.
+- Every tile also appears **in Home Assistant** as a sensor (see Home Assistant → Tiles).
 
 ### Summary and week strip
 
@@ -1034,6 +1222,14 @@ The type comes from the disturbance if the peak lies in one, otherwise from the 
 - Click = jump there in the history, double click or ▶ = open the event, ⋮ = more actions (download noise track, re-evaluate, delete).
 - Select, then **Add to list** or delete. Deleted entries are kept in a recycle bin for safety; the day recording stays.
 - **📝 All notes**, **🔎 Check a sound** (analyse your own audio file, not stored), **🧩 Profiles & re-scan**, **Download log.csv**.
+
+### Confirm or correct the sound type
+
+The detected type is shown as a coloured box in the **Type** column. Until you confirm it, it is a **“suggestion of the detection (confidence x %)”** – that is also how it appears in the noise log, the print and the raw data. **Click the box** (or ⋮ → Confirm sound type): **Correct** confirms the suggestion, another type corrects it, **Withdraw confirmation** undoes it. Your confirmation is kept in a separate file (`bestaetigt.json`); the detection's estimate, `log.csv` and the day recording stay unchanged. The detection says nothing about which flat a sound comes from.
+
+### Filter out known sounds
+
+⋮ → **Filter out as pattern …** creates a pattern from the disturbance (device, type, time, duration and peak prefilled, with the preview “matches N disturbances of the last 30 days”). Filtered disturbances are then missing from the list; the count names them (“N filtered out by pattern”), **⊘ show filtered** brings them back with a mark.
 
 ### Notes in the table
 
@@ -1305,13 +1501,25 @@ Sometimes a disturbance should not be reported while the graph keeps recording, 
 - **Lead time (s), e.g. for a voice assistant:** the wake word (“Hey Jarvis”) comes *before* the assistant switches to “listening”. With **lead time**, a disturbance that started up to this many seconds before the rule switched on does not count either. For this, GLighter holds each disturbance back that long (lead time + 2 s) before reporting it. Levels and graph stay unchanged; the log says “not counted”. **Set up:** add a rule, choose the entity `assist_satellite.…` – states `!idle`, “no disturbance reports”, lead time 3 s and delay 0.5 min are pre-filled. Wake word, command and the spoken answer then don’t count.
 - **As a dashboard button:** the "GLighter" device has **"Start: no disturbance reports"**, **"Report disturbances again"**, an adjustable **duration** (1–240 minutes, default 10) and **"No disturbance reports until"**. Put them on your dashboard. One tap starts the set duration.
 
+### Tiles as sensors
+
+Every tile you created in GLighter (Live or Logs, see Tiles) appears via MQTT in the **GLighter** device as a sensor of its own, e.g. `sensor.gaslighter_tile_s_1a2b3c4d` (unique ID `gaslighter_tile_<id>`).
+
+- The **state** is the tile's main value: count, total duration in seconds or peak in dBFS. The name is the tile's name or your own title from **✎**.
+- **Attributes:** period (from, to), number of entries, display, split, measure, `items` (name and value of each bar, list or table row) and, when split by time, `series` (values for charts).
+- It is updated every minute and shortly after every new disturbance – only changes are sent.
+- “Selected period” counts as **today** in Home Assistant.
+- If you delete a tile, its sensor disappears from Home Assistant too.
+
+In the **dashboard in Home Assistant** (see below) the section **Own tiles** places these sensors: numbers as tile cards, trends as statistics graphs, bars as history graphs, lists and tables as markdown cards.
+
 ### Create a dashboard in Home Assistant
 
 ⚙ Settings → tab **Rules** → **Dashboard in Home Assistant**. With one click GLighter creates a ready-made dashboard with its entities. You choose:
 
 - **Name** and **address** (e.g. `gsim-glighter`, it then appears in the Home Assistant address bar),
 - whether it shows in the **sidebar** and whether only **administrators** see it,
-- which **sections** go in: now (disturbance, level, today), level of the last 24 hours, log a disturbance, no disturbance reports, recording and pause, other microphones, “Open GLighter” button.
+- which **sections** go in: now (disturbance, level, today), level of the last 24 hours, log a disturbance, no disturbance reports, recording and pause, other microphones, **own tiles**, “Open GLighter” button.
 
 **Create in Home Assistant** creates the dashboard. If one already exists at that address, GLighter asks before replacing it (changes you made there are lost). Without a click GLighter changes nothing in Home Assistant.
 
@@ -1331,6 +1539,15 @@ Logs tab → **🖨 Noise log** (for period, device and list) or **📝 All note
 - quiet hours (🌙), countermeasures, level-matching of the devices,
 - **interruptions and updates** with cause and your comment,
 - the **data chain** per device and day with checksum.
+- the **method**: program and version, per device type, microphone/model, place and window, “Microphone not calibrated: values are indications and do not replace an expert report”, whether sound is stored (“No audio is stored” while “Store real audio” is off) and that the sound type is a suggestion of the detection unless you confirmed it,
+- a **summary** by time (hours, weekdays, quiet hours), type, intensity (peak), duration and frequency (on how many days, average per day),
+- per disturbance **peak, duration and number of impulses** (how often the level rose above the threshold, from the day recording),
+- a **gap-free timeline**: every day of the period, including days without disturbance, with “recorded” or “no recording”,
+- a short **explanation of the checking procedure** for the data chain.
+
+At the top of the page there is also **⬇ Raw data (CSV)** (all measured values of the disturbances, for experts) and **⬇ Evidence package (ZIP)**: noise log (HTML), raw data, notes, timeline and checksums as CSV and a summary with method as text. Both are also available under 📝 All notes → log.
+
+**Pattern filter:** by default all disturbances are included; those filtered out by a pattern carry the note “filtered out by pattern …”. With **leave out those filtered by pattern** they are omitted and the top names the patterns and how many they removed.
 
 At the top of the page (not printed) choose **Day chart** (on by default) and **Chart per disturbance** (off by default): a small chart with context below every disturbance that has a note or comes from the chosen list (at most 300).
 
@@ -1346,6 +1563,8 @@ In the history **🖨 Print**:
 - **Time per line**: 1 min to 1 h (default 10 min – a whole day is 144 lines).
 - **Devices** below each other, **content** (level trace, spectrogram, disturbance info and notes), **Merge lines without recording** (on by default).
 - **Scale**: the same for all lines (comparable) or fitted per line (more detail); **A4 landscape** or **portrait**.
+- **Evidence (summary, timeline, checksums)** (on by default): a summary by time, type, intensity, duration and frequency at the top; method, timeline with all days, checksums with explanation and the link to the raw data (CSV) at the bottom. Each disturbance shows its impulses and, unless confirmed, “suggestion of the detection (confidence x %)”.
+- **leave out those filtered by pattern**: as in the noise log.
 
 The dialog estimates lines and pages. **Open preview** builds the pages in a new window; print there or save as PDF. An active test threshold is printed along, with a count per line.
 
@@ -1353,9 +1572,17 @@ The dialog estimates lines and pages. **Open preview** builds the pages in a new
 
 ### Download a backup
 
-⚙ Settings → Storage & backup → **Download / restore backup (ZIP)** → **⬇ Download backup**. The ZIP file contains everything: settings, devices, time profiles, rules, `log.csv` and all log files, day recordings with checksums, AI results, sound profiles, notes, comments on interruptions, named ranges, lists, videos and – if stored – sound.
+⚙ Settings → Storage & backup → **Download / restore backup (ZIP)** → **⬇ Download backup**. The ZIP file contains everything: settings, devices, time profiles, rules, `log.csv` and all log files, day recordings with checksums, AI results, sound profiles, notes, tiles, the arrangement of the views (`layout.json`), comments on interruptions, named ranges, lists, videos and – if stored – sound.
 
 > The file can get large (hundreds of MB). Download it regularly and keep it in another place.
+
+**Without secrets:** the normal backup and the daily backup to a network drive/NAS do **not** contain the secret key of the checksum chain (`kette_schluessel.json`), no passwords of network cameras and no phone IDs. A lost backup can therefore not be used to recompute data unnoticed or to pose as your phone.
+
+### Move to a new device (with key)
+
+Under **🔑 Move to a new device (with key)** enter a password (at least 8 characters, twice) and **⬇ Download move backup**. The ZIP additionally contains the chain key and the access data – **encrypted** with the password (scrypt and HMAC-SHA256, encrypt then authenticate). They cannot be read without the password. The password never goes into the address and is not stored; keep it separate from the file.
+
+When restoring, the preview asks for the password. A wrong password stops before anything is restored. Without a password the file is restored like a normal backup.
 
 For further processing there are also `log.csv` (Logs tab), the notes as CSV (📝 All notes) and the noise log as PDF.
 
@@ -1372,6 +1599,12 @@ For further processing there are also `log.csv` (Logs tab), the notes as CSV (�
 3. Set or clear the ticks and **Restore now**.
 
 Afterwards a report shows new files, merged days, skipped days and the devices taken over.
+
+**Without the key** (normal backup on another device) the restored days stay checkable: the report and the noise log say “chain complete, key missing: authenticity can only be checked with the original device” – it is checked that no minute is missing and the order is right. Checksums and day files are never changed; which days were restored is noted in a separate file (`kette_fremd.json`). Older backups (up to 1.79) that still contain the key are still accepted.
+
+**Phones** get a new ID without a move – the report names them, they need to be paired again (link or QR code in the device card). If the password of a network camera is missing, the device is set to “please check”.
+
+**Limits when restoring:** before unpacking GLighter checks the number of entries (at most 300,000) and the space the unpacked files need against the free storage. The total size of an upload is fixed with the first part.
 
 ### Daily backup to network drive, NAS or USB
 
@@ -1473,6 +1706,7 @@ At the very top choose **All devices** or a single device. For a device, “Own 
 - **Sources (microphones)** – see Devices.
 - **Level-match devices** – see Level-matching.
 - **Microphone** – input on the server, jack, volume, sound quality (16000 Hz is enough for knocking).
+- **Place and window** – per device in the device card: where in the room you measure (e.g. “bedroom, shelf at the wall to the neighbour”) and whether the window is **mostly open**, **mostly closed** or **changing**. Optionally a window sensor from Home Assistant (rule “only record state”). Both appear in the method section of the noise log, the print and the evidence package.
 
 ### Detection
 
@@ -1496,6 +1730,30 @@ At the very top choose **All devices** or a single device. For a device, “Own 
 **Recognize sound type (local AI)** – classifies disturbances (door, knocking, music …), no sound is stored. **Store AI fingerprint for each disturbance** – better distinction when learning and “re-evaluate” without sound. **Also store AI fingerprint between disturbances** – continuously, for “re-examine”; see AI fingerprint.
 
 **Sound profiles** – see AI. **Different values at certain times** (time profiles) – e.g. more sensitive at night, general or per device.
+
+### Filter out patterns
+
+Known, recurring sounds (clock chime on the hour, fridge, heating, alarm clock, your own TV) can be hidden **in the display**. A pattern combines any number of conditions:
+
+| Condition | Example |
+|---|---|
+| Device | only the hallway microphone |
+| Type or sound profile | “signal”, sound profile “fridge” or “background (own device)” |
+| Time from–to, weekdays | 06:00–06:20, Mon–Fri (also across midnight) |
+| Duration from–to, peak from–to (dBFS) | 2–8 s, −45 to −30 dBFS |
+| Distance to the threshold | 0 to 4 dB above the threshold |
+| Repetition | every 60 minutes from minute 0, ± 2 minutes (= every full hour) |
+| State in Home Assistant | only while the rule “TV on” applies |
+
+Plus a name and a colour. **Create:** here with **＋ Add pattern** or in the event list via **⋮ → Filter out as pattern …** – device, type, time (± 15 min), duration and peak are then taken from the disturbance. Before saving you see how many disturbances of the last 30 days the pattern would match, with examples.
+
+**Effect:** matching disturbances are missing from lists, counters, tiles and the tile sensors in Home Assistant and are only shown faintly in charts. The count then says e.g. “(12 filtered out by pattern)”. The switch **⊘ show filtered** above the sections brings them back, marked with the pattern name.
+
+**Nothing stored changes:** patterns are kept in `muster.json` (included in the backup). `log.csv`, day recording, checksums and event files stay unchanged – deleting a pattern shows everything as before.
+
+**Noise log, print and export** contain **all** disturbances by default, filtered ones with the note “filtered out by pattern …” (CSV column `nach_muster_ausgefiltert`). With **leave out those filtered by pattern** they are omitted and the top names the patterns and how many disturbances they removed.
+
+> **🔒 Pro:** one pattern is free, several need GLighter Pro. Without Pro further patterns stay stored, only the first applies.
 
 ### Times & pauses
 
@@ -1573,6 +1831,36 @@ Camera recordings in homes can be problematic (§ 201a StGB). Only film your own
 - A log is convincing when it is kept **regularly**, is **traceable** (time, duration, type, effect, witnesses) and **unchanged** (data chain).
 - Your own notes (“woke up”, “child woken”) and witnesses make the difference.
 
+### What the recording shows and what not
+
+> **No legal advice.** The following points are factual hints from published decisions and expert articles (German law). They promise no success in court. For your case ask a lawyer, a tenants' association or a victim support service.
+
+**It can show:** when, how long and how loud (relative, dBFS) it was, how often and at what times – over weeks and months, including that quiet days were measured too. And that the day recording has not been changed since (checksums).
+
+**It cannot show:**
+
+- **where** a sound comes from and who causes it – the detection “knocking” does not say which flat,
+- **how loud in dB(A)** – the microphone is not calibrated: values are indications and do not replace an expert report,
+- that the **sound type** is right while it is a “suggestion of the detection” – check it and confirm or correct it with a click in the event list. Your confirmation is kept separately (`bestaetigt.json`), the detection's estimate stays stored.
+
+**What helps:** witnesses (neighbours, property management, police), timely notes with time, type, intensity, duration and frequency, reports with date and case number. In disputed cases courts obtain their own expert reports – the recording can show when a measurement is worthwhile.
+
+**Checksums** show that the data has not been changed since recording; they are not an electronic signature. Digital data has no presumption of authenticity in court – so attach the raw data (CSV) and checksums (evidence package, see Printing).
+
+### Short hints in the app
+
+With **💡 Show help** (⚙ Settings → General) short hints appear in a few places. Each can be hidden with ✕; switching “Show help” off hides all of them. **Why?** names the source.
+
+| Where | Hint | Source |
+|---|---|---|
+| Devices (setup) | Measure at a fixed place and note whether the window is open or closed. | AG Wolfratshausen 5 C 274/20 |
+| Event list | Check detected sound types and confirm or correct them; the detection does not show which flat a sound comes from. | LG Berlin II 56 S 100/23 WEG |
+| Recording, live | Keep measuring on quiet days – a gap-free time series shows frequency and pattern more convincingly. | BGH VIII ZR 1/16 Rn. 14; § 238 Abs. 2 StGB |
+| Export, noise log | Pass on the values as an indication and suggest an expert report in a dispute. | AG München 472 C 18927/16; OLG Celle 4 U 199/09 |
+| Export, noise log | Attach raw data (CSV) and checksums. | § 371 ZPO; Irskens, EDVGT 2024 |
+| General | Do not add secret audio or video recordings of neighbours. | BGH VI ZR 1370/20; BVerfG 1 BvR 1611/96; AG München 173 C 11834/23 |
+| General | Do not answer with counter-noise; document and take legal action. | AG München 173 C 11834/23 |
+
 ## 13. Troubleshooting and FAQ
 
 ### “The signal is very quiet”
@@ -1626,6 +1914,7 @@ The yearly licence **GLighter Pro** additionally unlocks:
 | External devices: phone in the browser, phone app / stream URL, IP camera | locked | up to 8 additional devices |
 | Phone as motion sensor (vibration, motion in picture) | locked | ✔ |
 | 📊 Configure your own statistics (Statistics) | templates | fully configurable |
+| ⊘ Filter out patterns (Patterns) | 1 pattern | up to 30 patterns |
 | Daily backup to network drive/NAS/USB and “save space” (Backup) | “⬇ Download backup” by hand | automatic every day, verified |
 
 The server microphone (on the Home Assistant computer) always works without Pro.
@@ -1657,6 +1946,7 @@ To renew, buy a new licence and enter the new key.
 ### Moving to a new computer
 
 Download a backup on the old computer, install GLighter on the new one and import the backup – the **first import is free**. Then enter your Pro key again.
+To take the chain key and the access data along as well, use the move backup with password.
 
 ## 15. Glossary
 

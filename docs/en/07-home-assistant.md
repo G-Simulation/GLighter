@@ -112,6 +112,20 @@ Sometimes a disturbance should not be reported while the graph keeps recording, 
 - **Lead time (s), e.g. for a voice assistant:** the wake word (“Hey Jarvis”) comes *before* the assistant switches to “listening”. With **lead time**, a disturbance that started up to this many seconds before the rule switched on does not count either. For this, GLighter holds each disturbance back that long (lead time + 2 s) before reporting it. Levels and graph stay unchanged; the log says “not counted”. **Set up:** add a rule, choose the entity `assist_satellite.…` – states `!idle`, “no disturbance reports”, lead time 3 s and delay 0.5 min are pre-filled. Wake word, command and the spoken answer then don’t count.
 - **As a dashboard button:** the "GLighter" device has **"Start: no disturbance reports"**, **"Report disturbances again"**, an adjustable **duration** (1–240 minutes, default 10) and **"No disturbance reports until"**. Put them on your dashboard. One tap starts the set duration.
 
+<a id="kacheln"></a>
+
+## Tiles as sensors
+
+Every tile you created in GLighter (Live or Logs, see [Tiles](03-protokolle.md#statistik)) appears via MQTT in the **GLighter** device as a sensor of its own, e.g. `sensor.gaslighter_tile_s_1a2b3c4d` (unique ID `gaslighter_tile_<id>`).
+
+- The **state** is the tile's main value: count, total duration in seconds or peak in dBFS. The name is the tile's name or your own title from **✎**.
+- **Attributes:** period (from, to), number of entries, display, split, measure, `items` (name and value of each bar, list or table row) and, when split by time, `series` (values for charts).
+- It is updated every minute and shortly after every new disturbance – only changes are sent.
+- “Selected period” counts as **today** in Home Assistant.
+- If you delete a tile, its sensor disappears from Home Assistant too.
+
+In the **dashboard in Home Assistant** (see below) the section **Own tiles** places these sensors: numbers as tile cards, trends as statistics graphs, bars as history graphs, lists and tables as markdown cards.
+
 <a id="dashboard"></a>
 
 ## Create a dashboard in Home Assistant
@@ -120,7 +134,7 @@ Sometimes a disturbance should not be reported while the graph keeps recording, 
 
 - **Name** and **address** (e.g. `gsim-glighter`, it then appears in the Home Assistant address bar),
 - whether it shows in the **sidebar** and whether only **administrators** see it,
-- which **sections** go in: now (disturbance, level, today), level of the last 24 hours, log a disturbance, no disturbance reports, recording and pause, other microphones, “Open GLighter” button.
+- which **sections** go in: now (disturbance, level, today), level of the last 24 hours, log a disturbance, no disturbance reports, recording and pause, other microphones, **own tiles**, “Open GLighter” button.
 
 **Create in Home Assistant** creates the dashboard. If one already exists at that address, GLighter asks before replacing it (changes you made there are lost). Without a click GLighter changes nothing in Home Assistant.
 

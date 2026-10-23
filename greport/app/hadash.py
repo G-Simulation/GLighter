@@ -146,22 +146,77 @@ def valid_url(url_path):
     return bool(URL_RE.match(url_path or "")) and len(url_path) <= 40
 
 
+def _data_dir():
+    return os.environ.get("HADASH_DATA") or "/data"
+
+
+def _owned_file():
+    return os.path.join(_data_dir(), "hadash_eigene.json")
+
+
+def owned():
+    """Adressen der Dashboards, die diese App selbst angelegt hat."""
+    try:
+        with open(_owned_file(), encoding="utf-8") as f:
+            x = json.load(f)
+        return set(x) if isinstance(x, list) else set()
+    except (OSError, ValueError):
+        return set()
+
+
+def _own_add(url_path):
+    s = owned() | {url_path}
+    try:
+        os.makedirs(_data_dir(), exist_ok=True)
+        tmp = _owned_file() + ".tmp"
+        with open(tmp, "w", encoding="utf-8") as f:
+            json.dump(sorted(s), f)
+        os.replace(tmp, _owned_file())
+    except OSError:
+        pass
+
+
+def _backup(url_path):
+    """Vor dem Ersetzen die bisherige Konfiguration sichern (in /data, nicht in Home Assistant). Gibt den Dateinamen zurück."""
+    try:
+        cfg = call({"type": "lovelace/config", "url_path": url_path})[0]
+    except HAError:
+        return None
+    try:
+        import time
+        d = os.path.join(_data_dir(), "dashboard_sicherung")
+        os.makedirs(d, exist_ok=True)
+        name = f"{url_path}_{time.strftime('%Y%m%d_%H%M%S')}.json"
+        with open(os.path.join(d, name), "w", encoding="utf-8") as f:
+            json.dump(cfg, f, ensure_ascii=False, indent=1)
+        return name
+    except OSError:
+        return None
+
+
 def install(url_path, title, icon, config, sidebar=True, admin=False, overwrite=False):
     """Dashboard anlegen (falls neu) und die Konfiguration speichern.
-    Ein vorhandenes Dashboard wird nur mit overwrite=True ersetzt."""
+    Ein vorhandenes Dashboard wird nur mit overwrite=True ersetzt; vorher wird seine Konfiguration gesichert.
+    Bei einem Dashboard, das diese App nicht selbst angelegt hat, bleiben Sichtbarkeit (Seitenleiste, nur Admins),
+    Titel und Symbol unverändert."""
     if not valid_url(url_path):
         raise HAError("bad_url")
     b = find(url_path)
+    mine = url_path in owned()
     if b and not overwrite:
-        return {"ok": False, "exists": True}
+        return {"ok": False, "exists": True, "own": mine}
+    saved = None
     if not b:
         call({"type": "lovelace/dashboards/create", "url_path": url_path, "title": title[:60] or "GSimulations",
               "icon": icon, "show_in_sidebar": bool(sidebar), "require_admin": bool(admin), "mode": "storage"})
+        _own_add(url_path)
     else:
-        call({"type": "lovelace/dashboards/update", "dashboard_id": b["id"], "title": title[:60] or b.get("title"),
-              "icon": icon, "show_in_sidebar": bool(sidebar), "require_admin": bool(admin)})
+        saved = _backup(url_path)
+        if mine:
+            call({"type": "lovelace/dashboards/update", "dashboard_id": b["id"], "title": title[:60] or b.get("title"),
+                  "icon": icon, "show_in_sidebar": bool(sidebar), "require_admin": bool(admin)})
     call({"type": "lovelace/config/save", "url_path": url_path, "config": config})
-    return {"ok": True, "created": not b, "url": "/" + url_path}
+    return {"ok": True, "created": not b, "url": "/" + url_path, "backup": saved, "own": mine or not b}
 
 
 def self_slug(default):

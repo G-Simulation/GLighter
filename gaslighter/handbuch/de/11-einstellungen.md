@@ -11,6 +11,7 @@ Ganz oben wählst du **Alle Geräte** oder ein einzelnes Gerät. Beim Gerät las
 - **Quellen (Mikrofone)** – siehe [Geräte](#geraete).
 - **Geräte einpegeln (gleich laut stellen)** – siehe [Einpegeln](#geraete/einpegeln).
 - **Mikrofon** {#s_audio} – Eingang am Server, Buchse, Lautstärke, Tonqualität (16000 Hz reicht für Klopfen).
+- **Messort und Fenster** {#messort} – je Gerät in der Gerätekarte: wo im Raum gemessen wird (z. B. „Schlafzimmer, Regal an der Wand zum Nachbarn“) und ob das Fenster **meist offen**, **meist geschlossen** oder **wechselnd** ist. Optional ein Fenstersensor aus Home Assistant (Regel „nur festhalten“). Beides steht in der Messmethode von Lärmprotokoll, Ausdruck und Beweispaket.
 
 ## Erkennung {#erkennung}
 
@@ -34,6 +35,30 @@ Ganz oben wählst du **Alle Geräte** oder ein einzelnes Gerät. Beim Gerät las
 **Geräuschart erkennen (lokale KI)** – ordnet Störungen ein (Tür, Klopfen, Musik …), kein Ton wird gespeichert. **KI-Fingerabdruck zu jeder Störung speichern** – bessere Unterscheidung beim Lernen und „Neu bewerten“ ohne Ton. **KI-Fingerabdruck auch zwischen den Störungen speichern** – durchgehend, für „Neu untersuchen“; siehe [KI-Fingerabdruck](#ki/fingerabdruck).
 
 **Tonprofile** – siehe [KI](#ki/tonprofile). **Andere Werte zu bestimmten Uhrzeiten** (Zeitprofile) {#s_sched} – z. B. nachts empfindlicher, allgemein oder je Gerät.
+
+### Muster ausfiltern {#muster}
+
+Bekannte, wiederkehrende Geräusche (Uhrschlag zur vollen Stunde, Kühlschrank, Heizung, Wecker, eigener Fernseher) lassen sich **in der Anzeige** ausblenden. Ein Muster verbindet beliebig viele Bedingungen:
+
+| Bedingung | Beispiel |
+|---|---|
+| Gerät | nur das Mikrofon im Flur |
+| Art oder Tonprofil | „Signal“, Tonprofil „Kühlschrank“ oder „Hintergrund (eigenes Gerät)“ |
+| Uhrzeit von–bis, Wochentage | 06:00–06:20, Mo–Fr (auch über Mitternacht) |
+| Dauer von–bis, Spitze von–bis (dBFS) | 2–8 s, −45 bis −30 dBFS |
+| Abstand zur Schwelle | 0 bis 4 dB über der Schwelle |
+| Wiederholung | alle 60 Minuten ab Minute 0, ± 2 Minuten (= jede volle Stunde) |
+| Zustand in Home Assistant | nur wenn die Regel „Fernseher an“ gerade greift |
+
+Dazu ein Name und eine Farbe. **Anlegen:** hier mit **＋ Muster anlegen** oder in der Ereignisliste über **⋮ → Als Muster ausfiltern …** – dann sind Gerät, Art, Uhrzeit (± 15 Min.), Dauer und Spitze aus der Störung vorbelegt. Vor dem Speichern steht, wie viele Störungen der letzten 30 Tage das Muster träfe, mit Beispielen.
+
+**Wirkung:** Passende Störungen fehlen in Listen, Zählern, Kacheln, in den Kachel-Sensoren für Home Assistant und sind in Grafiken nur noch blass zu sehen. Die Anzahl sagt dann z. B. „(12 nach Muster ausgefiltert)“. Der Schalter **⊘ ausgefilterte zeigen** über den Bereichen holt sie zurück, gekennzeichnet mit dem Namen des Musters.
+
+**Gespeichert wird nichts anders:** Die Muster liegen in `muster.json` (in der Sicherung enthalten). `log.csv`, Tagesaufzeichnung, Prüfsummen und Ereignisdateien bleiben unverändert – ein Muster löschen zeigt alles wieder wie vorher.
+
+**Lärmprotokoll, Ausdruck und Export** enthalten standardmäßig **alle** Störungen, ausgefilterte mit dem Vermerk „nach Muster … ausgefiltert“ (in der CSV-Spalte `nach_muster_ausgefiltert`). Mit **nach Muster ausgefilterte weglassen** fehlen sie, und oben steht, welche Muster wie viele Störungen entfernt haben.
+
+> **🔒 Pro:** Ein Muster ist frei, mehrere gehen mit [GLighter Pro](#pro). Ohne Pro bleiben weitere Muster gespeichert, es gilt nur das erste.
 
 ## Zeiten & Pausen {#zeiten}
 

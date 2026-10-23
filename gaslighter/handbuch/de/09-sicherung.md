@@ -2,9 +2,17 @@
 
 ## Sicherung herunterladen {#export}
 
-⚙ Einstellungen → Speichern & Sicherung → **Sicherung herunterladen / einspielen (ZIP)** → **⬇ Sicherung herunterladen**. Die ZIP-Datei enthält alles: Einstellungen, Geräte, Zeitprofile, Regeln, `log.csv` und alle Protokolldateien, Tagesaufzeichnungen mit Prüfsummen, KI-Ergebnisse, Tonprofile, Notizen, Kommentare zu Unterbrechungen, benannte Bereiche, Listen, Videos und – falls gespeichert – Ton.
+⚙ Einstellungen → Speichern & Sicherung → **Sicherung herunterladen / einspielen (ZIP)** → **⬇ Sicherung herunterladen**. Die ZIP-Datei enthält alles: Einstellungen, Geräte, Zeitprofile, Regeln, `log.csv` und alle Protokolldateien, Tagesaufzeichnungen mit Prüfsummen, KI-Ergebnisse, Tonprofile, Notizen, Kommentare zu Unterbrechungen, benannte Bereiche, Listen, Kacheln, Anordnung der Ansichten (`layout.json`), Videos und – falls gespeichert – Ton.
 
 > Die Datei kann groß werden (Hunderte MB). Am besten regelmäßig herunterladen und an einem anderen Ort aufbewahren.
+
+**Ohne Geheimnisse:** Die normale Sicherung und die tägliche Sicherung auf Netzlaufwerk/NAS enthalten **nicht** den geheimen Schlüssel der Prüfkette (`kette_schluessel.json`), keine Passwörter von Netzwerk-Kameras und keine Handy-Kennungen. So taugt eine verlorene Sicherung nicht dazu, Daten unbemerkt neu durchzurechnen oder sich als dein Handy auszugeben.
+
+### Umzug auf ein neues Gerät (mit Schlüssel) {#umzug}
+
+Unter **🔑 Umzug auf neues Gerät (mit Schlüssel)** ein Kennwort (mindestens 8 Zeichen, zweimal) eingeben und **⬇ Umzugs-Sicherung herunterladen**. Die ZIP enthält zusätzlich den Kettenschlüssel und die Zugangsdaten – **verschlüsselt** mit dem Kennwort (scrypt und HMAC-SHA256, verschlüsseln und danach gegen Verändern sichern). Ohne das Kennwort lassen sie sich nicht lesen. Das Kennwort wandert nie in die Adresse und wird nicht gespeichert; bewahre es getrennt von der Datei auf.
+
+Beim Einspielen fragt die Vorschau nach dem Kennwort. Ein falsches Kennwort bricht ab, bevor etwas eingespielt wird. Ohne Kennwort wird die Datei wie eine normale Sicherung eingespielt.
 
 Zum Weiterverarbeiten gibt es außerdem `log.csv` (Reiter Protokolle), die Notizen als CSV (📝 Alle Notizen) und das Lärmprotokoll als PDF.
 
@@ -23,6 +31,12 @@ Zum Weiterverarbeiten gibt es außerdem `log.csv` (Reiter Protokolle), die Notiz
 3. Häkchen setzen oder entfernen und **Jetzt einspielen**.
 
 Danach steht ein Bericht da: neue Dateien, zusammengeführte Tage, übersprungene Tage und übernommene Geräte.
+
+**Ohne Schlüssel** (normale Sicherung auf einem anderen Gerät) bleiben die eingespielten Tage prüfbar: Der Bericht und das Lärmprotokoll sagen „Kette vollständig, Schlüssel fehlt: Echtheit nur mit Originalgerät prüfbar“ – geprüft wird, dass keine Minute fehlt und die Reihenfolge stimmt. Prüfsummen und Tagesdateien werden dabei nie verändert; welche Tage eingespielt wurden, steht in einer eigenen Datei (`kette_fremd.json`). Ältere Sicherungen (bis 1.79), die den Schlüssel noch enthalten, werden weiter angenommen.
+
+**Handys** bekommen ohne Umzug eine neue Kennung – der Bericht nennt sie, die Handys müssen neu gekoppelt werden (Link oder QR-Code in der Gerätekarte). Fehlt das Passwort einer Netzwerk-Kamera, steht das Gerät auf „bitte prüfen“.
+
+**Grenzen beim Einspielen:** GLighter prüft vor dem Auspacken die Anzahl der Einträge (höchstens 300 000) und den Platz, den die ausgepackten Dateien brauchen, gegen den freien Speicher. Die Gesamtgröße eines Uploads gilt ab dem ersten Teil.
 
 ### Tägliche Sicherung auf Netzlaufwerk, NAS oder USB {#ziel}
 

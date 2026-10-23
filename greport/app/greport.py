@@ -14,6 +14,7 @@ import datetime as dt
 import fcntl
 import glob
 import hashlib
+import hmac
 import http.server
 import io
 import json
@@ -33,7 +34,7 @@ WEB = os.path.join(HERE, "web")
 sys.path.insert(0, HERE)
 import lizenz  # noqa: E402
 
-VERSION = "1.8.0"
+VERSION = "1.9.0"
 BRAND = "GReport"
 OPTIONS = os.environ.get("GR_OPTIONS", "/data/options.json")
 PRIV = os.environ.get("GR_PRIVATE", "/data")                    # nur für GReport (Pro-Schlüssel)
@@ -63,7 +64,7 @@ def write_json(p, data):
     os.replace(tmp, p)
 
 
-OPT = {"language": "auto", "mqtt": True, "logbook": True, "output_dir": "/share/greport", "dashboard_card": True}
+OPT = {"language": "auto", "mqtt": True, "logbook": True, "output_dir": "/share/greport", "dashboard_card": True, "attach_max_mb": 25, "attach_total_mb": 500}
 OPT.update({k: v for k, v in (read_json(OPTIONS, {}) or {}).items() if k in OPT})
 DIR = os.environ.get("GR_DIR") or OPT["output_dir"] or "/share/greport"
 GL_DIR = os.environ.get("GR_GLIGHTER_DIR", "/share/gaslighter")
@@ -143,6 +144,18 @@ NOTE_TAGS = {
     "misc": ["zeuge", "serie"],
 }
 NOTE_TAG_SET = {t for v in NOTE_TAGS.values() for t in v}
+# Rubrik „Zeitpunkt“: Tasten setzen die Zeit der Notiz (sie werden nicht als Wort gespeichert).
+# Gerechnet wird immer vom Beginn der Erfassung (erstes Tippen), nicht vom Speichern.
+# m = Minuten zurück, at = Uhrzeit (die letzte, die schon war), rng = ungefährer Zeitraum [von, bis], day = Tage zurück,
+# none = Notiz ohne Zeitpunkt
+WHEN_G = "when"
+WHEN_DEF = {"w_now": {"m": 0}, "w_5": {"m": 5}, "w_15": {"m": 15}, "w_60": {"m": 60}, "w_night": {"rng": ["22:00", "06:00"]},
+            "w_eve": {"rng": ["18:00", "22:00"], "day": 1}, "w_none": {"none": True}}
+WHEN_DE = {"w_now": "gerade eben", "w_5": "vor 5 Min.", "w_15": "vor 15 Min.", "w_60": "vor 1 Std.", "w_night": "heute Nacht",
+           "w_eve": "gestern Abend", "w_none": "ohne Zeitpunkt"}
+WHEN_EN = {"w_now": "just now", "w_5": "5 min ago", "w_15": "15 min ago", "w_60": "1 hour ago", "w_night": "last night",
+           "w_eve": "yesterday evening", "w_none": "no time"}
+WHEN_MAX = 30
 TAG_DE = {"oben": "oben", "unten": "unten", "nebenan": "nebenan", "treppenhaus": "Treppenhaus", "draussen": "draußen", "unklar": "unklar",
           "klopfen": "Klopfen", "schritte": "Schritte", "musik": "Musik/Bass", "stimmen": "Stimmen", "tuer": "Tür", "moebel": "Möbelrücken",
           "bohren": "Bohren", "hund": "Hund", "leicht": "leicht", "deutlich": "deutlich", "stark": "stark", "aufgewacht": "aufgewacht",
@@ -173,17 +186,21 @@ def qt_all():
         if QT["data"] is None:
             d = read_json(qt_path(), {})
             QT["data"] = d if isinstance(d, dict) else {}
-        for k in ("own", "hide", "use", "words", "nope", "ren", "grp", "gcol", "req"):
+        for k in ("own", "hide", "use", "words", "nope", "ren", "grp", "gcol", "req", "when", "groups", "gren", "ghide"):
             if not isinstance(QT["data"].get(k), dict):
                 QT["data"][k] = {}
-        if not isinstance(QT["data"].get("order"), list):
-            QT["data"]["order"] = []
+        for k in ("order", "gorder"):
+            if not isinstance(QT["data"].get(k), list):
+                QT["data"][k] = []
         if QT["data"].get("mode") not in ("use", "fixed"):
             QT["data"]["mode"] = "use"               # Reihenfolge: nach Gebrauch (häufigste zuerst) oder fest (selbst angeordnet)
         return QT["data"]
 
 
 def qt_save():
+    if QT.get("batch"):                                  # mehrere Änderungen auf einmal („Layout anpassen“ → Fertig): erst am Ende speichern
+        QT["dirty"] = True
+        return
     with QT_LOCK:
         write_json(qt_path(), qt_all())
     mqtt_announce()
@@ -207,9 +224,102 @@ def tag_label(t, lg=None):
     d = qt_all(); o = d["own"].get(t)
     if isinstance(o, dict):
         return o.get("l") or t
+    o = d["when"].get(t)
+    if isinstance(o, dict):
+        return o.get("l") or t
     if d["ren"].get(t):                                   # eingebautes Wort umbenannt
         return d["ren"][t]
+    if t in WHEN_DEF:
+        return (WHEN_EN if (lg or lang()) == "en" else WHEN_DE)[t]
     return (TAG_EN if (lg or lang()) == "en" else TAG_DE).get(t, t)
+
+
+def when_spec(k):
+    """Zeitpunkt-Taste: {"m": Minuten} | {"at": "HH:MM", "day": n} | {"none": True}; None = keine Zeit-Taste."""
+    if k in WHEN_DEF:
+        return WHEN_DEF[k]
+    o = qt_all()["when"].get(k)
+    if isinstance(o, dict) and not o.get("del"):
+        return {x: o[x] for x in ("m", "at", "day", "rng") if x in o}
+    return None
+
+
+def when_keys(visible=True):
+    d = qt_all()
+    keys = [k for k in WHEN_DEF if not (visible and d["hide"].get(k))]
+    keys += [k for k, o in d["when"].items() if isinstance(o, dict) and not o.get("del")]
+    return keys
+
+
+def _hm(s_, base):
+    hh, mm = (int(x) for x in s_.split(":"))
+    return base.replace(hour=hh, minute=mm, second=0, microsecond=0)
+
+
+def when_range(sp, now):
+    """Ungefährer Zeitraum: Beginn = letzter vergangener „von“ (bzw. vor „day“ Tagen), Ende = „bis“ danach, höchstens jetzt."""
+    a = _hm(sp["rng"][0], now)
+    if sp.get("day"):
+        a -= dt.timedelta(days=int(sp["day"]))
+    elif a > now:
+        a -= dt.timedelta(days=1)
+    b = _hm(sp["rng"][1], a)
+    if b <= a:
+        b += dt.timedelta(days=1)
+    return a, min(b, now)
+
+
+def when_apply(k, now=None):
+    """Zeitpunkt-Taste → (von als ISO, ohne Zeitpunkt?). Ungefähre Tasten: when_apply_full liefert auch „bis“."""
+    f, _, nt, _ = when_apply_full(k, now)
+    return f, nt
+
+
+def when_apply_full(k, now=None):
+    """→ (von, bis, ohne Zeitpunkt, ungefähr); now = Beginn der Erfassung."""
+    sp = when_spec(k) or {}
+    now = now or dt.datetime.now().astimezone()
+    if sp.get("none"):
+        return "", "", True, False
+    if sp.get("rng"):
+        a, b = when_range(sp, now)
+        return a.isoformat(timespec="seconds"), b.isoformat(timespec="seconds") if b > a else "", False, True
+    if "at" in sp:
+        hh, mm = (int(x) for x in sp["at"].split(":"))
+        t = now.replace(hour=hh, minute=mm, second=0, microsecond=0)
+        if sp.get("day"):
+            t -= dt.timedelta(days=int(sp["day"]))
+        elif t > now:
+            t -= dt.timedelta(days=1)
+        return t.isoformat(timespec="seconds"), "", False, False
+    return (now - dt.timedelta(minutes=int(sp.get("m") or 0))).replace(microsecond=0).isoformat(timespec="seconds"), "", False, False
+
+
+def group_custom():
+    return {g: o for g, o in qt_all()["groups"].items() if isinstance(o, dict) and not o.get("del")}
+
+
+def word_groups():
+    """Rubriken, in die Wörter dürfen: eingebaute (ohne „Zeitpunkt“) und eigene."""
+    return GROUPS + list(group_custom())
+
+
+def groups_all():
+    """Alle Rubriken in der angezeigten Reihenfolge: eingebaute, „Zeitpunkt“, eigene; selbst angeordnet über gorder."""
+    base = GROUPS[:-1] + [WHEN_G] + list(group_custom()) + ["own"]
+    pos = {g: i for i, g in enumerate(qt_all()["gorder"])}
+    return sorted(base, key=lambda g: (pos.get(g, 10 ** 6), base.index(g)))
+
+
+def group_label(g, lg=None):
+    d = qt_all(); de = (lg or lang()) != "en"
+    if g in group_custom():
+        return group_custom()[g].get("l") or g
+    if d["gren"].get(g):
+        return d["gren"][g]
+    if g == WHEN_G:
+        return "Zeitpunkt" if de else "Time"
+    return (GROUP_DE if de else GROUP_EN).get(g, g)
 
 
 def clean_tags(v):
@@ -271,13 +381,17 @@ def qt_state():
         sug = sorted(((k, e) for k, e in d["words"].items() if isinstance(e, dict) and int(e.get("n") or 0) >= QT_SUGGEST_N
                       and not d["nope"].get(k) and k not in labels), key=lambda x: -int(x[1].get("n") or 0))
         return {"ok": True, "tags": NOTE_TAGS, "own_max": own_max(), "pro": pro_ok(), "groups": GROUPS,
-                "ren": {k: v for k, v in d["ren"].items() if k in NOTE_TAG_SET and v}, "grp": {k: v for k, v in d["grp"].items() if v in GROUPS},
+                "ren": {k: v for k, v in d["ren"].items() if (k in NOTE_TAG_SET or k in WHEN_DEF) and v}, "grp": {k: v for k, v in d["grp"].items() if v in word_groups()},
                 "order": [k for k in d["order"] if tag_known(k)], "mode": d["mode"],
-                "gcol": {g: c for g, c in d["gcol"].items() if g in GROUPS and re.fullmatch(r"#[0-9a-fA-F]{6}", str(c))},
-                "req": sorted(g for g, v in d["req"].items() if v and g in GROUPS),
+                "gcol": {g: c for g, c in d["gcol"].items() if g in groups_all() and re.fullmatch(r"#[0-9a-fA-F]{6}", str(c))},
+                "req": sorted(g for g, v in d["req"].items() if v and g in groups_all()),
+                "gall": [{"g": g, "l": group_label(g), "custom": g in group_custom(), "hide": bool(d["ghide"].get(g)), "renamed": bool(d["gren"].get(g))}
+                         for g in groups_all()],
+                "when": [dict({"k": k, "l": tag_label(k), "own": k not in WHEN_DEF, "hide": bool(d["hide"].get(k))}, **(when_spec(k) or {}))
+                         for k in when_keys(False)], "when_max": WHEN_MAX,
                 "limit": own_max(), "show": show_n(), "pro_max": QT_OWN_PRO_MAX,
                 "own": [{"k": k, "l": o.get("l") or k, "del": bool(o.get("del"))} for k, o in d["own"].items() if isinstance(o, dict)],
-                "hide": sorted(k for k, v in d["hide"].items() if v and k in NOTE_TAG_SET),
+                "hide": sorted(k for k, v in d["hide"].items() if v and (k in NOTE_TAG_SET or k in WHEN_DEF)),
                 "use": {k: int(v or 0) for k, v in d["use"].items() if isinstance(v, (int, float))},
                 "suggest": [{"w": e.get("w") or k, "k": k, "n": int(e.get("n") or 0)} for k, e in sug[:5]]}
 
@@ -286,18 +400,45 @@ GROUPS = ["src", "kind", "lvl", "eff", "act", "misc", "own"]     # Woher, Was, W
 
 
 def tag_known(t):
-    return isinstance(t, str) and (t in NOTE_TAG_SET or isinstance(qt_all()["own"].get(t), dict))
+    return isinstance(t, str) and (t in NOTE_TAG_SET or isinstance(qt_all()["own"].get(t), dict) or when_spec(t) is not None)
 
 
 def tag_group(k):
     """Gruppe einer Taste: selbst zugeordnet, sonst die eingebaute; eigene Tasten ohne Zuordnung = „Eigene“."""
+    if when_spec(k) is not None:
+        return WHEN_G
     g = qt_all()["grp"].get(k)
-    if g in GROUPS:
+    if g in word_groups():
         return g
     return next((g for g, v in NOTE_TAGS.items() if k in v), "own")
 
 
 def qt_change(data):
+    """Mehrere Änderungen in einem Rutsch (action „batch“, ops = Liste) – gespeichert wird einmal am Ende."""
+    if str(data.get("action") or "") == "batch":
+        ops = data.get("ops") if isinstance(data.get("ops"), list) else []
+        errs, made = [], {}
+        with QT_LOCK:
+            QT["batch"] = True; QT["dirty"] = False
+            try:
+                for i, op in enumerate(ops[:600]):
+                    if not isinstance(op, dict) or op.get("action") == "batch":
+                        continue
+                    r = qt_change_one(op)
+                    if not r.get("ok"):
+                        errs.append({"i": i, "action": op.get("action"), "error": r.get("error")})
+                    for x in ("k", "g"):
+                        if r.get(x) and op.get(x) and r[x] != op[x]:
+                            made[op[x]] = r[x]
+            finally:
+                QT["batch"] = False
+            if QT.pop("dirty", False):
+                qt_save()
+        return dict(qt_state(), errors=errs, made=made)
+    return qt_change_one(data)
+
+
+def qt_change_one(data):
     """Schnellwahl verwalten: add (l, g), ren (k, l – auch eingebaute), del (k), undel (k), hide (k, on), nope (w),
     grp (k, g), order (keys), mode (use|fixed), reset (eingebaute Wörter, Reihenfolge und Gruppen auf Standard)."""
     a = str(data.get("action") or "")
@@ -305,7 +446,7 @@ def qt_change(data):
         d = qt_all()
         k = str(data.get("k") or "")
         if a == "grp":
-            if not tag_known(k) or data.get("g") not in GROUPS:
+            if not tag_known(k) or when_spec(k) is not None or data.get("g") not in word_groups():
                 return {"ok": False, "error": "not found"}
             dflt = next((g for g, v in NOTE_TAGS.items() if k in v), "own")
             if data["g"] == dflt:
@@ -333,7 +474,7 @@ def qt_change(data):
             return qt_state()
         if a == "req":                                        # Gruppe als „muss gewählt werden“ markieren (nur Hinweis, gespeichert wird immer)
             g = data.get("g")
-            if g not in GROUPS:
+            if g not in groups_all():
                 return {"ok": False, "error": "not found"}
             if data.get("on"):
                 d["req"][g] = True
@@ -343,7 +484,7 @@ def qt_change(data):
             return qt_state()
         if a == "gcol":                                       # Farbe einer Gruppe (leer = Standardfarbe)
             g, c = data.get("g"), str(data.get("c") or "")
-            if g not in GROUPS:
+            if g not in groups_all():
                 return {"ok": False, "error": "not found"}
             if re.fullmatch(r"#[0-9a-fA-F]{6}", c):
                 d["gcol"][g] = c.lower()
@@ -357,11 +498,12 @@ def qt_change(data):
             return qt_state()
         if a == "reset":
             d["ren"] = {}; d["grp"] = {k_: v for k_, v in d["grp"].items() if k_ not in NOTE_TAG_SET}; d["hide"] = {}; d["order"] = []; d["mode"] = "use"
+            d["gren"] = {}; d["ghide"] = {}; d["gorder"] = []           # Rubriken: Namen, Ausblenden, Reihenfolge wieder wie geliefert
             qt_save()
             return qt_state()
-        if a == "ren" and k in NOTE_TAG_SET:                 # eingebautes Wort umbenennen (alte Notizen behalten den Schlüssel)
+        if a == "ren" and (k in NOTE_TAG_SET or k in WHEN_DEF):   # eingebautes Wort umbenennen (alte Notizen behalten den Schlüssel)
             l = qt_clean_label(data.get("l"))
-            dflt = TAG_EN.get(k) if lang() == "en" else TAG_DE.get(k)
+            dflt = (TAG_EN.get(k) or WHEN_EN.get(k)) if lang() == "en" else (TAG_DE.get(k) or WHEN_DE.get(k))
             if not l or l == dflt:
                 d["ren"].pop(k, None)
             else:
@@ -378,17 +520,100 @@ def qt_change(data):
             else:
                 if sum(1 for o in d["own"].values() if isinstance(o, dict) and not o.get("del")) >= own_max():
                     return {"ok": False, "error": "limit" if pro_ok() else "limit_free"}
-                k_ = "c_" + secrets.token_hex(3)
+                k_ = str(data.get("k") or "")                  # „Layout anpassen“ vergibt die Kennung schon vorher
+                if not re.fullmatch(r"c_[0-9a-f]{6}", k_) or k_ in d["own"]:
+                    k_ = "c_" + secrets.token_hex(3)
                 d["own"][k_] = {"l": l, "ts": now_iso()}
-                if data.get("g") in GROUPS and data.get("g") != "own":
+                if data.get("g") in word_groups() and data.get("g") != "own":
                     d["grp"][k_] = data["g"]
                 if d["mode"] == "fixed":
                     d["order"].append(k_)
             d["words"].pop(l.lower(), None)
             qt_save()
             return dict(qt_state(), k=k_)
+        if a == "wadd" or a == "wset":                       # eigene Zeitpunkt-Taste: Name + Minuten zurück oder feste Uhrzeit
+            l = qt_clean_label(data.get("l"))
+            sp = {}
+            at = str(data.get("at") or "").strip()
+            if re.fullmatch(r"([01]?\d|2[0-3]):[0-5]\d", at):
+                sp["at"] = "%02d:%s" % (int(at.split(":")[0]), at.split(":")[1])
+            else:
+                try:
+                    sp["m"] = max(0, min(7 * 24 * 60, int(data.get("m"))))
+                except (TypeError, ValueError):
+                    return {"ok": False, "error": "bad request"}
+            if a == "wset":
+                o = d["when"].get(k)
+                if not isinstance(o, dict):
+                    return {"ok": False, "error": "not found"}
+                for x in ("m", "at", "day"):
+                    o.pop(x, None)
+                o.update(sp)
+                if l:
+                    o["l"] = l
+                qt_save()
+                return qt_state()
+            if not l:
+                return {"ok": False, "error": "empty"}
+            if sum(1 for o in d["when"].values() if isinstance(o, dict) and not o.get("del")) >= WHEN_MAX:
+                return {"ok": False, "error": "limit"}
+            k_ = str(data.get("k") or "")
+            if not re.fullmatch(r"t_[0-9a-f]{6}", k_) or k_ in d["when"]:
+                k_ = "t_" + secrets.token_hex(3)
+            d["when"][k_] = dict(sp, l=l, ts=now_iso())
+            if d["mode"] == "fixed":
+                d["order"].append(k_)
+            qt_save()
+            return dict(qt_state(), k=k_)
+        if a == "gadd":                                       # eigene Rubrik
+            l = qt_clean_label(data.get("l"))
+            if not l:
+                return {"ok": False, "error": "empty"}
+            if len(group_custom()) >= 20:
+                return {"ok": False, "error": "limit"}
+            g = str(data.get("g") or "")
+            if not re.fullmatch(r"g_[0-9a-f]{6}", g) or g in d["groups"]:
+                g = "g_" + secrets.token_hex(3)
+            d["groups"][g] = {"l": l, "ts": now_iso()}
+            qt_save()
+            return dict(qt_state(), g=g)
+        if a in ("gren", "gdel", "ghide"):
+            g = str(data.get("g") or "")
+            if g not in groups_all():
+                return {"ok": False, "error": "not found"}
+            if a == "gren":
+                l = qt_clean_label(data.get("l"))
+                if g in group_custom():
+                    if not l:
+                        return {"ok": False, "error": "empty"}
+                    d["groups"][g]["l"] = l
+                elif not l or l == (("Time" if lang() == "en" else "Zeitpunkt") if g == WHEN_G else (GROUP_EN if lang() == "en" else GROUP_DE).get(g)):
+                    d["gren"].pop(g, None)
+                else:
+                    d["gren"][g] = l
+            elif a == "gdel":                                 # nur eigene Rubriken; ihre Wörter kommen nach „Eigene“
+                if g not in group_custom():
+                    return {"ok": False, "error": "not found"}
+                d["groups"][g]["del"] = True
+                d["grp"] = {k_: v for k_, v in d["grp"].items() if v != g}
+            elif data.get("on"):
+                d["ghide"][g] = True
+            else:
+                d["ghide"].pop(g, None)
+            qt_save()
+            return qt_state()
+        if a == "gorder":
+            gs = data.get("groups")
+            if not isinstance(gs, list):
+                return {"ok": False, "error": "bad request"}
+            ok = set(groups_all())
+            d["gorder"] = list(dict.fromkeys(g for g in gs if g in ok))
+            qt_save()
+            return qt_state()
         if a in ("ren", "del", "undel"):
             o = d["own"].get(k)
+            if not isinstance(o, dict):
+                o = d["when"].get(k)
             if not isinstance(o, dict):
                 return {"ok": False, "error": "not found"}
             if a == "ren":
@@ -401,7 +626,7 @@ def qt_change(data):
             qt_save()
             return qt_state()
         if a == "hide":
-            if k not in NOTE_TAG_SET:
+            if k not in NOTE_TAG_SET and k not in WHEN_DEF:
                 return {"ok": False, "error": "not found"}
             if data.get("on"):
                 d["hide"][k] = True
@@ -425,6 +650,7 @@ def qt_visible():
     for g in NOTE_TAGS.values():
         keys += [t for t in g if not d["hide"].get(t)]
     keys += [k for k, o in d["own"].items() if isinstance(o, dict) and not o.get("del")]
+    keys = [k for k in keys if not d["ghide"].get(tag_group(k))]          # ausgeblendete Rubrik: auch in Home Assistant weg
     if d["mode"] == "fixed" and d["order"]:
         pos = {k: i for i, k in enumerate(d["order"])}
         keys.sort(key=lambda k: pos.get(k, 10 ** 6))
@@ -433,18 +659,35 @@ def qt_visible():
 
 def qt_groups():
     """Sichtbare Tasten je Gruppe (eine Auswahlliste pro Gruppe in Home Assistant); eigene Tasten kommen in ihre Gruppe."""
-    out = {g: [] for g in GROUPS}
+    out = {g: [] for g in word_groups()}
     for k, l in qt_visible():
-        out[tag_group(k)].append((k, l))
+        out.setdefault(tag_group(k), []).append((k, l))
+    if not qt_all()["ghide"].get(WHEN_G):
+        out[WHEN_G] = [(k, tag_label(k)) for k in when_keys()]
+    return out
+
+
+def mqtt_groups():
+    """Auswahllisten in Home Assistant: (Gruppe, Kürzel, Name, Symbol) – eingebaute, „Zeitpunkt“, eigene Rubriken."""
+    de = lang() == "de"
+    out = [(g, GROUP_SLUG[g], group_label(g), GROUP_ICON[g]) for g in GROUPS]
+    out.append((WHEN_G, "zeitpunkt", group_label(WHEN_G), "mdi:clock-outline"))
+    out += [(g, "rubrik_" + g[2:], group_label(g), "mdi:shape-outline") for g in group_custom()]
     return out
 
 
 # =====================================================================
 # Anzeige: Datum und Uhrzeit (gilt in der App und im Export)
 # =====================================================================
-PREF_DEF = {"date": "dmy4", "time": "hms", "rel": True, "wd": False, "gl": True}   # gl: Notizen an GLighter weitergeben
+PREF_DEF = {"date": "dmy4", "time": "hms", "rel": True, "wd": False, "gl": True, "tips": True}   # tips: Hinweise in der App zeigen   # gl: Notizen an GLighter weitergeben
 DATE_FMTS = ("dmy4", "dmy2", "wdm", "iso", "long")
 TIME_FMTS = ("hms", "hm", "h12")
+CAP_SECS = ("txt", "tags", "wit", "more", "time")                # Bereiche von „Notiz jetzt“ (Reihenfolge einstellbar)
+CAP_MAX = {"cap_title": 60, "cap_sub": 160}             # eigene Überschrift und eigener Hinweis (leer = Standardtext)
+
+
+def cap_clean(v, n):
+    return re.sub(r"\s+", " ", re.sub(r"[\x00-\x1f<>]", "", str(v or ""))).strip()[:n]
 
 
 def prefs():
@@ -454,9 +697,16 @@ def prefs():
         out["date"] = d["date"]
     if d.get("time") in TIME_FMTS:
         out["time"] = d["time"]
-    for k in ("rel", "wd", "gl"):
+    for k in ("rel", "wd", "gl", "tips"):
         if isinstance(d.get(k), bool):
             out[k] = d[k]
+    for k, n in CAP_MAX.items():
+        if isinstance(d.get(k), str) and cap_clean(d[k], n):
+            out[k] = cap_clean(d[k], n)
+    if isinstance(d.get("cap_order"), list):
+        o = [x for x in dict.fromkeys(d["cap_order"]) if x in CAP_SECS]
+        if o:
+            out["cap_order"] = o + [x for x in CAP_SECS if x not in o]
     return out
 
 
@@ -466,10 +716,27 @@ def prefs_set(d):
         cur["date"] = d["date"]
     if d.get("time") in TIME_FMTS:
         cur["time"] = d["time"]
-    for k in ("rel", "wd", "gl"):
+    for k in ("rel", "wd", "gl", "tips"):
         if isinstance(d.get(k), bool):
             cur[k] = d[k]
+    drop = []
+    for k, n in CAP_MAX.items():                         # leer = Standardtext
+        if k in d:
+            v = cap_clean(d[k], n)
+            if v:
+                cur[k] = v
+            else:
+                cur.pop(k, None); drop.append(k)
+    if "cap_order" in d:
+        o = [x for x in dict.fromkeys(d["cap_order"] if isinstance(d["cap_order"], list) else []) if x in CAP_SECS]
+        o = o + [x for x in CAP_SECS if x not in o] if o else []
+        if o and o != list(CAP_SECS):
+            cur["cap_order"] = o
+        else:
+            cur.pop("cap_order", None); drop.append("cap_order")
     allp = read_json(os.path.join(DIR, "einstellungen.json"), {}) or {}
+    for k in drop:
+        allp.pop(k, None)
     allp.update(cur)                                     # andere Einstellungen (z. B. Textdatei) bleiben
     write_json(os.path.join(DIR, "einstellungen.json"), allp)
     if "gl" in d:
@@ -515,17 +782,76 @@ def fmt_time(d, p=None):
 # =====================================================================
 # Personen / Zeugen (Pro: Liste zum Antippen)
 # =====================================================================
+ROLES = ("mitbewohner", "nachbar", "hausverwaltung", "vermieter", "polizei", "sonstige")
+ROLE_DE = {"mitbewohner": "Mitbewohner", "nachbar": "Nachbar", "hausverwaltung": "Hausverwaltung", "vermieter": "Vermieter", "polizei": "Polizei", "sonstige": "Sonstige"}
+ROLE_EN = {"mitbewohner": "flatmate", "nachbar": "neighbour", "hausverwaltung": "property management", "vermieter": "landlord", "polizei": "police", "sonstige": "other"}
+REP_TO = ("hv", "verm", "sonst")
+REP_DE = {"hv": "Hausverwaltung", "verm": "Vermieter", "sonst": "Sonstige Stelle"}
+REP_EN = {"hv": "property management", "verm": "landlord", "sonst": "other office"}
+
+
+def role_of(v):
+    v = str(v or "").strip().lower()
+    for k in ROLES:
+        if v in (k, ROLE_DE[k].lower(), ROLE_EN[k].lower()):
+            return k
+    return ""
+
+
 def persons():
     d = read_json(os.path.join(DIR, "personen.json"), {}) or {}
     return [p for p in d.get("list", []) if isinstance(p, str)][:50]
 
 
-def persons_set(lst):
+def persons_info():
+    """Zu den Namen (Liste bleibt wie bisher): Rolle und Erreichbarkeit, {Name: {"r": Rolle, "c": Erreichbarkeit}}."""
+    d = read_json(os.path.join(DIR, "personen.json"), {}) or {}
+    i = d.get("info") if isinstance(d.get("info"), dict) else {}
+    return {k: {"r": role_of(v.get("r")), "c": clean_text(v.get("c"), 120)} for k, v in i.items() if isinstance(v, dict)}
+
+
+def persons_set(lst, info=None):
+    """Zeilen „Name“ oder „Name; Rolle; Erreichbarkeit“."""
     if not pro_ok():
         return {"ok": False, "error": "pro"}
-    clean = list(dict.fromkeys(clean_text(x, 80) for x in (lst if isinstance(lst, list) else []) if clean_text(x, 80)))[:50]
-    write_json(os.path.join(DIR, "personen.json"), {"list": clean})
-    return {"ok": True, "list": clean}
+    names, inf = [], {}
+    for x in (lst if isinstance(lst, list) else []):
+        parts = [p.strip() for p in str(x or "").split(";")]
+        n = clean_text(parts[0], 80)
+        if not n or n in names:
+            continue
+        names.append(n)
+        r, c = role_of(parts[1] if len(parts) > 1 else ""), clean_text(parts[2] if len(parts) > 2 else "", 120)
+        if isinstance(info, dict) and isinstance(info.get(n), dict):
+            r = role_of(info[n].get("r")) or r; c = clean_text(info[n].get("c"), 120) or c
+        if r or c:
+            inf[n] = {"r": r, "c": c}
+    names = names[:50]
+    write_json(os.path.join(DIR, "personen.json"), {"list": names, "info": {k: v for k, v in inf.items() if k in names}})
+    return {"ok": True, "list": names, "info": persons_info()}
+
+
+EXT_TXT = {"freq": 80, "pol_nr": 40, "health": 300, "attest": 200, "wcontact": 120}
+
+
+def clean_ext(v):
+    """Weitere Angaben je Notiz (alle freiwillig): Häufigkeit, Polizei mit Vorgangsnummer, Meldung an Hausverwaltung/Vermieter
+    mit Datum, gesundheitliche Folgen, Vermerk Attest, Drohung/Gewalt, Rolle und Erreichbarkeit des Zeugen."""
+    if not isinstance(v, dict):
+        return {}
+    out = {k: clean_text(v.get(k), n) for k, n in EXT_TXT.items() if clean_text(v.get(k), n)}
+    for k in ("pol", "threat"):
+        if v.get(k) is True:
+            out[k] = True
+    if v.get("rep_to") in REP_TO:
+        out["rep_to"] = v["rep_to"]
+    if re.fullmatch(r"\d{4}-\d\d-\d\d", str(v.get("rep_date") or "")):
+        out["rep_date"] = v["rep_date"]
+    if role_of(v.get("wrole")):
+        out["wrole"] = role_of(v.get("wrole"))
+    if out.get("pol_nr"):
+        out["pol"] = True
+    return out
 
 
 # =====================================================================
@@ -542,24 +868,746 @@ def notes_path():
 
 def notes_all():
     with NOTES_LOCK:
-        if NOTES["data"] is None:
+        fresh = NOTES["data"] is None
+        if fresh:
             d = read_json(notes_path(), {})
             NOTES["data"] = d if isinstance(d, dict) else {}
         for k in ("free", "trash"):
             if not isinstance(NOTES["data"].get(k), list):
                 NOTES["data"][k] = []
+        if fresh:                                         # Nachweis: Protokoll zum gerade geladenen Stand
+            PROTO["state"] = None
+            try:
+                proto_init()
+            except Exception as e:
+                log("Protokoll:", e)
         return NOTES["data"]
 
 
 def notes_save():
     with NOTES_LOCK:
         write_json(notes_path(), notes_all())
+        try:
+            proto_sync()                                 # Nachweis: jede Änderung ins Protokoll
+        except Exception as e:
+            log("Protokoll:", e)
     mqtt_notes()
+
+# =====================================================================
+# Nachweis: Änderungsprotokoll mit Prüfsummenkette (nur anhängen)
+# notizen_protokoll.jsonl – je Zeile ein Vorgang (start, add, edit, del, restore, extern) mit dem vollständigen Inhalt der Notiz
+# danach (bei edit auch der vorigen Fassung). hash = SHA-256(prev_hash + "\n" + kanonisches JSON des Eintrags ohne hash/mac).
+# mac = dasselbe als HMAC-SHA256 mit einem Schlüssel in /data (liegt nicht bei den Daten in /share): wer nur /share ändern kann,
+# kann die Kette so nicht unbemerkt neu berechnen. notizen.json bleibt unverändert im bisherigen Format.
+# =====================================================================
+PROTO_LOCK = NOTES_LOCK                                  # eine Sperre für Notizen und Protokoll (keine Verklemmung)
+PROTO = {"state": None, "last": None, "n": 0}
+PROTO_ZERO = "0" * 64
+
+
+def proto_path():
+    return os.path.join(DIR, "notizen_protokoll.jsonl")
+
+
+def canon(o):
+    return json.dumps(o, sort_keys=True, ensure_ascii=False, separators=(",", ":"))
+
+
+def proto_key():
+    """Geheimer Schlüssel für die HMAC (einmal erzeugt, in /data). None, wenn /data nicht beschreibbar ist."""
+    p = os.path.join(PRIV, "nachweis_schluessel.json")
+    k = read_json(p, None) if os.path.exists(p) else None
+    if isinstance(k, dict) and re.fullmatch(r"[0-9a-f]{64}", str(k.get("k", ""))):
+        return k["k"]
+    try:
+        os.makedirs(PRIV, exist_ok=True)
+        k = secrets.token_hex(32); write_json(p, {"k": k, "ts": now_iso()})
+        return k
+    except OSError:
+        return None
+
+
+def proto_hashes(prev, e, key=None):
+    body = {x: v for x, v in e.items() if x not in ("hash", "mac")}
+    c = (prev + "\n" + canon(body)).encode("utf-8")
+    return hashlib.sha256(c).hexdigest(), (hmac.new(bytes.fromhex(key), c, hashlib.sha256).hexdigest() if key else None)
+
+
+def tz_name():
+    return os.environ.get("TZ") or time.strftime("%Z") or ""
+
+
+def proto_read():
+    """Alle Einträge (roh). Kaputte Zeilen kommen als {"_bad": Zeilentext}."""
+    out = []
+    try:
+        with open(proto_path(), encoding="utf-8") as f:
+            for line in f:
+                line = line.rstrip("\n")
+                if not line.strip():
+                    continue
+                try:
+                    e = json.loads(line)
+                    out.append(e if isinstance(e, dict) else {"_bad": line[:200]})
+                except ValueError:
+                    out.append({"_bad": line[:200]})
+    except OSError:
+        pass
+    return out
+
+
+def proto_replay(entries):
+    """Stand nach dem Protokoll: {"free": {id: Notiz}, "trash": {id: Notiz}}."""
+    st = {"free": {}, "trash": {}}
+    for e in entries:
+        op = e.get("op")
+        if op == "start":
+            st = {"free": {str(x.get("id")): x for x in e.get("notes") or [] if isinstance(x, dict)},
+                  "trash": {str(x.get("id")): x for x in e.get("trash") or [] if isinstance(x, dict)}}
+        elif op in ("add", "edit", "restore", "extern") and isinstance(e.get("note"), dict):
+            st["free"][str(e.get("id"))] = e["note"]; st["trash"].pop(str(e.get("id")), None)
+        elif op in ("del",):
+            st["free"].pop(str(e.get("id")), None)
+            if isinstance(e.get("note"), dict):
+                st["trash"][str(e.get("id"))] = e["note"]
+        elif op == "extern_del":
+            st["free"].pop(str(e.get("id")), None)
+            if isinstance(e.get("note"), dict):
+                st["trash"][str(e.get("id"))] = e["note"]
+    return st
+
+
+def proto_append(op, nid, note=None, prev=None, extra=None):
+    with PROTO_LOCK:
+        key = proto_key()
+        now = dt.datetime.now().astimezone()
+        e = {"n": PROTO["n"], "t": int(now.timestamp() * 1000), "iso": now.isoformat(timespec="milliseconds"), "tz": tz_name(), "op": op, "id": nid,
+             "prev_hash": PROTO["last"] or PROTO_ZERO}
+        if note is not None:
+            e["note"] = note
+        if prev is not None:
+            e["prev"] = prev
+        if extra:
+            e.update(extra)
+        h, m = proto_hashes(e["prev_hash"], e, key)
+        e["hash"] = h
+        if m:
+            e["mac"] = m
+        os.makedirs(DIR, exist_ok=True)
+        with open(proto_path(), "a", encoding="utf-8") as f:
+            f.write(canon(e) + "\n"); f.flush()
+            try:
+                os.fsync(f.fileno())
+            except OSError:
+                pass
+        PROTO["last"] = h; PROTO["n"] += 1
+        return e
+
+
+def proto_init():
+    """Beim ersten Mal: Start-Eintrag mit den vorhandenen Notizen. Sonst Stand aus dem Protokoll laden und mit notizen.json
+    vergleichen – Abweichungen (außerhalb von GReport geändert) werden als „extern“ festgehalten, nicht verschwiegen."""
+    with PROTO_LOCK, NOTES_LOCK:
+        if PROTO["state"] is not None:
+            return
+        ents = [e for e in proto_read() if "_bad" not in e]
+        a = notes_all()
+        if not ents:
+            PROTO.update(last=None, n=0)
+            proto_append("start", "", extra={"notes": a["free"], "trash": a["trash"], "app": BRAND, "v": VERSION})
+            PROTO["state"] = {"free": {str(x.get("id")): json.loads(canon(x)) for x in a["free"]},
+                              "trash": {str(x.get("id")): json.loads(canon(x)) for x in a["trash"]}}
+            return
+        PROTO["last"] = ents[-1].get("hash"); PROTO["n"] = int(ents[-1].get("n", len(ents) - 1)) + 1
+        PROTO["state"] = proto_replay(ents)
+        proto_sync(extern=True)
+
+
+def proto_sync(extern=False):
+    """Jede Änderung an den Notizen ins Protokoll (aufgerufen beim Speichern)."""
+    with PROTO_LOCK, NOTES_LOCK:
+        st = PROTO["state"]
+        if st is None:
+            return
+        a = notes_all()
+        free = {str(x.get("id")): x for x in a["free"]}
+        trash = {str(x.get("id")): x for x in a["trash"]}
+        for nid, x in free.items():
+            old = st["free"].get(nid)
+            if old is None:
+                op = "extern" if extern else ("restore" if nid in st["trash"] else "add")
+                proto_append(op, nid, x, extra={"by": x.get("by") or "app"})
+            elif canon(old) != canon(x):
+                proto_append("extern" if extern else "edit", nid, x, prev=old)
+        for nid in list(st["free"]):
+            if nid not in free:
+                if extern:
+                    proto_append("extern_del", nid, trash.get(nid), prev=st["free"][nid])
+                else:
+                    proto_append("del", nid, trash.get(nid) or dict(st["free"][nid], deleted=now_iso()))
+        PROTO["state"] = {"free": {k: json.loads(canon(v)) for k, v in free.items()}, "trash": {k: json.loads(canon(v)) for k, v in trash.items()}}
+
+
+def _vt(de, en, **kw):
+    s_ = en if lang() == "en" else de
+    return s_.format(**kw)
+
+
+def proto_verify():
+    """Kette nachrechnen und mit notizen.json vergleichen. Ändert nichts."""
+    ents = proto_read()
+    key_p = os.path.join(PRIV, "nachweis_schluessel.json")
+    kd = read_json(key_p, None) if os.path.exists(key_p) else None
+    key = kd.get("k") if isinstance(kd, dict) else None
+    probs, warns, prev, macs = [], [], PROTO_ZERO, 0
+    good = []
+    for i, e in enumerate(ents):
+        if "_bad" in e:
+            probs.append({"line": i + 1, "what": _vt("Zeile {i} ist kein gültiger Eintrag", "Line {i} is not a valid entry", i=i + 1)}); prev = None; continue
+        if prev is not None and e.get("prev_hash") != prev:
+            probs.append({"line": i + 1, "id": e.get("id"), "what": _vt("Zeile {i}: Verkettung unterbrochen (Eintrag fehlt, wurde eingefügt oder verschoben)",
+                                                                         "Line {i}: chain broken (entry missing, inserted or moved)", i=i + 1)})
+        h, m = proto_hashes(e.get("prev_hash") or "", e, key if e.get("mac") else None)
+        if h != e.get("hash"):
+            probs.append({"line": i + 1, "id": e.get("id"), "what": _vt("Zeile {i}: Inhalt passt nicht zur Prüfsumme (nachträglich geändert)",
+                                                                         "Line {i}: content does not match its hash (changed afterwards)", i=i + 1)})
+        elif e.get("mac"):
+            if key and m != e["mac"]:
+                probs.append({"line": i + 1, "id": e.get("id"), "what": _vt("Zeile {i}: Schlüssel-Prüfsumme passt nicht (Kette wurde neu berechnet)",
+                                                                             "Line {i}: keyed hash does not match (chain was recomputed)", i=i + 1)})
+            else:
+                macs += 1
+        if i == 0 and e.get("op") != "start":
+            probs.append({"line": 1, "what": _vt("Der Start-Eintrag fehlt", "The start entry is missing")})
+        if e.get("op") in ("extern", "extern_del"):
+            warns.append({"line": i + 1, "id": e.get("id"), "t": e.get("iso"),
+                          "what": _vt("Am {t} wurde eine Änderung außerhalb von GReport festgestellt (Notiz {id})",
+                                      "On {t} a change made outside GReport was detected (note {id})", t=e.get("iso", "?"), id=e.get("id"))})
+        prev = e.get("hash"); good.append(e)
+    st = proto_replay(good)
+    disk = read_json(notes_path(), {}) or {}
+    free = {str(x.get("id")): x for x in (disk.get("free") or []) if isinstance(x, dict)}
+    for nid, x in free.items():
+        if nid not in st["free"]:
+            probs.append({"id": nid, "what": _vt("Notiz {id} steht in notizen.json, aber nicht im Protokoll", "Note {id} is in notizen.json but not in the log", id=nid)})
+        elif canon(x) != canon(st["free"][nid]):
+            probs.append({"id": nid, "what": _vt("Notiz {id} in notizen.json weicht vom Protokoll ab", "Note {id} in notizen.json differs from the log", id=nid)})
+    for nid in st["free"]:
+        if nid not in free:
+            probs.append({"id": nid, "what": _vt("Notiz {id} fehlt in notizen.json", "Note {id} is missing from notizen.json", id=nid)})
+    av = att_verify(good)                                # Anlagen: Protokoll, anlagen.json und Prüfsumme jeder Datei
+    probs += av["problems"]
+    first, last = (ents[0] if ents and "_bad" not in ents[0] else {}), (ents[-1] if ents and "_bad" not in ents[-1] else {})
+    return {"ok": bool(ents) and not probs, "n": len(ents), "notes": len(free), "first_hash": first.get("hash"), "last_hash": last.get("hash"),
+            "since": first.get("iso"), "last": last.get("iso"), "problems": probs[:200], "warnings": warns[:200], "keyed": macs, "now": now_iso(),
+            "tz": tz_name(), "clock": clock_text(), "ntp": ha_clock(), "files": av["n"], "files_active": av["active"], "empty": not ents}
+
+
+def proto_history(nid):
+    nid = str(nid or "")
+    return [{"op": e.get("op"), "t": e.get("t"), "iso": e.get("iso"), "note": e.get("note"), "prev": e.get("prev"), "hash": e.get("hash")}
+            for e in proto_read() if "_bad" not in e and (e.get("id") == nid or (e.get("op") == "start" and any(str(x.get("id")) == nid for x in e.get("notes") or [])))]
+
+
+def proof_block():
+    v = proto_verify()
+    return {"anzahl_notizen": v["notes"], "eintraege": v["n"], "erster_hash": v["first_hash"], "letzter_hash": v["last_hash"],
+            "erstellt": now_iso(), "zeitzone": v["tz"], "unveraendert": v["ok"], "zeitquelle": v["clock"], "anlagen": v["files_active"]}
+
+
+def proof_text(pb):
+    de = lang() != "en"
+    rows = [("Prüfblock" if de else "Verification block", ""), ("Notizen" if de else "Notes", pb["anzahl_notizen"]),
+            ("Protokoll-Einträge" if de else "Log entries", pb["eintraege"]), ("Erster Hash" if de else "First hash", pb["erster_hash"] or "–"),
+            ("Letzter Hash" if de else "Last hash", pb["letzter_hash"] or "–"), ("Erstellt" if de else "Created", pb["erstellt"]),
+            ("Zeitzone" if de else "Time zone", pb["zeitzone"] or "–"), ("Anlagen" if de else "Attachments", pb.get("anlagen", 0)),
+            ("Prüfung" if de else "Check", ("unverändert" if de else "unchanged") if pb["unveraendert"] else ("Abweichung – siehe „Nachweis prüfen“" if de else "deviation – see “Verify record”"))]
+    return "\n--- " + rows[0][0] + " ---\n" + "\n".join(f"{k}: {v}" for k, v in rows[1:]) + "\n" + pb["zeitquelle"] + "\n"
+
+
+def nachweis_json():
+    return {"app": BRAND, "v": VERSION, "erstellt": now_iso(), "pruefung": proto_verify(), "eintraege": proto_read(),
+            "hinweis": "hash = SHA-256(prev_hash + \"\\n\" + JSON des Eintrags ohne hash/mac, Schlüssel sortiert, ohne Leerzeichen, UTF-8)"}
+
+
+# =====================================================================
+# Anlagen: Dateien zu Notizen (frei). Gespeichert unverändert unter anlagen/<jahr>/<id>_<name>, dazu anlagen/anlagen.json
+# (Name, Art, Größe, SHA-256, hochgeladen, Beschreibung, Notizen). Jede Anlage und jede Änderung daran steht im
+# Änderungsprotokoll (file_add, file_edit, file_del, file_restore, file_text). Entfernen = Papierkorb, die Datei bleibt.
+# Erkannter Text kommt in eine eigene Datei <id>_<name>.erkannt.txt (mit eigener Prüfsumme) – das Original bleibt unberührt.
+# =====================================================================
+import dokument  # noqa: E402
+
+MB = 1024 * 1024
+ATT_LOCK = threading.RLock()
+ATT = {"data": None}
+ATT_MAX_FILES = 5000
+SCAN = {}                                                # laufende Texterkennung: {id: {"state": "run"|"err", "error": …}}
+
+
+def att_dir():
+    return os.path.join(DIR, "anlagen")
+
+
+def att_index_path():
+    return os.path.join(att_dir(), "anlagen.json")
+
+
+def att_limits():
+    """Grenzen (Konfiguration der App): je Datei Standard 25 MB, zusammen 500 MB."""
+    def mb(k, d, lo, hi):
+        try:
+            return max(lo, min(hi, int(OPT.get(k) or d)))
+        except (TypeError, ValueError):
+            return d
+    return {"file": mb("attach_max_mb", 25, 1, 500) * MB, "total": mb("attach_total_mb", 500, 10, 100000) * MB}
+
+
+def att_all():
+    with ATT_LOCK:
+        if ATT["data"] is None:
+            d = read_json(att_index_path(), {}) or {}
+            ATT["data"] = {"files": [x for x in (d.get("files") or []) if isinstance(x, dict) and x.get("id")]}
+            ATT["map"] = None
+        return ATT["data"]
+
+
+def att_save():
+    with ATT_LOCK:
+        write_json(att_index_path(), att_all()); ATT["map"] = None
+
+
+def att_get(aid):
+    return next((x for x in att_all()["files"] if x.get("id") == aid), None)
+
+
+def att_path(x, which="file"):
+    rel = (x.get("txt") or {}).get("file") if which == "txt" else x.get("file")
+    if not rel or ".." in str(rel).split("/") or str(rel).startswith("/"):
+        return None
+    return os.path.join(att_dir(), rel)
+
+
+_TRANS = str.maketrans({"ä": "ae", "ö": "oe", "ü": "ue", "Ä": "Ae", "Ö": "Oe", "Ü": "Ue", "ß": "ss"})
+
+
+def safe_name(n):
+    """Dateiname für die Ablage: nur Buchstaben, Ziffern, . _ - (Endung klein)."""
+    base = os.path.basename(str(n or "").replace("\\", "/"))
+    stem, ext = os.path.splitext(base)
+    stem = re.sub(r"[^A-Za-z0-9._-]+", "_", stem.translate(_TRANS)).strip("._-")[:60] or "datei"
+    return stem + re.sub(r"[^a-z0-9.]", "", ext.lower())[:8]
+
+
+def att_used():
+    return sum(int(x.get("size") or 0) + int((x.get("txt") or {}).get("size") or 0) for x in att_all()["files"])
+
+
+def att_public(x, full=False):
+    out = {k: x.get(k) for k in ("id", "name", "kind", "type", "size", "sha256", "up", "desc", "notes", "del", "mtime", "by") if x.get(k) not in (None, "")}
+    out["notes"] = list(x.get("notes") or [])
+    if x.get("txt"):
+        out["txt"] = {k: x["txt"].get(k) for k in ("sha256", "size", "method", "pages", "at", "doc_date") if x["txt"].get(k) is not None}
+    if full:
+        out["file"] = x.get("file")
+        if x.get("txt"):
+            out["txt"]["file"] = x["txt"].get("file")
+    return out
+
+
+def att_by_note():
+    """{Notiz-Kennung: [Anlage, …]} (ohne Papierkorb)."""
+    fs = att_all()["files"]
+    if ATT.get("map") is not None:
+        return ATT["map"]
+    m = {}
+    for x in fs:
+        if x.get("del"):
+            continue
+        for n in x.get("notes") or []:
+            m.setdefault(n, []).append(x)
+    ATT["map"] = m
+    return m
+
+
+def att_note_ok(nid):
+    with NOTES_LOCK:
+        return any(x.get("id") == nid for x in notes_all()["free"])
+
+
+def _att_log(op, x, prev=None):
+    notes_all()                                          # Protokoll gestartet (Start-Eintrag), bevor eine Anlage hineinkommt
+    proto_append(op, x["id"], prev=prev, extra={"file": json.loads(canon(x))})
+
+
+def att_upload(stream, length, name, desc="", note_ids=(), mtime=None, by="app"):
+    """Datei unverändert ablegen (Inhalt aus stream, genau length Bytes). Prüft Art, Grenzen und Dateianfang."""
+    kind = dokument.kind_of(name)
+    if not kind:
+        return {"ok": False, "error": "kind"}
+    lim = att_limits()
+    if length <= 0:
+        return {"ok": False, "error": "empty"}
+    if length > lim["file"]:
+        return {"ok": False, "error": "too big", "max": lim["file"]}
+    with ATT_LOCK:
+        if att_used() + length > lim["total"]:
+            return {"ok": False, "error": "full", "max": lim["total"]}
+        if len(att_all()["files"]) >= ATT_MAX_FILES:
+            return {"ok": False, "error": "limit"}
+        aid = "a_" + secrets.token_hex(5)
+        year = str(dt.date.today().year)
+        rel = f"{year}/{aid}_{safe_name(name)}"
+        full = os.path.join(att_dir(), rel)
+        os.makedirs(os.path.dirname(full), exist_ok=True)
+    tmp = full + ".part"
+    h, n, head = hashlib.sha256(), 0, b""
+    try:
+        with open(tmp, "wb") as f:
+            while n < length:
+                chunk = stream.read(min(MB, length - n))
+                if not chunk:
+                    break
+                if len(head) < 65536:
+                    head += chunk[:65536 - len(head)]
+                h.update(chunk); f.write(chunk); n += len(chunk)
+            f.flush(); os.fsync(f.fileno())
+        if n != length:
+            raise ValueError("short")
+        if not dokument.sniff_ok(kind, head):
+            raise TypeError("type")
+        os.replace(tmp, full)
+        try:
+            os.chmod(full, 0o444)                          # Original nur lesbar
+        except OSError:
+            pass
+    except (OSError, ValueError, TypeError) as e:
+        try:
+            os.remove(tmp)
+        except OSError:
+            pass
+        return {"ok": False, "error": "type" if isinstance(e, TypeError) else "incomplete" if isinstance(e, ValueError) else "io"}
+    x = {"id": aid, "name": clean_text(os.path.basename(str(name).replace("\\", "/")), 120) or safe_name(name), "file": rel, "kind": kind,
+         "type": dokument.MIME.get(kind, "application/octet-stream"), "size": n, "sha256": h.hexdigest(), "up": now_iso(), "desc": clean_text(desc, 300),
+         "notes": [x_ for x_ in dict.fromkeys(str(i) for i in note_ids or []) if att_note_ok(x_)][:50], "by": by}
+    try:
+        if mtime and 946684800000 < int(mtime) < 4102444800000:
+            x["mtime"] = iso_of(int(mtime))               # Änderungsdatum der Datei auf dem Gerät (für relative Angaben im Dokument)
+    except (TypeError, ValueError):
+        pass
+    with NOTES_LOCK, ATT_LOCK:
+        att_all()["files"].append(x); att_save(); _att_log("file_add", x)
+    return {"ok": True, "file": att_public(x)}
+
+
+def att_change(d):
+    """Beschreibung ändern (desc), an Notiz hängen/lösen (link/unlink), in den Papierkorb (del), zurückholen (restore)."""
+    a = str(d.get("action") or "")
+    with NOTES_LOCK, ATT_LOCK:
+        x = att_get(str(d.get("id") or ""))
+        if x is None:
+            return {"ok": False, "error": "not found"}
+        old = json.loads(canon(x))
+        if a == "desc":
+            x["desc"] = clean_text(d.get("desc"), 300)
+            if not x["desc"]:
+                x.pop("desc")
+            op = "file_edit"
+        elif a in ("link", "unlink"):
+            nid = str(d.get("note") or "")
+            if a == "link":
+                if not att_note_ok(nid):
+                    return {"ok": False, "error": "not found"}
+                x["notes"] = list(dict.fromkeys(list(x.get("notes") or []) + [nid]))[:50]
+            else:
+                x["notes"] = [n for n in x.get("notes") or [] if n != nid]
+            op = "file_edit"
+        elif a == "del":
+            if x.get("del"):
+                return {"ok": True, "file": att_public(x)}
+            x["del"] = now_iso(); op = "file_del"
+        elif a == "restore":
+            if not x.get("del"):
+                return {"ok": True, "file": att_public(x)}
+            x.pop("del", None); x["restored"] = now_iso(); op = "file_restore"
+        else:
+            return {"ok": False, "error": "bad action"}
+        if canon(old) == canon(x):
+            return {"ok": True, "file": att_public(x)}
+        att_save(); _att_log(op, x, prev=old)
+    return {"ok": True, "file": att_public(x)}
+
+
+def att_state():
+    lim = att_limits()
+    fs = att_all()["files"]
+    return {"ok": True, "files": [att_public(x) for x in fs if not x.get("del")][::-1], "trash": [att_public(x) for x in fs if x.get("del")][::-1],
+            "used": att_used(), "max_file": lim["file"], "max_total": lim["total"], "tools": dokument.tools(), "pro": pro_ok(),
+            "kinds": sorted(set(dokument.KINDS))}
+
+
+def sha256_file(p):
+    h = hashlib.sha256()
+    with open(p, "rb") as f:
+        for chunk in iter(lambda: f.read(MB), b""):
+            h.update(chunk)
+    return h.hexdigest()
+
+
+def att_verify(entries):
+    """Anlagen gegen das Protokoll und gegen ihre Prüfsummen prüfen (nur lesen)."""
+    st, probs = {}, []
+    for e in entries:
+        if str(e.get("op", "")).startswith("file_") and isinstance(e.get("file"), dict):
+            st[str(e.get("id"))] = e["file"]
+    disk = read_json(att_index_path(), {}) or {}
+    idx = {str(x.get("id")): x for x in (disk.get("files") or []) if isinstance(x, dict)}
+    for aid, x in idx.items():
+        nm = x.get("name") or aid
+        if aid not in st:
+            probs.append({"id": aid, "what": _vt("Anlage „{n}“ steht in anlagen.json, aber nicht im Protokoll", "Attachment “{n}” is in anlagen.json but not in the log", n=nm)})
+        elif canon(x) != canon(st[aid]):
+            probs.append({"id": aid, "what": _vt("Angaben zur Anlage „{n}“ in anlagen.json weichen vom Protokoll ab", "Details of attachment “{n}” in anlagen.json differ from the log", n=nm)})
+    for aid, x in st.items():
+        nm = x.get("name") or aid
+        if aid not in idx:
+            probs.append({"id": aid, "what": _vt("Anlage „{n}“ fehlt in anlagen.json", "Attachment “{n}” is missing from anlagen.json", n=nm)})
+        for which, h_ in (("file", x.get("sha256")), ("txt", (x.get("txt") or {}).get("sha256"))):
+            if which == "txt" and not x.get("txt"):
+                continue
+            p = att_path(x, which)
+            label = nm + (_vt(" (erkannter Text)", " (recognised text)") if which == "txt" else "")
+            if not p or not os.path.isfile(p):
+                probs.append({"id": aid, "what": _vt("Datei der Anlage „{n}“ fehlt", "File of attachment “{n}” is missing", n=label)})
+            else:
+                try:
+                    ok = sha256_file(p) == h_
+                except OSError:
+                    ok = False
+                if not ok:
+                    probs.append({"id": aid, "what": _vt("Datei der Anlage „{n}“ wurde verändert (Prüfsumme passt nicht)", "File of attachment “{n}” was changed (hash does not match)", n=label)})
+    return {"n": len(st), "active": sum(1 for x in st.values() if not x.get("del")), "problems": probs}
+
+
+# ---------- Texterkennung und Vorschläge für Notizen ----------
+def att_doc_date(x):
+    """Bezugsdatum für relative Angaben („gestern Nacht“): Datum im Dokument (E-Mail, PDF), sonst Änderungsdatum der Datei."""
+    for v in ((x.get("txt") or {}).get("doc_date"), x.get("mtime")):
+        if v and ms_of(v):
+            return dt.datetime.fromtimestamp(ms_of(v) / 1000).astimezone(), True
+    return dt.datetime.fromtimestamp((ms_of(x.get("up")) or time.time() * 1000) / 1000).astimezone(), False
+
+
+def att_scan_run(aid):
+    """Text erkennen (im Hintergrund) und als eigene Datei mit Prüfsumme ablegen."""
+    x = att_get(aid)
+    try:
+        src = att_path(x)
+        r = dokument.extract(src, x.get("kind"))
+        txt = dokument.pages_to_text(r["pages"])
+        rel = os.path.splitext(x["file"])[0] + ".erkannt.txt"
+        full = os.path.join(att_dir(), rel)
+        data = txt.encode("utf-8")
+        with ATT_LOCK:
+            if att_used() + len(data) > att_limits()["total"]:
+                raise dokument.ExtractError("full")
+        tmp = full + ".part"
+        with open(tmp, "wb") as f:
+            f.write(data); f.flush(); os.fsync(f.fileno())
+        if os.path.exists(full):
+            try:
+                os.chmod(full, 0o644)
+            except OSError:
+                pass
+        os.replace(tmp, full)
+        try:
+            os.chmod(full, 0o444)
+        except OSError:
+            pass
+        with NOTES_LOCK, ATT_LOCK:
+            x = att_get(aid); old = json.loads(canon(x))
+            x["txt"] = {"file": rel, "sha256": hashlib.sha256(data).hexdigest(), "size": len(data), "method": r["method"], "pages": len(r["pages"]), "at": now_iso()}
+            if r.get("date"):
+                x["txt"]["doc_date"] = r["date"].isoformat(timespec="seconds")
+            att_save(); _att_log("file_text", x, prev=old)
+        SCAN.pop(aid, None)
+    except dokument.ExtractError as e:
+        SCAN[aid] = {"state": "err", "error": e.code, "detail": str(e.detail)[:200], "t": time.time()}
+    except Exception as e:                                  # nie den Server stören
+        log("Texterkennung:", e)
+        SCAN[aid] = {"state": "err", "error": "x", "detail": str(e)[:200], "t": time.time()}
+
+
+def att_scan(aid, again=False):
+    x = att_get(aid)
+    if x is None or x.get("del"):
+        return {"ok": False, "error": "not found"}
+    if SCAN.get(aid, {}).get("state") == "run":
+        return {"ok": True, "state": "run"}
+    if x.get("txt") and not again:
+        return doc_suggest(aid)
+    if sum(1 for v in SCAN.values() if v.get("state") == "run") >= 2:
+        return {"ok": False, "error": "busy"}
+    SCAN[aid] = {"state": "run", "t": time.time()}
+    threading.Thread(target=att_scan_run, args=(aid,), daemon=True).start()
+    return {"ok": True, "state": "run"}
+
+
+def _stems(label):
+    out = []
+    for p in re.split(r"[/,]", str(label or "")):
+        p = p.strip().lower()
+        if len(p) >= 3:
+            out.append(p if len(p) < 6 else p[:max(5, len(p) - 2)])
+    return out
+
+
+def _similar(a, b):
+    import difflib
+    a, b = re.sub(r"\W+", " ", str(a or "").lower()).strip(), re.sub(r"\W+", " ", str(b or "").lower()).strip()
+    if not a or not b:
+        return not a and not b
+    return a in b or b in a or difflib.SequenceMatcher(None, a, b).ratio() >= 0.6
+
+
+def doc_suggest(aid):
+    """Vorschläge aus dem erkannten Text: je Fundstelle eine Notiz (von–bis, Satz, Seite/Zeile, Einstufung), dazu passende
+    Schnellwahl-Wörter und bekannte Zeugen. Doppelte (±5 Min. und ähnlicher Text) sind markiert. Ändert nichts."""
+    x = att_get(aid)
+    if x is None:
+        return {"ok": False, "error": "not found"}
+    st = SCAN.get(aid)
+    if st and st.get("state") == "run":
+        return {"ok": True, "state": "run"}
+    if st and st.get("state") == "err" and not x.get("txt"):
+        return {"ok": True, "state": "err", "error": st.get("error"), "detail": st.get("detail")}
+    if not x.get("txt"):
+        return {"ok": True, "state": "none"}
+    p = att_path(x, "txt")
+    try:
+        with open(p, encoding="utf-8") as f:
+            text = f.read()
+    except OSError:
+        return {"ok": False, "error": "io"}
+    ref, known = att_doc_date(x)
+    hits = dokument.find_times(text.split("\f"), ref, known)
+    words = []
+    for k, l in _label_map().items():
+        if tag_ok(l) and len(k) >= 3:
+            words.append((l, _stems(k)))
+    pers = persons()
+    with NOTES_LOCK:
+        have = [note_public(n) for n in notes_all()["free"]]
+    out = []
+    for i, h in enumerate(hits[:500]):
+        sent = h["sentence"]; low = sent.lower()
+        tags = []
+        for key, stems in words:
+            if key not in tags and any(re.search(r"(?<![\wäöüß])" + re.escape(s_), low) for s_ in stems):
+                tags.append(key)
+        wit = [n for n in pers if re.search(r"(?<!\w)" + re.escape(n.lower()) + r"(?!\w)", low)]
+        a = ms_of(h["from"])
+        dup = None
+        for n in have:
+            sd = n.get("src_doc") or {}
+            if sd.get("id") == aid and sd.get("page") == h["page"] and sd.get("line") == h["line"] and abs((n.get("a") or 0) - a) <= 300000:
+                dup = n["id"]; break
+            if not n.get("notime") and n.get("a") and abs(n["a"] - a) <= 300000 and _similar(n.get("text"), h["text"]):
+                dup = n["id"]; break
+        dup_of = next((j for j, o in enumerate(out) if abs(ms_of(o["from"]) - a) <= 300000 and _similar(o["text"], h["text"])), None)
+        out.append(dict(h, i=i, tags=tags[:12], witness=", ".join(wit[:5]), dup=dup, dup_of=dup_of))
+    return {"ok": True, "state": "done", "id": aid, "name": x.get("name"), "suggestions": out, "doc_date": ref.isoformat(timespec="seconds"), "doc_date_known": known,
+            "method": x["txt"].get("method"), "pages": x["txt"].get("pages"), "more": max(0, len(hits) - 500), "pro": pro_ok()}
+
+
+def doc_apply(d):
+    """Pro (wie der Import): gewählte Vorschläge als Notizen übernehmen. Erfassungszeit = jetzt; die Zeit aus dem Dokument
+    ist die Zeit der Notiz, Herkunft steht in src_doc {id, page, line}. Nichts wird vorher angelegt."""
+    if not pro_ok():
+        return {"ok": False, "error": "pro"}
+    aid = str(d.get("id") or "")
+    x = att_get(aid)
+    if x is None or x.get("del"):
+        return {"ok": False, "error": "not found"}
+    items = d.get("items") if isinstance(d.get("items"), list) else []
+    ref, known = att_doc_date(x)
+    made, errs = [], []
+    for it in items[:500]:
+        if not isinstance(it, dict):
+            continue
+        conf = it.get("conf") if it.get("conf") in dokument.CONF else "unklar"
+        try:
+            page, line = max(0, int(it.get("page") or 0)), max(0, int(it.get("line") or 0))
+        except (TypeError, ValueError):
+            page, line = 0, 0
+        sd = {"id": aid, "name": x.get("name"), "page": page, "line": line, "conf": conf}
+        if known:
+            sd["doc_t"] = ref.isoformat(timespec="seconds")             # Datum des Dokuments – getrennt von Ereignis- und Erfassungszeit
+        r = note_change("add", {"text": it.get("text"), "from": it.get("from"), "to": it.get("to") or "", "tags": it.get("tags") or [],
+                                "witness": it.get("witness") or "", "cap": int(time.time() * 1000), "approx": conf != "genau" or bool(it.get("date_only")),
+                                "typed": True, "_src_doc": sd}, by="dokument")
+        if r.get("ok"):
+            made.append(r["note"]["id"])
+        else:
+            errs.append({"i": it.get("i"), "error": r.get("error")})
+    if made:
+        with NOTES_LOCK, ATT_LOCK:
+            x = att_get(aid); old = json.loads(canon(x))
+            x["notes"] = list(dict.fromkeys(list(x.get("notes") or []) + made))[:5000]
+            att_save(); _att_log("file_edit", x, prev=old)
+    return {"ok": True, "n": len(made), "ids": made, "errors": errs}
+
+
+# ---------- Uhr von Home Assistant (für den Nachweis) ----------
+CLOCK = {"t": 0, "v": None}
+
+
+def ha_clock():
+    """Zeitquelle: Systemzeit des Servers. NTP-Abgleich über den Supervisor (host/info), wenn erreichbar – sonst None."""
+    if time.time() - CLOCK["t"] < 600:
+        return CLOCK["v"]
+    CLOCK["t"] = time.time(); v = None
+    tok = os.environ.get("SUPERVISOR_TOKEN")
+    if tok:
+        try:
+            req = urllib.request.Request(os.environ.get("GR_SUPERVISOR", "http://supervisor") + "/host/info", headers={"Authorization": f"Bearer {tok}"})
+            with urllib.request.urlopen(req, timeout=4) as r:
+                dd = (json.loads(r.read() or b"{}") or {}).get("data") or {}
+            if "dt_synchronized" in dd or "use_ntp" in dd:
+                v = {"ntp": dd.get("use_ntp"), "sync": dd.get("dt_synchronized"), "tz": dd.get("timezone")}
+        except Exception:
+            v = None
+    CLOCK["v"] = v
+    return v
+
+
+def clock_text():
+    c = ha_clock()
+    s_ = _vt("Zeitquelle: Uhr von Home Assistant (Systemzeit des Servers)", "Time source: Home Assistant clock (server system time)")
+    if c and c.get("sync") is not None:
+        s_ += _vt("; Abgleich mit Zeitserver (NTP): ", "; synchronised with time server (NTP): ") + (_vt("ja", "yes") if c["sync"] else _vt("nein", "no"))
+    else:
+        s_ += _vt("; Abgleich mit Zeitserver (NTP): nicht bekannt", "; synchronised with time server (NTP): unknown")
+    return s_
+
 
 
 def note_public(x):
+    """Für die Anzeige: a/b in ms. Notiz ohne Zeitpunkt (notime): „from“ bleibt leer – so hängt GLighter sie an keine Störung –,
+    a ist dann der Zeitpunkt, zu dem sie geschrieben wurde (für Sortierung und Zeitraum)."""
+    if x.get("notime"):
+        a = ms_of(x.get("at")) or ms_of(x.get("ts")) or ms_of(x.get("from"))
+        return dict(x, a=a, b=a, notime=True, tagl=[tag_label(t) for t in x.get("tags") or []], att=_att_n(x))
     a = ms_of(x.get("from")); b = ms_of(x.get("to")) if x.get("to") else None
-    return dict(x, a=a, b=b or a, tagl=[tag_label(t) for t in x.get("tags") or []])
+    return dict(x, a=a, b=b or a, tagl=[tag_label(t) for t in x.get("tags") or []], att=_att_n(x))
+
+
+def _att_n(x):
+    """Anlagen der Notiz für die Anzeige: [{id, name, kind, size}] (ohne Papierkorb)."""
+    try:
+        return [{"id": a["id"], "name": a.get("name"), "kind": a.get("kind"), "size": a.get("size")} for a in att_by_note().get(x.get("id"), [])]
+    except Exception:
+        return []
 
 
 def notes_list(t_from=None, t_to=None, q="", limit=500):
@@ -593,10 +1641,39 @@ def note_text(x):
     return " · ".join(p for p in parts if p)[:250]
 
 
+HA_RATE = {"last": 0.0, "tok": 5.0, "day": None, "n": 0, "warned": None}
+HA_MAX_DAY = 500
+HA_BURST = 5.0                                          # kurz hintereinander bis 5, im Schnitt höchstens 1 je Sekunde
+
+
+def ha_rate_ok():
+    """Notizen aus Home Assistant/MQTT: höchstens 1 je Sekunde und 500 am Tag (aus der App selbst unbegrenzt)."""
+    now = time.time(); day = dt.date.today()
+    if HA_RATE["day"] != day:
+        HA_RATE.update(day=day, n=0)
+    HA_RATE["tok"] = min(HA_BURST, HA_RATE["tok"] + (now - HA_RATE["last"])); HA_RATE["last"] = now
+    if HA_RATE["tok"] < 1.0 or HA_RATE["n"] >= HA_MAX_DAY:
+        if HA_RATE["warned"] != day:
+            HA_RATE["warned"] = day
+            log("Notizen aus Home Assistant: zu viele – wird gebremst")
+            logbook({"text": "Zu viele Notizen aus Home Assistant – weitere werden heute abgelehnt (höchstens 1 je Sekunde, 500 am Tag)."
+                     if lang() != "en" else "Too many notes from Home Assistant – more are rejected today (at most 1 per second, 500 per day).", "tags": []})
+        return False
+    HA_RATE["tok"] -= 1.0; HA_RATE["n"] += 1
+    return True
+
+
 def note_change(action, data, by="app"):
     with NOTES_LOCK:
         a = notes_all(); lst = a["free"]
         nid = str(data.get("id") or "")
+        if action == "restore":                              # aus dem Papierkorb zurückholen
+            idx = next((i for i, x in enumerate(a["trash"]) if x.get("id") == nid), None)
+            if idx is None or any(x.get("id") == nid for x in lst):
+                return {"ok": False, "error": "not found"}
+            x = a["trash"].pop(idx); x.pop("deleted", None); x["restored"] = now_iso(); lst.append(x)
+            notes_save(); diary_soon()
+            return {"ok": True, "note": note_public(x)}
         if action == "del":
             idx = next((i for i, x in enumerate(lst) if x.get("id") == nid), None)
             if idx is None:
@@ -605,9 +1682,10 @@ def note_change(action, data, by="app"):
             notes_save()
             diary_soon()
             return {"ok": True}
-        f = str(data.get("from") or "")[:25] or now_iso(); to = str(data.get("to") or "")[:25]
+        notime = data.get("notime") is True
+        f = str(data.get("from") or "")[:25] or now_iso(); to = "" if notime else str(data.get("to") or "")[:25]
         fa, tb = ms_of(f), (ms_of(to) if to else None)
-        if fa is None:
+        if fa is None and not notime:
             return {"ok": False, "error": "from"}
         if to and (tb is None or tb < fa):
             return {"ok": False, "error": "to"}
@@ -619,13 +1697,37 @@ def note_change(action, data, by="app"):
         if not pro_ok():                                   # mehrere Zeugen: Pro
             wit = wit.split(",")[0].strip()[:80]
         src = re.sub(r"[^a-z0-9_]", "", str(data.get("src") or "all"))[:16] or "all"
-        rec = {"from": iso_of(fa), "to": iso_of(tb) if tb else "", "src": src, "text": text, "tags": tags,
+        rec = {"from": "" if notime else iso_of(fa), "to": iso_of(tb) if tb else "", "src": src, "text": text, "tags": tags,
                "witness": wit if (wit and ("zeuge" in tags or wit)) else ""}
+        if notime:
+            rec["notime"] = True
+        ext = clean_ext(data.get("ext"))
+        if ext:
+            rec["ext"] = ext
+        # Nachvollziehbar: wann tatsächlich notiert wurde (cap, ms) und welche Zeitpunkt-Taste die Zeit gesetzt hat (wk/wl, approx = ungefähr)
+        try:
+            cap = int(data.get("cap")) if data.get("cap") not in (None, "") else None
+        except (TypeError, ValueError):
+            cap = None
+        if cap and 946684800000 < cap < 4102444800000:
+            rec["cap"] = cap
+        wk = str(data.get("wk") or "")
+        if re.fullmatch(r"[wt]_[a-z0-9]{1,8}", wk):
+            rec["wk"] = wk; rec["wl"] = qt_clean_label(data.get("wl")) or tag_label(wk)
+            if data.get("approx") is True:
+                rec["approx"] = True
+        if by == "dokument" and isinstance(data.get("_src_doc"), dict):    # aus einem Dokument erkannt (nur intern, siehe doc_apply)
+            sd = data["_src_doc"]
+            rec["src_doc"] = {k: sd[k] for k in ("id", "name", "page", "line", "conf", "doc_t") if sd.get(k) not in (None, "")}
+            if data.get("approx") is True:
+                rec["approx"] = True
         if rec["witness"] and "zeuge" not in rec["tags"]:
             rec["tags"].append("zeuge")
         if action == "add":
             if len(lst) >= NOTES_MAX:
                 return {"ok": False, "error": "limit"}
+            if by == "homeassistant" and not ha_rate_ok():      # Schutz vor Flut aus Automationen
+                return {"ok": False, "error": "rate"}
             x = dict(rec, id="r_" + secrets.token_hex(5), ts=now_iso(), at=now_iso(), by=by)
             lst.append(x)
             qt_learn(rec["tags"], text if data.get("typed") else "")
@@ -633,6 +1735,11 @@ def note_change(action, data, by="app"):
             x = next((y for y in lst if y.get("id") == nid), None)
             if x is None:
                 return {"ok": False, "error": "not found"}
+            for k_ in ("notime", "cap", "wk", "wl", "approx", "ext"):     # beim Ändern gilt, was jetzt mitkommt
+                if k_ not in rec:
+                    x.pop(k_, None)
+            if notime and not x.get("at"):
+                x["at"] = x.get("ts") or now_iso()
             x.update(rec, edited=now_iso())
         notes_save()
     if action == "add":
@@ -652,15 +1759,18 @@ def notes_import(data):
     with NOTES_LOCK:
         a = notes_all(); have = {x.get("id") for x in a["free"]}
         for x in lst[:NOTES_MAX]:
-            if not isinstance(x, dict) or ms_of(x.get("from")) is None:
+            nt = isinstance(x, dict) and x.get("notime") is True and ms_of(x.get("at") or x.get("ts")) is not None
+            if not isinstance(x, dict) or (ms_of(x.get("from")) is None and not nt):
                 continue
             nid = re.sub(r"[^a-z0-9_]", "", str(x.get("id") or ""))[:20] or "r_" + secrets.token_hex(5)
             if nid in have:
                 continue
-            rec = {"id": nid, "from": iso_of(ms_of(x["from"])), "to": iso_of(ms_of(x["to"])) if ms_of(x.get("to")) else "",
+            rec = {"id": nid, "from": "" if nt else iso_of(ms_of(x["from"])), "to": "" if nt else iso_of(ms_of(x["to"])) if ms_of(x.get("to")) else "",
                    "src": re.sub(r"[^a-z0-9_]", "", str(x.get("src") or "all"))[:16] or "all", "text": clean_text(x.get("text")),
                    "tags": [t for t in (x.get("tags") or []) if isinstance(t, str) and (t in NOTE_TAG_SET or t.startswith("c_"))][:12],
                    "witness": clean_text(x.get("witness"), 200), "ts": str(x.get("ts") or now_iso())[:30], "by": "import"}
+            if nt:
+                rec.update(notime=True, at=str(x.get("at") or x.get("ts"))[:30])
             if not rec["text"] and not rec["tags"]:
                 continue
             a["free"].append(rec); have.add(nid); n += 1
@@ -679,7 +1789,7 @@ DIARY = {"lock": threading.Lock(), "timer": None, "last": None, "error": "", "fi
 
 
 def txt_default_path(ext="txt"):
-    return os.path.join(DIR, "greport_tagebuch." + ext)
+    return os.path.join(DIR, "export", "greport_tagebuch." + ext)
 
 
 def txt_cfg():
@@ -690,22 +1800,79 @@ def txt_cfg():
         out["monthly"] = d.get("monthly") is True
         out["fmt"] = "csv" if d.get("fmt") == "csv" else "txt"
         out["path"] = str(d.get("path") or "")[:300]
+        if out["path"] and not safe_path(out["path"], (".txt", ".csv", ".log")):   # alter Pfad außerhalb der erlaubten Ordner
+            out["moved"] = out["path"]; out["path"] = ""
+    old = os.path.join(DIR, "greport_tagebuch." + out["fmt"])
+    if not out.get("moved") and not out["path"] and os.path.exists(old):           # früherer Standard direkt in /share/greport
+        out["moved"] = old
     return out
 
 
-def safe_path(p, exts):
-    """Nur Dateien unter /share oder /media (Home Assistant), mit passender Endung. Liefert den echten Pfad oder None."""
+FOREIGN_APPS = ("gaslighter", "glighter", "gjarvis")      # fremde App-Ordner: nie lesen, nie schreiben
+
+
+def _under(full, root):
+    rr = os.path.realpath(root)
+    return full == rr or full.startswith(rr + os.sep)
+
+
+def write_roots():
+    """Schreiben nur in eigene Ordner: /share/greport/export und /media/greport (je Wurzel aus TXT_ROOTS)."""
+    out = [os.path.join(DIR, "export")]
+    for r in TXT_ROOTS:
+        if not _under(os.path.realpath(DIR), r):
+            out.append(os.path.join(r, "greport"))
+    return out
+
+
+def read_roots():
+    """Lesen (Import) nur aus /share/greport/import und /media."""
+    out = [os.path.join(DIR, "import")]
+    for r in TXT_ROOTS:
+        if not _under(os.path.realpath(DIR), r):
+            out.append(r)
+    return out
+
+
+def safe_path(p, exts, write=True):
+    """Pfad prüfen: passende Endung, nur in den erlaubten Ordnern, keine fremden App-Ordner, keine eigenen Datendateien.
+    Liefert den echten Pfad oder None."""
     p = str(p or "").strip()
     if not p or "\x00" in p:
         return None
-    full = os.path.realpath(p if os.path.isabs(p) else os.path.join(DIR, p))
+    full = os.path.realpath(p if os.path.isabs(p) else os.path.join(DIR, "export" if write else "import", p))
     if os.path.splitext(full)[1].lower() not in exts:
         return None
-    for r in TXT_ROOTS:
-        rr = os.path.realpath(r)
-        if full == rr or full.startswith(rr + os.sep):
+    parts = [x.lower() for x in full.split(os.sep)]
+    if any(x.startswith(a) for x in parts for a in FOREIGN_APPS):
+        return None
+    if os.path.dirname(full) == os.path.realpath(DIR):          # notizen.json, einstellungen.json, Protokoll … nie direkt
+        return None
+    for r in (write_roots() if write else read_roots()):
+        if _under(full, r):
             return full
     return None
+
+
+def own_files_path():
+    return os.path.join(PRIV, "eigene_dateien.json")
+
+
+def own_file_target(path):
+    """Vorhandene Dateien nur überschreiben, wenn GReport sie selbst angelegt hat – sonst neuer Name mit Zähler."""
+    reg = set((read_json(own_files_path(), {}) or {}).get("files") or [])
+    base, ext = os.path.splitext(path)
+    for i in range(1, 1000):
+        cand = path if i == 1 else f"{base}_{i}{ext}"
+        if not os.path.exists(cand) or cand in reg:
+            if cand not in reg:
+                reg.add(cand)
+                try:
+                    write_json(own_files_path(), {"files": sorted(reg)[-500:]})
+                except OSError:
+                    pass
+            return cand
+    raise OSError("no free name")
 
 
 def txt_set(d):
@@ -733,13 +1900,84 @@ def txt_set(d):
 
 def txt_state():
     c = txt_cfg()
-    return dict(c, ok=True, pro=pro_ok(), default=txt_default_path("csv" if c["fmt"] == "csv" else "txt"), roots=TXT_ROOTS,
+    return dict(c, ok=True, pro=pro_ok(), default=txt_default_path("csv" if c["fmt"] == "csv" else "txt"), roots=write_roots(), read_roots=read_roots(),
                 last=DIARY["last"], error=DIARY["error"], files=DIARY["files"][-6:])
+
+
+def csv_safe(v):
+    """Tabellenprogramme führen Zellen mit = + - @ (oder Tab/CR am Anfang) als Formel aus – dann ' voranstellen."""
+    s_ = "" if v is None else str(v)
+    return "'" + s_ if s_ and s_[0] in "=+-@\t\r" else s_
+
+
+class SafeWriter:
+    def __init__(self, f):
+        self.w = csv.writer(f, delimiter=";")
+
+    def writerow(self, row):
+        self.w.writerow([csv_safe(x) for x in row])
+
+
+def meta_parts(p, pf=None):
+    """Für Dritte: Erfassungszeit, „Zeit per Taste gesetzt (…)“, „ungefähr“ – getrennt von der Zeit der Notiz."""
+    de = lang() != "en"; out = []
+    if p.get("cap") and (p.get("wk") or abs(int(p["cap"]) - int(p.get("a") or 0)) > 60000):
+        c = dt.datetime.fromtimestamp(int(p["cap"]) / 1000).astimezone()
+        out.append(("erfasst " if de else "noted ") + fmt_date(c, pf) + " " + fmt_time(c, pf))
+    if p.get("wk") and not p.get("notime"):
+        out.append(("Zeit per Taste gesetzt (" if de else "time set by button (") + str(p.get("wl") or tag_label(p["wk"])) + ")")
+    if p.get("approx"):
+        out.append("ungefähr" if de else "approximate")
+    return out
+
+
+def ext_parts(p):
+    """Weitere Angaben für Tagebuch/Export: Rolle/Erreichbarkeit des Zeugen, Häufigkeit, Polizei, Meldung, Folgen, Attest, Drohung."""
+    de = lang() != "en"; x = p.get("ext") or {}; out = []
+    if x.get("wrole") or x.get("wcontact"):
+        out.append(("Zeuge " if de else "witness ") + ", ".join(v for v in ((ROLE_DE if de else ROLE_EN).get(x.get("wrole"), ""), x.get("wcontact", "")) if v))
+    if x.get("freq"):
+        out.append(("Häufigkeit: " if de else "frequency: ") + x["freq"])
+    if x.get("pol"):
+        out.append(("Polizei" if de else "police") + ((", Vorgang " if de else ", case ") + x["pol_nr"] if x.get("pol_nr") else ""))
+    if x.get("rep_to") or x.get("rep_date"):
+        out.append(("gemeldet an " if de else "reported to ") + (REP_DE if de else REP_EN).get(x.get("rep_to"), "–") + ((" am " if de else " on ") + x["rep_date"] if x.get("rep_date") else ""))
+    if x.get("health"):
+        out.append(("Folgen: " if de else "effects: ") + x["health"])
+    if x.get("attest"):
+        out.append(("Attest: " if de else "certificate: ") + x["attest"])
+    if x.get("threat"):
+        out.append("Drohung/Gewalt" if de else "threat/violence")
+    an = att_names(p)
+    if an:
+        out.append(("Anlage: " if de else "attachment: ") + ", ".join(an))
+    if p.get("src_doc"):
+        out.append(("aus Dokument erkannt" if de else "recognised from document") + f" ({p['src_doc'].get('name') or p['src_doc'].get('id')}" + (f", S. {p['src_doc']['page']}" if p["src_doc"].get("page") else "") + (f", Z. {p['src_doc']['line']}" if p["src_doc"].get("line") else "") + ")")
+    return out
+
+
+EXT_COLS = ["zeuge_rolle", "zeuge_erreichbar", "haeufigkeit", "polizei_vorgang", "gemeldet_an", "gemeldet_am", "folgen", "attest", "drohung_gewalt", "aus_dokument", "anlagen"]
+
+
+def ext_cols(p):
+    x = p.get("ext") or {}; sd = p.get("src_doc") or {}
+    return [ROLE_DE.get(x.get("wrole"), ""), x.get("wcontact", ""), x.get("freq", ""), (x.get("pol_nr") or "ja") if x.get("pol") else "",
+            REP_DE.get(x.get("rep_to"), ""), x.get("rep_date", ""), x.get("health", ""), x.get("attest", ""), "ja" if x.get("threat") else "",
+            (f"{sd.get('name') or sd.get('id', '')} S.{sd.get('page', '')} Z.{sd.get('line', '')}" if sd else ""),
+            "; ".join(f"{a.get('name')} (SHA-256 {a.get('sha256')})" for a in att_by_note().get(p.get("id"), []))]
+
+
+def cap_iso(p):
+    return dt.datetime.fromtimestamp(int(p["cap"]) / 1000).astimezone().isoformat(timespec="seconds") if p.get("cap") else ""
+
+
+def notime_txt():
+    return "no time" if lang() == "en" else "ohne Zeitpunkt"
 
 
 def _line_txt(p, pf):
     a = dt.datetime.fromtimestamp(p["a"] / 1000).astimezone()
-    s = fmt_time(a, pf)
+    s = "(" + notime_txt() + ")" if p.get("notime") else fmt_time(a, pf)
     if p.get("to"):
         s += " – " + fmt_time(dt.datetime.fromtimestamp(p["b"] / 1000).astimezone(), pf)
     tags = [tag_label(t) for t in p.get("tags") or [] if not (t == "zeuge" and p.get("witness"))]
@@ -750,6 +1988,9 @@ def _line_txt(p, pf):
         s += p["text"].replace("\n", " / ")
     if p.get("witness"):
         s += (" – " if (tags or p.get("text")) else "") + ("Witness: " if lang() == "en" else "Zeuge: ") + p["witness"]
+    mp = meta_parts(p, pf) + ext_parts(p)
+    if mp:
+        s += " (" + ", ".join(mp) + ")"
     if p.get("edited"):
         s += " (changed)" if lang() == "en" else " (geändert)"
     return s.rstrip()
@@ -760,12 +2001,16 @@ def diary_render(notes, fmt, pf=None):
     pf = pf or prefs()
     notes = sorted(notes, key=lambda p: p["a"])
     if fmt == "csv":
-        out = io.StringIO(); w = csv.writer(out, delimiter=";")
-        w.writerow(["datum", "uhrzeit", "bis", "schnellwahl", "text", "zeuge", "geaendert", "von_iso", "bis_iso", "kennung"])
+        out = io.StringIO(); w = SafeWriter(out)
+        w.writerow(["datum", "uhrzeit", "bis", "schnellwahl", "text", "zeuge", "geaendert", "von_iso", "bis_iso", "kennung", "erfasst_iso", "zeit_per_taste", "ungefaehr"] + EXT_COLS)
         for p in notes:
             a = dt.datetime.fromtimestamp(p["a"] / 1000).astimezone(); b = dt.datetime.fromtimestamp(p["b"] / 1000).astimezone() if p.get("to") else None
-            w.writerow([fmt_date(a, pf), fmt_time(a, pf), fmt_time(b, pf) if b else "", ", ".join(tag_label(t) for t in p.get("tags") or []),
-                        p.get("text") or "", p.get("witness") or "", "ja" if p.get("edited") else "", p.get("from"), p.get("to") or "", p.get("id")])
+            w.writerow([fmt_date(a, pf), notime_txt() if p.get("notime") else fmt_time(a, pf), fmt_time(b, pf) if b else "", ", ".join(tag_label(t) for t in p.get("tags") or []),
+                        p.get("text") or "", p.get("witness") or "", "ja" if p.get("edited") else "", p.get("from"), p.get("to") or "", p.get("id"),
+                        cap_iso(p), (p.get("wl") or tag_label(p["wk"])) if p.get("wk") else "", "ja" if p.get("approx") else ""] + ext_cols(p))
+        pb = proof_block()
+        for k, v in pb.items():                          # Prüfblock am Ende (Zeilen mit # werden beim Import übersprungen)
+            w.writerow(["#" + k, v])
         return "\ufeff" + out.getvalue()
     hp = dict(pf, wd=True)
     lines, day = [], None
@@ -776,15 +2021,43 @@ def diary_render(notes, fmt, pf=None):
                 lines.append("")
             day = a.date(); lines.append(fmt_date(a, hp))
         lines.append(_line_txt(p, pf))
-    return "\n".join(lines) + ("\n" if lines else "")
+    return "\n".join(lines) + ("\n" if lines else "") + att_text(notes) + proof_text(proof_block())
+
+
+def att_fmt_size(n):
+    n = int(n or 0)
+    return f"{n / MB:.1f} MB" if n >= MB else f"{max(1, round(n / 1024))} KB"
+
+
+def att_text(notes=None):
+    """Anlagen mit Prüfsumme (für Tagebuch, Export und Bericht). notes: nur Anlagen dieser Notizen (None = alle)."""
+    de = lang() != "en"; ids = None if notes is None else {p.get("id") for p in notes}
+    fs = [x for x in att_all()["files"] if not x.get("del") and (ids is None or set(x.get("notes") or []) & ids)]
+    if not fs:
+        return ""
+    out = ["", "--- " + ("Anlagen" if de else "Attachments") + " ---"]
+    for x in fs:
+        out.append(f"{x.get('name')} ({att_fmt_size(x.get('size'))}, " + ("hochgeladen " if de else "uploaded ") + str(x.get("up")) + ")"
+                   + (" – " + x["desc"] if x.get("desc") else ""))
+        out.append("  SHA-256: " + str(x.get("sha256")))
+        if x.get("txt"):
+            out.append("  " + ("erkannter Text" if de else "recognised text") + " SHA-256: " + str(x["txt"].get("sha256")))
+    return "\n".join(out) + "\n"
+
+
+def att_names(p):
+    return [x.get("name") for x in att_by_note().get(p.get("id"), [])]
 
 
 def _write_text(path, text):
+    """Schreibt nur in eine eigene Datei (fremde gleichnamige Datei bleiben unberührt: neuer Name). Gibt den Pfad zurück."""
     os.makedirs(os.path.dirname(path), exist_ok=True)
+    path = own_file_target(path)
     tmp = path + ".tmp"
     with open(tmp, "w", encoding="utf-8", newline="") as f:
         f.write(text); f.flush(); os.fsync(f.fileno())
     os.replace(tmp, path)
+    return path
 
 
 def diary_write():
@@ -803,9 +2076,9 @@ def diary_write():
                 for p in notes:
                     by.setdefault(dt.datetime.fromtimestamp(p["a"] / 1000).astimezone().strftime("%Y-%m"), []).append(p)
                 for m, ns in sorted(by.items()):
-                    f = f"{base}_{m}{ext}"; _write_text(f, diary_render(ns, c["fmt"], pf)); files.append(f)
+                    f = f"{base}_{m}{ext}"; files.append(_write_text(f, diary_render(ns, c["fmt"], pf)))
             else:
-                _write_text(path, diary_render(notes, c["fmt"], pf)); files.append(path)
+                files.append(_write_text(path, diary_render(notes, c["fmt"], pf)))
             DIARY.update(last=now_iso(), error="", files=files)
             return True
         except OSError as e:
@@ -829,16 +2102,17 @@ def export_file(d):
     if not pro_ok():
         return {"ok": False, "error": "pro"}
     fmt = d.get("fmt") if d.get("fmt") in ("txt", "csv", "json") else "txt"
-    path = safe_path(d.get("path") or os.path.join(DIR, f"greport_export_{dt.date.today()}.{fmt}"), ("." + fmt, ".log") if fmt == "txt" else ("." + fmt,))
+    path = safe_path(d.get("path") or os.path.join(DIR, "export", f"greport_export_{dt.date.today()}.{fmt}"), ("." + fmt, ".log") if fmt == "txt" else ("." + fmt,))
     if not path:
         return {"ok": False, "error": "path"}
-    _write_text(path, export_text(fmt))
+    path = _write_text(path, export_text(fmt))
     return {"ok": True, "path": path, "n": len(notes_all()["free"])}
 
 
 def export_text(fmt):
     if fmt == "json":
-        return json.dumps({"app": BRAND, "v": VERSION, "notes": notes_all()["free"]}, ensure_ascii=False, indent=1)
+        return json.dumps({"app": BRAND, "v": VERSION, "notes": notes_all()["free"], "anlagen": [att_public(x) for x in att_all()["files"] if not x.get("del")],
+                           "nachweis": proof_block()}, ensure_ascii=False, indent=1)
     return diary_render(notes_list(limit=None), fmt)
 
 
@@ -909,6 +2183,9 @@ def parse_import(text):
         out = []
         for r in csv.DictReader(io.StringIO(text), delimiter=";"):
             r = {str(k or "").strip().lower(): (v or "").strip() for k, v in r.items()}
+            r = {k: (v[1:] if len(v) > 1 and v[0] == "'" and v[1] in "=+-@\t\r" else v) for k, v in r.items()}   # Schutz vor Formeln wieder entfernen
+            if (r.get("datum") or "").startswith("#"):          # Prüfblock
+                continue
             frm = r.get("von_iso")
             if not frm:
                 day = parse_date(r.get("datum")); tm, _ = parse_time(r.get("uhrzeit") or r.get("von"))
@@ -925,6 +2202,8 @@ def parse_import(text):
         line = raw.strip()
         if not line:
             continue
+        if re.match(r"---\s*(Prüfblock|Verification block)", line):   # ab hier nur noch der Prüfblock
+            break
         tm, end = parse_time(line)
         if tm is None:
             d_ = parse_date(line)
@@ -938,6 +2217,7 @@ def parse_import(text):
         if m:
             t2, _ = parse_time(m[1]); to = _when(day, t2) if t2 else ""; rest = rest[m.end():]
         rest = re.sub(r"\s*\((?:geändert|changed)\)\s*$", "", rest)
+        rest = re.sub(r"\s*\((?:erfasst|noted|Zeit per Taste|time set by|ungefähr|approximate|Zeuge |witness |Häufigkeit|frequency|Polizei|police|gemeldet|reported|Folgen|effects|Attest|certificate|Drohung|threat|aus Dokument|recognised|Anlage|attachment)[^()]*(?:\([^()]*\)[^()]*)*\)\s*$", "", rest)
         labels = []
         m = re.match(r"\[([^\]]*)\]\s*", rest)
         if m:
@@ -1006,7 +2286,7 @@ def import_text(d, apply=False):
     if not pro_ok():
         return {"ok": False, "error": "pro"}
     if d.get("path"):
-        p = safe_path(d["path"], (".txt", ".csv", ".json", ".log"))
+        p = safe_path(d["path"], (".txt", ".csv", ".json", ".log"), write=False)
         if not p or not os.path.isfile(p):
             return {"ok": False, "error": "path"}
         if os.path.getsize(p) > 20 * 1024 * 1024:
@@ -1051,24 +2331,300 @@ def import_text(d, apply=False):
 
 def export_csv():
     """Tabelle: Datum und Uhrzeit wie in der Anzeige eingestellt, dazu die genaue Zeit (ISO) für den Abgleich."""
-    out = io.StringIO(); w = csv.writer(out, delimiter=";"); pf = prefs()
-    w.writerow(["datum", "von", "bis", "schnellwahl", "text", "zeuge", "von_iso", "bis_iso", "geschrieben", "kennung"])
+    out = io.StringIO(); w = SafeWriter(out); pf = prefs()
+    w.writerow(["datum", "von", "bis", "schnellwahl", "text", "zeuge", "von_iso", "bis_iso", "geschrieben", "kennung", "erfasst_iso", "zeit_per_taste", "ungefaehr", "geaendert"] + EXT_COLS)
     for p in sorted(notes_list(limit=None), key=lambda p: p["a"]):
         a = dt.datetime.fromtimestamp(p["a"] / 1000).astimezone(); b = dt.datetime.fromtimestamp(p["b"] / 1000).astimezone() if p.get("to") else None
-        w.writerow([fmt_date(a, pf), fmt_time(a, pf), fmt_time(b, pf) if b else "", ", ".join(p["tagl"]), p.get("text"), p.get("witness"),
-                    p.get("from"), p.get("to"), p.get("ts"), p.get("id")])
+        w.writerow([fmt_date(a, pf), notime_txt() if p.get("notime") else fmt_time(a, pf), fmt_time(b, pf) if b else "", ", ".join(p["tagl"]), p.get("text"), p.get("witness"),
+                    p.get("from"), p.get("to"), p.get("ts"), p.get("id"), cap_iso(p), (p.get("wl") or tag_label(p["wk"])) if p.get("wk") else "",
+                    "ja" if p.get("approx") else "", p.get("edited") or ""] + ext_cols(p))
+    for k, v in proof_block().items():
+        w.writerow(["#" + k, v])
     return ("﻿" + out.getvalue()).encode("utf-8")
 
 
-def backup_zip():
-    """Sicherung (immer frei): alle Dateien im Datenordner außer früheren Sicherungen."""
-    bio = io.BytesIO()
-    with zipfile.ZipFile(bio, "w", zipfile.ZIP_DEFLATED) as z:
-        for f in ("notizen.json", "schnellwahl.json", "personen.json"):
-            p = os.path.join(DIR, f)
+# =====================================================================
+# Bericht für Dritte (Anwalt, Gericht, Hausverwaltung): Zusammenfassung nach Zeitpunkt, Art, Intensität, Dauer, Häufigkeit,
+# chronologische Liste mit Ereignis- und Erfassungszeit, Zeugen, Polizei/Meldungen/Atteste, lückenlose Tagesachse,
+# Prüfsummen mit Erläuterung. „gs“: kompakt für einen Gewaltschutzantrag, Vorfälle mit Drohung/Gewalt zuerst.
+# Nur Anzeige/Export – gespeichert wird nichts.
+# =====================================================================
+GAP_MS = 12 * 3600 * 1000                                  # so viel später notiert: im Bericht sichtbar markieren
+
+
+def cap_ms(p):
+    """Erfassungszeit: cap (Zeit-Taste/Zeit von Hand) oder der Zeitpunkt, zu dem die Notiz angelegt wurde."""
+    if p.get("cap"):
+        return int(p["cap"])
+    return ms_of(p.get("at")) or ms_of(p.get("ts"))
+
+
+def wit_list(p):
+    """Zeugen einer Notiz mit Rolle und Erreichbarkeit (aus der Notiz, sonst aus der Personenliste)."""
+    info, ext = persons_info(), p.get("ext") or {}
+    out = []
+    for i, n in enumerate(x.strip() for x in str(p.get("witness") or "").split(",") if x.strip()):
+        pi = info.get(n) or {}
+        r = (ext.get("wrole") if i == 0 else "") or pi.get("r") or ""
+        c = (ext.get("wcontact") if i == 0 else "") or pi.get("c") or ""
+        out.append({"name": n, "rolle": r, "erreichbar": c})
+    return out
+
+
+def _dur_txt(ms):
+    m = int(round(ms / 60000)); return f"{m // 60}:{m % 60:02d} h" if m >= 60 else f"{m} min"
+
+
+def report_build(gs=False, t_from=None, t_to=None):
+    de = lang() != "en"; pf = prefs()
+    RL, PL = (ROLE_DE, REP_DE) if de else (ROLE_EN, REP_EN)
+    notes = [p for p in notes_list(t_from, t_to, limit=None)]
+    notes.sort(key=lambda p: p["a"])
+    timed = [p for p in notes if not p.get("notime")]
+    kinds, lvls, srcs = {}, {}, {}
+    for p in timed:
+        for t_ in p.get("tags") or []:
+            g = tag_group(t_)
+            if g == "lvl":
+                lvls[tag_label(t_)] = lvls.get(tag_label(t_), 0) + 1
+            elif g == "src":
+                srcs[tag_label(t_)] = srcs.get(tag_label(t_), 0) + 1
+            elif g in ("kind", "own") or g in group_custom():
+                kinds[tag_label(t_)] = kinds.get(tag_label(t_), 0) + 1
+    no_lvl = sum(1 for p in timed if not any(tag_group(t_) == "lvl" for t_ in p.get("tags") or []))
+    durs = [p["b"] - p["a"] for p in timed if p.get("to") and p["b"] > p["a"]]
+    night = sum(1 for p in timed if (lambda h: h >= 22 or h < 6)(dt.datetime.fromtimestamp(p["a"] / 1000).hour))
+    wd = [0] * 7
+    for p in timed:
+        wd[dt.datetime.fromtimestamp(p["a"] / 1000).weekday()] += 1
+    d0 = dt.date.fromtimestamp(t_from / 1000) if t_from else (dt.date.fromtimestamp(timed[0]["a"] / 1000) if timed else dt.date.today())
+    d1 = dt.date.fromtimestamp(t_to / 1000) if t_to else dt.date.today()
+    if d1 < d0:
+        d1 = d0
+    days, byday = [], {}
+    for p in timed:
+        byday.setdefault(dt.date.fromtimestamp(p["a"] / 1000), []).append(p)
+    d = d0
+    while d <= d1 and len(days) < 3700:
+        days.append({"tag": d.isoformat(), "anzahl": len(byday.get(d, [])), "zeiten": [fmt_time(dt.datetime.fromtimestamp(p["a"] / 1000).astimezone(), pf) for p in byday.get(d, [])]})
+        d += dt.timedelta(days=1)
+    weeks = max(1.0, len(days) / 7.0)
+    rows = []
+    for p in notes:
+        ext = p.get("ext") or {}
+        cm = cap_ms(p); gap = (cm - p["b"]) if (cm and not p.get("notime")) else 0
+        rows.append({"id": p.get("id"), "von": p.get("from") or "", "bis": p.get("to") or "", "ohne_zeitpunkt": bool(p.get("notime")),
+                     "erfasst": dt.datetime.fromtimestamp(cm / 1000).astimezone().isoformat(timespec="seconds") if cm else "",
+                     "abstand_h": round(gap / 3600000, 1) if gap > GAP_MS else 0, "art": [tag_label(t_) for t_ in p.get("tags") or [] if tag_group(t_) != "lvl" and t_ != "zeuge"],
+                     "intensitaet": [tag_label(t_) for t_ in p.get("tags") or [] if tag_group(t_) == "lvl"], "text": p.get("text") or "",
+                     "dauer_min": round((p["b"] - p["a"]) / 60000) if p.get("to") and p["b"] > p["a"] else None, "haeufigkeit": ext.get("freq", ""),
+                     "zeugen": wit_list(p), "polizei": ({"vorgang": ext.get("pol_nr", "")} if ext.get("pol") else None),
+                     "meldung": ({"an": PL.get(ext.get("rep_to"), ""), "datum": ext.get("rep_date", "")} if ext.get("rep_to") or ext.get("rep_date") else None),
+                     "folgen": ext.get("health", ""), "attest": ext.get("attest", ""), "drohung_gewalt": bool(ext.get("threat")),
+                     "zeit_per_taste": (p.get("wl") or tag_label(p["wk"])) if p.get("wk") and not p.get("notime") else "", "ungefaehr": bool(p.get("approx")),
+                     "geaendert": p.get("edited") or "", "a": p["a"], "b": p["b"]})
+    if gs:
+        rows.sort(key=lambda r: (not r["drohung_gewalt"], r["a"]))
+    wits = {}
+    for r in rows:
+        for w in r["zeugen"]:
+            e = wits.setdefault(w["name"], {"name": w["name"], "rolle": w["rolle"], "erreichbar": w["erreichbar"], "vorfaelle": []})
+            e["rolle"] = e["rolle"] or w["rolle"]; e["erreichbar"] = e["erreichbar"] or w["erreichbar"]
+            e["vorfaelle"].append(r["von"] or r["erfasst"])
+    ops = {}
+    for e in proto_read():
+        if "_bad" not in e and (not t_from or True):
+            ops[e.get("op")] = ops.get(e.get("op"), 0) + 1
+    return {"gewaltschutz": bool(gs), "zeitraum": {"von": d0.isoformat(), "bis": d1.isoformat()}, "erstellt": now_iso(),
+            "zusammenfassung": {"vorfaelle": len(timed), "ohne_zeitpunkt": len(notes) - len(timed), "tage_mit_eintrag": len(byday), "tage_im_zeitraum": len(days),
+                                "nachts_22_6": night, "tagsueber": len(timed) - night, "wochentage": dict(zip((WD_DE if de else WD_EN), wd)),
+                                "art": dict(sorted(kinds.items(), key=lambda x: -x[1])), "herkunft": dict(sorted(srcs.items(), key=lambda x: -x[1])),
+                                "intensitaet": dict(lvls, **{("ohne Angabe" if de else "not given"): no_lvl}),
+                                "dauer": {"mit_dauer": len(durs), "gesamt_min": round(sum(durs) / 60000), "schnitt_min": round(sum(durs) / len(durs) / 60000) if durs else 0,
+                                          "laengste_min": round(max(durs) / 60000) if durs else 0},
+                                "je_woche": round(len(timed) / weeks, 1), "drohung_gewalt": sum(1 for r in rows if r["drohung_gewalt"]),
+                                "spaet_notiert": sum(1 for r in rows if r["abstand_h"])},
+            "vorfaelle": rows, "zeugen": list(wits.values()), "tage": days, "protokoll": ops, "nachweis": proof_block(),
+            "anlagen": [att_public(x) for x in att_all()["files"] if not x.get("del") and (set(x.get("notes") or []) & {r["id"] for r in rows}
+                                                                                       or (t_from is None and t_to is None))]}
+
+
+def report_text(rb):
+    de = lang() != "en"; pf = prefs(); L = []
+    T = lambda a, b: a if de else b
+    z = rb["zusammenfassung"]
+    fd = lambda iso_: fmt_date(dt.datetime.fromisoformat(iso_), pf) if iso_ else "–"
+    L.append(T("GReport – Übersicht für einen Gewaltschutzantrag", "GReport – overview for a protection order") if rb["gewaltschutz"] else T("GReport – Bericht", "GReport – report"))
+    L.append(T("Zeitraum: ", "Period: ") + fd(rb["zeitraum"]["von"]) + " – " + fd(rb["zeitraum"]["bis"]) + T(" · erstellt ", " · created ") + rb["erstellt"])
+    L.append(T("Eigene Aufzeichnungen der Person, die die App nutzt. Keine Rechtsberatung.", "Own records of the person using the app. Not legal advice."))
+    L.append("")
+    L.append(T("1. Zusammenfassung", "1. Summary"))
+    L.append(T(f"- Vorfälle: {z['vorfaelle']} an {z['tage_mit_eintrag']} von {z['tage_im_zeitraum']} Tagen (im Schnitt {z['je_woche']} je Woche)",
+               f"- Incidents: {z['vorfaelle']} on {z['tage_mit_eintrag']} of {z['tage_im_zeitraum']} days (on average {z['je_woche']} per week)"))
+    L.append(T(f"- Zeitpunkt: nachts (22–6 Uhr) {z['nachts_22_6']}, tagsüber {z['tagsueber']}", f"- Time: at night (10 pm–6 am) {z['nachts_22_6']}, daytime {z['tagsueber']}")
+             + " · " + ", ".join(f"{k} {v}" for k, v in z["wochentage"].items()))
+    if z["art"]:
+        L.append(T("- Art: ", "- Kind: ") + ", ".join(f"{k} {v}" for k, v in z["art"].items()))
+    if z["herkunft"]:
+        L.append(T("- Herkunft: ", "- Source: ") + ", ".join(f"{k} {v}" for k, v in z["herkunft"].items()))
+    L.append(T("- Intensität: ", "- Intensity: ") + ", ".join(f"{k} {v}" for k, v in z["intensitaet"].items()))
+    du = z["dauer"]
+    L.append(T(f"- Dauer: bei {du['mit_dauer']} Vorfällen angegeben, zusammen {_dur_txt(du['gesamt_min'] * 60000)}, im Schnitt {_dur_txt(du['schnitt_min'] * 60000)}, längste {_dur_txt(du['laengste_min'] * 60000)}",
+               f"- Duration: given for {du['mit_dauer']} incidents, total {_dur_txt(du['gesamt_min'] * 60000)}, average {_dur_txt(du['schnitt_min'] * 60000)}, longest {_dur_txt(du['laengste_min'] * 60000)}"))
+    fr = {}
+    for r in rb["vorfaelle"]:
+        if r["haeufigkeit"]:
+            fr[r["haeufigkeit"]] = fr.get(r["haeufigkeit"], 0) + 1
+    if fr:
+        L.append(T("- Häufigkeit (eigene Angaben): ", "- Frequency (own notes): ") + "; ".join(f"{k} ({v}×)" for k, v in fr.items()))
+    if z["drohung_gewalt"]:
+        L.append(T(f"- Mit Drohung oder Gewalt: {z['drohung_gewalt']}", f"- With threat or violence: {z['drohung_gewalt']}"))
+    if z["ohne_zeitpunkt"]:
+        L.append(T(f"- Notizen ohne Zeitpunkt: {z['ohne_zeitpunkt']} (nicht in der Zeitachse)", f"- Notes without time: {z['ohne_zeitpunkt']} (not on the timeline)"))
+    if z["spaet_notiert"]:
+        L.append(T(f"- Mehr als 12 Stunden nach dem Ereignis notiert: {z['spaet_notiert']} (unten mit ⚠ markiert)", f"- Noted more than 12 hours after the event: {z['spaet_notiert']} (marked ⚠ below)"))
+    L.append("")
+    L.append(T("2. Vorfälle" + (" (Drohung oder Gewalt zuerst)" if rb["gewaltschutz"] else " (chronologisch)"), "2. Incidents" + (" (threat or violence first)" if rb["gewaltschutz"] else " (chronological)")))
+    for r in rb["vorfaelle"]:
+        a = dt.datetime.fromtimestamp(r["a"] / 1000).astimezone()
+        when = fmt_date(a, dict(pf, wd=True)) + " " + (notime_txt() if r["ohne_zeitpunkt"] else ("≈ " if r["ungefaehr"] else "") + fmt_time(a, pf)
+                                                       + (" – " + fmt_time(dt.datetime.fromtimestamp(r["b"] / 1000).astimezone(), pf) if r["bis"] else ""))
+        head = "- " + ("⚠ " + T("Drohung/Gewalt", "threat/violence") + " · " if r["drohung_gewalt"] else "") + when
+        tags = r["art"] + r["intensitaet"]
+        L.append(head + ("  [" + ", ".join(tags) + "]" if tags else "") + ("  " + r["text"].replace("\n", " / ") if r["text"] else ""))
+        sub = []
+        if r["erfasst"]:
+            c = dt.datetime.fromisoformat(r["erfasst"])
+            sub.append(T("erfasst ", "noted ") + fmt_date(c, pf) + " " + fmt_time(c, pf) + (T(f"  ⚠ erst {r['abstand_h']} Std. nach dem Ereignis", f"  ⚠ only {r['abstand_h']} h after the event") if r["abstand_h"] else ""))
+        if r["zeit_per_taste"]:
+            sub.append(T("Zeit per Taste gesetzt (", "time set by button (") + r["zeit_per_taste"] + ")")
+        if r["ungefaehr"]:
+            sub.append(T("ungefähr", "approximate"))
+        if r["dauer_min"]:
+            sub.append(T("Dauer ", "duration ") + _dur_txt(r["dauer_min"] * 60000))
+        if r["haeufigkeit"]:
+            sub.append(T("Häufigkeit: ", "frequency: ") + r["haeufigkeit"])
+        for w in r["zeugen"]:
+            sub.append(T("Zeuge: ", "witness: ") + w["name"] + (" (" + ", ".join(x for x in ((ROLE_DE if de else ROLE_EN).get(w["rolle"], ""), w["erreichbar"]) if x) + ")" if w["rolle"] or w["erreichbar"] else ""))
+        if r["polizei"] is not None:
+            sub.append(T("Polizei", "police") + (T(", Vorgang ", ", case ") + r["polizei"]["vorgang"] if r["polizei"]["vorgang"] else ""))
+        if r["meldung"]:
+            sub.append(T("gemeldet an ", "reported to ") + (r["meldung"]["an"] or "–") + (T(" am ", " on ") + fd(r["meldung"]["datum"]) if r["meldung"]["datum"] else ""))
+        if r["folgen"]:
+            sub.append(T("Folgen: ", "effects: ") + r["folgen"])
+        if r["attest"]:
+            sub.append(T("Attest: ", "medical certificate: ") + r["attest"])
+        if r["geaendert"]:
+            sub.append(T("geändert ", "changed ") + r["geaendert"] + T(" (Verlauf im Protokoll)", " (history in the log)"))
+        for x in sub:
+            L.append("    " + x)
+    if not rb["vorfaelle"]:
+        L.append(T("  (keine Notizen im Zeitraum)", "  (no notes in this period)"))
+    L.append("")
+    L.append(T("3. Zeugen", "3. Witnesses"))
+    for w in rb["zeugen"]:
+        L.append("- " + w["name"] + " – " + ((ROLE_DE if de else ROLE_EN).get(w["rolle"]) or T("Rolle nicht angegeben", "role not given")) + " – "
+                 + (w["erreichbar"] or T("Erreichbarkeit nicht angegeben", "contact not given")) + T(f" – bei {len(w['vorfaelle'])} Vorfällen", f" – at {len(w['vorfaelle'])} incidents"))
+    if not rb["zeugen"]:
+        L.append(T("  (keine Zeugen eingetragen)", "  (no witnesses entered)"))
+    L.append("")
+    L.append(T("4. Polizei, Meldungen, Atteste", "4. Police, reports, medical certificates"))
+    k = 0
+    for r in rb["vorfaelle"]:
+        a = fmt_date(dt.datetime.fromtimestamp(r["a"] / 1000).astimezone(), pf)
+        if r["polizei"] is not None:
+            L.append(f"- {a}: " + T("Polizei", "police") + (T(", Vorgang ", ", case ") + r["polizei"]["vorgang"] if r["polizei"]["vorgang"] else "")); k += 1
+        if r["meldung"]:
+            L.append(f"- {a}: " + T("Meldung an ", "report to ") + (r["meldung"]["an"] or "–") + (T(" am ", " on ") + fd(r["meldung"]["datum"]) if r["meldung"]["datum"] else "")); k += 1
+        if r["attest"]:
+            L.append(f"- {a}: " + T("Attest: ", "medical certificate: ") + r["attest"]); k += 1
+        if r["folgen"]:
+            L.append(f"- {a}: " + T("Folgen: ", "effects: ") + r["folgen"]); k += 1
+    if not k:
+        L.append(T("  (keine eingetragen)", "  (none entered)"))
+    if rb.get("anlagen"):
+        L.append(T("- Anlagen (Originale im Ordner anlagen/ dieser ZIP-Datei, unverändert):", "- Attachments (originals in the folder anlagen/ of this ZIP file, unchanged):"))
+        for a in rb["anlagen"]:
+            L.append(f"  - {a.get('name')} ({att_fmt_size(a.get('size'))}" + (", " + a["desc"] if a.get("desc") else "") + f") SHA-256 {a.get('sha256')}")
+    L.append("")
+    if not rb["gewaltschutz"]:
+        L.append(T("5. Zeitachse (jeder Tag im Zeitraum)", "5. Timeline (every day in the period)"))
+        for d_ in rb["tage"]:
+            dd = dt.date.fromisoformat(d_["tag"])
+            L.append(fmt_date(dt.datetime(dd.year, dd.month, dd.day), dict(pf, wd=True)) + "  " + (T(f"{d_['anzahl']} Vorfall" if d_["anzahl"] == 1 else f"{d_['anzahl']} Vorfälle", f"{d_['anzahl']} incident" + ("" if d_["anzahl"] == 1 else "s")) + " (" + ", ".join(d_["zeiten"]) + ")" if d_["anzahl"] else T("– kein Eintrag", "– no entry")))
+        L.append("")
+    n = "6" if not rb["gewaltschutz"] else "5"
+    L.append(n + T(". Prüfsummen und Änderungsprotokoll", ". Hashes and change log"))
+    pb = rb["nachweis"]; op = rb["protokoll"]
+    L.append(T(f"- Protokoll: {pb['eintraege']} Einträge (angelegt {op.get('add', 0)}, geändert {op.get('edit', 0)}, gelöscht {op.get('del', 0)}, wiederhergestellt {op.get('restore', 0)}, außerhalb von GReport geändert {op.get('extern', 0) + op.get('extern_del', 0)})",
+               f"- Log: {pb['eintraege']} entries (created {op.get('add', 0)}, changed {op.get('edit', 0)}, deleted {op.get('del', 0)}, restored {op.get('restore', 0)}, changed outside GReport {op.get('extern', 0) + op.get('extern_del', 0)})"))
+    L.append(T("- Erster Hash: ", "- First hash: ") + str(pb["erster_hash"] or "–"))
+    L.append(T("- Letzter Hash: ", "- Last hash: ") + str(pb["letzter_hash"] or "–"))
+    L.append(T("- Prüfung: ", "- Check: ") + (T("unverändert", "unchanged") if pb["unveraendert"] else T("Abweichung – siehe „Nachweis prüfen“", "deviation – see “Verify record”")) + " · " + pb["zeitquelle"] + (" · " + pb["zeitzone"] if pb["zeitzone"] else ""))
+    L.append(T("- So wird geprüft: Jede Änderung an einer Notiz steht als eigener Eintrag in notizen_protokoll.jsonl, mit Zeit, Zeitzone und vollständigem Inhalt "
+               "(beim Ändern auch der Fassung davor). Jeder Eintrag enthält den SHA-256-Wert über seinen Inhalt und den Wert des vorigen Eintrags. "
+               "Wer einen Eintrag nachträglich ändert, entfernt oder einfügt, unterbricht diese Kette; das lässt sich mit der Datei greport_nachweis_<datum>.json "
+               "(Protokoll mit allen Werten) nachrechnen. Änderungen sind so nachvollziehbar und nachträgliche Manipulation ist erkennbar.",
+               "- How it is checked: every change to a note is a separate entry in notizen_protokoll.jsonl with time, time zone and full content "
+               "(for changes also the previous version). Each entry contains the SHA-256 value over its content and the value of the previous entry. "
+               "Changing, removing or inserting an entry later breaks this chain; it can be recomputed with greport_nachweis_<date>.json "
+               "(log with all values). Changes are traceable and later manipulation is detectable."))
+    L.append(T("- Rohdaten: rohdaten.csv (eine Zeile je Notiz) liegt dem Bericht bei.", "- Raw data: rohdaten.csv (one row per note) is attached to this report."))
+    return "\n".join(L) + "\n"
+
+
+PACKED = {"jpg", "png", "heic", "pdf", "docx", "odt"}            # schon gepackt: unverändert ablegen statt noch einmal packen
+
+
+def _zip_att(z, x, prefix):
+    for which in ("file", "txt"):
+        if which == "txt" and not x.get("txt"):
+            continue
+        p = att_path(x, which)
+        if p and os.path.isfile(p):
+            rel = (x.get("txt") or {}).get("file") if which == "txt" else x["file"]
+            z.write(p, prefix + rel, compress_type=zipfile.ZIP_STORED if which == "file" and x.get("kind") in PACKED else zipfile.ZIP_DEFLATED)
+
+
+def report_write(f, gs=False, t_from=None, t_to=None):
+    """Bericht + Rohdaten (CSV) + Nachweis (Protokoll mit Prüfsummen) + Anlagen (Originale) in eine ZIP-Datei."""
+    rb = report_build(gs, t_from, t_to)
+    with zipfile.ZipFile(f, "w", zipfile.ZIP_DEFLATED) as z:
+        z.writestr("bericht.txt", "\ufeff" + report_text(rb))
+        z.writestr("bericht.json", json.dumps({k: v for k, v in rb.items()}, ensure_ascii=False, indent=1))
+        z.writestr("rohdaten.csv", export_csv())
+        z.writestr(f"greport_nachweis_{dt.date.today()}.json", json.dumps(nachweis_json(), ensure_ascii=False, indent=1))
+        if os.path.exists(proto_path()):
+            z.write(proto_path(), "notizen_protokoll.jsonl")
+        ids = {a["id"] for a in rb.get("anlagen") or []}
+        for x in att_all()["files"]:
+            if x.get("id") in ids:
+                _zip_att(z, x, "anlagen/")
+
+
+def report_zip(gs=False, t_from=None, t_to=None):
+    bio = io.BytesIO(); report_write(bio, gs, t_from, t_to)
+    return bio.getvalue()
+
+
+def backup_write(f, files=True):
+    """Sicherung (immer frei): Notizen, Schnellwahl, Personen, Einstellungen, Änderungsprotokoll und Anlagen (files=False: nur das
+    Verzeichnis der Anlagen mit Prüfsummen, ohne die Dateien selbst)."""
+    with zipfile.ZipFile(f, "w", zipfile.ZIP_DEFLATED) as z:
+        for fn in ("notizen.json", "schnellwahl.json", "personen.json", "einstellungen.json", "notizen_protokoll.jsonl"):
+            p = os.path.join(DIR, fn)
             if os.path.exists(p):
-                z.write(p, f)
-        z.writestr("info.json", json.dumps({"app": BRAND, "version": VERSION, "at": now_iso()}, ensure_ascii=False))
+                z.write(p, fn)
+        if os.path.exists(att_index_path()):
+            z.write(att_index_path(), "anlagen/anlagen.json")
+        if files:
+            for x in att_all()["files"]:
+                _zip_att(z, x, "anlagen/")
+        z.writestr("info.json", json.dumps({"app": BRAND, "version": VERSION, "at": now_iso(), "anlagen": bool(files)}, ensure_ascii=False))
+
+
+def backup_zip(files=True):
+    bio = io.BytesIO(); backup_write(bio, files)
     return bio.getvalue()
 
 
@@ -1081,7 +2637,7 @@ def daily_backup():
         return
     os.makedirs(d, exist_ok=True)
     with open(p + ".tmp", "wb") as f:
-        f.write(backup_zip())
+        backup_write(f, files=False)                    # täglich ohne die Anlagen selbst (die ändern sich nie) – sonst 14 × alle Dateien
     os.replace(p + ".tmp", p)
     for old in sorted(glob.glob(os.path.join(d, "greport_*.zip")))[:-14]:
         try:
@@ -1131,7 +2687,7 @@ GROUP_DE = {"src": "Woher", "kind": "Was", "lvl": "Wie stark", "eff": "Folgen", 
 GROUP_EN = {"src": "Source", "kind": "What", "lvl": "How strong", "eff": "Effects", "act": "Actions", "misc": "Other", "own": "Own"}
 GROUP_ICON = {"src": "mdi:compass-outline", "kind": "mdi:volume-high", "lvl": "mdi:signal-cellular-3", "eff": "mdi:sleep-off",
               "act": "mdi:account-voice", "misc": "mdi:dots-horizontal", "own": "mdi:star-outline"}
-FORM = {"text": "", "witness": "", "pick": {g: NONE_OPT for g in GROUPS}}     # Eingaben aus Home Assistant bis „Speichern“
+FORM = {"text": "", "witness": "", "pick": {g: NONE_OPT for g in GROUPS + [WHEN_G]}}     # Eingaben aus Home Assistant bis „Speichern“
 LAST_N = 10                                                                    # so viele Notizen als Attribut des Sensors
 
 
@@ -1152,7 +2708,7 @@ def mqtt_form_state():
     # Leerer Text darf nicht „retained“ sein (das löscht nur die gespeicherte Nachricht) – dann gewöhnlich senden
     pub(f"{TOPIC}/notiz", FORM["text"], bool(FORM["text"]))
     pub(f"{TOPIC}/zeuge", FORM["witness"], bool(FORM["witness"]))
-    for g, slug in GROUP_SLUG.items():
+    for g, slug, _, _ in mqtt_groups():
         pub(f"{TOPIC}/{slug}", FORM["pick"].get(g) or NONE_OPT, True)
 
 
@@ -1165,11 +2721,12 @@ def notes_summary():
     p = prefs(); items = []
     for x in last:
         d = dt.datetime.fromtimestamp(x["a"] / 1000.0)
-        items.append({"datum": fmt_date(d, p), "zeit": fmt_time(d, p), "von": x.get("from"), "bis": x.get("to") or "",
-                      "text": note_text(x), "zeuge": x.get("witness") or "", "woerter": x.get("tagl") or []})
+        items.append({"datum": fmt_date(d, p), "zeit": "" if x.get("notime") else fmt_time(d, p), "von": x.get("from"), "bis": x.get("to") or "",
+                      "text": note_text(x), "zeuge": x.get("witness") or "", "woerter": x.get("tagl") or [],
+                      **({"ohne_zeitpunkt": True} if x.get("notime") else {})})
     if last:
         d = dt.datetime.fromtimestamp(last[0]["a"] / 1000.0)
-        state_txt = (fmt_time(d, p) + " " + (note_text(last[0]) or "Notiz"))[:255]
+        state_txt = ((note_text(last[0]) or "Notiz") if last[0].get("notime") else (fmt_time(d, p) + " " + (note_text(last[0]) or "Notiz")))[:255]
     else:
         state_txt = "–"
     return {"last": state_txt, "today": n_today, "attr": {"notizen": items, "heute": n_today, "von": last[0].get("from") if last else ""}}
@@ -1218,16 +2775,19 @@ def mqtt_announce(client=None, *_):
     cfg("text", "zeuge", {"name": "Zeuge" if de else "Witness", "command_topic": f"{TOPIC}/zeuge/set", "state_topic": f"{TOPIC}/zeuge",
                           "max": 200, "mode": "text", "icon": "mdi:account-eye-outline"})
     groups = qt_groups()
-    for g, slug in GROUP_SLUG.items():
+    for g, slug, name, icon in mqtt_groups():
         if groups.get(g):
             go = group_opts(groups[g])
             if FORM["pick"].get(g) not in go:
                 FORM["pick"][g] = NONE_OPT
-            cfg("select", slug, {"name": (GROUP_DE if de else GROUP_EN)[g], "command_topic": f"{TOPIC}/{slug}/set",
-                                 "state_topic": f"{TOPIC}/{slug}", "options": go, "icon": GROUP_ICON[g]})
+            cfg("select", slug, {"name": name, "command_topic": f"{TOPIC}/{slug}/set",
+                                 "state_topic": f"{TOPIC}/{slug}", "options": go, "icon": icon})
         else:                                                   # Gruppe ohne sichtbare Tasten: Auswahlliste entfernen
             FORM["pick"][g] = NONE_OPT
             pub(f"homeassistant/select/{HAID}/{slug}/config", "", True)
+    for g, o in qt_all()["groups"].items():                     # gelöschte eigene Rubriken: Auswahlliste entfernen
+        if isinstance(o, dict) and o.get("del"):
+            pub(f"homeassistant/select/{HAID}/rubrik_{g[2:]}/config", "", True)
     cfg("button", "speichern", {"name": "Speichern" if de else "Save", "command_topic": f"{TOPIC}/speichern/set",
                                 "payload_press": "PRESS", "icon": "mdi:content-save-outline"})
     cfg("sensor", "letzte_notiz", {"name": "Letzte Notiz" if de else "Last note", "state_topic": f"{TOPIC}/letzte_notiz",
@@ -1258,15 +2818,21 @@ def mqtt_states_soon(delay=3.0):
 def form_save(by="homeassistant"):
     """„Speichern“ in Home Assistant: Notiz aus Text, gewählten Wörtern (je Gruppe) und Zeuge anlegen, Felder leeren."""
     groups = qt_groups(); tags = []
-    for g in GROUPS:
+    for g in word_groups():
         lab = FORM["pick"].get(g)
         if lab and lab != NONE_OPT:
             k = next((k for k, l in groups.get(g, []) if l == lab), None)
             if k:
                 tags.append(k)
-    r = note_change("add", {"text": FORM["text"], "tags": tags, "witness": FORM["witness"], "from": now_iso(), "typed": True}, by=by)
+    frm, to, notime, approx, extra = now_iso(), "", False, False, {}
+    lab = FORM["pick"].get(WHEN_G)
+    wk = next((k for k, l in groups.get(WHEN_G, []) if l == lab), None) if lab and lab != NONE_OPT else None
+    if wk:                                                      # „Zeitpunkt“ gewählt: setzt die Zeit der Notiz
+        frm, to, notime, approx = when_apply_full(wk)
+        extra = {"cap": int(time.time() * 1000), "wk": wk, "wl": lab, "approx": approx}
+    r = note_change("add", dict({"text": FORM["text"], "tags": tags, "witness": FORM["witness"], "from": frm, "to": to, "notime": notime, "typed": True}, **extra), by=by)
     if r.get("ok"):
-        FORM.update(text="", witness="", pick={g: NONE_OPT for g in GROUPS})
+        FORM.update(text="", witness="", pick={g: NONE_OPT for g, _, _, _ in mqtt_groups()})
         mqtt_form_state()
     log("Notiz aus Home Assistant (Speichern):", "ok" if r.get("ok") else r.get("error"))
     return r
@@ -1298,7 +2864,7 @@ def mqtt_cmd(topic, raw):
         return None
     if topic == f"{TOPIC}/speichern/set":
         return form_save()
-    for g, slug in GROUP_SLUG.items():
+    for g, slug, _, _ in mqtt_groups():
         if topic == f"{TOPIC}/{slug}/set":
             if raw == NONE_OPT or raw in [l for _, l in qt_groups().get(g, [])]:
                 FORM["pick"][g] = raw; pub(f"{TOPIC}/{slug}", raw, True)
@@ -1383,7 +2949,8 @@ TYPES = {".html": "text/html; charset=utf-8", ".js": "text/javascript; charset=u
 def state():
     return {"ok": True, "version": VERSION, "lang": OPT.get("language", "auto"), "pro": pro_info(), "glighter": glighter(),
             "ha": {"api": bool(ha_api()[0]), "ok": HA["ok"], "error": HA["error"]}, "mqtt": bool(MQ["ok"]),
-            "persons": persons(), "dir": DIR, "own_max": own_max(), "prefs": prefs()}
+            "persons": persons(), "persons_info": persons_info(), "dir": DIR, "own_max": own_max(), "prefs": prefs(),
+            "att": {"max_file": att_limits()["file"], "kinds": sorted(set(dokument.KINDS))}}
 
 
 def client_ip(a):
@@ -1394,6 +2961,7 @@ def client_ip(a):
 
 class H(http.server.BaseHTTPRequestHandler):
     server_version = "GReport"
+    timeout = 30                                         # Socket-Zeitlimit je Verbindung (hängende Clients)
 
     def log_message(self, *a):
         pass
@@ -1414,6 +2982,62 @@ class H(http.server.BaseHTTPRequestHandler):
         if self.command != "HEAD":
             self.wfile.write(body)
 
+    def send_stream(self, ctype, f, size, extra=None):
+        """Große Antworten (Sicherung mit Anlagen, Originaldatei) stückweise senden statt ganz im Speicher."""
+        self.send_response(200)
+        self.send_header("Content-Type", ctype); self.send_header("Content-Length", str(size)); self.send_header("Cache-Control", "no-store")
+        for k, v in (extra or {}).items():
+            self.send_header(k, v)
+        self.end_headers()
+        if self.command == "HEAD":
+            return
+        for chunk in iter(lambda: f.read(MB), b""):
+            self.wfile.write(chunk)
+
+    def send_zip(self, writer, fname):
+        import tempfile
+        with tempfile.TemporaryFile() as f:
+            writer(f)
+            size = f.tell(); f.seek(0)
+            self.send_stream("application/zip", f, size, {"Content-Disposition": f'attachment; filename="{fname}"'})
+
+    def send_att(self, x, which, inline):
+        p = att_path(x, which)
+        if not p or not os.path.isfile(p):
+            return self.send(404, "text/plain", b"not found")
+        txt = which == "txt"
+        name = x.get("name") or "datei"
+        if txt:
+            name = os.path.splitext(name)[0] + ".erkannt.txt"
+        ctype = "text/plain; charset=utf-8" if txt or x.get("kind") in ("txt", "eml") else x.get("type") or "application/octet-stream"
+        if txt or x.get("kind") not in ("jpg", "png", "pdf", "txt", "eml"):
+            inline = inline and txt
+        q = urllib.parse.quote(name)
+        ascii_ = re.sub(r'[^A-Za-z0-9._-]', "_", name)[:80]
+        extra = {"Content-Disposition": f"{'inline' if inline else 'attachment'}; filename=\"{ascii_}\"; filename*=UTF-8''{q}", "X-Content-Type-Options": "nosniff"}
+        if x.get("kind") != "pdf" or txt:                 # PDF-Anzeige des Browsers läuft nicht in einer Sandbox; PDF führt dort keine Skripte aus
+            extra["Content-Security-Policy"] = "sandbox; default-src 'none'; img-src 'self' data:; style-src 'unsafe-inline'"
+        with open(p, "rb") as f:
+            self.send_stream(ctype, f, os.path.getsize(p), extra)
+
+    def upload(self, q):
+        """Anlage hochladen: Inhalt roh im Körper, Name/Beschreibung/Notiz in der Adresse."""
+        g = lambda k: (q.get(k) or [""])[0]
+        try:
+            n = int(self.headers.get("Content-Length") or -1)
+        except (TypeError, ValueError):
+            n = -1
+        if n < 0:
+            return self.js({"ok": False, "error": "bad length"}, 411)
+        lim = att_limits()
+        if n > lim["file"]:
+            self.close_connection = True
+            return self.js({"ok": False, "error": "too big", "max": lim["file"]}, 413)
+        r = att_upload(self.rfile, n, g("name"), g("desc"), [x for x in g("note").split(",") if x], g("mtime") or None)
+        if not r.get("ok") and r.get("error") in ("kind", "full", "type", "limit", "empty"):
+            self.close_connection = True                 # Körper nicht gelesen: Verbindung schließen
+        return self.js(r, 200 if r.get("ok") else 400)
+
     def js(self, obj, code=200):
         self.send(code, "application/json", json.dumps(obj, ensure_ascii=False).encode())
 
@@ -1422,9 +3046,12 @@ class H(http.server.BaseHTTPRequestHandler):
         return u.path.rstrip("/").split("/")[-1] if u.path not in ("", "/") else "", urllib.parse.parse_qs(u.query)
 
     def body(self):
-        n = int(self.headers.get("Content-Length") or 0)
-        if n > 20 * 1024 * 1024:
-            raise ValueError("too big")
+        try:
+            n = int(self.headers.get("Content-Length") or 0)
+        except (TypeError, ValueError):
+            raise ValueError("bad length")
+        if n < 0 or n > 20 * 1024 * 1024:
+            raise ValueError("too big" if n > 0 else "bad length")
         try:
             d = json.loads(self.rfile.read(n) or b"{}")
         except ValueError:
@@ -1452,13 +3079,35 @@ class H(http.server.BaseHTTPRequestHandler):
         if name == "notes":
             ia = lambda k: int(g(k)) if re.fullmatch(r"-?\d+", g(k)) else None
             return self.js({"ok": True, "notes": notes_list(ia("from"), ia("to"), g("q"), ia("limit") or 500)})
+        if name == "bericht":                                # Bericht für Dritte (frei, wie der Nachweis): ZIP mit Bericht, Rohdaten, Nachweis, Anlagen
+            ia = lambda k: int(g(k)) if re.fullmatch(r"-?\d+", g(k)) else None
+            gs = g("gs") == "1"
+            return self.send_zip(lambda f: report_write(f, gs, ia("from"), ia("to")), f'greport_{"gewaltschutz" if gs else "bericht"}_{dt.date.today()}.zip')
+        if name == "files":                                  # Anlagen (frei)
+            return self.js(att_state())
+        if name == "file":
+            x = att_get(g("id"))
+            if x is None:
+                return self.send(404, "text/plain", b"not found")
+            return self.send_att(x, "txt" if g("txt") == "1" else "file", g("inline") == "1")
+        if name == "scan":                                   # Vorschläge aus einem Dokument (frei, ändert nichts)
+            return self.js(doc_suggest(g("id")))
+        if name == "trash":
+            return self.js({"ok": True, "notes": [note_public(x) for x in notes_all()["trash"]][-200:]})
+        if name == "verify":                                 # Nachweis prüfen (frei, ändert nichts)
+            return self.js(proto_verify())
+        if name == "history":
+            return self.js({"ok": True, "items": proto_history(g("id"))})
+        if name == "nachweis":
+            return self.send(200, "application/json", json.dumps(nachweis_json(), ensure_ascii=False, indent=1).encode(),
+                             {"Content-Disposition": f'attachment; filename="greport_nachweis_{dt.date.today()}.json"'})
         if name == "backup":
-            return self.send(200, "application/zip", backup_zip(), {"Content-Disposition": f'attachment; filename="greport_{dt.date.today()}.zip"'})
+            return self.send_zip(backup_write, f"greport_{dt.date.today()}.zip")
         if name == "export":
             if not pro_ok():
                 return self.js({"ok": False, "error": "pro"}, 403)
             if g("fmt") == "json":
-                return self.send(200, "application/json", json.dumps({"app": BRAND, "v": VERSION, "notes": notes_all()["free"]}, ensure_ascii=False).encode(),
+                return self.send(200, "application/json", export_text("json").encode("utf-8"),
                                  {"Content-Disposition": f'attachment; filename="greport_{dt.date.today()}.json"'})
             if g("fmt") == "txt":
                 return self.send(200, "text/plain; charset=utf-8", export_text("txt").encode("utf-8"), {"Content-Disposition": f'attachment; filename="greport_{dt.date.today()}.txt"'})
@@ -1475,17 +3124,25 @@ class H(http.server.BaseHTTPRequestHandler):
         if not self.allowed():
             return
         name, q = self.route()
+        if name == "upload":
+            return self.upload(q)
         try:
             d = self.body()
         except ValueError:
             return self.js({"ok": False, "error": "too big"}, 413)
         if name == "note":
-            a = d.get("action") if d.get("action") in ("add", "edit", "del") else "add"
+            a = d.get("action") if d.get("action") in ("add", "edit", "del", "restore") else "add"
             return self.js(note_change(a, d))
         if name == "notetags":
             return self.js(qt_change(d))
+        if name == "file":
+            return self.js(att_change(d))
+        if name == "scan":                                   # Text erkennen (im Hintergrund), danach GET scan
+            return self.js(att_scan(str(d.get("id") or ""), d.get("again") is True))
+        if name == "doc_apply":                              # Vorschläge übernehmen (Pro, wie der Import)
+            return self.js(doc_apply(d))
         if name == "persons":
-            return self.js(persons_set(d.get("list")))
+            return self.js(persons_set(d.get("list"), d.get("info")))
         if name == "prefs":
             return self.js(prefs_set(d))
         if name == "import":
@@ -1518,6 +3175,7 @@ class H(http.server.BaseHTTPRequestHandler):
 
 class Srv(socketserver.ThreadingMixIn, http.server.HTTPServer):
     daemon_threads = True
+    timeout = 30
     allow_reuse_address = True
     address_family = __import__("socket").AF_INET6
 
@@ -1614,6 +3272,10 @@ def card_install():
 # =====================================================================
 import hadash  # noqa: E402
 
+# Markdown-Karte: Notiztext und Zeuge als HTML-Zeichen ausgeben, damit keine Links, Bilder oder Überschriften eingeschleust werden
+MD_ESC = ("|string|replace('&','&amp;')|replace('\\\\','&#92;')|replace('[','&#91;')|replace(']','&#93;')|replace('(','&#40;')|replace(')','&#41;')"
+          "|replace('!','&#33;')|replace('*','&#42;')|replace('_','&#95;')|replace('#','&#35;')|replace('<','&lt;')|replace('>','&gt;')|replace('`','&#96;')"
+          "|replace('|','&#124;')|replace('~','&#126;')|replace('\\n',' ')|replace('\\r',' ')")
 HADASH_PARTS = ("karte", "felder", "letzte", "heute", "oeffnen")
 
 
@@ -1679,7 +3341,7 @@ def hadash_config(d, ents, card=True):
     if "letzte" in parts and e("letzte_notiz"):
         eid = e("letzte_notiz")
         md = ("{% set n = state_attr('" + eid + "', 'notizen') or [] %}"
-              "{% for x in n %}- **{{ x.datum }} {{ x.zeit }}** {{ x.text }}{% if x.zeuge %} · 👤 {{ x.zeuge }}{% endif %}\n"
+              "{% for x in n %}- **{{ x.datum }} {{ x.zeit }}** {{ x.text" + MD_ESC + " }}{% if x.zeuge %} · 👤 {{ x.zeuge" + MD_ESC + " }}{% endif %}\n"
               "{% else %}" + T("Noch keine Notizen.", "No notes yet.") + "{% endfor %}")
         secs.append(hadash.section([hadash.heading(T("Letzte Notizen", "Latest notes"), "mdi:history"),
                                     {"type": "markdown", "content": md, "grid_options": {"columns": "full"}}]))

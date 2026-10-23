@@ -103,11 +103,17 @@ def main():
             dbl = pg.evaluate("() => { const o = document.querySelector('.ldevscroll'); return o ? getComputedStyle(o).overflowY : '' }")
             if dbl in ("auto", "scroll"):
                 fails.append("Ereignis-Tabelle Live: doppelter Rollbalken (äußerer Kasten scrollt)")
+            if pg.locator("#ldev .ag-root-wrapper").count() != 1 or pg.locator("#ldev .ag-floating-filter input").count() < 1:   # Tabelle (AG Grid) mit Filterzeile
+                fails.append("Ereignis-Tabelle Live fehlt oder hat keine Filterzeile")
+            elif "Ereignis" not in pg.inner_text("#ldevn") and "Event" not in pg.inner_text("#ldevn"):
+                fails.append("Anzahl über der Live-Tabelle fehlt: " + pg.inner_text("#ldevn"))
             pg.click("#liveview .dashbar .dstat"); pg.wait_for_timeout(500)          # Statistik aus Vorlage (frei)
             pg.click('#stdlg [data-tpl="today"]'); pg.wait_for_timeout(1200)
             if not pg.locator("#liveview .statcard .stnum").count():
                 fails.append("Statistik-Vorlage erscheint nicht im Live-Dashboard")
             pg.click("#tab_prot"); pg.wait_for_timeout(800)
+            if pg.locator("#events .ag-root-wrapper").count() != 1 or pg.locator("#events #ckall").count() != 1:   # Protokolle: Tabelle mit Auswahl-Kästchen im Kopf
+                fails.append("Ereignis-Tabelle Protokolle fehlt oder ohne Auswahl im Kopf")
             pg.click("#nightview .dashbar .dstat"); pg.wait_for_timeout(500)
             if not pg.locator("#stdlg fieldset.stform[disabled]").count():
                 fails.append("Statistik selbst einstellen ohne Pro nicht gesperrt")
@@ -126,11 +132,11 @@ def main():
                 if not pg.locator("#ldevcus").is_visible():
                     fails.append("Eigener Zeitraum zeigt keine Von/Bis-Felder")
                 rs.select_option("vis"); pg.wait_for_timeout(800)
-            if pg.locator("#fnptags .ntadd").count() != 1:                # eigene Schnellwahl im Notiz-Feld
+            if pg.locator("#fnptags .tag.add").count() != 1:                # eigene Schnellwahl im Notiz-Feld
                 fails.append("Knopf ＋ Eigene fehlt in der Schnellwahl")
             else:
-                pg.click("#fnptags .ntadd"); pg.fill("#fnptags_qt .qtnew", "Waschmaschine"); pg.click("#fnptags_qt .qtaddok"); pg.wait_for_timeout(800)
-                if not pg.locator('#fnptags .ntchip:has-text("Waschmaschine")').count():
+                pg.click("#fnptags .tag.add"); pg.fill("#fnptags_qt .qtnew", "Waschmaschine"); pg.click("#fnptags_qt .qtaddok"); pg.wait_for_timeout(800)
+                if not pg.locator('#fnptags .grp[data-g="own"] .tag[data-t]:has-text("Waschmaschine")').count():
                     fails.append("eigene Schnellwahl-Taste erscheint nicht")
             mp = b.new_context(locale="de-DE", viewport={"width": 375, "height": 760}, is_mobile=True, has_touch=True).new_page()   # Handy: nichts breiter als der Bildschirm
             mp.on("pageerror", lambda e: errors.append("pageerror (Handy): " + str(e)))

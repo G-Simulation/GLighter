@@ -7,7 +7,7 @@
       intro: 'Legt in Home Assistant ein fertiges Dashboard mit den Entitäten dieser App an. Du kannst es danach in Home Assistant frei weiter bearbeiten.',
       title: 'Name', url: 'Adresse', url_h: 'Kleinbuchstaben und mindestens ein Bindestrich; steht danach in der Adresszeile von Home Assistant', sidebar: 'In der Seitenleiste zeigen', admin: 'Nur für Administratoren',
       parts: 'Bereiche', create: 'In Home Assistant anlegen', update: 'Dashboard ersetzen', yaml: 'Als YAML anzeigen (zum Kopieren)', copy: 'Kopieren', copied: 'Kopiert',
-      exists: 'Es gibt schon ein Dashboard mit dieser Adresse. Ersetzen überschreibt Änderungen, die du dort gemacht hast.', replace: 'Ja, ersetzen', cancel: 'Abbrechen',
+      exists: 'Es gibt schon ein Dashboard mit dieser Adresse. Ersetzen überschreibt Änderungen, die du dort gemacht hast. Die bisherige Fassung wird vorher in der App gesichert.', foreign: 'Achtung: Dieses Dashboard hat nicht diese App angelegt. Ersetzen überschreibt seinen Inhalt (die bisherige Fassung wird vorher gesichert). Sichtbarkeit und Name bleiben, wie sie sind.', replace: 'Ja, ersetzen', cancel: 'Abbrechen',
       ok_new: 'Dashboard angelegt.', ok_rep: 'Dashboard ersetzt.', open: 'Dashboard öffnen', busy: 'Wird angelegt …', loading: 'Wird geladen …',
       bad_url: 'Die Adresse braucht Kleinbuchstaben, Ziffern und mindestens einen Bindestrich (z. B. gsim-notizen).', no_entities: 'Keine Entitäten dieser App gefunden. Ist MQTT eingeschaltet und die App mit Home Assistant verbunden?',
       no_ha: 'Home Assistant ist nicht erreichbar. Die YAML-Vorlage kannst du trotzdem kopieren und in Home Assistant unter Dashboard → Bearbeiten → Rohdaten-Editor einfügen.',
@@ -17,7 +17,7 @@
       intro: 'Creates a ready-made dashboard with this app’s entities in Home Assistant. You can keep editing it in Home Assistant afterwards.',
       title: 'Name', url: 'Address', url_h: 'Lower case with at least one hyphen; appears in the Home Assistant address bar', sidebar: 'Show in sidebar', admin: 'Administrators only',
       parts: 'Sections', create: 'Create in Home Assistant', update: 'Replace dashboard', yaml: 'Show as YAML (to copy)', copy: 'Copy', copied: 'Copied',
-      exists: 'A dashboard with this address already exists. Replacing it overwrites changes you made there.', replace: 'Yes, replace', cancel: 'Cancel',
+      exists: 'A dashboard with this address already exists. Replacing it overwrites changes you made there. The previous version is saved in the app first.', foreign: 'Note: this dashboard was not created by this app. Replacing overwrites its content (the previous version is saved first). Visibility and name stay as they are.', replace: 'Yes, replace', cancel: 'Cancel',
       ok_new: 'Dashboard created.', ok_rep: 'Dashboard replaced.', open: 'Open dashboard', busy: 'Creating …', loading: 'Loading …',
       bad_url: 'The address needs lower case letters, digits and at least one hyphen (e.g. gsim-notes).', no_entities: 'No entities of this app found. Is MQTT on and the app connected to Home Assistant?',
       no_ha: 'Home Assistant is not reachable. You can still copy the YAML and paste it in Home Assistant under Dashboard → Edit → Raw configuration editor.',
@@ -81,7 +81,7 @@
       ask.hidden = true; go.disabled = true; say(T.busy);
       try {
         const r = await post(o.post, Object.assign(val(), { overwrite }));
-        if (r.exists) { ask.hidden = false; q('.hd-rep').focus(); say(''); }
+        if (r.exists) { ask.querySelector('p').textContent = r.own === false ? T.foreign : T.exists; ask.hidden = false; q('.hd-rep').focus(); say(''); }
         else if (r.ok) { msg.dataset.keep = 1; say(r.created ? T.ok_new : T.ok_rep, false, r.url); }
         else say(T[r.error] || fmt(T.err, { e: r.error || '?' }), true);
       } catch (e) { say(fmt(T.err, { e: e.message || e }), true); }

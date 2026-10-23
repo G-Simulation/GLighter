@@ -11,3 +11,9 @@ configuration:
   output_dir:
     name: Datenordner
     description: "Hier liegen die Notizen. GLighter liest sie von hier (Standard /share/greport)."
+  attach_max_mb:
+    name: Anlagen – höchstens je Datei (MB)
+    description: "Größte erlaubte Anlage (Standard 25 MB)."
+  attach_total_mb:
+    name: Anlagen – höchstens zusammen (MB)
+    description: "So viel Platz dürfen alle Anlagen zusammen belegen (Standard 500 MB)."

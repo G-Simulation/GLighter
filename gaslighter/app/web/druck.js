@@ -19,7 +19,9 @@ const ART_ICON = { knock: '🔨', door: '🚪', steps: '👣', voice: '🗣', tv
 /* ---------- Einstellungen aus dem Aufruf ---------- */
 const FROM = +Q.get('from'), TO = +Q.get('to'), LINE = Math.max(1, +Q.get('line') || 10) * 60000;
 let SRCS = []; try { SRCS = JSON.parse(Q.get('srcs') || '[]'); } catch (e) { }
-const SHOW = { lvl: Q.get('lvl') !== '0', spec: Q.get('spec') === '1', info: Q.get('info') !== '0' };
+const SHOW = { lvl: Q.get('lvl') !== '0', spec: Q.get('spec') === '1', info: Q.get('info') !== '0', ev: Q.get('ev') !== '0' };
+const MFO = Q.get('mfo') === '1';                     // nach Muster ausgefilterte weglassen (mit Vermerk oben)
+let EVD = null;                                       // Belegdaten: Zusammenfassung, Zeitachse, Prüfsummen, Musterfilter
 const SAME = Q.get('scale') !== 'line', PORT = Q.get('o') === 'p';
 const SKIP = Q.get('skip') !== '0';                    // Zeilen ohne Aufzeichnung zu einer Zeile zusammenfassen
 const PTV = Q.get('pt') !== null && Q.get('pt') !== '' && isFinite(+Q.get('pt')) ? +Q.get('pt') : null;   // Prüf-Schwelle (nur Anzeige)
@@ -69,9 +71,66 @@ async function load() {
     prog(++done, total);
   };
   try { const rt = await getJSON('runtime?from=' + FROM + '&to=' + TO); DOWN = ((rt && rt.events) || []).filter(e => e.kind === 'down').map(e => [new Date(e.from).getTime(), new Date(e.to).getTime(), e.note || '', e.cause]); } catch (e) { }
+  const evP = (SHOW.ev || MFO) ? getJSON('beleg?from=' + FROM + '&to=' + TO + '&srcs=' + encodeURIComponent(SRCS.map(s => s[0]).join(',')) + (MFO ? '&mfo=1' : '')) : Promise.resolve(null);
   let q = 0; const workers = Array.from({ length: 3 }, async () => { while (q < jobs.length) await run(jobs[q++]); });
   await Promise.all(workers);
+  EVD = await evP; if (EVD && !EVD.ok) EVD = null;
+  mfMark();
   render();
+  if (SHOW.ev && EVD) evidTop();
+  if (SHOW.info) await methodBlock();
+  if (SHOW.ev && EVD) evidBottom();
+}
+/* Musterfilter: Störungen kennzeichnen („nach Muster … ausgefiltert“) bzw. mit „weglassen“ entfernen */
+function mfMark() {
+  if (!EVD || !(EVD.mf_ev || []).length) return;
+  const hit = (sid, t0) => EVD.mf_ev.find(x => x[1] === sid && Math.abs(x[0] - t0) < 1500);
+  for (const li of lines) for (const sid in li.dev) {
+    const d = li.dev[sid];
+    d.ev = d.ev.filter(e => { const m = hit(sid, e[0]); if (!m) return true; if (MFO) return false; if (e[3] && typeof e[3] === 'object') e[3].mf = m[2]; else e[3] = { mf: m[2] }; return true; });
+  }
+}
+const fd1 = v => lang === 'de' ? String(v).replace('.', ',') : String(v);
+function durTxt(s) { s = +s || 0; if (s < 60) return fd1(Math.round(s * 10) / 10) + ' s'; if (s < 3600) return Math.floor(s / 60) + ' min ' + pad(Math.round(s % 60)) + ' s'; return Math.floor(s / 3600) + ' h ' + pad(Math.floor(s % 3600 / 60)) + ' min'; }
+/* Oben: Vermerk Musterfilter und Zusammenfassung nach Zeitpunkt, Art, Intensität, Dauer, Häufigkeit */
+function evidTop() {
+  const s = EVD.summary, mf = EVD.muster, wdn = lang === 'en' ? ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'] : ['Mo', 'Di', 'Mi', 'Do', 'Fr', 'Sa', 'So'];
+  const d = document.createElement('div'); d.className = 'evid';
+  const row = (k, v) => `<tr><th>${esc(k)}</th><td>${v}</td></tr>`;
+  let h = '';
+  if (mf && mf.used && mf.used.length) h += `<p class="evmf">${esc(t(mf.omit ? 'ev_mf_omit' : 'ev_mf_in', { l: mf.used.map(([a, c]) => '„' + a + '“ ' + c + '×').join('; ') }))}</p>`;
+  h += `<h3>${esc(t('ev_sum'))}</h3><table class="evt">`;
+  h += row(t('ev_n'), esc(String(s.n)) + (s.bg_n ? ' · ' + esc(t('ev_bg', { n: s.bg_n })) : ''));
+  h += row(t('ev_time'), esc(t('ev_night', { n: s.night_n, r: s.rz_n })) + (s.top_hours.length ? ' · ' + esc(t('ev_top_h')) + ': ' + s.top_hours.map(([hh, c]) => pad(hh) + '–' + pad((hh + 1) % 24) + ' (' + c + '×)').join(', ') : '') + '<br>' + s.wd.map((c, i) => esc(wdn[i]) + ' ' + c).join(' · '));
+  if (s.arts.length) h += row(t('ev_kind'), esc(s.arts.map(([a, c]) => a + ' ' + c + '×').join(', ')));
+  if (s.peak) h += row(t('ev_int'), esc(t('ev_pk_t', { a: f1(s.peak.min), b: f1(s.peak.med), c: f1(s.peak.max) })) + '<br>' + esc(s.over.map(([a, c]) => a + ': ' + c).join(' · ')));
+  if (s.dur) h += row(t('ev_dur'), esc(t('ev_dur_t', { a: durTxt(s.dur.sum), b: durTxt(s.dur.med), c: durTxt(s.dur.max) })) + '<br>' + esc(s.dur_b.map(([a, c]) => a + ': ' + c).join(' · '))
+    + (s.impulses ? '<br>' + esc(t('ev_imp_t', { n: s.impulses.sum, e: s.impulses.events })) : ''));
+  h += row(t('ev_freq'), esc(t('ev_freq_t', { d: s.days_with, t: s.days, a: fd1(s.per_day_avg), m: s.per_day_max })) + '<br>' + esc(t('ev_rec_t', { r: s.days_rec, q: s.days_quiet_rec })));
+  h += '</table>';
+  d.innerHTML = h;
+  const paper = $('paper'), after = paper.querySelector('.leg') || paper.firstChild; if (after && after.nextSibling) paper.insertBefore(d, after.nextSibling); else paper.appendChild(d);
+}
+/* Unten: lückenlose Zeitachse, Prüfsummen mit Erklärung, Rohdaten, was die Aufzeichnung belegt */
+function evidBottom() {
+  const d = document.createElement('div'); d.className = 'evid';
+  const mx = Math.max(1, ...EVD.timeline.map(x => x.n));
+  let h = `<h3>${esc(t('ev_tl'))}</h3><div class="evtl">` + EVD.timeline.map(x => `<div class="evd${x.rec.length ? '' : ' norec'}"><span>${esc(day(new Date(x.day + 'T12:00:00').getTime()))}</span><b>${x.n ? x.n : esc(t('ev_none_day'))}</b>`
+    + `<i style="width:${x.n ? Math.max(3, Math.round(60 * x.n / mx)) : 0}px"></i><small>${esc(t(x.rec.length ? 'ev_rec' : 'ev_norec'))}</small></div>`).join('') + '</div>';
+  if (EVD.chains.length) h += `<h3>${esc(t('ev_chain'))}</h3><p class="evs">${esc(EVD.howto)}</p><table class="evt"><tr><th>${esc(t('ev_c_day'))}</th><th>${esc(t('ev_c_dev'))}</th><th>${esc(t('ev_c_res'))}</th><th>${esc(t('ev_c_head'))}</th></tr>`
+    + EVD.chains.map(c => `<tr><td>${esc(day(new Date(c.day + 'T12:00:00').getTime()))}</td><td>${esc(c.name)}</td><td>${esc(c.res)}</td><td class="mono">${esc(c.head || '–')}</td></tr>`).join('') + '</table>';
+  const p = new URLSearchParams({ from: isoDay(FROM), to: isoDay(TO - 1) }); if (SRCS.length === 1) p.set('src', SRCS[0][0]); if (MFO) p.set('mfo', '1');
+  h += `<h3>${esc(t('ev_raw'))}</h3><p class="evs">${esc(t('ev_raw_t'))} <a href="ereignisse.csv?${p}">ereignisse.csv?${esc(p.toString())}</a></p>`;
+  h += `<h3>${esc(t('ev_limits'))}</h3><p class="evs">${esc(EVD.limits)}</p>`;
+  d.innerHTML = h; $('paper').appendChild(d);
+}
+/* Messmethode unter dem Ausdruck: Programm, Geräte, Messort, Fenster, Kalibrierung, Ton (zum Nachvollziehen für Dritte) */
+async function methodBlock() {
+  const j = EVD ? { ok: true, info: EVD.method } : await getJSON('methode'); if (!j || !j.ok) return;
+  const m = j.info, d = document.createElement('div'); d.className = 'meth';
+  d.innerHTML = `<h3>${esc(t('pr_meth'))}</h3><p>GLighter ${esc(m.version)}</p><ul>${m.devices.filter(x => SRCS.some(([sid]) => sid === x.id)).map(x => `<li><b>${esc(x.name)}</b> · ${esc(x.type)}${x.mic ? ' · ' + esc(x.mic) : ''} · ${esc(t('meas_place'))}: ${esc(x.place || t('meas_win_na'))} · ${esc(t('meas_win'))}: ${esc(x.window || t('meas_win_na'))}</li>`).join('')}</ul>
+    <p>${esc(m.calib)}</p><p>${esc(m.audio_txt)}</p><p>${esc(m.art_txt)}</p>`;
+  $('paper').appendChild(d);
 }
 let NB = 23, DOWN = [];             // Unterbrechungen des Add-ons (mit eigenem Kommentar)
 
@@ -145,8 +204,10 @@ function ptCount(pts) {                              // Spitzen über der Prüf-
 function evText(e, k) {
   const o = e[3] && typeof e[3] === 'object' ? e[3] : {}, dur = Math.max(0, e[1]) / 1000;
   const parts = [`<b>${k + 1}</b> ${hms(e[0])}`, (lang === 'de' ? (dur < 10 ? dur.toFixed(1) : Math.round(dur) + '').replace('.', ',') : (dur < 10 ? dur.toFixed(1) : Math.round(dur))) + ' s', f1(e[2]) + ' dBFS' + (num(o.th) != null && num(e[2]) != null ? ' (+' + f1(e[2] - o.th) + ')' : '')];
-  if (o.a) parts.push((ART_ICON[o.a] || '') + ' ' + esc(t('art_' + o.a)) + (o.ac && !o.am ? ' ' + o.ac + ' %' : ''));
+  if (o.a) parts.push((ART_ICON[o.a] || '') + ' ' + esc(t('art_' + o.a)) + (o.am ? ' (' + esc(t('ev_conf')) + ')' : ' – ' + esc(o.ac != null ? t('art_sugg', { c: o.ac }) : t('art_sugg0'))));
   if (o.p) parts.push('🧩 ' + esc(o.p) + (o.pc != null ? ' ' + o.pc + ' %' : ''));
+  if (o.imp) parts.push(esc(t('ev_imp', { n: o.imp })));
+  if (o.mf) parts.push('⊘ ' + esc(t('ev_mf_row', { l: o.mf.join(', ') })));
   if (o.nt) parts.push('📝 ' + o.nt);
   return '<div>' + parts.join(' · ') + '</div>';
 }

@@ -6,7 +6,7 @@
 <title>Verlauf drucken</title>
 <style id="pgsize">@page{size:A4 landscape;margin:9mm 9mm 11mm}</style>
 <style>
-:root{--tx:#1b1f24;--mut:#6b7280;--bd:#d0d5db;--grid:#eceff2;--red:#e03131;--thr:#e8590c;--bgl:#868e96;--acc:#1c7ed6;--fill:#cfe3f7}
+:root{--tx:#1b1f24;--mut:#6b7280;--bd:#d0d5db;--grid:#eceff2;--red:#e03131;--thr:#e8590c;--bgl:#868e96;--acc:#1971c2;--fill:#cfe3f7}
 *{box-sizing:border-box}
 html,body{margin:0;background:#e9ecef;color:var(--tx);font:12px/1.35 system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;-webkit-print-color-adjust:exact;print-color-adjust:exact}
 .bar{position:sticky;top:0;z-index:5;display:flex;gap:10px;align-items:center;flex-wrap:wrap;padding:10px 16px;background:#fff;border-bottom:1px solid var(--bd)}
@@ -32,6 +32,11 @@ html,body{margin:0;background:#e9ecef;color:var(--tx);font:12px/1.35 system-ui,-
 .inf div{break-inside:avoid}.inf.pt{color:#9c36b5;columns:1}.inf b{font-weight:650;color:var(--red)}.inf .nt{color:#5b3cc4}
 .blk.gap{padding-top:.6mm;margin-bottom:1.6mm}.blk.gap .bt{font-weight:500;color:var(--mut)}
 .empty{font-size:9.5px;color:var(--mut);margin-left:34px;padding:2mm 0}
+.evid,.meth{break-inside:auto;margin:3mm 0;font-size:10.5px}.evid h3,.meth h3{font-size:12px;margin:3mm 0 1.5mm;break-after:avoid}
+.evt{border-collapse:collapse;width:100%}.evt th,.evt td{border:1px solid var(--bd);padding:1.2mm 2mm;text-align:left;vertical-align:top}.evt th{width:46mm;background:#f6f7f8;font-weight:600}
+.evt .mono,.mono{font-family:Consolas,Menlo,monospace;font-size:8.5px;word-break:break-all}.evs{color:#333;margin:1mm 0}.evmf{border:1px solid #9ec5fe;background:#eef5ff;border-radius:6px;padding:1.5mm 2.5mm;margin:0 0 3mm}
+.evtl{display:grid;grid-template-columns:repeat(auto-fill,minmax(52mm,1fr));gap:.6mm 4mm}.evd{display:flex;gap:2mm;align-items:center;font-size:9.5px;break-inside:avoid}
+.evd span{min-width:24mm}.evd b{min-width:9mm;text-align:right}.evd i{display:inline-block;height:2.4mm;background:var(--red);border-radius:1px}.evd small{color:var(--mut)}.evd.norec{color:var(--mut)}
 @media print{
   html,body{background:#fff}
   .bar{display:none}

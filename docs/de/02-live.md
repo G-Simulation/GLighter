@@ -99,5 +99,13 @@ Die Liste unten zeigt alle Störungen des Tages (alle Geräte oder das gewählte
 
 **Nur sichtbarer Bereich** (Standard: an): Die Tabelle zeigt nur, was im Graphen darüber gerade zu sehen ist. Sie läuft live mit und folgt dem Zoomen und Verschieben. Aus: alle Ereignisse ab dem Anfang des Graphen.
 
+**Spaltenbreiten:** Ziehst du eine Spalte am Rand im Kopf breiter oder schmaler, merkt sich GLighter die Breite (auf dem Server, für alle Browser gleich). Zurücksetzen über **▦ Layout anpassen** → **＋ Bereich hinzufügen** → **Spaltenbreiten der Tabellen zurücksetzen**.
+
+<a id="anordnen"></a>
+
+## Anordnen und eigene Kacheln
+
+Auch die Live-Ansicht besteht aus Bereichen (Notiz, Live-Bild, Ereignisse). Mit **▦ Layout anpassen** verschiebst du sie, änderst die Breite, benennst sie um oder blendest sie aus – mit der Maus, mit **↑ / ↓** (auch am Handy) oder mit der Tastatur. **📊 ＋ Kachel** legt eine Kachel an, z. B. „Störungen heute“ als große Zahl. Alles dazu unter [Protokolle → Layout anpassen](03-protokolle.md#designer) und [Kacheln](03-protokolle.md#statistik).
+
 ---
 [← Schnellstart in 5 Minuten](01-schnellstart.md) · [Inhalt](README.md) · [Protokolle →](03-protokolle.md)

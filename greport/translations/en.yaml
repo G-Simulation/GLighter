@@ -11,3 +11,9 @@ configuration:
   output_dir:
     name: Data folder
     description: "The notes are stored here. GLighter reads them from here (default /share/greport)."
+  attach_max_mb:
+    name: Attachments – maximum per file (MB)
+    description: "Largest attachment allowed (default 25 MB)."
+  attach_total_mb:
+    name: Attachments – maximum in total (MB)
+    description: "Space all attachments together may use (default 500 MB)."

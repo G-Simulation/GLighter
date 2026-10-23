@@ -87,15 +87,52 @@ RESTART_KEYS = {
 }
 
 
+# Geheimnisse nie ins Protokoll: Schlüssel in Adressen (z. B. ?key=… bei Paraglidable) und Bearer-Token werden geschwärzt.
+_SECRET_RE = re.compile(r"(?i)([?&;](?:key|apikey|api_key|api-key|token|access_token|auth|appid|password|passwd|secret|signature)=)[^&\s'\"<>#]+")
+_BEARER_RE = re.compile(r"(?i)(bearer\s+)[A-Za-z0-9._~+/=\-]{8,}")
+
+
+def redact(s: str) -> str:
+    return _BEARER_RE.sub(r"\1***", _SECRET_RE.sub(r"\1***", s))
+
+
+class RedactFilter(logging.Filter):
+    """Für alle Handler (Konsole und /api/log): Meldung und Fehlertext schwärzen."""
+
+    def filter(self, record: logging.LogRecord) -> bool:
+        try:
+            msg = record.getMessage()
+            red = redact(msg)
+            if red != msg:
+                record.msg, record.args = red, ()
+            if record.exc_info and not record.exc_text:
+                record.exc_text = logging.Formatter().formatException(record.exc_info)
+            if record.exc_text:
+                record.exc_text = redact(record.exc_text)
+        except Exception:  # noqa: BLE001
+            pass
+        return True
+
+
 class RingLog(logging.Handler):
+    """Letzte Protokollzeilen für die Oberfläche. „lines“ bleibt unverändert (Text wie bisher);
+    „items“ trägt dieselben Zeilen zusätzlich zerlegt mit fortlaufender Nummer (nur zur Anzeige als Tabelle)."""
+
     def __init__(self, n: int = 400) -> None:
         super().__init__()
         self.lines: deque = deque(maxlen=n)
+        self.items: deque = deque(maxlen=n)
+        self.seq = 0
+        self.addFilter(RedactFilter())
         self.setFormatter(logging.Formatter("%(asctime)s %(levelname)s %(message)s", "%H:%M:%S"))
 
     def emit(self, record: logging.LogRecord) -> None:
         try:
-            self.lines.append(self.format(record))
+            line = self.format(record)
+            self.seq += 1
+            self.lines.append(line)
+            self.items.append({"id": self.seq, "t": self.formatter.formatTime(record, "%H:%M:%S"), "lvl": record.levelname,
+                               "name": record.name, "msg": line.split(" ", 2)[2] if line.count(" ") >= 2 else line})
         except Exception:  # noqa: BLE001
             pass
 
@@ -265,7 +302,7 @@ def make_app(gj) -> web.Application:
         return web.json_response(gj.status(), dumps=lambda o: json.dumps(o, default=float))
 
     async def logs(request):
-        return web.json_response({"lines": list(RING.lines)[-250:]})
+        return web.json_response({"lines": list(RING.lines)[-250:], "items": list(RING.items)[-250:]})
 
     async def get_settings(request):
         raw = dict(gj.raw)
@@ -436,6 +473,9 @@ def make_app(gj) -> web.Application:
         asyncio.create_task(_bye())
         return web.json_response({"ok": True})
 
+    async def ag_grid(request):                    # Tabellen-Bibliothek (AG Grid Community, MIT) – liegt bei, kein Internet nötig
+        return web.FileResponse(WEB_DIR / "ag-grid-community.min.js", headers={"Cache-Control": "no-cache"})
+
     async def hadash_ui(request):
         return web.FileResponse(WEB_DIR / "hadash-ui.js", headers={"Cache-Control": "no-cache"})
 
@@ -454,6 +494,7 @@ def make_app(gj) -> web.Application:
 
     app.router.add_get("/", index)
     app.router.add_get("/hadash-ui.js", hadash_ui)
+    app.router.add_get("/ag-grid-community.min.js", ag_grid)
     app.router.add_get("/api/hadash", hadash_get)
     app.router.add_post("/api/hadash/{what}", hadash_post)
     app.router.add_get("/api/status", status)

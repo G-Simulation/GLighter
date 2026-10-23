@@ -11,6 +11,7 @@ At the very top choose **All devices** or a single device. For a device, “Own 
 - **Sources (microphones)** – see [Devices](#geraete).
 - **Level-match devices** – see [Level-matching](#geraete/einpegeln).
 - **Microphone** {#s_audio} – input on the server, jack, volume, sound quality (16000 Hz is enough for knocking).
+- **Place and window** {#messort} – per device in the device card: where in the room you measure (e.g. “bedroom, shelf at the wall to the neighbour”) and whether the window is **mostly open**, **mostly closed** or **changing**. Optionally a window sensor from Home Assistant (rule “only record state”). Both appear in the method section of the noise log, the print and the evidence package.
 
 ## Detection {#erkennung}
 
@@ -34,6 +35,30 @@ At the very top choose **All devices** or a single device. For a device, “Own 
 **Recognize sound type (local AI)** – classifies disturbances (door, knocking, music …), no sound is stored. **Store AI fingerprint for each disturbance** – better distinction when learning and “re-evaluate” without sound. **Also store AI fingerprint between disturbances** – continuously, for “re-examine”; see [AI fingerprint](#ki/fingerabdruck).
 
 **Sound profiles** – see [AI](#ki/tonprofile). **Different values at certain times** (time profiles) {#s_sched} – e.g. more sensitive at night, general or per device.
+
+### Filter out patterns {#muster}
+
+Known, recurring sounds (clock chime on the hour, fridge, heating, alarm clock, your own TV) can be hidden **in the display**. A pattern combines any number of conditions:
+
+| Condition | Example |
+|---|---|
+| Device | only the hallway microphone |
+| Type or sound profile | “signal”, sound profile “fridge” or “background (own device)” |
+| Time from–to, weekdays | 06:00–06:20, Mon–Fri (also across midnight) |
+| Duration from–to, peak from–to (dBFS) | 2–8 s, −45 to −30 dBFS |
+| Distance to the threshold | 0 to 4 dB above the threshold |
+| Repetition | every 60 minutes from minute 0, ± 2 minutes (= every full hour) |
+| State in Home Assistant | only while the rule “TV on” applies |
+
+Plus a name and a colour. **Create:** here with **＋ Add pattern** or in the event list via **⋮ → Filter out as pattern …** – device, type, time (± 15 min), duration and peak are then taken from the disturbance. Before saving you see how many disturbances of the last 30 days the pattern would match, with examples.
+
+**Effect:** matching disturbances are missing from lists, counters, tiles and the tile sensors in Home Assistant and are only shown faintly in charts. The count then says e.g. “(12 filtered out by pattern)”. The switch **⊘ show filtered** above the sections brings them back, marked with the pattern name.
+
+**Nothing stored changes:** patterns are kept in `muster.json` (included in the backup). `log.csv`, day recording, checksums and event files stay unchanged – deleting a pattern shows everything as before.
+
+**Noise log, print and export** contain **all** disturbances by default, filtered ones with the note “filtered out by pattern …” (CSV column `nach_muster_ausgefiltert`). With **leave out those filtered by pattern** they are omitted and the top names the patterns and how many disturbances they removed.
+
+> **🔒 Pro:** one pattern is free, several need [GLighter Pro](#pro). Without Pro further patterns stay stored, only the first applies.
 
 ## Times & pauses {#zeiten}
 

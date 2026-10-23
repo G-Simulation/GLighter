@@ -99,5 +99,13 @@ The list at the bottom shows all disturbances of the day (all devices or the sel
 
 **Visible range only** (default: on): the table only shows what the chart above currently shows. It follows live, zooming and panning. Off: all events from the start of the chart.
 
+**Column widths:** if you drag a column edge in the header to make it wider or narrower, GLighter remembers the width (on the server, the same for every browser). Reset via **▦ Customise layout** → **＋ Add section** → **Reset table column widths**.
+
+<a id="anordnen"></a>
+
+## Arranging and own tiles
+
+The Live view also consists of sections (note, live chart, events). With **▦ Customise layout** you move them, change their width, rename or hide them – with the mouse, with **↑ / ↓** (also on phones) or with the keyboard. **📊 ＋ Tile** adds a tile, e.g. “Disturbances today” as a big number. Details under [Logs → Customise layout](03-protokolle.md#designer) and [Tiles](03-protokolle.md#statistik).
+
 ---
 [← Quick start in 5 minutes](01-schnellstart.md) · [Contents](README.md) · [Logs →](03-protokolle.md)

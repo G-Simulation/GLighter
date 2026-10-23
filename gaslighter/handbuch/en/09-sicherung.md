@@ -2,9 +2,17 @@
 
 ## Download a backup {#export}
 
-⚙ Settings → Storage & backup → **Download / restore backup (ZIP)** → **⬇ Download backup**. The ZIP file contains everything: settings, devices, time profiles, rules, `log.csv` and all log files, day recordings with checksums, AI results, sound profiles, notes, comments on interruptions, named ranges, lists, videos and – if stored – sound.
+⚙ Settings → Storage & backup → **Download / restore backup (ZIP)** → **⬇ Download backup**. The ZIP file contains everything: settings, devices, time profiles, rules, `log.csv` and all log files, day recordings with checksums, AI results, sound profiles, notes, tiles, the arrangement of the views (`layout.json`), comments on interruptions, named ranges, lists, videos and – if stored – sound.
 
 > The file can get large (hundreds of MB). Download it regularly and keep it in another place.
+
+**Without secrets:** the normal backup and the daily backup to a network drive/NAS do **not** contain the secret key of the checksum chain (`kette_schluessel.json`), no passwords of network cameras and no phone IDs. A lost backup can therefore not be used to recompute data unnoticed or to pose as your phone.
+
+### Move to a new device (with key) {#umzug}
+
+Under **🔑 Move to a new device (with key)** enter a password (at least 8 characters, twice) and **⬇ Download move backup**. The ZIP additionally contains the chain key and the access data – **encrypted** with the password (scrypt and HMAC-SHA256, encrypt then authenticate). They cannot be read without the password. The password never goes into the address and is not stored; keep it separate from the file.
+
+When restoring, the preview asks for the password. A wrong password stops before anything is restored. Without a password the file is restored like a normal backup.
 
 For further processing there are also `log.csv` (Logs tab), the notes as CSV (📝 All notes) and the noise log as PDF.
 
@@ -23,6 +31,12 @@ For further processing there are also `log.csv` (Logs tab), the notes as CSV (�
 3. Set or clear the ticks and **Restore now**.
 
 Afterwards a report shows new files, merged days, skipped days and the devices taken over.
+
+**Without the key** (normal backup on another device) the restored days stay checkable: the report and the noise log say “chain complete, key missing: authenticity can only be checked with the original device” – it is checked that no minute is missing and the order is right. Checksums and day files are never changed; which days were restored is noted in a separate file (`kette_fremd.json`). Older backups (up to 1.79) that still contain the key are still accepted.
+
+**Phones** get a new ID without a move – the report names them, they need to be paired again (link or QR code in the device card). If the password of a network camera is missing, the device is set to “please check”.
+
+**Limits when restoring:** before unpacking GLighter checks the number of entries (at most 300,000) and the space the unpacked files need against the free storage. The total size of an upload is fixed with the first part.
 
 ### Daily backup to network drive, NAS or USB {#ziel}
 

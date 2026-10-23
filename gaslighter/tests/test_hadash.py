@@ -73,6 +73,8 @@ class FakeHA:
                     b = dict(m, id=f"d{len(self.boards)}"); b.pop("type"); self.boards.append(b); res = b
                 elif t == "lovelace/dashboards/update":
                     res = {}
+                elif t == "lovelace/config":
+                    res = self.saved.get(m.get("url_path"), {"views": [{"title": "alt"}]})
                 elif t == "lovelace/config/save":
                     self.saved[m["url_path"]] = m["config"]
                 else:
@@ -93,6 +95,8 @@ class HadashTest(unittest.TestCase):
                {"unique_id": "anderes_level", "entity_id": "sensor.fremd"}]
         self.ha = FakeHA(reg, boards=[{"id": "x1", "url_path": "schon-da", "title": "Eigenes"}])
         os.environ["HADASH_TOKEN"] = "tok"
+        import tempfile
+        os.environ["HADASH_DATA"] = tempfile.mkdtemp()
         hadash.WS_URL = f"ws://127.0.0.1:{self.ha.port}/api/websocket"
 
     def tearDown(self):
@@ -113,6 +117,19 @@ class HadashTest(unittest.TestCase):
         self.assertFalse(r["ok"]); self.assertTrue(r["exists"]); self.assertEqual(self.ha.saved, {})
         r = hadash.install("schon-da", "X", "mdi:x", {"views": []}, overwrite=True)
         self.assertTrue(r["ok"]); self.assertFalse(r["created"]); self.assertIn("schon-da", self.ha.saved)
+
+    def test_fremdes_dashboard_wird_gesichert_und_sichtbarkeit_bleibt(self):
+        r = hadash.install("schon-da", "X", "mdi:x", {"views": []})
+        self.assertFalse(r["own"])
+        r = hadash.install("schon-da", "X", "mdi:x", {"views": []}, admin=False, overwrite=True)
+        self.assertTrue(r["ok"]); self.assertFalse(r["own"])
+        self.assertNotIn("lovelace/dashboards/update", [c["type"] for c in self.ha.calls])   # fremd: Sichtbarkeit nicht anfassen
+        self.assertTrue(r["backup"] and os.path.exists(os.path.join(os.environ["HADASH_DATA"], "dashboard_sicherung", r["backup"])))
+
+    def test_eigenes_dashboard_darf_aktualisiert_werden(self):
+        hadash.install("gsim-neu", "A", "mdi:x", {"views": []})
+        r = hadash.install("gsim-neu", "B", "mdi:x", {"views": []}, overwrite=True)
+        self.assertTrue(r["own"]); self.assertIn("lovelace/dashboards/update", [c["type"] for c in self.ha.calls])
 
     def test_adresse_wird_geprueft(self):
         for bad in ("ohnebindestrich", "Gross-Buchstaben", "-vorne", "a b-c", "x" * 41 + "-y"):

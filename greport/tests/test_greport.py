@@ -150,7 +150,7 @@ class Notizen(unittest.TestCase):
         G.note_change("add", {"tags": ["klopfen", "oben"], "text": "Bass", "witness": "Anna", "from": "2026-10-18T05:07:12"})
         G.note_change("add", {"tags": ["schritte"], "from": "2026-10-18T05:15:08"})
         G.note_change("add", {"text": "Tür knallt", "from": "2026-10-17T23:41:10", "to": "2026-10-17T23:45:00"})
-        path = os.path.join(G.DIR, "tagebuch.txt")
+        path = os.path.join(G.DIR, "export", "tagebuch.txt")                            # schreiben nur in eigene Ordner
         self.assertTrue(G.txt_set({"on": True, "path": path})["ok"])
         txt = open(path, encoding="utf-8").read()
         self.assertIn("Sa. 17.10.2026\n23:41:10 – 23:45:00  Tür knallt\n\nSo. 18.10.2026\n05:07:12  [Klopfen, oben] Bass – Zeuge: Anna\n05:15:08  [Schritte]", txt)
@@ -166,10 +166,12 @@ class Notizen(unittest.TestCase):
         # CSV-Export einlesen
         r = G.import_text({"content": G.export_text("csv")})
         self.assertEqual(r["new"], 0)
-        e = G.export_file({"fmt": "json", "path": os.path.join(G.DIR, "x.json")}); self.assertTrue(e["ok"])
-        self.assertEqual(G.import_text({"path": e["path"]})["dup"], 4)
+        e = G.export_file({"fmt": "json", "path": os.path.join(G.DIR, "export", "x.json")}); self.assertTrue(e["ok"])
+        self.assertEqual(G.import_text({"path": e["path"]})["error"], "path")                 # lesen nur aus …/import und /media
+        os.makedirs(os.path.join(G.DIR, "import"), exist_ok=True); shutil.copy(e["path"], os.path.join(G.DIR, "import", "x.json"))
+        self.assertEqual(G.import_text({"path": os.path.join(G.DIR, "import", "x.json")})["dup"], 4)
         G.txt_set({"monthly": True}); G.diary_write()
-        self.assertTrue(os.path.exists(os.path.join(G.DIR, "tagebuch_2026-10.txt")))
+        self.assertTrue(os.path.exists(os.path.join(G.DIR, "export", "tagebuch_2026-10.txt")))
 
     def test_weitergabe_an_glighter(self):
         G.heartbeat()

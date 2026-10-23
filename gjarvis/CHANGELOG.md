@@ -1,5 +1,13 @@
 # Änderungen
 
+## 1.12.0
+
+- Protokoll als Tabelle: Zeit, Stufe (Fehler, Warnung, Info als farbige Markierung), Bereich und Meldung. Filtern nach Stufe, Suchen und Knopf „Nur Fehler“. Darüber steht, wie viele Einträge angezeigt werden, z. B. „12 von 250 Einträgen (gefiltert)“, mit „Filter löschen“. Neue Zeilen kommen beim automatischen Aktualisieren dazu, ohne dass die Tabelle springt. „Kopieren“ kopiert die angezeigten Zeilen
+- Erinnerungen und Timer in der Übersicht als Tabelle (Zeit, Text, ✕ zum Löschen), auch mit der Tastatur bedienbar
+- Auf dem Handy weniger Spalten, die Seite bleibt in der Breite; läuft ohne Internet
+- Barrierefreiheit: Hilfetabellen mit Zeilen- und Spaltenüberschriften für Screenreader
+- Sicherer: API-Schlüssel und Token in Adressen (z. B. `?key=…`, `apikey`, `token`, `api_key`) und Bearer-Token werden in allen Protokollen geschwärzt (***) – im App-Protokoll von Home Assistant und im Protokoll der Oberfläche, auch in Fehlermeldungen
+
 ## 1.11.0
 
 - Neu: Dashboard in Home Assistant mit einem Klick (Einstellungen → „Dashboard in Home Assistant“): Zustand, Steuerung (Stopp, Briefing, Lautstärke, Stimme), Erinnerungen und Knopf „GJarvis öffnen“. „Letzter Befehl und letzte Antwort“ nur, wenn du es auswählst. Ein vorhandenes Dashboard wird nur nach Rückfrage ersetzt; die Vorlage gibt es auch als YAML

@@ -111,6 +111,20 @@ Manchmal soll eine Störung nicht gemeldet werden, der Graph aber trotzdem weite
 - **Vorlauf (s), z. B. für einen Sprachassistenten:** Das Rufwort („Hey Jarvis“) kommt, *bevor* der Assistent auf „hört zu“ wechselt. Mit **Vorlauf** zählt auch eine Störung nicht, die bis zu so viele Sekunden vor dem Einschalten der Regel begann. Dafür hält GLighter jede Störung so lange (Vorlauf + 2 s) zurück, bevor sie gemeldet wird. Pegel und Graph bleiben unverändert; im Protokoll steht „nicht gezählt“. **Einrichten:** Regel hinzufügen, Entität `assist_satellite.…` wählen – Zustände `!idle`, „keine Störung melden“, Vorlauf 3 s und Nachlauf 0,5 min werden vorbelegt. So zählen Rufwort, Befehl und die Antwort aus dem Lautsprecher nicht.
 - **Als Knopf im Dashboard:** Am Gerät „GLighter“ gibt es **„Keine Störung melden (Dauer starten)“**, **„Störungen wieder melden“**, die einstellbare **Dauer** (1–240 Minuten, Standard 10) und **„Keine Störungsmeldung bis“**. Lege sie auf dein Dashboard. Ein Tipp auf den Knopf startet die eingestellte Dauer.
 
+<a id="kacheln"></a>
+
+## Kacheln als Sensoren
+
+Jede Kachel, die du in GLighter angelegt hast (Live oder Protokolle, siehe [Kacheln](03-protokolle.md#statistik)), erscheint mit MQTT im Gerät **GLighter** als eigener Sensor, z. B. `sensor.gaslighter_tile_s_1a2b3c4d` (eindeutige Kennung `gaslighter_tile_<Kennung>`).
+
+- **Zustand** ist der Hauptwert der Kachel: Anzahl, Gesamtdauer in Sekunden oder Spitze in dBFS. Der Name ist der Name der Kachel bzw. die eigene Überschrift aus **✎**.
+- **Attribute:** Zeitraum (von, bis), Anzahl der Einträge, Darstellung, Aufteilung, Kennzahl, `eintraege` (Name und Wert je Balken, Listen- oder Tabellenzeile) und bei Aufteilung nach Zeit `verlauf` (Werte für Grafiken).
+- Aktualisiert wird jede Minute und kurz nach jeder neuen Störung – gesendet wird nur, was sich geändert hat.
+- „Gewählter Zeitraum“ gilt in Home Assistant als **heute**.
+- Löschst du eine Kachel, verschwindet auch der Sensor aus Home Assistant.
+
+Im **Dashboard in Home Assistant** (siehe unten) setzt der Bereich **Eigene Kacheln** diese Sensoren passend ein: Zahlen als Kachel-Karte, Trends als Statistik-Grafik, Balken als Verlaufs-Grafik, Listen und Tabellen als Text-Karte.
+
 <a id="dashboard"></a>
 
 ## Dashboard in Home Assistant anlegen
@@ -119,7 +133,7 @@ Manchmal soll eine Störung nicht gemeldet werden, der Graph aber trotzdem weite
 
 - **Name** und **Adresse** (z. B. `gsim-glighter`, steht danach in der Adresszeile von Home Assistant),
 - ob es in der **Seitenleiste** steht und ob es **nur für Administratoren** sichtbar ist,
-- welche **Bereiche** hinein sollen: Jetzt (Störung, Pegel, heute), Pegel der letzten 24 Stunden, Störung erfassen, Keine Störung melden, Aufzeichnung und Pause, weitere Mikrofone, Knopf „GLighter öffnen“.
+- welche **Bereiche** hinein sollen: Jetzt (Störung, Pegel, heute), Pegel der letzten 24 Stunden, Störung erfassen, Keine Störung melden, Aufzeichnung und Pause, weitere Mikrofone, **eigene Kacheln**, Knopf „GLighter öffnen“.
 
 **In Home Assistant anlegen** erstellt das Dashboard. Gibt es unter der Adresse schon eins, fragt GLighter nach, bevor es ersetzt wird (Änderungen, die du dort gemacht hast, gehen dabei verloren). Ohne Klick ändert GLighter in Home Assistant nichts.
 

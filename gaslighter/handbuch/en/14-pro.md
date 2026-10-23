@@ -11,6 +11,7 @@ The yearly licence **GLighter Pro** additionally unlocks:
 | External devices: phone in the browser, phone app / stream URL, IP camera | locked | up to 8 additional devices |
 | Phone as motion sensor (vibration, motion in picture) | locked | ✔ |
 | 📊 Configure your own statistics ([Statistics](#protokolle/statistik)) | templates | fully configurable |
+| ⊘ Filter out patterns ([Patterns](#einstellungen/muster)) | 1 pattern | up to 30 patterns |
 | Daily backup to network drive/NAS/USB and “save space” ([Backup](#sicherung/ziel)) | “⬇ Download backup” by hand | automatic every day, verified |
 
 The server microphone (on the Home Assistant computer) always works without Pro.
@@ -42,3 +43,4 @@ To renew, buy a new licence and enter the new key.
 ## Moving to a new computer {#umzug}
 
 Download a backup on the old computer, install GLighter on the new one and import the backup – the **first import is free**. Then enter your Pro key again.
+To take the chain key and the access data along as well, use the [move backup with password](#sicherung/umzug).

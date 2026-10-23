@@ -2883,8 +2883,10 @@ def main() -> None:
     logging.getLogger("urllib3").setLevel(logging.WARNING)
     logging.getLogger("aiohttp").setLevel(logging.WARNING)
     try:
-        from web import RING
+        from web import RING, RedactFilter
 
+        for h in logging.getLogger().handlers:              # auch die Konsole (App-Protokoll in Home Assistant) schwärzt Schlüssel
+            h.addFilter(RedactFilter())
         logging.getLogger().addHandler(RING)
     except Exception:  # noqa: BLE001
         pass
