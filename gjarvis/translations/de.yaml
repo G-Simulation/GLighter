@@ -236,7 +236,10 @@ configuration:
     description: media_player aus Home Assistant, z. B. media_player.wohnzimmer_sonos (leer = Lautsprecher am Server)
   output_tts_entity:
     name: Stimme aus Home Assistant
-    description: TTS-Entität für den Lautsprecher, z. B. tts.elevenlabs_text_zu_sprache (leer = Piper-Stimme von GJarvis)
+    description: TTS-Entität, z. B. tts.elevenlabs_text_zu_sprache – gilt dann überall (Lautsprecher und Server). Leer = Piper-Stimme von GJarvis (Standard Thorsten)
+  output_tts_voice:
+    name: Stimme der TTS-Entität
+    description: Feste Stimme, z. B. die ElevenLabs-Voice-ID – am besten dieselbe wie im Sprachassistenten von Home Assistant (leer = Standardstimme der Entität)
   output_latency_seconds:
     name: Lautsprecher-Verzögerung (s)
     description: So lange bleibt das Mikrofon nach der Ansage zusätzlich stumm (Netzwerk-Lautsprecher starten verzögert)
@@ -261,3 +264,33 @@ configuration:
     description: Englische Piper-Stimme, damit "Hey Jarvis" richtig ausgesprochen wird (leer = normale Stimme)
   debug:
     name: Debug-Log
+  satellites:
+    name: Satelliten
+    description: "ESPHome-Satelliten, über die Jarvis hört – je Gerät Name, Adresse, Schlüssel, Raum, Verstärkung, Lautsprecher und LED. Am einfachsten in der GJarvis-Oberfläche einrichten."
+  led_idle_effect:
+    name: LED – wartet
+    description: "Effekt der grünen LED, solange Jarvis auf „Hey Jarvis“ wartet"
+  led_listening_effect:
+    name: LED – hört zu
+    description: Effekt der grünen LED, während Jarvis zuhört
+  led_processing_effect:
+    name: LED – denkt nach
+    description: Effekt der gelben LED, während Jarvis die Antwort sucht
+  led_responding_effect:
+    name: LED – spricht
+    description: Effekt der gelben LED, während Jarvis spricht
+  instant_ack_always:
+    name: Sofort-Rückmeldung
+    description: "Direkt nach der Frage „Ich schaue nach“ sagen (Sätze unter „Sofort-Rückmeldungen“) und dann suchen"
+  strip_ack_echo:
+    name: Eigene Rückfrage abschneiden
+    description: "Hat das Mikrofon „Ja, Moses?“ mit aufgenommen, wird es vor dem Verstehen entfernt"
+  stop_while_speaking:
+    name: Stopp während er spricht
+    description: "Auch ohne „Hey Jarvis“: ein Stoppwort beendet die Antwort (nach ca. 1–2 s) und laufende Aufgaben"
+  stop_words:
+    name: Stoppwörter
+    description: Eine Zeile pro Wort – jedes beendet sofort Antwort und laufende Aufgaben
+  weather_use_llm:
+    name: Wetter mit KI formulieren
+    description: "Aus = Vorhersage sofort (ca. 1 s). An = die KI formuliert jede Wetterfrage frei (dauert länger)"

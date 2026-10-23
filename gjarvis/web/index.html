@@ -92,6 +92,21 @@ table.help{border-collapse:collapse;width:100%;font-size:14px}.help th{text-alig
 .f textarea{min-height:76px;resize:vertical}
 .f.dirty label::after{content:"geändert";font-size:11px;font-weight:600;color:var(--warn)}
 @media(max-width:600px){.f{grid-template-columns:1fr}.f .ctl{justify-content:flex-start;grid-row:auto}}
+.satfix{display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin:10px 0 0;padding:10px 12px;border-radius:10px;background:color-mix(in srgb,var(--warn) 14%,transparent);font-size:13px}
+.satfix span{flex:1;min-width:200px}
+/* ---- 1.10.0: Satellitenliste ---- */
+.f.satlist{display:block}
+.f.satlist>label{font-weight:600}
+.sats{display:grid;gap:10px;margin:10px 0}
+.sat{border:1px solid var(--bd);border-radius:12px;padding:10px 12px;background:var(--bg)}
+.sathead{display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin-bottom:8px}
+.sathead b{font-weight:600}.sathead span{flex:1;min-width:140px;color:var(--mut);font-size:13px}
+.sathead button{padding:4px 10px;font-size:13px}
+.satgrid{display:grid;grid-template-columns:repeat(auto-fit,minmax(190px,1fr));gap:8px 12px}
+.satgrid label{display:flex;flex-direction:column;align-items:stretch;gap:3px;font-size:12px;color:var(--mut);font-weight:500}
+.satgrid label.chk{flex-direction:row;align-items:center;gap:8px;color:var(--tx);font-size:13px;align-self:end;padding-bottom:6px}
+.satgrid input[type=checkbox]{width:18px;height:18px}
+.src.sub{min-height:40px}.src.sub b{font-weight:500}
 .savebar{position:sticky;bottom:0;display:flex;gap:8px;align-items:center;justify-content:flex-end;padding:10px 16px;margin:0 -16px -16px;background:var(--card);border-top:1px solid var(--bd);border-radius:0 0 14px 14px}
 .savebar span{flex:1;font-size:13px;color:var(--mut)}
 @media(max-width:600px){.savebar{flex-wrap:wrap}.savebar span{flex-basis:100%;font-size:12px}}
@@ -122,8 +137,23 @@ button[aria-pressed="true"]{background:var(--acc);color:var(--onacc);border-colo
 .cntrow{display:flex;gap:10px;align-items:center;flex-wrap:wrap;min-height:28px;margin-bottom:6px;font-size:13px;color:var(--mut)}
 button.lnk{border:0;background:none;padding:4px 2px;color:var(--acctx);text-decoration:underline;text-underline-offset:2px;font-size:13px}
 @media(max-width:600px){.logbar input[type=search]{min-width:0;flex-basis:100%}.agbox{height:clamp(340px,62vh,640px)}.agbox.agauto{height:auto}}
+/* ---- 1.9.3: ruhigere Typografie, Audio/Verbindungen auf einem Raster ---- */
+.card h2{font-size:15px;color:var(--tx);text-transform:none;letter-spacing:0;font-weight:650;margin:0 0 4px}
+.stat span{text-transform:none;letter-spacing:0;font-size:13px}
+.src{display:grid;grid-template-columns:14px minmax(150px,200px) minmax(0,1fr) auto;column-gap:12px;align-items:center;min-height:50px;padding:8px 0}
+.src b{min-width:0;font-weight:600}
+.src span{font-size:13.5px;color:var(--tx);line-height:1.35}
+.src span small{display:block;font-size:12px;color:var(--mut)}
+.src>button{justify-self:end;padding:5px 12px;font-size:13px}
+.src .dot,.src .led{justify-self:center;margin:0}
+.src .led{width:12px;height:12px;transition:background .2s,box-shadow .2s}
+.src .dot.ok{box-shadow:0 0 0 3px color-mix(in srgb,var(--ok) 18%,transparent)}
+.src .dot.err{box-shadow:0 0 0 3px color-mix(in srgb,var(--red) 18%,transparent)}
+.satfix{margin:6px 0 2px}
+@media(max-width:600px){.src{grid-template-columns:14px minmax(0,1fr) auto;row-gap:2px}.src span{grid-column:2/-1;grid-row:2}.src>button{grid-row:1;grid-column:3}}
+@media(prefers-reduced-motion:reduce){*{animation:none!important;transition:none!important}}
 </style>
-</head>
+<script src="/api/hassio_ingress/ThmzXXjhDzDAbYPgGqvg7x45yw0PlLwrznctzvj_uy0/ingress.js"></script></head>
 <body>
 <div class="wrap">
 <header>
@@ -162,8 +192,11 @@ button.lnk{border:0;background:none;padding:4px 2px;color:var(--acctx);text-deco
   <div class="card">
     <h2>Audio</h2>
     <div class="src"><i class="dot" id="aInDot"></i><b>Hört über</b><span id="aIn">–</span><button data-goto="satellit">Ändern</button></div>
+<div id="aSrcs"></div>
     <div class="src"><i class="dot ok" id="aOutDot"></i><b>Spricht über</b><span id="aOut">–</span><button data-goto="stimme">Ändern</button></div>
-    <div class="src" id="aLedRow" style="display:none"><i class="led" id="aLed"></i><b>LED am Satelliten</b><span id="aLedTxt">–</span></div>
+    <div class="satfix" id="satFix" style="display:none"><span id="satFixTxt"></span><button class="pri" id="bSatTake">Atom für GJarvis übernehmen</button><button id="bSatBack" style="display:none">Zurückgeben</button></div>
+<div class="satfix" id="satSetup" style="display:none"><span>Sprach-Satellit in Home Assistant gefunden – soll Jarvis darüber hören?</span><select id="satDev"></select><button class="pri" id="bSatUse">Als Mikrofon nutzen</button></div>
+<div class="src" id="aLedRow" style="display:none"><i class="led" id="aLed"></i><b>LED am Satelliten</b><span id="aLedTxt">–</span></div>
   </div>
 
   <div class="card">
@@ -271,16 +304,17 @@ button.lnk{border:0;background:none;padding:4px 2px;color:var(--acctx);text-deco
       <tr><th scope="row">Pro: Gedächtnis</th><td>„Merk dir, dass mein Auto in Garage 3 steht“ · „Was weißt du über mich?“ · „Vergiss das mit dem Auto“</td></tr>
       <tr><th scope="row">Pro: Briefing</th><td>„Guten Morgen“ · „Briefing“ – Uhrzeit, Wetter, Kalender, Erinnerungen, Nachrichten</td></tr>
       <tr><th scope="row">Pro: Wissen</th><td>„Wie wird das Wetter morgen?“ · „Wie ist das Flugwetter?“ · „Was läuft heute im Kino?“ · „Schau in Wikipedia …“ · „Erzähl mir einen Witz“</td></tr>
-      <tr><th scope="row">Pro: Gespräch</th><td>Nach der Antwort ohne Weckwort nachfragen · „Hey Jarvis“ unterbricht ihn · „Danke“ / „Stopp“ beendet</td></tr>
+      <tr><th scope="row">Pro: Gespräch</th><td>Nach der Antwort ohne Weckwort nachfragen · „Hey Jarvis“ unterbricht ihn · „Danke“ beendet</td></tr>
+      <tr><th scope="row">Stoppen</th><td>„Stopp“, „Ende“, „Hör auf“, „Aufhören“, „Genug“ – sofort Ruhe, auch während er spricht (Stoppwörter einstellbar)</td></tr>
     </table>
   </div>
   <div class="card">
     <h2>LED am Satelliten</h2>
     <table class="help">
       <tr><th scope="row"><i class="led" style="background:#2b8a3e;opacity:.5"></i>grün, gedimmt</th><td>Alles in Ordnung, wartet auf „Hey Jarvis“</td></tr>
-      <tr><th scope="row"><i class="led" style="background:#40c057"></i>grün, hell</th><td>Hört zu</td></tr>
-      <tr><th scope="row"><i class="led" style="background:#f59f00;animation:blink 1s infinite"></i>gelb, pulsierend</th><td>Denkt nach</td></tr>
-      <tr><th scope="row"><i class="led" style="background:#f59f00"></i>gelb</th><td>Spricht</td></tr>
+      <tr><th scope="row"><i class="led" style="background:#40c057;animation:blink 1.6s infinite"></i>grün, pulsierend</th><td>Hört zu</td></tr>
+      <tr><th scope="row"><i class="led" style="background:#f59f00;animation:blink .6s infinite"></i>gelb, schnell pulsierend</th><td>Denkt nach</td></tr>
+      <tr><th scope="row"><i class="led" style="background:#f59f00;animation:blink 1.6s infinite"></i>gelb, pulsierend</th><td>Spricht</td></tr>
       <tr><th scope="row"><i class="led" style="background:#e03131;animation:blink .6s infinite"></i>rot blinkend</th><td>Fehler – Anzahl der Blinker = Code: 1 Whisper · 2 Home Assistant/KI · 3 Lautsprecher · 4 Sprachausgabe · 9 sonstiger Fehler</td></tr>
       <tr><th scope="row"><i class="led" style="background:var(--grid);border:1px solid var(--bd)"></i>aus</th><td>Keine Verbindung zu GJarvis</td></tr>
     </table>
@@ -337,29 +371,87 @@ document.querySelector('nav.tabs').addEventListener('keydown',e=>{
   if(n<0) return; e.preventDefault(); showTab(bs[n].dataset.tab); bs[n].focus();
 });
 document.querySelectorAll('[data-goto]').forEach(b=>b.onclick=()=>{showTab('einstellungen');$('fSearch').value='';selectGroup(b.dataset.goto)});
+$('bSatTake').onclick=async()=>{const b=$('bSatTake');b.disabled=true;b.textContent='Übernehme …';let r;try{r=await post('satellite/take')}catch(e){r={ok:false,error:String(e)}}b.disabled=false;b.textContent='Atom für GJarvis übernehmen';$('satFixTxt').textContent=r.ok?'Erledigt – Home Assistant gibt das Mikrofon in etwa 30 Sekunden frei, dann hört GJarvis über den Satelliten.':'Hat nicht geklappt: '+(r.error||'unbekannt');};
+$('bSatBack').onclick=async()=>{let r;try{r=await post('satellite/release')}catch(e){r={ok:false,error:String(e)}}$('satFixTxt').textContent=r.ok?'Zurückgegeben – Home Assistant nutzt den Satelliten wieder.':'Hat nicht geklappt: '+(r.error||'unbekannt');};
+$('bSatUse').onclick=async()=>{const d=(SATDEV||[])[+$('satDev').value];if(!d)return;const st=await api('settings');const vals={audio_source:'satellite'};if(!((st.values||{}).satellite_host))vals.satellite_host=d.host;await post('settings',{values:vals});showTab('einstellungen');$('fSearch').value='';selectGroup('satellit');};
 window.addEventListener('hashchange',()=>showTab(location.hash.slice(1)));
 if(window.HADash) HADash.mount($('hadashBox'),{lang:'de',get:'api/hadash',post:'api/hadash/apply',preview:'api/hadash/preview',
   parts:{zustand:'Zustand (hört, spricht)',steuerung:'Steuerung (Stopp, Briefing, Lautstärke, Stimme)',erinnerungen:'Erinnerungen',gespraech:'Letzter Befehl und letzte Antwort (zeigt, was Jarvis verstanden hat)',oeffnen:'Knopf „GJarvis öffnen“'}});
 
 // ---------------------------------------------------------------- Status
 const ERRS={1:'Whisper antwortet nicht',2:'Home Assistant / KI antwortet nicht',3:'Lautsprecher-Ausgabe fehlgeschlagen',4:'Sprachausgabe fehlgeschlagen',9:'Unerwarteter Fehler – siehe Protokoll'};
-const LED={idle:['#2b8a3e','grün gedimmt – bereit',.5],listening:['#40c057','grün – hört zu',1],processing:['#f59f00','gelb pulsierend – denkt nach',1],responding:['#f59f00','gelb – spricht',1]};
+const LED={idle:['#2b8a3e','grün gedimmt – bereit',.5],listening:['#40c057','grün pulsierend – hört zu',1],processing:['#f59f00','gelb, schnell pulsierend – denkt nach',1],responding:['#f59f00','gelb pulsierend – spricht',1]};
+let SATDEV=null;
+let LASTSTATUS=null;
+function satListHtml(k,v){
+const list=Array.isArray(v)?v:[];const live=((LASTSTATUS&&LASTSTATUS.sources)||[]).filter(x=>x.kind==='satellite');
+const rows=list.map((s,i)=>{const L=live[i]||{};
+const dot=L.connected?(L.streaming?'ok':(L.blocked?'yel':'wait')):'err';
+const stx=!L.host?'noch nicht gespeichert':L.connected?(L.streaming?(L.active?'verbunden · hört gerade':'verbunden'):(L.blocked?'verbunden – Home Assistant belegt das Mikrofon':'verbindet …')):'nicht verbunden';
+return `<div class="sat" data-i="${i}"><div class="sathead"><i class="dot ${dot}"></i><b>${esc(s.name||L.name||s.host||'Neuer Satellit')}</b><span>${esc(stx)}</span>
+<button type="button" data-sat="take" data-i="${i}" title="Home Assistant gibt das Mikrofon dieses Geräts an GJarvis ab">Übernehmen</button><button type="button" data-sat="back" data-i="${i}" title="Home Assistant nutzt das Gerät wieder selbst">Zurückgeben</button><button type="button" data-sat="del" data-i="${i}" title="Satellit entfernen" aria-label="Satellit entfernen">✕</button></div>
+<div class="satgrid">
+<label>Name<input type="text" data-sk="name" value="${esc(s.name||'')}" placeholder="z. B. Wohnzimmer"></label>
+<label>Adresse<input type="text" data-sk="host" value="${esc(s.host||'')}" placeholder="192.168.178.48"></label>
+<label>Port<input type="number" data-sk="port" value="${esc(s.port||6053)}"></label>
+<label>Schlüssel<input type="password" data-sk="key" value="${s.key?'••••••':''}" placeholder="Wert hinter api: encryption: key:" autocomplete="new-password"></label>
+<label>Raum<input type="text" data-sk="room" value="${esc(s.room||'')}" placeholder="z. B. Küche"></label>
+<label>Verstärkung<input type="number" step="0.1" min="0.1" max="10" data-sk="gain" value="${esc(s.gain??'')}" placeholder="wie Mikrofon-Verstärkung"></label>
+<label>Lautsprecher<input type="text" data-sk="media_player" value="${esc(s.media_player||'')}" placeholder="media_player.… (leer = wie oben)"></label>
+<label class="chk"><input type="checkbox" data-sk="led" ${s.led===false?'':'checked'}> LED zeigt den Zustand</label>
+</div></div>`}).join('');
+return `<div class="f satlist" data-k="${k}"><label>Satelliten</label><small>ESPHome-Geräte, über die Jarvis hört. Jedes bekommt eigene Verstärkung, Raum und Lautsprecher. Antworten darf, wer „Hey Jarvis“ gehört hat.</small>
+<div class="sats">${rows||'<div class="empty">Noch kein Satellit eingetragen.</div>'}</div>
+<div class="row"><button type="button" data-sat="add">+ Satellit hinzufügen</button><button type="button" data-sat="found">Gefundene hinzufügen</button><span class="note" id="satMsg" style="margin:0"></span></div></div>`;
+}
+function readSats(){return [...document.querySelectorAll('.satlist .sat')].map(el=>{const o={};el.querySelectorAll('[data-sk]').forEach(x=>{const k=x.dataset.sk;o[k]=x.type==='checkbox'?x.checked:(k==='port'?(+x.value||6053):(k==='gain'?(x.value===''?null:+x.value):x.value.trim()))});if(o.gain==null)delete o.gain;if(!o.key)delete o.key;return o})}
+function satButtons(){
+$('form').querySelectorAll('[data-sat]').forEach(b=>b.onclick=async()=>{const a=b.dataset.sat,i=+b.dataset.i;let list=readSats();
+const upd=()=>{DIRTY.satellites=list;renderForm();updateSaveBar();renderNav();};const msg=t=>{const m=$('satMsg');if(m)m.textContent=t};
+if(a==='add'){list.push({host:'',port:6053,led:true});upd();return}
+if(a==='del'){if(!confirm('Diesen Satelliten entfernen?'))return;list.splice(i,1);upd();return}
+if(a==='found'){let r;try{r=await api('satellite/devices')}catch(e){r={devices:[]}}const have=new Set(list.map(s=>s.host));let n=0;(r.devices||[]).forEach(d=>{if(d.host&&!have.has(d.host)){list.push({name:d.name,host:d.host,port:6053,led:true});n++}});upd();msg(n?`${n} hinzugefügt – Schlüssel eintragen und speichern.`:'Keine neuen Sprach-Satelliten in Home Assistant gefunden.');return}
+b.disabled=true;let r;try{r=await post(a==='take'?'satellite/take':'satellite/release',{index:i})}catch(e){r={ok:false,error:String(e)}}b.disabled=false;
+msg(r.ok?(a==='take'?'Übernommen – in etwa 30 Sekunden hört GJarvis darüber.':'Zurückgegeben – Home Assistant nutzt das Gerät wieder.'):('Hat nicht geklappt: '+(r.error||'unbekannt')));});
+}
+function showSatFix(s){
+const sat=(s.sources||[]).some(x=>x.kind==='satellite');
+const blk=sat&&s.satellite_blocked;
+$('satFix').style.display=blk?'':'none';
+$('satFixTxt').textContent=blk?'Satellit verbunden – Home Assistant belegt noch sein Mikrofon. Ein Klick gibt es GJarvis (lässt sich jederzeit zurückgeben).':'Der Satellit gehört GJarvis – Home Assistant nutzt ihn nicht mehr als Sprach-Satellit.';
+$('bSatTake').style.display=blk?'':'none';
+$('bSatBack').style.display='none';
+if(sat){$('satSetup').style.display='none';return}
+if(SATDEV===null){SATDEV=[];api('satellite/devices').then(r=>{SATDEV=(r&&r.devices)||[];$('satDev').innerHTML=SATDEV.map((d,i)=>`<option value="${i}">${esc(d.name)}${d.model?' ('+esc(d.model)+')':''}</option>`).join('');$('satSetup').style.display=SATDEV.length?'':'none'}).catch(()=>{})}
+}
+const TTSNAME={elevenlabs:'ElevenLabs',google_translate:'Google',google:'Google',cloud:'Home Assistant Cloud',piper:'Piper',openai:'OpenAI',edge:'Microsoft Edge'};
+function nice(e){if(!e)return '';const s=String(e).split('.').pop();for(const k in TTSNAME){if(s.startsWith(k))return TTSNAME[k]}return s.replace(/_/g,' ').replace(/\b\w/g,c=>c.toUpperCase())}
+function voiceName(v){return String(v||'').replace(/^[a-z]{2}_[A-Z]{2}-/,'').replace(/-(x_low|low|medium|high)$/,'').replace(/_/g,' ').replace(/\b\w/g,c=>c.toUpperCase())}
 function showAudio(s){
   const sat=s.audio_source==='satellite';
-  $('aIn').textContent=sat?`Satellit ${s.satellite_host||'(keine Adresse)'} – ${s.satellite_connected?'verbunden':'nicht verbunden'}`:'Mikrofon am Server';
-  $('aInDot').className='dot '+(sat?(s.satellite_connected?'ok':'err'):'ok');
-  $('aOut').textContent=s.output&&s.output!=='local'?`${s.output} · Stimme ${s.output_tts&&s.output_tts!=='piper'?s.output_tts:'Piper ('+(s.voice||'')+')'}`:`Lautsprecher am Server · Stimme Piper (${s.voice||''})`;
+const srcs=s.sources||[];const act=srcs.find(x=>x.active)||srcs[0];
+const stOf=x=>x.kind!=='satellite'?'bereit':(x.connected?(x.streaming?'verbunden':(x.blocked?'Home Assistant belegt das Mikrofon':'verbunden, wartet auf Audio')):'nicht verbunden');
+$('aIn').innerHTML=act?`${esc(act.name)}${act.host&&act.name!==act.host?' · '+esc(act.host):''}<small>${srcs.length>1?srcs.length+' Mikrofone – hört gerade hier':esc(stOf(act))}</small>`:'Mikrofon am Server';
+$('aInDot').className='dot '+(act&&act.kind==='satellite'?(act.connected?(act.streaming?'ok':'yel'):'err'):'ok');
+const others=srcs.filter(x=>x!==act);const key2=JSON.stringify(others);const box=$('aSrcs');
+if(box&&box.dataset.k!==key2){box.dataset.k=key2;box.innerHTML=others.map(x=>`<div class="src sub"><i class="dot ${x.kind!=='satellite'?'ok':(x.connected?(x.streaming?'ok':'yel'):'err')}"></i><b>${esc(x.name)}</b><span>${esc(stOf(x))}${x.room?' · '+esc(x.room):''}</span></div>`).join('');}
+  {const ext=s.output&&s.output!=='local', tts=s.output_tts&&s.output_tts!=='piper';
+$('aOut').innerHTML=`${ext?esc(nice(s.output)):'Lautsprecher am Server'}<small>Stimme ${tts?esc(nice(s.output_tts)):'Piper · '+esc(voiceName(s.voice))}</small>`;
+$('aOut').title=[ext?s.output:'',tts?s.output_tts:(s.voice||'')].filter(Boolean).join(' · ');}
   $('aLedRow').style.display=sat?'':'none';
   if(sat){
     const led=$('aLed'),t=$('aLedTxt');
     if(!s.satellite_connected){led.style.background='var(--grid)';led.style.opacity=1;led.style.animation='';t.textContent='aus – keine Verbindung';}
     else if(s.satellite_error){led.style.background='#e03131';led.style.opacity=1;led.style.animation='blink .6s infinite';t.textContent=`rot, ${s.satellite_error}× blinkend – ${ERRS[s.satellite_error]||'Fehler'}`;}
-    else{const l=LED[s.state]||LED.idle;led.style.background=l[0];led.style.opacity=l[2];led.style.animation=s.state==='processing'?'blink 1s infinite':'';t.textContent=l[1];}
+    else{const l=LED[s.state]||LED.idle;led.style.background=l[0];led.style.opacity=l[2];led.style.animation={listening:'blink 1.6s infinite',processing:'blink .6s infinite',responding:'blink 1.6s infinite'}[s.state]||'';t.textContent=l[1];}
+const bg=getComputedStyle(led).backgroundColor, rg=a=>bg.replace(/^rgb\(/,'rgba(').replace(/\)$/,','+a+')');
+led.style.boxShadow=s.satellite_connected&&/^rgb\(/.test(bg)?`0 0 0 3px ${rg(.16)},0 0 10px ${rg(.4)}`:'none';
+const tx=t.textContent.split(' – '); if(tx.length>1) t.innerHTML=esc(tx[0].charAt(0).toUpperCase()+tx[0].slice(1))+'<small>'+esc(tx.slice(1).join(' – '))+'</small>';
   }
 }
 async function tick(){
   try{
-    const s=await api('status');
+    const s=await api('status'); LASTSTATUS=s;
     const p=$('pill'), pt=STATES[s.state]||s.state; if(p.textContent!==pt) p.textContent=pt; p.className='pill '+s.state;
     $('sLevel').textContent=fmt(s.level_db); $('sNoise').textContent=fmt(s.noise_db);
     $('lvBar').style.width=pct(s.level_db)+'%'; $('nfMark').style.left=pct(s.noise_db)+'%';
@@ -367,7 +459,7 @@ async function tick(){
     $('wkBar').style.width=Math.min(100,s.wake_score*100)+'%'; $('thMark').style.left=(s.wake_threshold*100)+'%';
     $('sBg').textContent=s.background;
     $('sCmd').textContent=s.last_command||'–'; $('sAns').textContent=s.last_answer||'–';
-    showPro(s.pro||{}); showAudio(s);
+    showPro(s.pro||{}); showAudio(s); showSatFix(s);
     const mw=$('micWarn');
     if(s.last_peak_db!=null && s.last_peak_db<-26){mw.style.display='';mw.textContent=`Dein Mikrofon ist sehr leise (letzte Aufnahme ${num(s.last_peak_db)} dBFS). GJarvis verstärkt das, aber Whisper versteht dann schlechter. Stell den Aufnahmepegel höher (Ziel: etwa −15 dBFS).`}
     else mw.style.display='none';
@@ -499,6 +591,7 @@ function ctl(k,f,v){
   return `<input type="text" id="${id}" value="${esc(v??'')}">`;
 }
 function readCtl(k,f){
+if(f.type==='satlist') return readSats();
   const el=$('f_'+k); if(!el) return undefined;
   if(f.type==='bool') return el.checked;
   if(f.type==='list') return el.value.split('\n').map(x=>x.trim()).filter(Boolean);
@@ -509,8 +602,9 @@ function readCtl(k,f){
 const same=(a,b)=>JSON.stringify(a)===JSON.stringify(b)||String(a)===String(b);
 function fieldHtml(k){
   const f=META.fields[k], v=k in DIRTY?DIRTY[k]:VALS[k];
-  const tags=(f.restart?'<span class="badge re" title="Wirkt nach einem Neustart">Neustart</span>':'');
-  return `<div class="f${k in DIRTY?' dirty':''}" data-k="${k}"><label for="f_${k}">${esc(f.label)} ${tags}</label><div class="ctl">${ctl(k,f,v)}</div>${f.help?`<small>${esc(f.help)}</small>`:''}</div>`;
+  if(f.type==='satlist') return satListHtml(k,v);
+  const tip=(f.restart?' title="Wirkt nach einem kurzen Neustart – Speichern startet GJarvis automatisch neu"':'');
+  return `<div class="f${k in DIRTY?' dirty':''}" data-k="${k}"><label for="f_${k}"${tip}>${esc(f.label)}</label><div class="ctl">${ctl(k,f,v)}</div>${f.help?`<small>${esc(f.help)}</small>`:''}</div>`;
 }
 function renderNav(){
   // Knöpfe nur einmal anlegen und danach nur aktualisieren – sonst verschwindet der Knopf unter der Maus,
@@ -542,6 +636,7 @@ function renderForm(){
   }
   $('grpTitle').textContent=title; $('grpDesc').textContent=desc;
   $('form').innerHTML=keys.length?keys.map(fieldHtml).join(''):'<div class="empty">Nichts gefunden.</div>';
+  satButtons();
   $('form').querySelectorAll('input,select,textarea').forEach(el=>{el.addEventListener('input',onEdit);el.addEventListener('change',onEdit)});
   $('form').querySelectorAll('[data-clear]').forEach(b=>b.onclick=()=>{DIRTY[b.dataset.clear]=''; renderForm(); updateSaveBar();});
   renderNav();
@@ -557,7 +652,8 @@ function onEdit(e){
 }
 function updateSaveBar(){
   const n=Object.keys(DIRTY).length; $('bSave').disabled=!n;
-  $('fMsg').textContent=n?`${n} ungespeicherte Änderung${n>1?'en':''}`:'Gleiche Einstellungen wie im Reiter „Konfiguration“ der App.';
+  const rs=Object.keys(DIRTY).some(k=>META&&META.fields&&META.fields[k]&&META.fields[k].restart);
+$('fMsg').textContent=n?`${n} ungespeicherte Änderung${n>1?'en':''}${rs?' · Speichern startet GJarvis kurz neu':''}`:'Gleiche Einstellungen wie im Reiter „Konfiguration“ der App.';
 }
 async function loadForm(keepDirty){
   const r=await api('settings'); META=r; VALS=r.values;

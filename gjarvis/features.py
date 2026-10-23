@@ -524,6 +524,9 @@ class MovieFeatures:
         words = low.split()
         if len(words) <= 3 and any(low == s or low.startswith(s + " ") for s in STOPPERS):
             self.pending = None
+            stop_all = getattr(self, "stop_all", None)
+            if stop_all:  # „Stopp“ bricht auch laufende Hintergrund-Aufgaben ab
+                stop_all()
             return "", "ende"
         if len(words) <= 4 and any(low == c or low.startswith(c) for c in CLOSERS):
             self.pending = None

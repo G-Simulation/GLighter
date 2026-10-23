@@ -281,17 +281,32 @@ class GJarvis(MovieFeatures, apps.AppFeatures, satellite.SatelliteFeatures):
             raise ValueError(
                 f"Weckwort-Modell muss eine .onnx-Datei sein (bekommen: {wake.name})."
             )
-        self.oww = Model(
+        self._oww_args = dict(
             wakeword_models=[str(wake)],
             inference_framework="onnx",
             melspec_model_path=str(mel),
             embedding_model_path=str(emb),
         )
+        self.oww = Model(**self._oww_args)
         _LOGGER.info(
             "Weckwort-Modell geladen: %s (Schwelle %.2f)",
             wake.name,
             self.o["wake_threshold"],
         )
+
+    def make_wake_model(self):
+        """Eigene Weckwort-Erkennung für ein weiteres Mikrofon (jedes Mikrofon braucht seinen eigenen Zustand)."""
+        args = getattr(self, "_oww_args", None)
+        if not args:
+            return None
+        try:
+            from openwakeword.model import Model  # noqa: PLC0415
+
+            return Model(**args)
+        except Exception as e:  # noqa: BLE001
+            _LOGGER.warning("Weckwort-Erkennung für ein weiteres Mikrofon nicht möglich: %s", e)
+            self._oww_args = None
+            return None
 
     def setup_mqtt(self) -> None:
         host = os.environ.get("MQTT_HOST")
@@ -472,7 +487,7 @@ class GJarvis(MovieFeatures, apps.AppFeatures, satellite.SatelliteFeatures):
             return
         if msg.topic == "gjarvis/stop":
             if self.loop:
-                self.loop.call_soon_threadsafe(self.stop_speaking)
+                self.loop.call_soon_threadsafe(self.stop_all)
             return
         if msg.topic == "gjarvis/briefing":
             self.run_in_loop(self.briefing_announce())
@@ -739,7 +754,7 @@ class GJarvis(MovieFeatures, apps.AppFeatures, satellite.SatelliteFeatures):
                             break
                     else:
                         silent_frames = 0
-                    self.feed_frame(frame)
+                    self.feed_frame(frame, getattr(self, "local_src", None))
             except (asyncio.IncompleteReadError, ConnectionError) as e:
                 _LOGGER.warning("Mikrofon-Stream beendet (%s) – starte neu", e)
             finally:
@@ -823,6 +838,25 @@ class GJarvis(MovieFeatures, apps.AppFeatures, satellite.SatelliteFeatures):
             self.current_play = None
             self.barge_q = None
 
+    def stop_all(self) -> None:
+        """Stopp: Sprachausgabe beenden und laufende Hintergrund-Aufgaben abbrechen
+        (Knopf 'GJarvis Stopp', Oberfläche oder Sprachbefehl „Stopp“). Aus jedem Thread aufrufbar."""
+        try:
+            running = asyncio.get_running_loop()
+        except RuntimeError:
+            running = None
+        if self.loop is not None and running is not self.loop:  # z. B. aus route_text im Worker-Thread
+            self.loop.call_soon_threadsafe(self.stop_all)
+            return
+        n = 0
+        for t in list(self.background):
+            if not t.done():
+                t.cancel()
+                n += 1
+        if n:
+            _LOGGER.info("Stopp: %d Hintergrund-Aufgabe(n) abgebrochen", n)
+        self.stop_speaking()
+
     def stop_speaking(self) -> None:
         """Sprachausgabe sofort beenden (Knopf 'GJarvis Stopp' / Oberfläche)."""
         p = self.current_play
@@ -857,6 +891,7 @@ class GJarvis(MovieFeatures, apps.AppFeatures, satellite.SatelliteFeatures):
         name = (self.o.get("assistant_name") or "jarvis").lower()
         self.barge_ok = name not in text.lower() and "jarvis" not in text.lower()  # sonst weckt er sich selbst
         self.set_flag("spricht", True)
+        stopw = self._start_stop_watch()
         nxt = None
         try:
             if chime:
@@ -883,6 +918,7 @@ class GJarvis(MovieFeatures, apps.AppFeatures, satellite.SatelliteFeatures):
         finally:
             if nxt:
                 nxt.cancel()
+            self._end_stop_watch(stopw)
             self.set_flag("spricht", False)
             self.barge_ok = True
             await asyncio.sleep(0.25)  # Nachhall abwarten
@@ -1244,7 +1280,7 @@ class GJarvis(MovieFeatures, apps.AppFeatures, satellite.SatelliteFeatures):
         simple = re.fullmatch(
             r"(hey |ok )?(jarvis,? )?(wie (wird|ist) (das|denn das) wetter|wetter)( (heute|morgen|übermorgen|am \w+))?( (heute|morgen|übermorgen|am \w+))?",
             text.lower().strip(" ?.!"))
-        if self.pro and not simple and self.has_llm():
+        if self.pro and not simple and self.has_llm() and self.o.get("weather_use_llm", False):
             # Jede andere Wetterfrage ("Brauche ich morgen einen Schirm?", "Wird es am Wochenende warm?"):
             # die KI beantwortet sie aus den echten Vorhersagedaten
             try:
@@ -2091,11 +2127,12 @@ class GJarvis(MovieFeatures, apps.AppFeatures, satellite.SatelliteFeatures):
                 _LOGGER.warning("Rückmeldung '%s' konnte nicht vorbereitet werden: %s", p, e)
         _LOGGER.info("%d Rückmeldungen vorbereitet", len(self.ack_cache))
 
-    async def play_ack(self, key: str = "ack_phrases") -> None:
+    async def play_ack(self, key: str = "ack_phrases", listen: bool = False) -> None:
+        """listen=True: Mikrofon läuft während der Rückfrage weiter – was man dabei schon sagt, geht nicht verloren."""
         phrase = self.next_ack(key)
         if not phrase:
             return
-        self.discard = True
+        self.discard = not listen
         self.remote_stop = False
         try:
             if self.remote_tts:
@@ -2110,10 +2147,118 @@ class GJarvis(MovieFeatures, apps.AppFeatures, satellite.SatelliteFeatures):
             _LOGGER.error("Rückmeldung fehlgeschlagen: %s", e)
         finally:
             await asyncio.sleep(0.2)
-            self.flush()
+            if not listen:
+                self.flush()
             self.discard = False
 
     # ----------------------------- Zuhören --------------------------------- #
+    STOP_DEFAULT = ["stopp", "stop", "halt", "ende", "hör auf", "aufhören", "genug", "ruhe", "sei still", "abbrechen"]
+
+    def stop_words(self) -> List[str]:
+        return [str(w).strip().lower() for w in (self.o.get("stop_words") or self.STOP_DEFAULT) if str(w).strip()]
+
+    def is_stop_text(self, text: str) -> bool:
+        """Kurzer Satz mit einem Stoppwort („Stopp“, „Hör auf“, „Jarvis, Ende“)."""
+        name = re.escape((self.o.get("assistant_name") or "jarvis").lower())
+        low = re.sub(r"[^\w ]", " ", str(text).lower())
+        low = re.sub(r"\b(hey|hallo|ok|okay|jarvis|" + name + r"|bitte|jetzt|mal|doch|sofort)\b", " ", low)
+        low = re.sub(r"\s+", " ", low).strip()
+        if not low or len(low.split()) > 4:
+            return False
+        return any(re.search(r"(^| )" + re.escape(w) + r"( |$)", low) for w in self.stop_words())
+
+    def _start_stop_watch(self):
+        """Während Jarvis spricht auf Stoppwörter hören (Einstellung „Stopp während er spricht“)."""
+        if not self.o.get("stop_while_speaking", True) or getattr(self, "stop_q", None) is not None:
+            return None
+        self.stop_q = asyncio.Queue(maxsize=300)
+        return asyncio.create_task(self._stop_watch(self.stop_q))
+
+    def _end_stop_watch(self, task) -> None:
+        if task is None:
+            return
+        task.cancel()
+        self.stop_q = None
+
+    async def _stop_watch(self, q: asyncio.Queue) -> None:
+        """Kurze Sprach-Stücke (Pause oder max. 2,5 s) an Whisper – enthält eins ein Stoppwort: sofort Ruhe."""
+        vad = self.make_vad()
+        buf, seg, silence = b"", [], 0
+        checks: set = set()
+        while True:
+            fr = await q.get()
+            buf += fr
+            while len(buf) >= VAD_CHUNK_BYTES:
+                chunk, buf = buf[:VAD_CHUNK_BYTES], buf[VAD_CHUNK_BYTES:]
+                sp, _ = self.is_speech(vad, chunk, bool(seg))
+                if sp:
+                    seg.append(chunk)
+                    silence = 0
+                elif seg:
+                    seg.append(chunk)
+                    silence += 1
+                if seg and (silence >= 10 or len(seg) >= 80):
+                    audio = b"".join(seg)
+                    seg, silence = [], 0
+                    if len(audio) >= int(0.25 * RATE * WIDTH) and len(checks) < 3:
+                        t = asyncio.create_task(self._check_stop(audio))
+                        checks.add(t)
+                        t.add_done_callback(checks.discard)
+
+    async def _check_stop(self, audio: bytes) -> None:
+        try:
+            text = (await asyncio.wait_for(self.transcribe(audio), timeout=10)).strip()
+        except Exception as e:  # noqa: BLE001
+            _LOGGER.debug("Stopp-Prüfung: %s", e)
+            return
+        if text and self.is_stop_text(text):
+            _LOGGER.info("Stoppwort während der Antwort: %r", text)
+            self.stop_all()
+
+    def strip_ack_echo(self, text: str) -> str:
+        """Hat das Mikrofon die eigene Rückfrage („Ja, Moses?“) mit aufgenommen, sie vorne abschneiden –
+        auch wenn Whisper sie etwas anders schreibt („Was giebts“ -> „Was gibt es“)."""
+        if not self.o.get("strip_ack_echo", True):
+            return text
+        import difflib  # noqa: PLC0415
+
+        def norm(s) -> str:
+            return re.sub(r"\s+", " ", re.sub(r"[^\w ]", " ", str(s).lower())).strip()
+
+        m = re.match(r"\s*([^.?!]{1,60}[.?!])\s*(.*)$", text, flags=re.S)
+        if not m or not m.group(2).strip():
+            return text
+        first, rest = norm(m.group(1)), m.group(2).strip()
+        user = norm(self.o.get("user_name") or "")
+        phrases = [norm(p) for p in list(self.o.get("ack_phrases", [])) + list(self.o.get("instant_ack_phrases", []))]
+        for p in phrases:
+            if p and difflib.SequenceMatcher(None, first, p).ratio() >= 0.72:
+                return rest
+        if user and user in first.split() and len(first.split()) <= 5:
+            return rest
+        return text
+
+    def save_last_recording(self, audio: bytes) -> None:
+        """Nur mit „Debug“: letzte Aufnahme nach /data/letzte_aufnahme.wav (wird jedes Mal überschrieben; ohne Zugriff auf /share)."""
+        if not self.o.get("debug"):
+            return
+
+        def write() -> None:
+            import wave  # noqa: PLC0415
+
+            d = Path("/data")
+            d.mkdir(parents=True, exist_ok=True)
+            with wave.open(str(d / "letzte_aufnahme.wav"), "wb") as w:
+                w.setnchannels(1)
+                w.setsampwidth(WIDTH)
+                w.setframerate(RATE)
+                w.writeframes(audio)
+
+        try:
+            asyncio.get_running_loop().run_in_executor(None, write)
+        except Exception as e:  # noqa: BLE001
+            _LOGGER.debug("Aufnahme nicht gespeichert: %s", e)
+
     async def speech_continues(self, seconds: float = 0.6) -> Tuple[bool, List[bytes]]:
         """Direkt nach dem Weckwort kurz hinhören: Spricht er schon weiter ("Hey Jarvis, wie spät ist es")?
         Gibt (ja/nein, gehörte Blöcke) zurück – die Blöcke gehen danach in die Aufnahme, nichts geht verloren."""
@@ -2173,7 +2318,10 @@ class GJarvis(MovieFeatures, apps.AppFeatures, satellite.SatelliteFeatures):
         a16 = np.clip(a * gain, -32768, 32767).astype(np.int16)
         p = vad.prob(a16)
         thr = float(self.o.get("speech_threshold", 0.4))
-        return (p >= (thr * 0.7 if started else thr)), rms
+        ok = p >= (thr * 0.7 if started else thr)
+        if not ok and self.use_satellite and rms >= max(2.5 * self.noise_floor, 200.0):
+            ok = True  # Satellit: deutlich über dem Rauschen zählt als Sprache, auch wenn die KI-Erkennung zögert
+        return ok, rms
 
     async def record_command(self, timeout: Optional[float] = None, prefill: Optional[List[bytes]] = None) -> Optional[bytes]:
         """Nimmt einen Befehl auf. None = nichts gesagt (Abbruch nach Timeout)."""
@@ -2324,11 +2472,14 @@ class GJarvis(MovieFeatures, apps.AppFeatures, satellite.SatelliteFeatures):
                 _LOGGER.info("Befehl direkt nach dem Weckwort – keine Rückfrage")
             else:
                 heard = None
-                await self.play_ack()
-            timeout = None
+                # Über einen Netzwerk-Lautsprecher dauert „Ja, Moses?“ Sekunden – so lange weiter zuhören
+                await self.play_ack(listen=bool(self.remote_player))
+            timeout = None if one_breath else max(4.0, float(self.o["no_speech_timeout_seconds"]))
             while True:
                 audio = await self.record_command(timeout, heard)
                 heard = None
+                if audio:
+                    self.save_last_recording(audio)
                 if audio is None:
                     # Kochmodus bleibt offen: später reicht "Hey Jarvis, weiter"
                     if not str(self.pending or "").startswith("app:schritte"):
@@ -2344,9 +2495,15 @@ class GJarvis(MovieFeatures, apps.AppFeatures, satellite.SatelliteFeatures):
                     _LOGGER.error("Whisper hat nicht geantwortet – Abbruch")
                     self.satellite_error(1)
                     break
+                text = self.strip_ack_echo(text)
                 _LOGGER.info("Erkannt (%.1f s): %r", time.monotonic() - t, text)
                 if is_garbage(text):
                     _LOGGER.info("Kein sinnvoller Text – Ende")
+                    break
+                if self.is_stop_text(text):
+                    _LOGGER.info("Stoppwort: %r", text)
+                    self.stop_all()
+                    self.pending = None
                     break
                 self.publish("gjarvis/last_command", text)
                 self.last_command = text
@@ -2382,6 +2539,10 @@ class GJarvis(MovieFeatures, apps.AppFeatures, satellite.SatelliteFeatures):
                     break
                 else:
                     task = asyncio.create_task(asyncio.to_thread(self.answer, text))
+                    if not said_instant and self.o.get("instant_ack_always", True):
+                        # Sofort „Moment, ich schaue“ sagen, während die Antwort schon gesucht wird
+                        instant = asyncio.create_task(self.play_ack("instant_ack_phrases"))
+                        said_instant = True
                     wait_s = float(self.o.get("async_after_seconds", 4)) if pro else 120.0
                     done = await self.wait_with_progress(task, wait_s)
                     if not done and not pro:
@@ -2795,10 +2956,12 @@ class GJarvis(MovieFeatures, apps.AppFeatures, satellite.SatelliteFeatures):
         except Exception as e:  # noqa: BLE001
             _LOGGER.warning("Oberfläche nicht gestartet: %s", e)
         self._tasks = getattr(self, "_tasks", set())
-        if self.use_satellite:
-            _LOGGER.info("Audio-Quelle: Satellit %s", self.o.get("satellite_host"))
-            self._tasks.add(asyncio.create_task(self.satellite_reader()))
-        else:
+        if (self.o.get("satellite_host") or "").strip() and not self.o.get("satellites"):
+            await asyncio.to_thread(self.migrate_satellite)
+        self.setup_sources()
+        for src in self.sat_sources:
+            self._tasks.add(asyncio.create_task(self.satellite_reader(src)))
+        if getattr(self, "local_src", None) is not None:
             self._tasks.add(asyncio.create_task(self.mic_reader()))
         if self.remote_player:
             _LOGGER.info("Ausgabe über %s (%s)", self.remote_player, self.remote_tts or "Piper-Stimme")
@@ -2821,6 +2984,13 @@ class GJarvis(MovieFeatures, apps.AppFeatures, satellite.SatelliteFeatures):
                 self.interrupted = False
                 _LOGGER.info("Nach Unterbrechung: höre zu")
                 self.clear_satellite_error()
+                await self.session()
+                continue
+            if getattr(self, "wake_switch", False) and not self.busy:
+                # Ein anderes Mikrofon hat „Hey Jarvis“ gehört (switch_source) – dort zuhören
+                self.wake_switch = False
+                self.clear_satellite_error()
+                self.last_wake_time = time.strftime("%H:%M:%S")
                 await self.session()
                 continue
             try:
@@ -2882,6 +3052,8 @@ def main() -> None:
     )
     logging.getLogger("urllib3").setLevel(logging.WARNING)
     logging.getLogger("aiohttp").setLevel(logging.WARNING)
+    # Satellit: sonst landet jeder Audio-Block (alle paar Millisekunden) als DEBUG-Zeile im Protokoll
+    logging.getLogger("aioesphomeapi").setLevel(logging.INFO)
     try:
         from web import RING, RedactFilter
 

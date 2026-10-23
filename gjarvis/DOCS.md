@@ -49,8 +49,10 @@ In **Free** geht alles, was dein Home-Assistant-Agent versteht. Die Tabelle zeig
 
 **Nachfragen ohne Weckwort:** Nach jeder Antwort hört Jarvis noch einige Sekunden zu (Einstellung *Nachfrage-Zeit*).
 
-**Unterbrechen:** Sag „Hey Jarvis“, während er spricht – er verstummt und hört sofort zu.
+**Unterbrechen:** Sag „Hey Jarvis“, während er spricht – er verstummt und hört sofort zu (auch über einen externen Lautsprecher).
 Oder drück den Knopf *GJarvis Stopp*.
+
+**Stopp:** „Stopp“ (auch „Stopp Jarvis“, „Abbrechen“, „Vergiss es“) und der Knopf *GJarvis Stopp* beenden die Sprachausgabe **und** brechen Aufgaben ab, die gerade im Hintergrund laufen – Jarvis meldet sich danach nicht mehr mit dem alten Ergebnis.
 
 **Gedächtnis:** Passwörter, PINs und Ähnliches merkt er sich nie. Gespeichert wird nur in dieser App (`/data/memory.json`).
 
@@ -128,7 +130,7 @@ target:
 | GJarvis Zustand | idle / listening / processing / responding / calibrating |
 | GJarvis Lautstärke | Regler 0–100 % (nur Jarvis' eigene Ausgabe) |
 | GJarvis Stimme | Auswahl der deutschen Piper-Stimme |
-| GJarvis Stopp | Knopf – Sprachausgabe sofort beenden |
+| GJarvis Stopp | Knopf – Sprachausgabe sofort beenden und laufende Hintergrund-Aufgaben abbrechen |
 | GJarvis Briefing | Knopf – Tages-Briefing ansagen |
 | GJarvis kalibrieren | Knopf – startet die Selbst-Kalibrierung |
 | GJarvis Kalibrierung | Ergebnis: Rauschabstand, Whisper-Genauigkeit, Weckwort-Wert, Empfehlungen |
@@ -197,8 +199,13 @@ Hinweis: Die Umstellung auf „In Home Assistant“ bleibt im Gerät gespeichert
 direkt in Home Assistant nutzen, stell dort am Gerät *Wake word engine location* zurück auf „On device“.
 
 Ein ESPHome-Gerät schickt sein Mikrofon immer nur an **einen** Empfänger. Ist es zusätzlich in Home Assistant
-als Sprach-Satellit eingerichtet, gewinnt der, der zuerst verbunden ist. Deshalb das Gerät in Home Assistant
-unter *Einstellungen → Geräte & Dienste → ESPHome* **deaktivieren** (nicht löschen), wenn GJarvis es nutzen soll.
+als Sprach-Satellit eingerichtet, gewinnt der, der zuerst verbunden ist. Merkt GJarvis das, erscheint in der
+**Übersicht** der Knopf **„Atom für GJarvis übernehmen“**: Ein Klick schaltet nur den Assist-Satelliten dieses Geräts in
+Home Assistant ab (alles andere bleibt), nach etwa 30 Sekunden hört GJarvis darüber. **„Zurückgeben“** schaltet ihn wieder ein.
+
+**Einrichten in einem Schritt:** Hört GJarvis noch über das Server-Mikrofon und findet in Home Assistant einen
+ESPHome-Sprach-Satelliten, bietet die Übersicht **„Als Mikrofon nutzen“** an – Adresse und Audio-Quelle werden gesetzt,
+nur den Schlüssel trägst du einmal ein.
 
 **LED am Satelliten**
 
@@ -215,12 +222,32 @@ Fehlercodes: **1×** Spracherkennung (Whisper) antwortet nicht · **2×** Home A
 Der Code wiederholt sich 60 s lang oder bis zum nächsten „Hey Jarvis“. Die genaue Meldung steht im Protokoll
 („Fehlercode …“). LED ganz aus = keine Verbindung zu GJarvis.
 
+**Mehrere Satelliten**
+
+Unter *Einstellungen → Mikrofon & Satellit → Satelliten* trägst du beliebig viele ESPHome-Geräte ein – je Gerät
+Name, Adresse, Schlüssel, Raum, eigene Verstärkung, eigener Lautsprecher und LED. *Gefundene hinzufügen* übernimmt
+die Sprach-Satelliten aus Home Assistant. Mit *Audio-Quelle* = `both` hört zusätzlich das Mikrofon am Server.
+Antworten darf, wer „Hey Jarvis“ gehört hat: Dessen LED zeigt das Gespräch, die anderen bleiben gedimmt grün.
+Hat ein Satellit einen eigenen Lautsprecher, antwortet Jarvis dort. *Übernehmen* / *Zurückgeben* gibt es pro Gerät.
+
+**LED:** grün gedimmt = wartet, grün pulsierend = hört zu, gelb schnell pulsierend = denkt nach,
+gelb pulsierend = spricht, rot blinkend = Fehler. Die Effekte sind einstellbar (ruhig / pulsierend / schnell).
+
+**Stoppen:** Die *Stoppwörter* („Stopp“, „Ende“, „Hör auf“, „Aufhören“, „Genug“ …) beenden sofort Antwort und
+laufende Aufgaben – mit *Stopp während er spricht* auch mitten in der Antwort ohne „Hey Jarvis“ (nach ca. 1–2 s).
+
+**Sofort-Rückmeldung:** Direkt nach der Frage sagt Jarvis „Moment, ich schaue.“ (Sätze unter *Sofort-Rückmeldungen*)
+und sucht dann. *Wetter mit KI formulieren* aus = Wettervorhersage sofort.
+
 **Lautsprecher einrichten**
 
 - *Ausgabe über Lautsprecher* = z. B. `media_player.wohnzimmer_sonos`.
   GJarvis spricht dann mit seiner Piper-Stimme über diesen Lautsprecher (als Durchsage über laufende Musik).
 - *Stimme aus Home Assistant* = z. B. `tts.elevenlabs_text_zu_sprache`, wenn statt Piper eine Stimme aus
-  Home Assistant (ElevenLabs, Google, Nabu Casa …) sprechen soll.
+  Home Assistant (ElevenLabs, Google, Nabu Casa …) sprechen soll. Sie gilt dann **überall** – über den
+  Lautsprecher und auch über den Lautsprecher am Server. Ohne Eintrag spricht Piper (Standard: Thorsten).
+- *Stimme der TTS-Entität* = feste Stimme, z. B. die ElevenLabs-Voice-ID. Trag dieselbe ein wie im
+  Sprachassistenten von Home Assistant, dann klingt Jarvis überall gleich.
 - Netzwerk-Lautsprecher starten verzögert – dafür gibt es *Lautsprecher-Verzögerung* (Standard 1,5 s).
 
 Hinweise: Über einen externen Lautsprecher kann „Hey Jarvis“ eine laufende Antwort nicht unterbrechen;
@@ -244,7 +271,7 @@ Knopf „Kalibrieren“: Jarvis misst 3 s das Raumrauschen, spricht Testsätze u
 | Antworten dauern lange | In der Oberfläche *Verbindungen → Testen*. Whisper auf der CPU braucht einige Sekunden. |
 | Keine Entitäten | Mosquitto-App installieren und GJarvis neu starten. |
 | Satellit verbindet nicht | Adresse und Schlüssel prüfen. Im Protokoll steht der Grund. |
-| Satellit verbunden, aber Jarvis hört nichts („schickt kein Audio“) | Das Gerät ist in Home Assistant noch als Sprach-Satellit aktiv und hält den Audio-Stream – unter ESPHome **deaktivieren**. GJarvis verbindet dann von selbst neu. |
+| Satellit verbunden, aber Jarvis hört nichts („schickt kein Audio“) | Das Gerät ist in Home Assistant noch als Sprach-Satellit aktiv und hält den Audio-Stream – in der Übersicht **„Atom für GJarvis übernehmen“** klicken. GJarvis verbindet dann von selbst neu. |
 | Kein Ton am Sonos | *Ausgabe über Lautsprecher* prüfen; in Home Assistant unter Medien testen, ob der Lautsprecher Durchsagen abspielt. |
 
 Kommt länger als `mic_watchdog_seconds` nur Stille oder gar nichts vom Mikrofon, öffnet GJarvis es von selbst neu.

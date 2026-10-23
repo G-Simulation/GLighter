@@ -1,5 +1,16 @@
 # Änderungen
 
+## 1.13.0
+Zurückgeholt aus der früheren eigenen GJarvis-Ausgabe (1.9.1 bis 1.10.1), zusammen mit allem Neuen bis 1.12.1:
+- **Mehrere Satelliten:** beliebig viele ESPHome-Geräte, jedes mit Name, Raum, eigener Verstärkung, eigenem Lautsprecher und LED – Liste in den Einstellungen mit „Gefundene hinzufügen“, „Übernehmen“ und „Zurückgeben“ je Gerät. Der bisherige Satellit wird automatisch übernommen.
+- **Audio-Quelle „beide“:** Server-Mikrofon und Satelliten hören gleichzeitig; antworten darf, wer „Hey Jarvis“ gehört hat.
+- **LED pulsiert:** grün pulsierend = hört zu, gelb schnell = denkt nach, gelb pulsierend = spricht – Effekt je Zustand einstellbar.
+- **Stoppwörter** („Stopp“, „Ende“, „Hör auf“, „Aufhören“, „Genug“ …) einstellbar und sofort wirksam, auch in Free und auch während er spricht (ohne „Hey Jarvis“).
+- **Sofort-Rückmeldung** „Moment, ich schaue.“ direkt nach der Frage (abschaltbar); Wetter sofort ohne KI (einstellbar „Wetter mit KI formulieren“).
+- **Eigene Rückfrage** („Ja, Moses?“) wird zuverlässig aus der Aufnahme entfernt; bei Netzwerk-Lautsprechern (z. B. Sonos) hört er während der Rückfrage weiter zu. Stimme für den Ausgabe-Lautsprecher (z. B. ElevenLabs) einstellbar.
+- Übersicht zeigt alle Mikrofone mit Zustand, lesbare Namen statt Technik („Wohnzimmer Sonos · Stimme ElevenLabs“).
+- Mit „Debug“ liegt die letzte Aufnahme jetzt unter /data/letzte_aufnahme.wav (GJarvis braucht weiter keinen Zugriff auf /share).
+
 ## 1.12.1
 - Tabellen (Protokoll, Erinnerungen): Spalten lassen sich im Tabellenkopf per Ziehen umsortieren; Reihenfolge und Breiten bleiben gemerkt.
 

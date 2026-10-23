@@ -1,5 +1,5 @@
 name: GJarvis
-version: "1.12.1"
+version: "1.13.0"
 slug: gjarvis
 description: Deutscher Sprachassistent "Jarvis" – Free mit "Hey Jarvis" für Home Assistant, Pro wie im Film mit Timern, Erinnerungen, Gedächtnis, Briefing, Wetter und Internet-Suche.
 url: https://www.gsimulations.de/gjarvis/
@@ -152,8 +152,29 @@ options:
   satellite_port: 6053
   satellite_key: ""
   satellite_led: true
+  satellites: []
+  led_idle_effect: ruhig
+  led_listening_effect: pulsierend
+  led_processing_effect: schnell
+  led_responding_effect: pulsierend
+  instant_ack_always: true
+  strip_ack_echo: true
+  stop_while_speaking: true
+  stop_words:
+    - "stopp"
+    - "stop"
+    - "halt"
+    - "ende"
+    - "hör auf"
+    - "aufhören"
+    - "genug"
+    - "ruhe"
+    - "sei still"
+    - "abbrechen"
+  weather_use_llm: false
   output_media_player: ""
   output_tts_entity: ""
+  output_tts_voice: ""
   output_latency_seconds: 1.5
   mqtt_pause_enabled: false
   mqtt_pause_topic: laerm_logger/pause/set
@@ -255,13 +276,33 @@ schema:
   mic_gain: float(0.1,10)
   stt_max_gain: float(1,100)
   mic_watchdog_seconds: float(1,30)
-  audio_source: list(local|satellite)
+  audio_source: list(local|satellite|both)
   satellite_host: str?
   satellite_port: port
   satellite_key: password?
   satellite_led: bool
+  satellites:
+    - name: str?
+      host: str
+      port: port?
+      key: password?
+      room: str?
+      gain: float(0.1,10)?
+      media_player: str?
+      led: bool?
+  led_idle_effect: list(ruhig|pulsierend|schnell)
+  led_listening_effect: list(ruhig|pulsierend|schnell)
+  led_processing_effect: list(ruhig|pulsierend|schnell)
+  led_responding_effect: list(ruhig|pulsierend|schnell)
+  instant_ack_always: bool
+  strip_ack_echo: bool
+  stop_while_speaking: bool
+  stop_words:
+    - str
+  weather_use_llm: bool
   output_media_player: str?
   output_tts_entity: str?
+  output_tts_voice: str?
   output_latency_seconds: float(0,10)
   mqtt_pause_enabled: bool
   mqtt_pause_topic: str

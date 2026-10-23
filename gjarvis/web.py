@@ -25,16 +25,18 @@ GROUPS = [
         "assistant_name", "user_name", "home_city", "language", "agent_id", "local_agent_id", "quiet_hours",
     ]),
     ("stimme", "Stimme & Lautsprecher", "Wie und wo Jarvis spricht", False, [
-        "tts_voice", "volume", "output_media_player", "output_tts_entity", "output_latency_seconds",
-        "ack_phrases", "ack_order", "ack_mode", "ack_delay_ms", "instant_ack_phrases", "weather_ack_phrases",
+        "tts_voice", "volume", "output_media_player", "output_tts_entity", "output_tts_voice", "output_latency_seconds",
+        "ack_phrases", "ack_order", "ack_mode", "ack_delay_ms", "instant_ack_phrases", "instant_ack_always", "strip_ack_echo", "weather_ack_phrases",
         "ack_slow_triggers",
     ]),
     ("satellit", "Mikrofon & Satellit", "Woher Jarvis hört – Server-Mikrofon oder ESPHome-Satellit", False, [
-        "audio_source", "satellite_host", "satellite_port", "satellite_key", "satellite_led",
+        "audio_source", "satellites", "satellite_led", "led_idle_effect", "led_listening_effect",
+        "led_processing_effect", "led_responding_effect",
         "mic_gain", "stt_max_gain", "mic_watchdog_seconds",
     ]),
     ("weckwort", "Weckwort & Zuhören", "„Hey Jarvis“ erkennen und das Satzende finden", False, [
         "wake_threshold", "wake_refractory_seconds", "wake_auto_gain", "wake_max_gain", "wake_word_url",
+        "stop_words", "stop_while_speaking",
         "speech_threshold", "end_of_speech_silence_seconds", "no_speech_timeout_seconds", "max_command_seconds",
         "one_breath_seconds", "preroll_ms", "speech_start_ms", "speech_energy_factor", "vad_mode",
     ]),
@@ -45,7 +47,7 @@ GROUPS = [
     ]),
     ("funktionen", "Funktionen", "Briefing, Wetter, Flugwetter, Apps", True, [
         "briefing_triggers", "briefing_news", "briefing_flight", "briefing_calendars",
-        "weather_entity", "weather_triggers", "apps_enabled", "mealie_config_entry_id",
+        "weather_entity", "weather_triggers", "weather_use_llm", "apps_enabled", "mealie_config_entry_id",
         "flight_enabled", "flight_triggers", "flight_site_name", "flight_lat", "flight_lon",
         "paraglidable_api_key", "windy_api_key",
     ]),
@@ -83,7 +85,7 @@ async def only_ingress(request, handler):
 # Diese Werte brauchen einen Neustart von GJarvis
 RESTART_KEYS = {
     "wake_word_url", "feature_models_url", "debug", "mic_watchdog_seconds",
-    "audio_source", "satellite_host", "satellite_port", "satellite_key", "mqtt_state_topic",
+    "audio_source", "satellites", "satellite_host", "satellite_port", "satellite_key", "mqtt_state_topic",
 }
 
 
@@ -143,7 +145,7 @@ RING = RingLog()
 def parse_schema(spec) -> dict:
     """Home-Assistant-Schema (z. B. 'float(0,1)', 'list(a|b)', 'password?') in UI-Typ übersetzen."""
     if isinstance(spec, list):
-        return {"type": "list"}
+        return {"type": "satlist"} if spec and isinstance(spec[0], dict) else {"type": "list"}
     s = str(spec).rstrip("?")
     m = re.match(r"(int|float)(?:\(([^,]*),([^)]*)\))?$", s)
     if m:
@@ -298,6 +300,31 @@ def make_app(gj) -> web.Application:
     async def index(request):
         return web.FileResponse(WEB_DIR / "index.html", headers={"Cache-Control": "no-cache"})
 
+    async def _index(request):
+        try:
+            data = await request.json() if request.can_read_body else {}
+        except Exception:  # noqa: BLE001
+            data = {}
+        return (data or {}).get("index")
+
+    async def sat_take(request):
+        try:
+            return web.json_response(await gj.sat_takeover(True, await _index(request)))
+        except Exception as e:  # noqa: BLE001
+            return web.json_response({"ok": False, "error": str(e)})
+
+    async def sat_release(request):
+        try:
+            return web.json_response(await gj.sat_takeover(False, await _index(request)))
+        except Exception as e:  # noqa: BLE001
+            return web.json_response({"ok": False, "error": str(e)})
+
+    async def sat_devices(request):
+        try:
+            return web.json_response({"ok": True, "devices": await gj.sat_devices()})
+        except Exception as e:  # noqa: BLE001
+            return web.json_response({"ok": False, "devices": [], "error": str(e)})
+
     async def status(request):
         return web.json_response(gj.status(), dumps=lambda o: json.dumps(o, default=float))
 
@@ -309,6 +336,9 @@ def make_app(gj) -> web.Application:
         for k, f in meta["fields"].items():
             if f["type"] == "password" and raw.get(k):
                 raw[k] = "••••••"
+        sats = raw.get("satellites")
+        if isinstance(sats, list):
+            raw["satellites"] = [dict(s, key="••••••") if isinstance(s, dict) and s.get("key") else s for s in sats]
         return web.json_response({"values": raw, "restart_pending": bool(getattr(gj, "restart_pending", False)), **meta})
 
     async def post_settings(request):
@@ -319,7 +349,9 @@ def make_app(gj) -> web.Application:
             if not f or (f["type"] == "password" and v == "••••••"):
                 continue
             try:
-                if f["type"] == "bool":
+                if f["type"] == "satlist":
+                    v = gj.clean_satellites(v)
+                elif f["type"] == "bool":
                     v = bool(v)
                 elif f["type"] == "int":
                     v = int(float(str(v).replace(",", ".")))
@@ -386,7 +418,7 @@ def make_app(gj) -> web.Application:
         return web.json_response({"ok": True})
 
     async def stop(request):
-        gj.stop_speaking()
+        gj.stop_all()
         return web.json_response({"ok": True})
 
     async def briefing(request):
@@ -507,6 +539,9 @@ def make_app(gj) -> web.Application:
     app.router.add_post("/api/calibrate", calibrate)
     app.router.add_post("/api/restart", restart)
     app.router.add_post("/api/stop", stop)
+    app.router.add_post("/api/satellite/take", sat_take)
+    app.router.add_post("/api/satellite/release", sat_release)
+    app.router.add_get("/api/satellite/devices", sat_devices)
     app.router.add_post("/api/briefing", pro_only(briefing))
     app.router.add_get("/api/pro", pro_get)
     app.router.add_get("/api/whisper", whisper_get)
