@@ -33,7 +33,7 @@ HERE = os.path.dirname(os.path.abspath(__file__))
 WEB = os.path.join(HERE, "web")
 OPTIONS_FILE = os.environ.get("LAERM_OPTIONS", "/data/options.json")
 SETTINGS_FILE = os.environ.get("LAERM_SETTINGS", "/data/settings.json")
-VERSION = "1.84.4"
+VERSION = "1.84.5"
 
 # =====================================================================
 # Einstellungen
@@ -2350,10 +2350,12 @@ def sc_lanes(a_ms, b_ms, k=""):
         sens = bc_sensors(cfg)
     except Exception as e:
         log("Sensor-Spuren:", e); return out
+    downs = [list(d) for d in run_downs()]               # GLighter lief nicht (Neustart, Update, Strom): eigene Darstellung, nicht „Sensor nicht erreichbar“
+    out["down"] = [[max(a, a_ms), min(b, b_ms)] for a, b in downs if a < b_ms and b > a_ms]
     for s in sens:
         e_ = [e for e in s.get("edges") or [] if a_ms <= e <= b_ms]
         cut = len(e_) > SL_MAX
-        off = [[max(a, a_ms), min(b, b_ms)] for a, b in s.get("offl") or [] if a < b_ms and b > a_ms]
+        off = [[max(a, a_ms), min(b, b_ms)] for a, b in s.get("offl") or [] if a < b_ms and b > a_ms and [a, b] not in downs]
         on_ = [[max(a, a_ms), min(b, b_ms)] for a, b in s.get("on") or [] if a < b_ms and b > a_ms and b - a >= 2000][:SL_MAX]
         nod = s.get("since") is None or s["since"] > b_ms
         out["lanes"].append({"id": s["id"], "name": s.get("name") or s["id"], "type": s.get("type"), "role": s.get("role"),

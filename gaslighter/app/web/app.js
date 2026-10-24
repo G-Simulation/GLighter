@@ -1695,7 +1695,7 @@ function clockHTML(ck) {
 /* ---------- Sensor-Spuren (ab 1.83): je Sensor eine dünne Spur unter dem Pegelverlauf, live und im Verlauf gleich gezeichnet ----------
    Auslösungen (steigende Flanken) als Marken, Zeit „an“ als schmaler Balken, „nicht erreichbar“ schraffiert, Suchfenster der gewählten
    Störung als weiches Band. Gemeinsame Zeitachse: gleiche Ränder (L, R) wie der Graph darüber. Text dazu als aria-label, die Tabelle bleibt die Textfassung. */
-const SL = { sel: null, c: {} }, SL_H = 15, SL_GAP = 3;
+const SL = { sel: null, c: {} }, SL_H = 10, SL_GAP = 4, SL_LH = 14;   // je Spur: Name darüber (SL_LH), Balken (SL_H)
 function slSel(k, start) { const t0 = new Date(start).getTime(); SL.sel = k && isFinite(t0) ? { k, t0 } : null; slRedraw(); }
 function slRedraw() { for (const id of ['scmain', 'scld', 'scnd']) { const c = SL.c[id]; if (c && c.last) slPaint(id, ...c.last); } }
 function slGet(id, from, to, maxAge) {             // Daten der Spuren (zwischengespeichert, mit Rand zum Schieben)
@@ -1722,16 +1722,20 @@ function slPaint(id, from, to, L, R, ax) {
   host.hidden = false;
   let cv = host.querySelector('canvas'), lg = host.querySelector('.sclg');
   if (!cv) { cv = el('canvas'); cv.setAttribute('aria-hidden', 'true'); lg = el('div', { className: 'sclg' }); lg.setAttribute('aria-hidden', 'true'); host.append(cv, lg); }
-  const own = lanes.some(x => x.role === 'own'), lk = lang + own;                 // Legende (gleich live und im Verlauf)
-  if (lg.dataset.k !== lk) { lg.dataset.k = lk; lg.innerHTML = `<span><i class="sclk ed"></i>${esc(t('sl_edge'))}</span>${own ? `<span><i class="sclk ed own"></i>${esc(t('sl_edge_own'))}</span>` : ''}<span><i class="sclk on"></i>${esc(t('sl_on'))}</span><span><i class="sclk off"></i>${esc(t('sl_off'))}</span><span><i class="sclk win"></i>${esc(t('sl_win'))}</span>`; }
-  const H = lanes.length * (SL_H + SL_GAP) + SL_GAP + (ax ? 16 : 0); cv.style.height = H + 'px'; fit(cv);
+  const own = lanes.some(x => x.role === 'own'), hasOff = lanes.some(x => (x.off || []).some(([a, b]) => b > from && a < to)), hasDown = (j.down || []).some(([a, b]) => b > from && a < to),
+    hasSel = !!(SL.sel && SL.sel.t0 >= from && SL.sel.t0 <= to), lk = [lang, own, hasOff, hasDown, hasSel].join();   // Legende: nur, was zu sehen ist (gleich live und im Verlauf)
+  if (lg.dataset.k !== lk) { lg.dataset.k = lk; lg.innerHTML = `<span><i class="sclk ed"></i>${esc(t('sl_edge'))}</span>${own ? `<span><i class="sclk ed own"></i>${esc(t('sl_edge_own'))}</span>` : ''}<span><i class="sclk on"></i>${esc(t('sl_on'))}</span>${hasOff ? `<span><i class="sclk off"></i>${esc(t('sl_off'))}</span>` : ''}${hasDown ? `<span><i class="sclk down"></i>${esc(t('sl_down'))}</span>` : ''}${hasSel ? `<span><i class="sclk win"></i>${esc(t('sl_win'))}</span>` : ''}`; }
+  const LANE = SL_LH + SL_H + SL_GAP, H = lanes.length * LANE + SL_GAP + (ax ? 16 : 0); cv.style.height = H + 'px'; fit(cv);
   const d = DPR(), g = cv.getContext('2d'), w = cv.width, pw = w - (L + R) * d, X = t2 => L * d + pw * (t2 - from) / (to - from);
-  g.clearRect(0, 0, w, cv.height); g.font = '600 ' + (10.5 * d) + 'px system-ui'; g.textBaseline = 'middle';
+  g.clearRect(0, 0, w, cv.height); g.textBaseline = 'middle';
+  for (const [a, b] of (j.down || [])) {                                                         // GLighter lief nicht: über alle Spuren, schlicht grau (kein Sensorfehler)
+    const x0 = X(Math.max(a, from)), x1 = X(Math.min(b, to)); if (x1 - x0 < 0.5) continue;
+    g.fillStyle = ca(C.mut, 0.14); g.fillRect(x0, 0, x1 - x0, lanes.length * LANE * d); }
   const sel = SL.sel && SL.sel.t0 >= from - 3600000 && SL.sel.t0 <= to + 3600000 ? SL.sel : null, say = [];
   lanes.forEach((ln, i) => {
-    const y = (SL_GAP + i * (SL_H + SL_GAP)) * d, hh = SL_H * d, col = ln.role === 'own' ? C.thr : ln.role === 'ctx' ? C.mut : C.acc;
+    const yl = (SL_GAP + i * LANE) * d, y = yl + SL_LH * d, hh = SL_H * d, col = ln.role === 'own' ? C.thr : ln.role === 'ctx' ? C.mut : C.acc;
     g.save(); g.beginPath(); g.rect(L * d, y, pw, hh); g.clip();
-    g.fillStyle = C.grid; g.fillRect(L * d, y, pw, hh);                                            // Spur
+    g.fillStyle = ca(C.mut, 0.22); g.fillRect(L * d, y + hh / 2 - 0.5 * d, pw, 1 * d);               // Spur: dünne Grundlinie statt grauem Kasten
     for (const [a, b] of ln.off || []) {                                                         // nicht erreichbar: schraffiert
       const x0 = X(Math.max(a, from)), x1 = X(Math.min(b, to)); if (x1 - x0 < 0.5) continue;
       g.save(); g.beginPath(); g.rect(x0, y, x1 - x0, hh); g.clip(); g.fillStyle = ca(C.mut, 0.12); g.fillRect(x0, y, x1 - x0, hh);
@@ -1741,16 +1745,17 @@ function slPaint(id, from, to, L, R, ax) {
     for (const [a, b] of ln.on || []) { const x0 = X(a), x1 = Math.max(x0 + 1, X(b)); g.fillStyle = ca(col, 0.35); g.fillRect(x0, y + hh * 0.35, x1 - x0, hh * 0.3); }   // Zeit „an“
     g.fillStyle = col; let lx = -1e9;
     for (const e of ln.edges || []) { const x = X(e); if (x < L * d - 2 || x > L * d + pw + 2) continue; if (x - lx < 1) continue; g.fillRect(x - 1 * d, y + 1 * d, 2 * d, hh - 2 * d); lx = x; }   // Auslösung
-    const nm = ln.name, tw = g.measureText(nm).width;                                             // Name links in der Spur
-    g.fillStyle = ca(C.card, 0.85); g.fillRect(L * d + 2 * d, y + 1 * d, tw + 8 * d, hh - 2 * d); g.fillStyle = C.tx; g.textAlign = 'left'; g.fillText(nm, L * d + 6 * d, y + hh / 2 + 0.5 * d);
     g.restore();
+    const nm = ln.name;                                                                           // Name über der Spur – verdeckt keine Marken
+    g.font = '600 ' + (11 * d) + 'px system-ui'; g.fillStyle = C.tx; g.textAlign = 'left'; g.fillText(nm, L * d, yl + SL_LH * d / 2);
+    if (ln.nodata) { const tw = g.measureText(nm).width; g.font = (10.5 * d) + 'px system-ui'; g.fillStyle = C.mut; g.fillText('· ' + t('sl_nodata'), L * d + tw + 6 * d, yl + SL_LH * d / 2); }
     const ne = (ln.edges || []).filter(e => e >= from && e <= to), no = (ln.off || []).filter(([a, b]) => b > from && a < to);
     say.push(t('sl_a_lane', { s: nm, n: ne.length + (ln.cut ? '+' : '') }) + (no.length ? ', ' + t('sl_a_off', { r: no.slice(0, 3).map(([a, b]) => hms(Math.max(a, from)).slice(0, 5) + '–' + hms(Math.min(b, to)).slice(0, 5)).join(', ') + (no.length > 3 ? ' …' : '') }) : '')
       + (sel ? ', ' + t('sl_a_win', { a: ln.pre, b: ln.post, c: hms(sel.t0) }) : ''));
   });
   if (ax) {                                          // Zeitachse (nur ohne Graph darüber, z. B. Tag ohne Tagesaufzeichnung)
     const sp = to - from, st = [1e3, 2e3, 5e3, 1e4, 3e4, 6e4, 12e4, 3e5, 6e5, 9e5, 18e5, 36e5, 72e5, 108e5, 216e5, 432e5, 864e5].find(q => sp / q <= Math.max(3, Math.floor(pw / d / 80))) || 864e5;
-    const tz = new Date(from).getTimezoneOffset() * 60000, y0 = (lanes.length * (SL_H + SL_GAP) + SL_GAP) * d;
+    const tz = new Date(from).getTimezoneOffset() * 60000, y0 = (lanes.length * LANE + SL_GAP) * d;
     g.fillStyle = C.mut; g.font = (10.5 * d) + 'px system-ui'; g.textAlign = 'center'; g.textBaseline = 'top';
     for (let t2 = Math.ceil((from - tz) / st) * st + tz; t2 <= to; t2 += st) { const x = X(t2), dd = new Date(t2); g.fillRect(x - 0.5 * d, y0, 1 * d, 3 * d);
       g.fillText(st >= 864e5 ? pad(dd.getDate()) + '.' + pad(dd.getMonth() + 1) + '.' : pad(dd.getHours()) + ':' + pad(dd.getMinutes()) + (st < 6e4 ? ':' + pad(dd.getSeconds()) : ''), x, y0 + 4 * d); }

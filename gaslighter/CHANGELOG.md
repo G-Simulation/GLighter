@@ -1,5 +1,8 @@
 # Changelog
 
+## 1.84.5
+- **Sensor-Spuren klarer:** je Sensor eine dünne Linie statt grauem Kasten, der Name steht darüber und verdeckt keine Auslösungen mehr. Zeiten, in denen GLighter nicht lief (Neustart, Update, Strom), erscheinen über alle Spuren als „keine Aufzeichnung (GLighter lief nicht)“ statt fälschlich als „Sensor nicht erreichbar“. Die Legende zeigt nur, was zu sehen ist.
+
 ## 1.84.4
 - 💡 nur noch eine je Bereich: Mehrere Hinweise an einem Bereich stehen zusammen in einer Blase (jeder einzeln wegklickbar). Der Live-Hinweis sitzt jetzt am Graphen statt in der Ereignisliste. Die 💡 bekommt immer eigenen Platz am rechten Rand und liegt nie mehr über Tabelle oder Filterfeld.
 

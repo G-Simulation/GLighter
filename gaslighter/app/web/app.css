@@ -1409,3 +1409,4 @@ dialog.prognd:not(:has(> .dh)) h3,dialog.drdlg:not(:has(> .dh)) h3{display:flex;
 .qtdock > .qtip.qtsub{display:none!important}
 .qtb .qtmore{display:flex;flex-direction:column;gap:6px;border-top:1px solid var(--bd);padding-top:8px;margin-top:4px}
 body.qthover .qtanchor > .qtdock{gap:0}
+.sclk.down{background:color-mix(in srgb,var(--mut) 22%,transparent)}
