@@ -33,7 +33,7 @@ HERE = os.path.dirname(os.path.abspath(__file__))
 WEB = os.path.join(HERE, "web")
 OPTIONS_FILE = os.environ.get("LAERM_OPTIONS", "/data/options.json")
 SETTINGS_FILE = os.environ.get("LAERM_SETTINGS", "/data/settings.json")
-VERSION = "1.85.2"
+VERSION = "1.85.3"
 
 # =====================================================================
 # Einstellungen
@@ -12650,6 +12650,8 @@ def layout_view_clean(v):
             txt = re.sub(r"[\x00-\x1f<>]", "", txt).strip()[:60]
             if txt:
                 out["ttl"][i] = txt
+    if v.get("o3") is True:                            # ab 1.85.3: neue Standard-Reihenfolge wurde einmal übernommen
+        out["o3"] = True
     return out
 
 

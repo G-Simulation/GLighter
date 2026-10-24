@@ -1,5 +1,9 @@
 # Changelog
 
+## 1.85.3
+- **Protokolle – neue Standard-Reihenfolge:** Übersicht, Unterbrechungen, Verlauf (Pegel), Ereignisse, Notizen, Sensordaten (Sensor-Spuren, Home Assistant), Statistik (Uhrzeit, je Tag). Eine vorhandene Anordnung wird einmalig so umsortiert, Breiten bleiben.
+- **Raster hält die Reihenfolge:** halbe Bereiche stehen nebeneinander, nichts springt mehr in eine Lücke weiter oben (GridStack „list“). Leer gewesene Bereiche erscheinen in „Layout anpassen“ an ihrem Platz in der Reihenfolge statt oben.
+
 ## 1.85.2
 - **Layout: Raster füllt sich richtig.** Halbe, Drittel- und Viertel-Bereiche stehen nebeneinander; was in der Zeile übrig ist, bleibt frei (GridStack „compact“). Nach Handy-Breite kommt die PC-Anordnung unverändert zurück, statt alles links untereinander.
 - **Bereiche nebeneinander gleich hoch** (so hoch wie der höhere).

@@ -2333,12 +2333,12 @@ function dashDefs() {
       { id: 'sum', t: 'pn_sum', nodes: [$('nweek'), nv.querySelector('.nsum')], w: 12 },
       { id: 'run', t: 'pn_run', nodes: [$('nrun')], w: 12, auto: true },
       { id: 'day', t: 'dt_title', nodes: [$('ndaybox')], w: 12 },
-      { id: 'dlanes', t: 'pn_lanes', nodes: [$('scnd')], w: 12, auto: true, emp: () => $('scnd').hidden },
-      { id: 'hours', t: 'hours', nodes: [pg && pg.children[0]], w: 6 },
-      { id: 'days', t: 'days', nodes: [pg && pg.children[1]], w: 6 },
       { id: 'ev', t: 'list', nodes: [nv.querySelector('.pevcard')], w: 12, vis: true },
       { id: 'notes', t: 'pn_notes', nodes: [$('nnotes')], w: 12, auto: true },
-      { id: 'ha', t: 'pn_ha', nodes: [ha], w: 12, off: true, vis: true, auto: true }],
+      { id: 'dlanes', t: 'pn_lanes', nodes: [$('scnd')], w: 12, auto: true, emp: () => $('scnd').hidden },
+      { id: 'ha', t: 'pn_ha', nodes: [ha], w: 12, off: true, vis: true, auto: true },
+      { id: 'hours', t: 'hours', nodes: [pg && pg.children[0]], w: 6 },
+      { id: 'days', t: 'days', nodes: [pg && pg.children[1]], w: 6 }],
   };
 }
 function dashLoadSt(v) {
@@ -2351,6 +2351,7 @@ function dashLoadSt(v) {
 function dashSave(v) {
   const g = DASH.grids[v], st = DASH.st[v]; if (!g) return;
   if (g.getColumn() === 12) st.lay = g.save(false).map(x => ({ id: x.id, x: x.x || 0, y: x.y || 0, w: x.w || 12 }));   // Handy (eine Spalte): Anordnung des PCs bleibt, ↑ ↓ ändern sie direkt
+  if (v === 'prot') st.o3 = true;                       // Reihenfolge ab 1.85.3 gilt als übernommen (danach nie wieder umsortieren)
   const keep = Object.assign({}, st); delete keep._mig;
   try { localStorage.setItem('gl_dash_' + v, JSON.stringify(keep)); } catch (e) { }
   layoutPush({ views: { [v]: keep } });
@@ -2405,6 +2406,11 @@ function dashWSync(it) {                               // Auswahl zeigt die aktu
   const s = it.querySelector('.pnlhd .pw'), n = it.gridstackNode; if (!s || !n) return;
   if (!DASH_W.some(x => x[0] === n.w) && !s.querySelector(`option[value="${n.w}"]`)) { const o = document.createElement('option'); o.value = n.w; o.textContent = n.w + '/12'; s.appendChild(o); }
   s.value = String(n.w);
+}
+function dashNextNode(v, id) {                        // leer gewesener Bereich kommt vor den, der in der Standard-Reihenfolge nach ihm steht (ab 1.85.3)
+  const g = DASH.grids[v], defs = DASH.def[v] || [], i = defs.findIndex(p => p.id === id); if (!g || i < 0) return null;
+  for (const p of defs.slice(i + 1)) { const n = g.engine.nodes.find(x => x.id === p.id); if (n) return n; }
+  return null;
 }
 function dashItem(v, id) { const g = DASH.grids[v]; return g && g.el.querySelector(`:scope > .grid-stack-item[gs-id="${CSS.escape(id)}"]`); }
 function dashCol(v, id) {
@@ -2504,6 +2510,11 @@ function dashInit() {
   for (const [v, list] of Object.entries(defs)) {
     const host = v === 'live' ? $('liveview') : $('nightview'), first = list.map(p => p.nodes[0]).find(Boolean); if (!first) continue;
     const st = DASH.st[v] = dashLoadSt(v); st.col = st.col || {}; st.off = st.off || list.filter(p => p.off).map(p => p.id); st.vis = st.vis || {}; st.ttl = st.ttl || {};
+    if (v === 'prot' && st.lay && st.lay.length && !st.o3) {   // ab 1.85.3 einmalig: Standard-Reihenfolge (Übersicht, Unterbrechungen, Verlauf, Ereignisse, Notizen, Sensordaten, Statistik), Breiten bleiben
+      const ws = {}; for (const x of st.lay) ws[x.id] = x.w; for (const p of list) if (ws[p.id] == null) ws[p.id] = p.w;
+      st.lay = dashFlow(list.map(p => p.id), ws); st.o3 = true; st._mig = true;
+    }
+    if (v === 'prot') st.o3 = true;
     const bar = el('div', { className: 'dashbar' }), gEl = el('div', { className: 'grid-stack dashgrid' }); gEl.dataset.view = v;
     first.before(bar); bar.after(gEl);
     if (v === 'live' && st.lay && st.lay.length && !st.lay.some(x => x.id === 'graph') && st.lay.some(x => x.id === 'live')) {   // ältere Anordnung (Kacheln und Graph in einem Bereich): Graph direkt danach
@@ -2548,7 +2559,7 @@ function dashApply(v) {
     const emp = !DASH.edit && pn.classList.contains('phe') && pn.classList.contains('pempty');   // leer (kein Video, keine Sensoren): ohne Lücke weg, Platz gemerkt
     const off = st.off.includes(id) || emp;
     if (off && it.gridstackNode) { if (emp) { it.dataset.ex = it.gridstackNode.x; it.dataset.ey = it.gridstackNode.y; } else { delete it.dataset.ex; delete it.dataset.ey; } g.removeWidget(it, false, false); it.style.display = 'none'; }
-    else if (!off && !it.gridstackNode) { it.style.display = ''; if (it.dataset.ey != null) { it.setAttribute('gs-y', it.dataset.ey); it.setAttribute('gs-x', it.dataset.ex || 0); delete it.dataset.ex; delete it.dataset.ey; } else { it.setAttribute('gs-y', '9999'); it.removeAttribute('gs-x'); } g.makeWidget(it); }   // wieder eingeblendet: unten anfügen (leer gewesene an ihren Platz)
+    else if (!off && !it.gridstackNode) { it.style.display = ''; if (it.dataset.ey != null) { const nx = dashNextNode(v, id); it.setAttribute('gs-y', nx ? nx.y : 9999); it.setAttribute('gs-x', nx ? nx.x : 0); delete it.dataset.ex; delete it.dataset.ey; } else { it.setAttribute('gs-y', '9999'); it.removeAttribute('gs-x'); } g.makeWidget(it); }   // wieder eingeblendet: unten anfügen (leer gewesene an ihren Platz)
     if (off) it.removeAttribute('tabindex'); else if (DASH.edit) it.tabIndex = 0; else it.removeAttribute('tabindex');
   });
   dashEq(g);
@@ -2564,7 +2575,7 @@ function dashEq(g) {
   g._col = col;
   const its = g.getGridItems().filter(it => it.style.display !== 'none' && it.gridstackNode);
   its.forEach(it => { const p = it.querySelector('.pnl'); if (p) p.style.minHeight = ''; g.resizeToContent(it); });
-  if (col === 12) g.compact('compact');                   // GridStack: Lücken füllen – halbe Bereiche nebeneinander, Rest der Zeile frei
+  if (col === 12) g.compact('list');                      // GridStack „list“: in Reihenfolge auffüllen – halbe Bereiche nebeneinander, Rest der Zeile frei, nichts springt nach oben
   if (col === 12) {                                  // gleiche Zeile: der kürzere Inhalt wird so hoch wie der höchste, GridStack passt die Zelle an (sizeToContent)
     const rows = {}; its.forEach(it => { const n = it.gridstackNode; (rows[n.y] = rows[n.y] || []).push(it); });
     for (const r of Object.values(rows)) {
