@@ -7187,10 +7187,11 @@ const gHid = g => viewGet(viewCur()).ghide.includes(g);
 const viewBlocks = v => { const h = new Set(viewGet(v || viewCur()).hide); return Felder.active().filter(b => !h.has(b.id)); };
 /* Reihenfolge der Bereiche: eingebaute und eigene Felder (Kennung b_…) gemeinsam; order: einer Ansicht (ohne: der gezeigten) */
 function capOrder(list, order) {
-  const blocks = (list || Felder.active()).filter(b => !b.del).map(b => b.id), ok = x => SEC_EL[x] || blocks.includes(x);
-  const wb = (list || Felder.active()).find(b => b.bind === 'witness' && !b.del), sw = x => x === 'wit' && wb ? wb.id : x, src = order || viewGet(viewCur()).order || [];   // Zeuge als Feld: steht, wo der alte Bereich stand
+  const all_ = list || Felder.active(), wAny = all_.some(b => b.bind === 'witness');   // Zeuge als Feld (auch gelöscht): alter fester Bereich nie mehr in der Reihenfolge
+  const blocks = all_.filter(b => !b.del).map(b => b.id), ok = x => (SEC_EL[x] && !(x === 'wit' && wAny)) || blocks.includes(x);
+  const wb = all_.find(b => b.bind === 'witness' && !b.del), sw = x => x === 'wit' && wb ? wb.id : x, src = order || viewGet(viewCur()).order || [];   // Zeuge als Feld: steht, wo der alte Bereich stand
   const o = [...new Set(src.map(x => wb && src.includes(wb.id) ? x : sw(x)).filter(ok))];
-  return o.concat(Object.keys(SEC_EL).map(sw).concat(blocks).filter((x, i, a) => !o.includes(x) && a.indexOf(x) === i));
+  return o.concat(Object.keys(SEC_EL).map(sw).concat(blocks).filter((x, i, a) => ok(x) && !o.includes(x) && a.indexOf(x) === i));
 }
 const witB = () => FBS.defs.find(b => b.bind === 'witness' && !b.del);   // ab 1.85: Zeuge als Feld (Wert weiter in „witness“)
 function witVal() { const b = witB(); if (!b) return $('fnpwit').value; if (!viewBlocks().some(x => x.id === b.id)) return ''; const v = FNP.fv[b.id]; return v && typeof v === 'object' ? (v.n || '').trim() : ''; }
@@ -7524,7 +7525,8 @@ function fclBar() {
 }
 function fclChips(focus) {                             // Bereiche (eingebaute und eigene Felder): Ziehen oder Pfeiltasten
   const d = FCL.d, box = $('caplaybar').querySelector('.laysbox'); if (!box) return;
-  d.secs = d.secs.filter(k => SEC_EL[k] || d.fb.blocks.some(b => b.id === k && !b.del));
+  const wAny = d.fb.blocks.some(b => b.bind === 'witness');
+  d.secs = d.secs.filter(k => (SEC_EL[k] && !(k === 'wit' && wAny)) || d.fb.blocks.some(b => b.id === k && !b.del));
   const off = k => Felder.isId(k) ? !!(d.fb.blocks.find(b => b.id === k) || {}).hide : !!(d.fb.sec[k] || {}).hide, lab = k => secLabel(k, d.fb.sec, d.fb.blocks);
   box.innerHTML = d.secs.map((k, i) => `<button type="button" class="laysec${off(k) ? ' off' : ''}" data-sec="${esc(k)}" data-drag="sec" aria-label="${esc(t('fc_lay_sec_a', { s: lab(k), i: i + 1, n: d.secs.length }) + (off(k) ? ', ' + t('fc_lay_hidden') : ''))}"><span aria-hidden="true">⠿</span> ${esc(lab(k))}</button>`).join('');
   box.querySelectorAll('.laysec').forEach(b => b.onkeydown = e => {
@@ -7550,7 +7552,8 @@ function fclFb(focusId) {                             // Einstellungen je Bereic
 }
 function fclPreview() {
   const d = FCL.d; if (!d) return; fbMount(d.fb.blocks, d.fb.sec); secApply(d.secs);
-  for (const k of Object.keys(SEC_EL)) { const e = $(SEC_EL[k]); if (e) { e.hidden = false; e.classList.toggle('layoff', !!(d.fb.sec[k] || {}).hide); } }
+  const wAny = d.fb.blocks.some(b => b.bind === 'witness');
+  for (const k of Object.keys(SEC_EL)) { const e = $(SEC_EL[k]); if (!e) continue; if (k === 'wit' && wAny) { e.hidden = true; continue; } e.hidden = false; e.classList.toggle('layoff', !!(d.fb.sec[k] || {}).hide); }
 }
 function fclAddGroup() {
   const d = FCL.d, l = pwin().prompt(t('fc_lay_gname')); if (!l || !l.trim()) return;
