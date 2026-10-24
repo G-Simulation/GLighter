@@ -1,5 +1,10 @@
 # Changelog
 
+## 1.85.13
+- In „Layout anpassen“ kein Notiz-„Speichern“ mehr (das Layout speichert „Fertig“) – keine Meldung „Bitte Text oder einen Tag angeben“ beim Layout.
+- Eine Notiz nur mit Zeuge ist nicht leer.
+- Speichern-Leiste der Notiz unten so rund wie der Bereich (keine eckige Kante über der runden).
+
 ## 1.85.12
 - „＋ Rubrik“: Klick öffnet die Typauswahl als Liste (Tasten, Text, Zahl, Datum/Uhrzeit …), Esc schließt.
 - Löschen-Rückfrage kompakt im Knopf („Sicher?“, gleiche Größe), auch beim Entfernen einer Rubrik – kein Browser-Fenster mehr.
