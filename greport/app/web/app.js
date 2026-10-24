@@ -1340,7 +1340,8 @@ function capOrder(list, order) {                       // order: Reihenfolge ein
 const secEl = k => Felder.isId(k) ? $('fb_' + k) : $(SEC_EL[k]);
 function secApply(order) {
   const body = $('fnpbody'); if (!body) return;
-  for (const k of order || capOrder()) { const e = secEl(k); if (e && e.dataset.fold !== '1') body.appendChild(e); }   // eingeklappte Felder bleiben in „Mehr“
+  for (const k of order || capOrder()) { const e = secEl(k); if (e && k !== 'time' && e.dataset.fold !== '1') body.appendChild(e); }   // eingeklappte Felder bleiben in „Mehr“
+  const tm = secEl('time'), tx = secEl('txt'); if (tm) { if (tx && tx.parentElement === body) body.insertBefore(tm, tx); else body.prepend(tm); }   // ab 1.12.4: „Zeit ändern“ immer direkt über dem Notiz-Textfeld
 }
 const hex6 = () => Array.from(crypto.getRandomValues(new Uint8Array(3)), b => b.toString(16).padStart(2, '0')).join('');
 const layFlat = gs => gs.filter(g => !g.del).flatMap(g => g.keys);
@@ -1515,7 +1516,7 @@ function layDraw() {
       <div class="laykeys" data-kind="${kind}">${gr.keys.map(k => d.keys[k]).filter(x => x && !x.del).map(x => `<span class="layk tag ${gAttr(kind === 'when' ? 'when' : gr.g).replace('"', x.hide ? ' off"' : '"')} data-k="${esc(x.k)}"><button type="button" class="lkn" data-drag="key" aria-label="${esc(t('gr_lay_key_a', { k: x.l, g: gr.l }) + (x.hide ? ', ' + t('gr_lay_hidden') : ''))}">${esc(x.l)}</button><button type="button" class="lkx" aria-label="${esc(t(x.own ? 'gr_lay_kdel' : x.hide ? 'gr_lay_kshow' : 'gr_lay_khide', { k: x.l }))}" title="${esc(t(x.own ? 'gr_lay_kdel' : x.hide ? 'gr_lay_kshow' : 'gr_lay_khide', { k: x.l }))}">${x.own ? '✕' : x.hide ? '○' : '●'}</button></span>`).join('')}<button type="button" class="tag add lka">＋ ${esc(t(kind === 'when' ? 'gr_lay_wadd' : 'gr_lay_kadd'))}</button></div>
     </div>`;
   });
-  h += `<button type="button" class="btn lga">＋ ${esc(t('gr_lay_gadd'))}</button></div>`;
+  h += `<span class="lgaw">${Felder.addSel()}<button type="button" class="btn lga">＋ ${esc(t('gr_lay_gadd'))}</button></span></div>`;
   box.innerHTML = h;
   box.querySelectorAll('.layg').forEach(row => {
     const gr = d.groups.find(g => g.g === row.dataset.g);
@@ -1539,11 +1540,15 @@ function layDraw() {
     nb.onkeydown = e => { if (e.key === 'Delete' || e.key === 'Backspace') { e.preventDefault(); layKeyX(x); } else layMoveKey(e, x); };
     chip.querySelector('.lkx').onclick = () => layKeyX(x);
   });
-  box.querySelector('.lga').onclick = layAddGroup;
-  if (LAY.focus) { const f = box.querySelector(LAY.focus); LAY.focus = null; if (f) f.focus(); }
+  box.querySelector('.lga').onclick = () => {                 // Tasten → neue Rubrik, sonst neues Feld (Text, Datum, Zeit …) mit derselben Leiste
+    const ty = box.querySelector('.lgat').value; if (ty === 'pills') { layAddGroup(); return; }
+    const b = Felder.addDef(d.fb, ty); if (!b) { laySay(t('fb_ed_limit', { n: Felder.S.max })); return; }
+    d.secs.push(b.id); layChips(); layFb(); fbPreview(); laySay(t('fb_ed_added', { l: b.l }));
+    const f = $('fnpbody').querySelector(`.fbblk[data-b="${CSS.escape(b.id)}"] .fil_l`); if (f) { f.focus(); f.select(); f.scrollIntoView({ block: 'center' }); } };
+  if (LAY.focus) { const f = box.querySelector(LAY.focus); LAY.focus = null; if (f) { f.focus(); if (f.classList.contains('lgn')) f.select(); } }
 }
 function layAddGroup() {                              // neue Pillen-Rubrik (auch über „Feld hinzufügen“)
-  const d = LAY.d, l = pwin().prompt(t('gr_lay_gname')); if (!l || !l.trim()) return;
+  const d = LAY.d, l = t('gr_lay_gnew');                // ohne prompt() (erscheint in der HA-App nicht): Name direkt in der Leiste ändern
   const g = 'g_' + hex6(); d.groups.splice(d.groups.findIndex(x => x.g === 'own'), 0, { g, l: l.trim().slice(0, 30), l0: '', custom: true, hide: false, hide0: false, col: '', col0: '', isNew: true, del: false, req: false, req0: false, one: false, one0: false, h: '', h0: '', keys: [] });
   LAY.focus = `.layg[data-g="${g}"] .lgn`; layDraw(); laySay(t('fb_ed_added', { l: l.trim() }));
 }

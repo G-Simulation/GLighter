@@ -1468,7 +1468,7 @@ header > button,header > .seg > button{height:var(--ctl)!important;min-height:va
 .glg .gtg{display:grid;place-items:center;width:18px;height:18px;line-height:1;font-size:14px;font-weight:600;padding:0;font-variant-numeric:normal;font-family:system-ui,sans-serif}
 .fesure{display:block;flex-basis:100%;font-size:12px;color:var(--mut);margin-top:4px}
 /* Felder in „Layout anpassen“: dieselbe Bearbeitungsleiste wie die Rubriken, direkt am Feld */
-.capture .fbblk.fbil,.fbblk.fbil{border:1px solid var(--line);border-radius:10px;padding:8px 10px;background:var(--card)}
+.capture .fbblk.fbil,.fbblk.fbil{--gc:#5f6b78;border:1px solid color-mix(in srgb,var(--gc) 40%,var(--line));border-radius:10px;padding:8px 10px;background:var(--card)}   /* exakt wie eine Rubrik (.layg) */
 .fbblk.fbil > .fbl,.fbblk.fbil > label.fbl{display:none}
 .fbblk.fbil.off > :not(.fbilh):not(.fbilx){opacity:.5}
 .fbilh .filty{color:var(--mut);font-size:12px;white-space:nowrap}
@@ -1476,3 +1476,5 @@ header > button,header > .seg > button{height:var(--ctl)!important;min-height:va
 .fbblk.fbdrag{opacity:.5}
 .fbdrop{outline:2px dashed var(--acc);outline-offset:2px}
 #secwit[data-gone]{display:none!important}   /* Zeuge ist ein Feld: alter fester Bereich nie mehr sichtbar */
+
+.lgaw{display:inline-flex;gap:8px;align-items:center;flex-wrap:wrap}.lgaw .lgat{min-height:var(--ctl,36px);border-radius:8px}

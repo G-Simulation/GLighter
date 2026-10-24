@@ -1,5 +1,11 @@
 # Changelog
 
+## 1.12.4
+- **„＋ Rubrik“ mit Typauswahl:** Tasten (Rubrik) oder ein Feld – Text, Zahl, Ja/Nein, Auswahl, Skala, Dauer, Datum/Uhrzeit, Ort, Person, Zähler. Das neue Element erscheint sofort mit derselben Leiste wie die Rubriken, der Name ist zum Überschreiben markiert.
+- Felder sehen in „Layout anpassen“ genau wie Rubriken aus (gleicher Rahmen, gleiche Leiste).
+- Neue Rubrik ohne Namensabfrage-Fenster (erscheint in der Home-Assistant-App nicht): heißt „Neue Rubrik“, Name direkt in der Leiste ändern.
+- „jetzt · Zeit ändern“ steht immer direkt über dem Notiz-Textfeld.
+
 ## 1.12.3
 - **Jedes Feld direkt am Element bearbeiten (auch Zeuge und die Felder unter „Mehr“):** In „Layout anpassen“ hat jedes Feld dieselbe Leiste wie die Rubriken – ⠿ verschieben (ziehen oder Pfeiltasten), Name, zeigen, Pflicht, unter „Mehr“ einklappen, ⚙ weitere Einstellungen, 🗑 löschen, Hinweis.
 - **Zeuge ist ein Feld wie jedes andere:** löschen (zweimal 🗑), gelöscht bleibt der alte feste Zeugen-Bereich weg, über „＋ Feld“ → Person wieder anlegbar.

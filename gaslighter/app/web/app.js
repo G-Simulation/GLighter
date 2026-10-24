@@ -7196,7 +7196,9 @@ function capOrder(list, order) {
 const witB = () => FBS.defs.find(b => b.bind === 'witness' && !b.del);   // ab 1.85: Zeuge als Feld (Wert weiter in „witness“)
 function witVal() { const b = witB(); if (!b) return $('fnpwit').value; if (!viewBlocks().some(x => x.id === b.id)) return ''; const v = FNP.fv[b.id]; return v && typeof v === 'object' ? (v.n || '').trim() : ''; }
 const secEl = k => Felder.isId(k) ? $('fb_' + k) : $(SEC_EL[k]);
-function secApply(order) { const body = $('fnpbody'); if (!body) return; for (const k of order || capOrder()) { const e = secEl(k); if (e) body.appendChild(e); } }
+function secApply(order) { const body = $('fnpbody'); if (!body) return;
+  for (const k of order || capOrder()) { const e = secEl(k); if (e && k !== 'time') body.appendChild(e); }
+  const tm = secEl('time'), tx = secEl('txt'); if (tm) { if (tx && tx.parentElement === body) body.insertBefore(tm, tx); else body.prepend(tm); } }   // ab 1.85.11: „Zeit ändern“ immer direkt über dem Notiz-Textfeld
 function capApply() {
   const sv = LAYOUT.srv && LAYOUT.srv.cap; if (sv) { CAP = Object.assign({}, CAP_DEF, sv); if (sv.blocks) Felder.S.defs = sv.blocks; Felder.S.sec = sv.sec || {}; if (sv.tpl) Felder.S.tpl = sv.tpl; }
   if (LAYOUT.srv) CAPPOP = LAYOUT.srv.cap_pop || null;
@@ -7564,7 +7566,7 @@ function fclPreview() {
   });
 }
 function fclAddGroup() {
-  const d = FCL.d, l = pwin().prompt(t('fc_lay_gname')); if (!l || !l.trim()) return;
+  const d = FCL.d, l = t('fc_lay_gnew');                // ohne prompt() (erscheint in der HA-App nicht): Name direkt in der Leiste ändern
   const g = 'g_' + hex6(); d.groups.splice(d.groups.findIndex(x => x.g === 'own'), 0, { g, l: l.trim().slice(0, 30), l0: '', custom: true, hide: false, hide0: false, req: false, req0: false, one: false, one0: false, h: '', h0: '', col: '', col0: '', isNew: true, del: false, keys: [] });
   FCL.focus = `.layg[data-g="${g}"] .lgn`; fclDraw(); fclSay(t('fb_ed_added', { l: l.trim() }));
 }
@@ -7587,7 +7589,7 @@ function fclDraw() {
       <div class="laykeys">${gr.keys.map(k => d.keys[k]).filter(x => x && !x.del).map(x => `<span class="layk tag ${gAttr(gr.g).replace('"', x.hide ? ' off"' : '"')} data-k="${esc(x.k)}"><button type="button" class="lkn" data-drag="key" aria-label="${esc(t('fc_lay_key_a', { k: x.l, g: gr.l }) + (x.hide ? ', ' + t('fc_lay_hidden') : ''))}">${esc(x.l)}</button><button type="button" class="lkx" aria-label="${esc(t(x.own ? 'fc_lay_kdel' : x.hide ? 'fc_lay_kshow' : 'fc_lay_khide', { k: x.l }))}" title="${esc(t(x.own ? 'fc_lay_kdel' : x.hide ? 'fc_lay_kshow' : 'fc_lay_khide', { k: x.l }))}">${x.own ? '✕' : x.hide ? '○' : '●'}</button></span>`).join('')}<button type="button" class="tag add lka">＋ ${esc(t('fc_lay_kadd'))}</button></div>
     </div>`;
   });
-  h += `<button type="button" class="btn lga">＋ ${esc(t('fc_lay_gadd'))}</button></div>`;
+  h += `<span class="lgaw">${Felder.addSel()}<button type="button" class="btn lga">＋ ${esc(t('fc_lay_gadd'))}</button></span></div>`;
   box.innerHTML = h;
   box.querySelectorAll('.layg').forEach(row => {
     const gr = d.groups.find(g => g.g === row.dataset.g);
@@ -7610,8 +7612,12 @@ function fclDraw() {
     nb.onkeydown = e => { if (e.key === 'Delete' || e.key === 'Backspace') { e.preventDefault(); fclKeyX(x); } else fclMoveKey(e, x); };
     chip.querySelector('.lkx').onclick = () => fclKeyX(x);
   });
-  box.querySelector('.lga').onclick = fclAddGroup;
-  if (FCL.focus) { const f = box.querySelector(FCL.focus); FCL.focus = null; if (f) f.focus(); }
+  box.querySelector('.lga').onclick = () => {                 // Tasten → neue Rubrik, sonst neues Feld (Text, Datum, Zeit …) mit derselben Leiste
+    const ty = box.querySelector('.lgat').value; if (ty === 'pills') { fclAddGroup(); return; }
+    const b = Felder.addDef(d.fb, ty); if (!b) { fclSay(t('fb_ed_limit', { n: Felder.S.max })); return; }
+    d.secs.push(b.id); fclChips(); fclFb(); fclPreview(); fclSay(t('fb_ed_added', { l: b.l }));
+    const f = $('fnpbody').querySelector(`.fbblk[data-b="${CSS.escape(b.id)}"] .fil_l`); if (f) { f.focus(); f.select(); f.scrollIntoView({ block: 'center' }); } };
+  if (FCL.focus) { const f = box.querySelector(FCL.focus); FCL.focus = null; if (f) { f.focus(); if (f.classList.contains('lgn')) f.select(); } }
 }
 function fclKeyX(x) {                                  // eigene Taste löschen, eingebaute ein-/ausblenden
   if (x.own) { if (!pwin().confirm(t('qt_del_q', { n: x.l }))) return; x.del = true; const g = fclFind(x.k); if (g) g.keys = g.keys.filter(k => k !== x.k); fclSay(t('fc_lay_kdeleted', { k: x.l })); }

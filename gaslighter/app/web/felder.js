@@ -310,5 +310,8 @@ window.Felder = (() => {
       };
     });
   }
-  return { inlineEdit, kindsActive, kindsShown, kindOf, kindChip, kindPick, kindsEditor, TYPES, ROLES, S, setup, load, isId, byId, active, visible, isEmpty, fmt, compact, render, countShow, check, chart, editor, strip, newDef, tplBox, readNum };
+  /* „＋ Rubrik“ mit Typauswahl: Tasten (Rubrik) oder ein Feldtyp – gleicher Knopf, gleiche Leiste danach */
+  function addSel() { return `<select class="lgat" aria-label="${e(t('fb_ed_type'))}"><option value="pills">${e(t('fb_type_pills'))}</option>${TYPES.map(x => `<option value="${x}">${e(t('fb_type_' + x))}</option>`).join('')}</select>`; }
+  function addDef(d, ty) { if (d.blocks.filter(x => !x.del).length >= S.max) return null; const b = newDef(ty); d.blocks.push(b); return b; }
+  return { addSel, addDef, inlineEdit, kindsActive, kindsShown, kindOf, kindChip, kindPick, kindsEditor, TYPES, ROLES, S, setup, load, isId, byId, active, visible, isEmpty, fmt, compact, render, countShow, check, chart, editor, strip, newDef, tplBox, readNum };
 })();

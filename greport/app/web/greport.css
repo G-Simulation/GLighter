@@ -515,10 +515,12 @@ body.pop.tipshover #secwit.tipanchor,body.pop.tipshover #fnptags > .tipanchor{pa
 .laytplrow{display:flex;margin-bottom:6px}
 .fesure{display:block;flex-basis:100%;font-size:12px;color:var(--mut);margin-top:4px}
 /* Felder in „Layout anpassen“: dieselbe Bearbeitungsleiste wie die Rubriken, direkt am Feld */
-.fbblk.fbil{border:1px solid var(--line);border-radius:10px;padding:8px 10px;background:var(--card)}
+.fbblk.fbil{--gc:#5f6b78;border:1px solid color-mix(in srgb,var(--gc) 40%,var(--line));border-radius:10px;padding:8px 10px;background:var(--card)}   /* exakt wie eine Rubrik (.layg) */
 .fbblk.fbil > .fbl,.fbblk.fbil > label.fbl{display:none}
 .fbblk.fbil.off > :not(.fbilh):not(.fbilx){opacity:.5}
 .fbilh .filty{color:var(--mut);font-size:12px;white-space:nowrap}
 .fbilh .fil_more{min-width:32px}
 .fbblk.fbdrag{opacity:.5}
 .fbdrop{outline:2px dashed var(--acc);outline-offset:2px}
+
+.lgaw{display:inline-flex;gap:8px;align-items:center;flex-wrap:wrap}.lgaw .lgat{min-height:var(--ctl,36px);border-radius:8px}
