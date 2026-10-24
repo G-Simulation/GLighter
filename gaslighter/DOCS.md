@@ -129,7 +129,7 @@ Die Liste unten zeigt alle Störungen des Tages (alle Geräte oder das gewählte
 
 ### Anordnen und eigene Kacheln
 
-Auch die Live-Ansicht besteht aus Bereichen (Notiz, Live-Bild, Ereignisse). Mit **▦ Layout anpassen** verschiebst du sie, änderst die Breite, benennst sie um oder blendest sie aus – mit der Maus, mit **↑ / ↓** (auch am Handy) oder mit der Tastatur. **📊 ＋ Kachel** legt eine Kachel an, z. B. „Störungen heute“ als große Zahl. Alles dazu unter Protokolle → Layout anpassen und Kacheln.
+Auch die Live-Ansicht besteht aus Bereichen (Notiz, Live-Bild, Ereignisse). Mit **▦ Layout anpassen** verschiebst du sie, änderst die Breite, benennst sie um oder blendest sie aus – mit der Maus, mit **↑ / ↓** (auch am Handy) oder mit der Tastatur. In **▦ Layout anpassen** legt **＋ Bereich hinzufügen** (oder **＋ Bereich hier** an einer freien Stelle) eine Kachel an, z. B. „Störungen heute“ als große Zahl. Alles dazu unter Protokolle → Layout anpassen und Kacheln.
 
 ## 3. Protokolle
 
@@ -181,7 +181,7 @@ Screenreader lesen den Namen jedes Bereichs und nach jeder Änderung die neue St
 
 ### 📊 Kacheln (eigene Statistiken)
 
-**📊 ＋ Kachel** (oben über den Bereichen, in Live und Protokolle) bzw. im Bearbeiten **＋ Bereich hinzufügen** → **Neue Kachel** legt eine Kachel als eigenen Bereich an – verschieben, breiter ziehen, umbenennen, einklappen und ausblenden wie die anderen.
+In **▦ Layout anpassen** legt **＋ Bereich hinzufügen** → **Neue Kachel** (oder **＋ Bereich hier** an einer freien Stelle im Raster, dann genau dort)  eine Kachel als eigenen Bereich an – verschieben, breiter ziehen, umbenennen, einklappen und ausblenden wie die anderen.
 
 **Arten von Kacheln:**
 
@@ -1113,7 +1113,7 @@ The list at the bottom shows all disturbances of the day (all devices or the sel
 
 ### Arranging and own tiles
 
-The Live view also consists of sections (note, live chart, events). With **▦ Customise layout** you move them, change their width, rename or hide them – with the mouse, with **↑ / ↓** (also on phones) or with the keyboard. **📊 ＋ Tile** adds a tile, e.g. “Disturbances today” as a big number. Details under Logs → Customise layout and Tiles.
+The Live view also consists of sections (note, live chart, events). With **▦ Customise layout** you move them, change their width, rename or hide them – with the mouse, with **↑ / ↓** (also on phones) or with the keyboard. In **▦ Customise layout**, **＋ Add section** (or **＋ Area here** at a free spot) adds a tile, e.g. “Disturbances today” as a big number. Details under Logs → Customise layout and Tiles.
 
 ## 3. Logs
 
@@ -1165,7 +1165,7 @@ Screen readers read the name of every section and announce the new position afte
 
 ### 📊 Tiles (custom statistics)
 
-**📊 ＋ Tile** (above the sections, in Live and Logs) or, in edit mode, **＋ Add section** → **New tile** adds a tile as its own section – move, widen, rename, collapse and hide it like the others.
+In **▦ Customise layout**, **＋ Add section** → **New tile** (or **＋ Area here** at a free spot in the grid, placed right there) adds a tile as its own section – move, widen, rename, collapse and hide it like the others.
 
 **Kinds of tiles:**
 

@@ -50,7 +50,7 @@ Screenreader lesen den Namen jedes Bereichs und nach jeder Änderung die neue St
 
 ### 📊 Kacheln (eigene Statistiken) {#statistik}
 
-**📊 ＋ Kachel** (oben über den Bereichen, in Live und Protokolle) bzw. im Bearbeiten **＋ Bereich hinzufügen** → **Neue Kachel** legt eine Kachel als eigenen Bereich an – verschieben, breiter ziehen, umbenennen, einklappen und ausblenden wie die anderen.
+In **▦ Layout anpassen** legt **＋ Bereich hinzufügen** → **Neue Kachel** (oder **＋ Bereich hier** an einer freien Stelle im Raster, dann genau dort)  eine Kachel als eigenen Bereich an – verschieben, breiter ziehen, umbenennen, einklappen und ausblenden wie die anderen.
 
 **Arten von Kacheln:**
 

@@ -2286,7 +2286,7 @@ function sfltBuild() {
    die Höhe folgt dem Inhalt. Am Handy stehen alle untereinander. Mit der Tastatur: Bereich fokussieren, Pfeiltasten verschieben,
    Umschalt + ← → Breite, Umschalt + ↑ ↓ ein-/ausklappen, F2 Überschrift, Entf entfernen.
    Gespeichert in layout.json auf dem Server (PC und Handy gleich), im Browser nur als Rückfall; Spaltenbreiten der Tabellen ebenso. */
-const DASH = { grids: {}, def: {}, st: {}, edit: false, ro: null };
+const DASH = { grids: {}, def: {}, st: {}, edit: false, ro: null, slot: null };
 const LAYOUT = { srv: null, exists: false, cols: {}, t: 0, pend: {} };
 async function layoutFetch() {
   try { const j = await (await fetch('layout', { cache: 'no-store' })).json();
@@ -2491,7 +2491,30 @@ function dashAddPanel(v, p) {
   const items = []; dashMk(v, p, st, lay, g.el, items); if (!items.length) { DASH.def[v].pop(); return; }
   const [, it, pn] = items[0]; if (!lay[p.id]) it.setAttribute('gs-y', '9999');
   if (st.off.includes(p.id)) it.style.display = 'none'; else g.makeWidget(it);
-  DASH.ro.observe(pn); dashApply(v); dashBar(v);
+  DASH.ro.observe(pn); dashApply(v); dashBar(v); dashSlotUse(v, it);
+}
+/* ab 1.85.4: freie Stelle im Raster (Layout anpassen): „＋ Bereich hier“ öffnet die Auswahl, der neue Bereich kommt genau dorthin */
+function dashSlotUse(v, it) {
+  const sl = DASH.slot, g = DASH.grids[v]; if (!sl || sl.v !== v || !g || !it || !it.gridstackNode) return;
+  DASH.slot = null; g.update(it, { x: sl.x, y: sl.y, w: sl.w }); dashEq(g); dashSave(v); dashResized();
+  if (DASH.edit) { it.tabIndex = 0; it.focus(); dashSay(v, it.getAttribute('gs-id')); }
+}
+function dashSlots(g) {
+  const old = g.el.querySelector(':scope > .dslots'); if (old) old.remove();
+  if (!DASH.edit || g.getColumn() !== 12) return;
+  const v = g.el.dataset.view, rows = {};
+  for (const n of g.engine.nodes) if (n.el && n.el.style.display !== 'none') (rows[n.y] = rows[n.y] || []).push(n);
+  const box = el('div', { className: 'dslots' }), W = g.el.clientWidth;
+  for (const r of Object.values(rows)) {
+    const used = r.reduce((a, n) => a + n.w, 0), end = Math.max(...r.map(n => n.x + n.w)); if (used >= 12 || end >= 12) continue;
+    const w = 12 - end, top = Math.min(...r.map(n => n.el.offsetTop)), hgt = Math.max(...r.map(n => n.el.offsetHeight));
+    const b = el('button', { type: 'button', className: 'dslot' });
+    b.innerHTML = `<span aria-hidden="true">＋</span> ${esc(t('dash_slot'))}`; b.setAttribute('aria-label', t('dash_slot_a', { w }));
+    Object.assign(b.style, { left: (end / 12 * W + 6) + 'px', top: (top + 6) + 'px', width: (w / 12 * W - 12) + 'px', height: Math.max(40, hgt - 12) + 'px' });
+    b.onclick = () => { DASH.slot = { v, x: end, y: r[0].y, w }; dashLib(v, null, true); };
+    box.appendChild(b);
+  }
+  if (box.childElementCount) g.el.appendChild(box);
 }
 function dashRemovePanel(v, id) {
   const g = DASH.grids[v]; if (!g) return;
@@ -2516,7 +2539,9 @@ function dashInit() {
     }
     if (v === 'prot') st.o3 = true;
     const bar = el('div', { className: 'dashbar' }), gEl = el('div', { className: 'grid-stack dashgrid' }); gEl.dataset.view = v;
-    first.before(bar); bar.after(gEl);
+    first.before(gEl); (DASH.bars = DASH.bars || {})[v] = bar;
+    const fb = v === 'prot' && host.querySelector('.nfbar');           // ab 1.85.4: Protokolle – Layout-Knöpfe in derselben Menüzeile wie die Filter
+    if (fb) { bar.classList.add('inbar'); const ex = fb.querySelector('.nexp'); (ex || fb).appendChild(bar); } else gEl.before(bar);
     if (v === 'live' && st.lay && st.lay.length && !st.lay.some(x => x.id === 'graph') && st.lay.some(x => x.id === 'live')) {   // ältere Anordnung (Kacheln und Graph in einem Bereich): Graph direkt danach
       const ord = [...st.lay].sort((a, b) => a.y - b.y || a.x - b.x).map(x => x.id), ws = {}; for (const x of st.lay) ws[x.id] = x.w;
       ord.splice(ord.indexOf('live') + 1, 0, 'graph'); ws.graph = ws.live || 12;
@@ -2583,25 +2608,25 @@ function dashEq(g) {
       ps.forEach((p, i) => { if (p.offsetHeight < hp - 1) { p.style.minHeight = hp + 'px'; g.resizeToContent(r[i]); } });
     }
   }
-  its.forEach(dashWSync);
+  its.forEach(dashWSync); dashSlots(g);
 }
 function dashResized() { clearTimeout(DASH.rt); DASH.rt = setTimeout(() => { window.dispatchEvent(new Event('resize')); if (TBL) try { TBL.fit(); } catch (e) { } }, 120); }
 function dashRefresh() { for (const v of Object.keys(DASH.grids)) { const g = DASH.grids[v]; g.onResize(); dashEq(g); } }
 function dashEdit(on) {
-  DASH.edit = on;
+  DASH.edit = on; if (!on) DASH.slot = null;
   for (const k of Object.keys(DASH.grids)) { DASH.grids[k].setStatic(!on); DASH.grids[k].el.classList.toggle('dashedit', on); dashApply(k); dashBar(k); for (const p of DASH.def[k] || []) dashTitleApply(k, p); }
   if (!on) { for (const k of Object.keys(DASH.grids)) dashSave(k); layoutFlush(); }
   dashRefresh();
 }
 function dashBar(v) {
-  const g = DASH.grids[v], st = DASH.st[v], bar = g && g.el.previousElementSibling; if (!bar) return;
-  bar.innerHTML = `<button type="button" class="chip dedit${DASH.edit ? ' pri' : ''}" aria-pressed="${DASH.edit}">▦ ${esc(t(DASH.edit ? 'dash_done' : 'dash_edit'))}</button>` +
-    (DASH.edit ? `<button type="button" class="chip dlib">＋ ${esc(t('dash_add'))}</button>` : '') +
-    `<button type="button" class="chip dstat">📊 ＋ ${esc(t('tl_add'))}</button>` +
+  const g = DASH.grids[v], st = DASH.st[v], bar = g && DASH.bars && DASH.bars[v]; if (!bar) return;
+  const nh = !DASH.edit && st.off.length ? `<span class="dhid" title="${esc(t('dash_hidden', { n: st.off.length }))}">${st.off.length}</span><span class="sr">${esc(t('dash_hidden', { n: st.off.length }))}</span>` : '';   // ausgeblendete: Zahl am Knopf statt eigener Text
+  const inb = bar.classList.contains('inbar'), fbar = inb && bar.closest('.nfbar'); if (fbar) fbar.classList.toggle('dashediting', DASH.edit);   // Bearbeiten: rechts die Layout-Werkzeuge statt Protokoll/Bild
+  const lbl = DASH.edit ? t('dash_done') : inb ? t('dash_edit_s') : t('dash_edit');
+  bar.innerHTML = `<button type="button" class="chip dedit${DASH.edit ? ' pri' : ''}" aria-pressed="${DASH.edit}" title="${esc(t(DASH.edit ? 'dash_done' : 'dash_edit'))}"${inb && !DASH.edit ? ` aria-label="${esc(t('dash_edit') + (st.off.length ? ', ' + t('dash_hidden', { n: st.off.length }) : ''))}"` : ''}>▦ ${esc(lbl)}${nh}</button>` +
+    (DASH.edit ? `<button type="button" class="chip dlib" title="${esc(t('dash_kbd'))}">＋ ${esc(t('dash_add'))}</button>` : '') +
     (MF.list.length ? `<button type="button" class="chip dmf${MF.show ? ' on' : ''}" aria-pressed="${MF.show}" title="${esc(t('mf_show_tip'))}">⊘ ${esc(t('mf_show'))}</button>` : '') +
-    (DASH.edit ? `<button type="button" class="chip dreset">↺ ${esc(t('dash_reset'))}</button><small class="mut dkbd">${esc(t('dash_kbd'))}</small>` :
-      st.off.length ? `<small class="mut">${esc(t('dash_hidden', { n: st.off.length }))}</small>` : '');
-  bar.querySelector('.dstat').onclick = () => DASH.edit ? dashLib(v, 'tiles') : statNew(v);
+    (DASH.edit ? `<button type="button" class="chip dreset" title="${esc(t('dash_reset'))}"${inb ? ` aria-label="${esc(t('dash_reset'))}"` : ''}>↺${inb ? '' : ' ' + esc(t('dash_reset'))}</button><span class="sr">${esc(t('dash_kbd'))}</span>` : '');
   bar.querySelector('.dedit').onclick = () => dashEdit(!DASH.edit);
   const mfb = bar.querySelector('.dmf'); if (mfb) mfb.onclick = mfToggle;
   const lb = bar.querySelector('.dlib'); if (lb) lb.onclick = () => dashLib(v);
@@ -2613,7 +2638,8 @@ function dashBar(v) {
 }
 /* Bibliothek: Bereiche dieser Ansicht ein- und ausblenden, neue Kachel (Art wählen) oder fertige Vorlage */
 const TILE_TYPES = [['num', '🔢', 'none', 'sel'], ['line', '📈', 'day', '30'], ['bar', '📊', 'hour', 'sel'], ['list', '📋', 'art', '7'], ['table', '▦', 'dev', '30']];
-function dashLib(v, focus) {
+function dashLib(v, focus, keepSlot) {
+  if (!keepSlot) DASH.slot = null;
   let dlg = $('dlibdlg'); if (!dlg) { dlg = el('dialog', { id: 'dlibdlg', className: 'stdlg dlibdlg' }); document.body.appendChild(dlg); }
   const st = DASH.st[v], defs = DASH.def[v] || [];
   const tpls = STATS.tpls.slice().sort((a, b) => (a.view === v ? 0 : 1) - (b.view === v ? 0 : 1));
@@ -2628,7 +2654,7 @@ function dashLib(v, focus) {
     <div class="stbtns"><button type="button" class="chip dcolrs">↺ ${esc(t('dash_cols_reset'))}</button><span class="sthsp"></span><span class="stmsg" role="status"></span><button type="button" class="pri stcancel">${esc(t('dash_done'))}</button></div>`;
   dlg.setAttribute('aria-labelledby', 'dlibh');
   dlg.querySelector('.stx').onclick = dlg.querySelector('.stcancel').onclick = () => dlg.close();
-  dlg.querySelectorAll('[data-p]').forEach(b => b.onclick = () => { const id = b.dataset.p; st.off = st.off.filter(x => x !== id); if (b.dataset.a === 'hide') st.off.push(id); dashApply(v); dashSave(v); dashBar(v); dashLib(v); const nb = dlg.querySelector(`[data-p="${CSS.escape(id)}"]`); if (nb) nb.focus(); });
+  dlg.querySelectorAll('[data-p]').forEach(b => b.onclick = () => { const id = b.dataset.p; st.off = st.off.filter(x => x !== id); if (b.dataset.a === 'hide') st.off.push(id); dashApply(v); if (b.dataset.a === 'show' && DASH.slot) { dashSlotUse(v, dashItem(v, id)); dlg.close(); return; } dashSave(v); dashBar(v); dashLib(v, null, true); const nb = dlg.querySelector(`[data-p="${CSS.escape(id)}"]`); if (nb) nb.focus(); });
   dlg.querySelectorAll('[data-tt]').forEach(b => b.onclick = () => { dlg.close(); statNew(v, b.dataset.tt); });
   dlg.querySelectorAll('[data-tpl]').forEach(b => b.onclick = async () => {
     try { const j = await (await fetch('stats', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ action: 'add', tpl: b.dataset.tpl, view: v }) })).json();
@@ -6146,7 +6172,8 @@ function dtRowsRender(S) {
     up.onclick = () => mv(-1); dn.onclick = () => mv(1); rm.onclick = () => { S.rows.splice(i, 1); dtRowsSave(S.rows); dtRowsRender(S); };
     ss.onchange = () => { row.src = ss.value; dtRowsSave(S.rows); dtRowsRender(S); };
     ms.onchange = () => { row.mode = ms.value; dtRowsSave(S.rows); dtRowsRender(S); };
-    hd.append(ss, ms, ...(lt ? [lt] : []), el('span', { className: 'ndrgap' }), up, dn, rm, lb);
+    const mvb = el('span', { className: 'ndrmv' }); mvb.append(up, dn, rm);          // ↑ ↓ ✕ bleiben zusammen (Handy)
+    hd.append(ss, ms, ...(lt ? [lt] : []), el('span', { className: 'ndrgap' }), mvb, lb);
     const cv = el('canvas', { id: 'ndcv_r' + i, className: 'ndcvm' });
     if (row.h) cv.style.height = row.h + 'px';
     const rz = el('div', { className: 'ndrz', title: t('dt_resize') }); rz.setAttribute('role', 'separator'); rz.setAttribute('aria-orientation', 'horizontal');

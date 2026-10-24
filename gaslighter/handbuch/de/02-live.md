@@ -87,4 +87,4 @@ Die Liste unten zeigt alle Störungen des Tages (alle Geräte oder das gewählte
 
 ## Anordnen und eigene Kacheln {#anordnen}
 
-Auch die Live-Ansicht besteht aus Bereichen (Notiz, Live-Bild, Ereignisse). Mit **▦ Layout anpassen** verschiebst du sie, änderst die Breite, benennst sie um oder blendest sie aus – mit der Maus, mit **↑ / ↓** (auch am Handy) oder mit der Tastatur. **📊 ＋ Kachel** legt eine Kachel an, z. B. „Störungen heute“ als große Zahl. Alles dazu unter [Protokolle → Layout anpassen](#protokolle/designer) und [Kacheln](#protokolle/statistik).
+Auch die Live-Ansicht besteht aus Bereichen (Notiz, Live-Bild, Ereignisse). Mit **▦ Layout anpassen** verschiebst du sie, änderst die Breite, benennst sie um oder blendest sie aus – mit der Maus, mit **↑ / ↓** (auch am Handy) oder mit der Tastatur. In **▦ Layout anpassen** legt **＋ Bereich hinzufügen** (oder **＋ Bereich hier** an einer freien Stelle) eine Kachel an, z. B. „Störungen heute“ als große Zahl. Alles dazu unter [Protokolle → Layout anpassen](#protokolle/designer) und [Kacheln](#protokolle/statistik).

@@ -107,19 +107,26 @@ def main():
                 fails.append("Ereignis-Tabelle Live fehlt oder hat keine Filterzeile")
             elif "Ereignis" not in pg.inner_text("#ldevn") and "Event" not in pg.inner_text("#ldevn"):
                 fails.append("Anzahl über der Live-Tabelle fehlt: " + pg.inner_text("#ldevn"))
-            pg.click("#liveview .dashbar .dstat"); pg.wait_for_timeout(500)          # Statistik aus Vorlage (frei)
-            pg.click('#stdlg [data-tpl="today"]'); pg.wait_for_timeout(1200)
+            pg.click("#liveview .dashbar .dedit"); pg.wait_for_timeout(400)          # ab 1.85.4: Kachel nur in „Layout anpassen“ → „Bereich hinzufügen“
+            pg.click("#liveview .dashbar .dlib"); pg.wait_for_timeout(400)
+            pg.click('#dlibdlg [data-tpl="today"]'); pg.wait_for_timeout(1200)
+            pg.click("#liveview .dashbar .dedit"); pg.wait_for_timeout(400)
             if not pg.locator("#liveview .statcard .stnum").count():
                 fails.append("Statistik-Vorlage erscheint nicht im Live-Dashboard")
             pg.click("#tab_prot"); pg.wait_for_timeout(800)
             if pg.locator("#events .ag-root-wrapper").count() != 1 or pg.locator("#events #ckall").count() != 1:   # Protokolle: Tabelle mit Auswahl-Kästchen im Kopf
                 fails.append("Ereignis-Tabelle Protokolle fehlt oder ohne Auswahl im Kopf")
-            pg.click("#nightview .dashbar .dstat"); pg.wait_for_timeout(500)
+            pg.click("#nightview .dedit"); pg.wait_for_timeout(400)
+            pg.click("#nightview .dlib"); pg.wait_for_timeout(400)
+            pg.click('#dlibdlg [data-tt="num"]'); pg.wait_for_timeout(600)
             if not pg.locator("#stdlg fieldset.stform[disabled]").count():
                 fails.append("Statistik selbst einstellen ohne Pro nicht gesperrt")
             pg.click('#stdlg [data-tpl="arts"]'); pg.wait_for_timeout(1500)
             if not pg.locator("#nightview .statcard .sthd").count():
                 fails.append("Statistik-Vorlage erscheint nicht in Protokolle")
+            pg.click("#nightview .dedit"); pg.wait_for_timeout(400)
+            if pg.locator("#nightview .nfbar .dashbar .dedit").count() != 1:
+                fails.append("Layout-Knopf steht nicht in der Menüzeile von Protokolle")
             pg.click("#tab_live"); pg.wait_for_timeout(800)
             rs = pg.locator("#ldevrng")                                    # Tabelle: Anzeigebereich (Auswahl) und passende Überschrift
             if rs.count() != 1 or rs.input_value() != "vis" or pg.locator("#ldevh").inner_text().strip() != "Ereignisse im sichtbaren Bereich":

@@ -50,7 +50,7 @@ Screen readers read the name of every section and announce the new position afte
 
 ### 📊 Tiles (custom statistics) {#statistik}
 
-**📊 ＋ Tile** (above the sections, in Live and Logs) or, in edit mode, **＋ Add section** → **New tile** adds a tile as its own section – move, widen, rename, collapse and hide it like the others.
+In **▦ Customise layout**, **＋ Add section** → **New tile** (or **＋ Area here** at a free spot in the grid, placed right there) adds a tile as its own section – move, widen, rename, collapse and hide it like the others.
 
 **Kinds of tiles:**
 

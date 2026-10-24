@@ -87,4 +87,4 @@ The list at the bottom shows all disturbances of the day (all devices or the sel
 
 ## Arranging and own tiles {#anordnen}
 
-The Live view also consists of sections (note, live chart, events). With **▦ Customise layout** you move them, change their width, rename or hide them – with the mouse, with **↑ / ↓** (also on phones) or with the keyboard. **📊 ＋ Tile** adds a tile, e.g. “Disturbances today” as a big number. Details under [Logs → Customise layout](#protokolle/designer) and [Tiles](#protokolle/statistik).
+The Live view also consists of sections (note, live chart, events). With **▦ Customise layout** you move them, change their width, rename or hide them – with the mouse, with **↑ / ↓** (also on phones) or with the keyboard. In **▦ Customise layout**, **＋ Add section** (or **＋ Area here** at a free spot) adds a tile, e.g. “Disturbances today” as a big number. Details under [Logs → Customise layout](#protokolle/designer) and [Tiles](#protokolle/statistik).

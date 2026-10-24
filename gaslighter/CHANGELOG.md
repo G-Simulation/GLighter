@@ -1,5 +1,12 @@
 # Changelog
 
+## 1.85.4
+- **Protokolle: eine Menüzeile.** Filter links (Quelle, Art, Sensoren, Liste), Aktionen rechts (Protokoll, Bild, ▦ Layout). Ausgeblendete Bereiche stehen als Zahl am Layout-Knopf. In „Layout anpassen“ zeigt dieselbe Zeile rechts Fertig, ＋ Bereich hinzufügen und ↺ Zurücksetzen.
+- **Kachel und Bereich zusammengeführt:** beides über „Layout anpassen“ → „＋ Bereich hinzufügen“. Neu: **＋ Bereich hier** an jeder freien Stelle im Raster – der neue Bereich kommt genau dorthin, in der Breite der Lücke.
+- **Einheitliche Höhe** aller Bedienelemente (Kopfzeile, Filter, Verlauf, Listen): am PC 34 px, am Handy 40 px. „Art“ und „Sensoren“ gerahmt wie alle Knöpfe.
+- **Verlauf-Werkzeuge gruppiert** statt über die ganze Breite verteilt; am Handy bleiben ↑ ↓ ✕ je Zeile zusammen.
+- Bearbeiten am Handy: Kopfzeile eines Bereichs bricht sauber um.
+
 ## 1.85.3
 - **Protokolle – neue Standard-Reihenfolge:** Übersicht, Unterbrechungen, Verlauf (Pegel), Ereignisse, Notizen, Sensordaten (Sensor-Spuren, Home Assistant), Statistik (Uhrzeit, je Tag). Eine vorhandene Anordnung wird einmalig so umsortiert, Breiten bleiben.
 - **Raster hält die Reihenfolge:** halbe Bereiche stehen nebeneinander, nichts springt mehr in eine Lücke weiter oben (GridStack „list“). Leer gewesene Bereiche erscheinen in „Layout anpassen“ an ihrem Platz in der Reihenfolge statt oben.
