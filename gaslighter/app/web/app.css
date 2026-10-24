@@ -1450,3 +1450,5 @@ summary.chip:hover{border-color:var(--acc)}
 /* Kopfzeile: gleiche Höhe für alle Knöpfe (Live/Protokolle, LIVE, Status, Aufzeichnung, Thema, Handbuch, Einstellungen) */
 header > :is(button,.seg) {min-height:var(--ctl);box-sizing:border-box}
 header > button,header > .seg > button{height:var(--ctl)!important;min-height:var(--ctl)!important;padding-top:0;padding-bottom:0}
+/* ab 1.85.5: Zeilen im Verlauf verschieben/entfernen nur in „Layout anpassen“ */
+.grid-stack:not(.dashedit) .ndrmv{display:none}

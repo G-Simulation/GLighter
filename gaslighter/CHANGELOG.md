@@ -1,5 +1,8 @@
 # Changelog
 
+## 1.85.5
+- Verlauf: ↑ ↓ ✕ je Zeile (Reihenfolge, entfernen) nur noch in „Layout anpassen“.
+
 ## 1.85.4
 - **Protokolle: eine Menüzeile.** Filter links (Quelle, Art, Sensoren, Liste), Aktionen rechts (Protokoll, Bild, ▦ Layout). Ausgeblendete Bereiche stehen als Zahl am Layout-Knopf. In „Layout anpassen“ zeigt dieselbe Zeile rechts Fertig, ＋ Bereich hinzufügen und ↺ Zurücksetzen.
 - **Kachel und Bereich zusammengeführt:** beides über „Layout anpassen“ → „＋ Bereich hinzufügen“. Neu: **＋ Bereich hier** an jeder freien Stelle im Raster – der neue Bereich kommt genau dorthin, in der Breite der Lücke.
