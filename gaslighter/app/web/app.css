@@ -1493,3 +1493,6 @@ button.sure{background:var(--bad,var(--red,#c92a2a))!important;border-color:var(
 .pnl[data-p=fn]{padding-bottom:0}
 .pnl[data-p=fn] .capture .savebar{border-radius:0 0 13px 13px}
 .pnl[data-p=fn].pcolx{padding-bottom:4px}
+/* Notiz im Bereich bearbeiten: nur EIN Rahmen, so rund wie der Bereich (kein eckiger blauer über dem gestrichelten) */
+.pnlbd > .capture.lay{outline:0}
+.grid-stack .pnl:has(> .pnlbd > .capture.lay){outline:2px solid var(--acc);outline-offset:-2px}

@@ -1,5 +1,8 @@
 # Changelog
 
+## 1.85.15
+- Notiz bearbeiten im Bereich: nur noch ein Rahmen, so rund wie der Bereich (kein eckiger blauer Rahmen über dem gestrichelten).
+
 ## 1.85.14
 - Typauswahl bei „＋ Rubrik“ wird nicht mehr am Rand des Notiz-Bereichs abgeschnitten: liegt über der ganzen Seite und öffnet nach oben oder unten, je nach Platz.
 
