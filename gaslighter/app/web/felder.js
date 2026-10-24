@@ -12,6 +12,13 @@ window.Felder = (() => {
   const e = s => H.esc(s);
   const S = { defs: [], sec: {}, counts: {}, daily: {}, sug: {}, tpl: null, first: false, max: 20, tpls: ['laerm', 'allg', 'zaehler'], kinds: [], kind_def: '', kind_keep: false, kind_n: {} };
   function setup(o) { Object.assign(H, o || {}); }
+  /* Löschen ohne Browser-Rückfrage (confirm() erscheint in der Home-Assistant-App nicht): erster Klick fragt im Knopf, zweiter löscht */
+  function sure(btn, msg, go) {
+    if (btn.dataset.sure) { clearTimeout(btn._st); go(); return; }
+    const old = btn.innerHTML; btn.dataset.sure = '1'; btn.classList.add('danger'); btn.innerHTML = '🗑 ' + e(t('fb_ed_sure')); btn.title = msg; btn.setAttribute('aria-label', t('fb_ed_sure') + ' ' + msg);
+    const n = btn.ownerDocument.createElement('small'); n.className = 'fesure'; n.textContent = msg; btn.after(n); if (H.say) H.say(msg);
+    btn._st = setTimeout(() => { delete btn.dataset.sure; btn.classList.remove('danger'); btn.innerHTML = old; btn.removeAttribute('aria-label'); n.remove(); }, 6000);
+  }
   function load(j) {
     if (!j || !j.ok) return;
     for (const k of ['sec', 'counts', 'daily', 'sug']) S[k] = j[k] || {};
@@ -202,7 +209,7 @@ window.Felder = (() => {
       on('fe_opts', x => { b.opts = [...new Set(x.value.split('\n').map(y => y.trim()).filter(Boolean))].slice(0, 30); }); on('fe_multi', x => { b.multi = x.checked; });
       on('fe_fold', x => { b.fold = x.checked || undefined; hk.change(id, true); });
       on('fe_rng', x => { b.rng = x.value; }); on('fe_lo', x => { b.lo = x.value.trim(); }); on('fe_hi', x => { b.hi = x.value.trim(); });
-      q('fe_del').onclick = () => { if (!confirm(t('fb_ed_del_q', { l: b.l }))) return; b.del = true; hk.say(t('fb_ed_deleted', { l: b.l })); hk.change(id, true); };
+      q('fe_del').onclick = e => sure(e.currentTarget, t('fb_ed_del_q', { l: b.l }), () => { b.del = true; hk.say(t('fb_ed_deleted', { l: b.l })); hk.change(id, true); });
     });
     box.querySelector('.fe_add').onclick = () => {
       const ty = box.querySelector('.fe_type').value;
@@ -247,7 +254,7 @@ window.Felder = (() => {
       q('fk_notime').onchange = ev => { k.notime = ev.target.checked; hk.change(); };
       q('fk_noassign').onchange = ev => { k.noassign = ev.target.checked; hk.change(); };
       q('fk_show').onchange = ev => { k.hide = !ev.target.checked; sum(); };
-      q('fk_del').onclick = () => { if (!confirm(t('fk_del_q', { l: k.l }))) return; k.del = true; if (d.kind_def === k.id) d.kind_def = ''; hk.say(t('fb_ed_deleted', { l: k.l })); kindsEditor(box, d, hk); hk.change(); };
+      q('fk_del').onclick = e => sure(e.currentTarget, t('fk_del_q', { l: k.l }), () => { k.del = true; if (d.kind_def === k.id) d.kind_def = ''; hk.say(t('fb_ed_deleted', { l: k.l })); kindsEditor(box, d, hk); hk.change(); });
     });
     box.querySelector('.fk_add').onclick = () => {
       if (d.kinds.filter(x => !x.del).length >= 20) { alert(t('fk_limit', { n: 20 })); return; }

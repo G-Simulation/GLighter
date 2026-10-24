@@ -1,5 +1,8 @@
 # Changelog
 
+## 1.12.2
+- **Feld löschen (auch Zeuge) geht jetzt in der Home-Assistant-App:** statt eines Bestätigungsfensters, das dort nicht erscheint, fragt der Knopf selbst – erster Klick „Wirklich löschen?“, zweiter Klick löscht. Gleich bei Notiz-Arten.
+
 ## 1.12.1
 - Versionsanzeige korrigiert (zeigte noch 1.11.1).
 

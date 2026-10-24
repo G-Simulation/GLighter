@@ -1,5 +1,8 @@
 # Changelog
 
+## 1.85.9
+- Feld und Notiz-Art löschen ohne Browser-Bestätigungsfenster (erscheint in der Home-Assistant-App nicht): erster Klick fragt im Knopf, zweiter löscht.
+
 ## 1.85.8
 - Zeuge lässt sich entfernen: nach dem Löschen kommt der alte feste Zeugen-Bereich weder in der Bereichsliste noch in der Vorschau noch in der Erfassung zurück.
 - Tabellen: „+“ / „−“ in den runden Knöpfen genau mittig (gezeichnet statt Schriftzeichen).
