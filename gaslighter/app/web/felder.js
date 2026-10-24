@@ -15,10 +15,10 @@ window.Felder = (() => {
   /* Löschen ohne Browser-Rückfrage (confirm() erscheint in der Home-Assistant-App nicht): erster Klick fragt im Knopf, zweiter löscht */
   function sure(btn, msg, go) {
     if (btn.dataset.sure) { clearTimeout(btn._st); go(); return; }
-    const old = btn.innerHTML; btn.dataset.sure = '1'; btn.classList.add('danger'); btn.innerHTML = '🗑 ' + e(t('fb_ed_sure')); btn.title = msg; btn.setAttribute('aria-label', t('fb_ed_sure') + ' ' + msg);
-    const n = btn.ownerDocument.createElement('small'); n.className = 'fesure'; n.textContent = msg; btn.after(n); if (H.say) H.say(msg);
-    btn._st = setTimeout(() => { delete btn.dataset.sure; btn.classList.remove('danger'); btn.innerHTML = old; btn.removeAttribute('aria-label'); n.remove(); }, 6000);
+    const old = btn.innerHTML, oa = btn.getAttribute('aria-label'); btn.dataset.sure = '1'; btn.classList.add('sure'); btn.innerHTML = e(t('fb_ed_sure')); btn.title = msg; btn.setAttribute('aria-label', t('fb_ed_sure') + ' ' + msg);
+    btn._st = setTimeout(() => { delete btn.dataset.sure; btn.classList.remove('sure'); btn.innerHTML = old; if (oa) btn.setAttribute('aria-label', oa); else btn.removeAttribute('aria-label'); }, 5000);
   }
+
   function load(j) {
     if (!j || !j.ok) return;
     for (const k of ['sec', 'counts', 'daily', 'sug']) S[k] = j[k] || {};
@@ -311,7 +311,19 @@ window.Felder = (() => {
     });
   }
   /* „＋ Rubrik“ mit Typauswahl: Tasten (Rubrik) oder ein Feldtyp – gleicher Knopf, gleiche Leiste danach */
-  function addSel() { return `<select class="lgat" aria-label="${e(t('fb_ed_type'))}"><option value="pills">${e(t('fb_type_pills'))}</option>${TYPES.map(x => `<option value="${x}">${e(t('fb_type_' + x))}</option>`).join('')}</select>`; }
+  function addMenu(btn, pick) {                       // „＋ Rubrik“: Klick öffnet die Typauswahl (Tasten oder ein Feldtyp)
+    const doc = btn.ownerDocument, old = doc.querySelector('.fbaddm'); if (old) { old.remove(); if (old._for === btn) { btn.setAttribute('aria-expanded', 'false'); return; } }
+    const m = doc.createElement('div'); m.className = 'fbaddm'; m.setAttribute('role', 'menu'); m._for = btn;
+    m.innerHTML = [['pills', t('fb_type_pills')]].concat(TYPES.map(x => [x, t('fb_type_' + x)])).map(([v, l]) => `<button type="button" role="menuitem" data-ty="${v}">${e(l)}</button>`).join('');
+    btn.after(m); btn.setAttribute('aria-expanded', 'true');
+    const close = () => { m.remove(); btn.setAttribute('aria-expanded', 'false'); doc.removeEventListener('pointerdown', out, true); };
+    const out = ev => { if (!m.contains(ev.target) && ev.target !== btn) close(); };
+    doc.addEventListener('pointerdown', out, true);
+    const its = [...m.querySelectorAll('button')];
+    its.forEach((x, i) => { x.onclick = () => { close(); pick(x.dataset.ty); };
+      x.onkeydown = ev => { if (ev.key === 'Escape') { ev.preventDefault(); close(); btn.focus(); } else if (ev.key === 'ArrowDown' || ev.key === 'ArrowUp') { ev.preventDefault(); its[(i + (ev.key === 'ArrowDown' ? 1 : its.length - 1)) % its.length].focus(); } }; });
+    its[0].focus();
+  }
   function addDef(d, ty) { if (d.blocks.filter(x => !x.del).length >= S.max) return null; const b = newDef(ty); d.blocks.push(b); return b; }
-  return { addSel, addDef, inlineEdit, kindsActive, kindsShown, kindOf, kindChip, kindPick, kindsEditor, TYPES, ROLES, S, setup, load, isId, byId, active, visible, isEmpty, fmt, compact, render, countShow, check, chart, editor, strip, newDef, tplBox, readNum };
+  return { sure, addMenu, addDef, inlineEdit, kindsActive, kindsShown, kindOf, kindChip, kindPick, kindsEditor, TYPES, ROLES, S, setup, load, isId, byId, active, visible, isEmpty, fmt, compact, render, countShow, check, chart, editor, strip, newDef, tplBox, readNum };
 })();

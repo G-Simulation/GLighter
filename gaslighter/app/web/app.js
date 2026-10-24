@@ -7589,7 +7589,7 @@ function fclDraw() {
       <div class="laykeys">${gr.keys.map(k => d.keys[k]).filter(x => x && !x.del).map(x => `<span class="layk tag ${gAttr(gr.g).replace('"', x.hide ? ' off"' : '"')} data-k="${esc(x.k)}"><button type="button" class="lkn" data-drag="key" aria-label="${esc(t('fc_lay_key_a', { k: x.l, g: gr.l }) + (x.hide ? ', ' + t('fc_lay_hidden') : ''))}">${esc(x.l)}</button><button type="button" class="lkx" aria-label="${esc(t(x.own ? 'fc_lay_kdel' : x.hide ? 'fc_lay_kshow' : 'fc_lay_khide', { k: x.l }))}" title="${esc(t(x.own ? 'fc_lay_kdel' : x.hide ? 'fc_lay_kshow' : 'fc_lay_khide', { k: x.l }))}">${x.own ? '✕' : x.hide ? '○' : '●'}</button></span>`).join('')}<button type="button" class="tag add lka">＋ ${esc(t('fc_lay_kadd'))}</button></div>
     </div>`;
   });
-  h += `<span class="lgaw">${Felder.addSel()}<button type="button" class="btn lga">＋ ${esc(t('fc_lay_gadd'))}</button></span></div>`;
+  h += `<span class="lgaw"><button type="button" class="btn lga" aria-haspopup="menu" aria-expanded="false">＋ ${esc(t('fc_lay_gadd'))}</button></span></div>`;
   box.innerHTML = h;
   box.querySelectorAll('.layg').forEach(row => {
     const gr = d.groups.find(g => g.g === row.dataset.g);
@@ -7599,9 +7599,10 @@ function fclDraw() {
     row.querySelector('.lgr').onchange = e => { gr.req = e.target.checked; };
     row.querySelector('.lgo').onchange = e => { gr.one = e.target.checked; };
     row.querySelector('.lgx').oninput = e => { gr.h = e.target.value.trim(); };
-    const del = row.querySelector('.lgd'); if (del) del.onclick = () => {
-      if (!pwin().confirm(t('fc_lay_gdel_q', { g: gr.l }))) return;
+    const del = row.querySelector('.lgd'); if (del) del.onclick = () => {   // Rückfrage im Knopf (kein Browser-Fenster)
+      Felder.sure(del, t('fc_lay_gdel_q', { g: gr.l }), () => {
       const own = d.groups.find(g => g.g === 'own'); own.keys.push(...gr.keys); gr.keys = []; gr.del = true; fclDraw(); fclSay(t('fc_lay_gdeleted', { g: gr.l }));
+      });
     };
     row.querySelector('.hd').onkeydown = e => fclMoveGroup(e, gr);
     row.querySelector('.lka').onclick = () => fclAddKey(row, gr);
@@ -7612,11 +7613,11 @@ function fclDraw() {
     nb.onkeydown = e => { if (e.key === 'Delete' || e.key === 'Backspace') { e.preventDefault(); fclKeyX(x); } else fclMoveKey(e, x); };
     chip.querySelector('.lkx').onclick = () => fclKeyX(x);
   });
-  box.querySelector('.lga').onclick = () => {                 // Tasten → neue Rubrik, sonst neues Feld (Text, Datum, Zeit …) mit derselben Leiste
-    const ty = box.querySelector('.lgat').value; if (ty === 'pills') { fclAddGroup(); return; }
+  box.querySelector('.lga').onclick = ev => Felder.addMenu(ev.currentTarget, ty => {   // Klick öffnet die Typauswahl: Tasten → neue Rubrik, sonst neues Feld
+    if (ty === 'pills') { fclAddGroup(); return; }
     const b = Felder.addDef(d.fb, ty); if (!b) { fclSay(t('fb_ed_limit', { n: Felder.S.max })); return; }
     d.secs.push(b.id); fclChips(); fclFb(); fclPreview(); fclSay(t('fb_ed_added', { l: b.l }));
-    const f = $('fnpbody').querySelector(`.fbblk[data-b="${CSS.escape(b.id)}"] .fil_l`); if (f) { f.focus(); f.select(); f.scrollIntoView({ block: 'center' }); } };
+    const f = $('fnpbody').querySelector(`.fbblk[data-b="${CSS.escape(b.id)}"] .fil_l`); if (f) { f.focus(); f.select(); f.scrollIntoView({ block: 'center' }); } });
   if (FCL.focus) { const f = box.querySelector(FCL.focus); FCL.focus = null; if (f) { f.focus(); if (f.classList.contains('lgn')) f.select(); } }
 }
 function fclKeyX(x) {                                  // eigene Taste löschen, eingebaute ein-/ausblenden

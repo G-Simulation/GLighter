@@ -1,5 +1,9 @@
 # Changelog
 
+## 1.85.12
+- „＋ Rubrik“: Klick öffnet die Typauswahl als Liste (Tasten, Text, Zahl, Datum/Uhrzeit …), Esc schließt.
+- Löschen-Rückfrage kompakt im Knopf („Sicher?“, gleiche Größe), auch beim Entfernen einer Rubrik – kein Browser-Fenster mehr.
+
 ## 1.85.11
 - **„＋ Rubrik“ mit Typauswahl:** Tasten (Rubrik) oder ein Feld – Text, Zahl, Ja/Nein, Auswahl, Skala, Dauer, Datum/Uhrzeit, Ort, Person, Zähler. Das neue Element erscheint sofort mit derselben Leiste wie die Rubriken, der Name ist zum Überschreiben markiert.
 - Felder sehen in „Layout anpassen“ genau wie Rubriken aus (gleicher Rahmen, gleiche Leiste).
