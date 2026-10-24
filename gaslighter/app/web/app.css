@@ -1486,3 +1486,10 @@ button.sure{background:var(--bad,var(--red,#c92a2a))!important;border-color:var(
 .fbaddm{position:absolute;z-index:40;top:calc(100% + 4px);left:0;display:flex;flex-direction:column;min-width:220px;max-height:60vh;overflow:auto;padding:4px;background:var(--card);border:1px solid var(--line);border-radius:10px;box-shadow:0 8px 24px #0003}
 .fbaddm > button{display:block;width:100%;text-align:left;justify-content:flex-start;border:0;background:transparent;border-radius:6px;padding:8px 10px;min-height:36px;font-size:14px;color:inherit}
 .fbaddm > button:hover,.fbaddm > button:focus-visible{background:color-mix(in srgb,var(--acc) 12%,transparent);outline:none}
+
+/* „Layout anpassen“: kein Notiz-„Speichern“ (gespeichert wird das Layout mit „Fertig“) */
+.capture.lay .savebar{display:none!important}
+/* Notiz im Bereich: Speichern-Leiste bis an den Rand, unten so rund wie der Bereich (keine eckige Kante über der runden) */
+.pnl[data-p=fn]{padding-bottom:0}
+.pnl[data-p=fn] .capture .savebar{border-radius:0 0 13px 13px}
+.pnl[data-p=fn].pcolx{padding-bottom:4px}

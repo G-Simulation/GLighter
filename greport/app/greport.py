@@ -2031,9 +2031,9 @@ def note_change(action, data, by="app"):
         fields, bad = fb_fields(data)                       # eigene Felder (freiwillig)
         if bad:
             return {"ok": False, "error": "field", "fields": bad}
-        if not text and not tags and not fields:
-            return {"ok": False, "error": "empty"}
         wit = clean_text(data.get("witness"), 200)
+        if not text and not tags and not fields and not wit and not clean_ext(data.get("ext")):   # Zeuge oder „Mehr“ allein ist auch Inhalt
+            return {"ok": False, "error": "empty"}
         if not pro_ok():                                   # mehrere Zeugen: Pro
             wit = wit.split(",")[0].strip()[:80]
         src = re.sub(r"[^a-z0-9_]", "", str(data.get("src") or "all"))[:16] or "all"

@@ -7474,7 +7474,7 @@ def fnote_change(action, data):
         fields, bad = felder.clean_fields(cap_defs(), data.get("fields"))      # eigene Felder (freiwillig)
         if bad:
             return {"ok": False, "error": "field", "fields": bad}
-        if not text and not tags and not fields:
+        if not text and not tags and not fields and not clean_text(data.get("witness"), 80):   # Zeuge allein ist auch Inhalt
             return {"ok": False, "error": "empty"}
         src = re.sub(r"[^a-z0-9_]", "", str(data.get("src") or "all"))[:16] or "all"
         witness = clean_text(data.get("witness"), 80) if "zeuge" in tags else ""
