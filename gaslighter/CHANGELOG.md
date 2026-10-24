@@ -1,5 +1,10 @@
 # Changelog
 
+## 1.84.3
+- **Klick in eine Liste springt im Graphen dorthin:** In der Live-Tabelle springen Pegelverlauf, Spektrogramm und Sensor-Spuren beim Anklicken einer Störung, Notiz oder Sensor-Meldung zu dieser Stelle (mit Umfeld, markiert); „Zurück zu Live“ wie gewohnt. Öffnen bzw. Bearbeiten mit Doppelklick, mit F2 oder Umschalt + Eingabe, oder mit der Taste in der Zeile (📝 bei Sensor-Meldungen). In Protokolle öffnet der Doppelklick jetzt auch Notizen und Sensor-Meldungen.
+- Fenster zu einer Sensor-Meldung: Taste „📈 Im Graphen zeigen“.
+- Kleine Fenster ohne Kopfzeile (Sensor-Notiz, Prognose, Löschen) haben wieder einen Rand; Beschriftung und Eingabefeld stehen untereinander.
+
 ## 1.84.2
 - **Sensor prüfen (Kalibrieren):** In Einstellungen → Regeln → Sensor-Bestätigung je Sensor „📊 Prüfen“: zeigt, wie weit die nächste Auslösung vom Störungsbeginn entfernt war (Verteilung ±60 s, Fenster farbig), und einen Verschiebe-Test (alle Störungen um ±5 … 60 min verschoben: treffen die echten Zeiten deutlich öfter, ist es kein Zufall). Aus den eigenen Daten kommt ein Vorschlag für das Fenster, „Fenster übernehmen“ setzt ihn. Nur Anzeige.
 - **Grundrate getrennt nach Tag und Nacht** (Nacht 22–6 Uhr): Die Wahrscheinlichkeit eines Zufallstreffers richtet sich nach der Tageszeit der Störung; in der Tabelle steht „Tag x/h · Nacht y/h“.

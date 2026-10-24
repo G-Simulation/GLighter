@@ -1858,7 +1858,7 @@ function evGrid(evs, sv, useArt, grpMode) {
         else if (d._t === 'grp') { EVOPEN.has(d.gid) ? EVOPEN.delete(d.gid) : EVOPEN.add(d.gid); TBL.redraw(x => x === d); TBL.refilter(); }
         else if (d._t === 'sens') { const x = d.x; dtFocus(x.a, x.b); }
         else if (d._t === 'note') { if (e.target.closest && e.target.closest('.fnlink') && d.ev) { openEvent(ek(d.ev)); return; } dtFocus(d.n.a, Math.max(d.n.b || d.n.a, d.n.a + 1000)); } },
-      onDbl: (e, d) => { if (d._t === 'ev' && !e.target.closest('input,button,a')) openEvent(d.id); },
+      onDbl: (e, d) => { if (e.target.closest('input,button,a')) return; if (d._t === 'ev') openEvent(d.id); else if (d._t === 'note') fnOpenId(d.n); else if (d._t === 'sens' && d.x.kind === 'ha') haPop({ a: d.x.a, b: d.x.b, name: sensLabel(d.x), note: d.x.note || '', key: d.x.key }); },
       onCtx: (e, d, rowEl) => { if (d._t !== 'ev') return; e.preventDefault(); openRowMenu(evRowRef(d, rowEl), e.clientX, e.clientY); },
       onModel: G => { evCount(G.top()); syncDelBar(); },
     });
@@ -2058,7 +2058,9 @@ function glGrid(box, o) {
       if (c && c.click && c.click(e, d, cell) !== false) return;
       if (o.onRow) o.onRow(e, d, rowEl(e)); },
     onRowDoubleClicked: p => { const d = p.data; if (d && !d._det && o.onDbl) o.onDbl(p.event, d); },
-    onCellKeyDown: p => { const e = p.event; if (!e || !p.data || p.data._det || (e.key !== 'Enter' && e.key !== ' ')) return;    // Tastatur: Eingabe/Leertaste wie Klick
+    onCellKeyDown: p => { const e = p.event; if (!e || !p.data || p.data._det) return;
+      if (o.onDbl && (e.key === 'F2' || (e.key === 'Enter' && (e.shiftKey || e.ctrlKey)))) { e.preventDefault(); o.onDbl({ target: e.target }, p.data); return; }   // öffnen wie Doppelklick
+      if (e.key !== 'Enter' && e.key !== ' ') return;    // Tastatur: Eingabe/Leertaste wie Klick
       const cell = e.target.closest && e.target.closest('.ag-cell'); if (!cell || e.target !== cell) return;
       const b = cell.querySelector('button:not([disabled]),input:not([disabled]),a[href]');
       if (b) { e.preventDefault(); b.click(); return; }
@@ -6581,7 +6583,7 @@ function levRender() {
   const def = {
     tm: { f: 'start', title: levHead('tm'), sort: 'num', minW: 76, prio: 0, flt: 'txt', fpass: (v, d) => hm(d.start).includes(v), html: d => esc(hm(d.start)) },
     src: Object.assign({ f: 'src', title: levHead('src'), minW: 150, grow: 2, prio: 3, cls: 'srcc', html: d => d.fn ? `<span class="si">📝</span><span class="sn"><b>${esc(d.src)}</b></span>` : d.r ? srcCell(d.r).replace(/^<td[^>]*>/, '').replace(/<\/td>$/, '') : `<span class="si">${d.x.kind === 'ha' ? '🏠' : '📱'}</span><span class="sn"><b>${esc(d.src)}</b></span>` }, ms('src')),
-    art: Object.assign({ f: 'tags', title: levHead('art'), minW: 120, grow: 2, sort: false, prio: 1, html: d => d.fn ? `<span class="art fnc">📝 ${esc(t('fn_row'))}</span>${d.fev ? `<span class="art fnlk">🔗 ${esc(t('fn_link', { c: clockOf(d.fev.start) }))}</span>` : ''}` : d.r ? `${d.r.prof ? `<span class="art prof${d.r.bg ? ' bgp' : ''}">🧩 ${esc(d.r.prof)}${d.r.prof_ok ? ' ✓' : d.r.prof_c != null ? ` <small>${d.r.prof_c} %</small>` : ''}</span>` : ''}${(d.r.labels || []).map(n => `<span class="art lbl">🏷 ${esc(n)}</span>`).join('')}${mfChip(d.r)}${d.r.art ? artChip(d.r.art, d.r.art_c, d.r.art_man || d.r.art_ok, d.r.k, d.r.art_lern != null ? d.r.art_lki : null) : ''}` : `<span class="art sensc">${sensIcon(d.x.kind)} ${esc(sensLabel(d.x))}</span>` }, ms('tags')),
+    art: Object.assign({ f: 'tags', title: levHead('art'), minW: 120, grow: 2, sort: false, prio: 1, html: d => d.fn ? `<span class="art fnc">📝 ${esc(t('fn_row'))}</span>${d.fev ? `<span class="art fnlk">🔗 ${esc(t('fn_link', { c: clockOf(d.fev.start) }))}</span>` : ''}` : d.r ? `${d.r.prof ? `<span class="art prof${d.r.bg ? ' bgp' : ''}">🧩 ${esc(d.r.prof)}${d.r.prof_ok ? ' ✓' : d.r.prof_c != null ? ` <small>${d.r.prof_c} %</small>` : ''}</span>` : ''}${(d.r.labels || []).map(n => `<span class="art lbl">🏷 ${esc(n)}</span>`).join('')}${mfChip(d.r)}${d.r.art ? artChip(d.r.art, d.r.art_c, d.r.art_man || d.r.art_ok, d.r.k, d.r.art_lern != null ? d.r.art_lki : null) : ''}` : `<span class="art sensc">${sensIcon(d.x.kind)} ${esc(sensLabel(d.x))}</span>${d.x.kind === 'ha' ? `<button type="button" class="chip sned snote" tabindex="-1" aria-label="${esc(t('ha_note'))}" title="${esc(t('ha_note'))}">📝${d.x.note ? ' ' + esc(d.x.note.slice(0, 40)) : ''}</button>` : ''}` }, ms('tags')),
     sc: { f: 'sc', title: levHead('sc'), minW: 130, sort: false, prio: 3, flt: 'ms', aria: t('sc_col_a'), vals: () => SC_ST.map(scLabel), fpass: (v, d) => v.includes(scLabel(d.r ? (d.r.sc || {}).s || '' : '')), html: d => d.r ? scChip(d.r.sc) : '' },
     kinds: { f: 'kinds', title: levHead('kinds'), minW: 140, sort: false, prio: 4, html: d => d.r ? kindsHTML(d.r.kinds, j.fine) : '' },
     devs: { f: 'devs', title: levHead('devs'), minW: 120, sort: false, prio: 6, html: d => d.r && (d.r.devs || []).length > 1 ? d.r.devs.map((x, i) => `<span class="dvp${i === 0 ? ' top' : ''}">${esc(shortName(x[1]))} ${x[2] != null ? x[2].toFixed(0) : '–'}</span>`).join('') : '<span class="noclip">–</span>' },
@@ -6604,7 +6606,15 @@ function levRender() {
     LTBL_KEY = key;
     LTBL = glGrid(box, { cols, rows, max: '60vh', ph, wkey: 'live_ev', hide0, colBtn: $('ldevcfg'), sort: [{ colId: 'start', sort: 'desc' }], label: levTitle(), rowCls: () => ['gclk'],
       onModel: G => levCount(G.shown(), G.nFilters()),
-      onRow: (e, d) => { if (d.fn) { if (d.fev && e.target.closest && e.target.closest('.fnlk')) openEvent(d.fev.k || ''); else fnOpenId(d.fn); return; } if (d.k) openEvent(d.k); else if (d.x && d.x.kind === 'ha') haPop({ a: d.x.a, b: d.x.b, name: sensLabel(d.x), note: d.x.note || '', key: d.x.key }); } });
+      onRow: (e, d) => {                               // Klick: der Graph springt zur Stelle (1.84.3); öffnen/bearbeiten mit Doppelklick oder der Taste in der Zeile
+        const on = s_ => e.target && e.target.closest && e.target.closest(s_);
+        if (d.fn && d.fev && on('.fnlk')) { openEvent(d.fev.k || ''); return; }
+        if (d.x && d.x.kind === 'ha' && on('.snote')) { levOpen(d); return; }
+        const a = d.fn ? d.fn.a : d.x ? d.x.a : d.start, b = d.fn ? Math.max(d.fn.b || d.fn.a, d.fn.a + 1000) : d.x ? d.x.b : d.start + Math.max(1000, (+(d.r && d.r.dauer_s) || 1) * 1000);
+        if (d.k) slSel(d.k, d.r && d.r.start);
+        liveJump(a, b, d.fn ? t('fn_row') : d.x ? sensLabel(d.x) : (d.src || ''));
+      },
+      onDbl: (e, d) => { if (!(e.target && e.target.closest && e.target.closest('input,button,a'))) levOpen(d); } });
   } else { LTBL.setPh(ph); LTBL.setRows(rows); }
   levCount(LTBL.shown(), LTBL.nFilters());
 }
@@ -6853,13 +6863,27 @@ async function fnOpenId(h) {                        // Notiz aus dem Verlauf öf
   try { const j = await (await fetch('fnotes?from=' + (h.a - 1000) + '&to=' + (h.b + 1000) + '&src=all', { cache: 'no-store' })).json(); const n = (j.notes || []).find(x => x.id === h.id); if (n) return fnOpen(n); } catch (e) { }
   toast(t('saveerr'));
 }
+/* Eintrag angeklickt (1.84.3): Graph, Spektrogramm und Sensor-Spuren springen zu diesem Zeitraum (mit Umfeld, markiert) */
+function liveJump(a, b, name) {
+  b = Math.max(b || a, a + 1000); const pad = Math.max(30000, (b - a) * 0.25);
+  if (NV.open) { dtFocus(a, b); return; }
+  LDT.mark = [a, b]; histEnter(a - pad, b + pad);
+  const g = $('vp1'); if (g) g.scrollIntoView({ behavior: 'smooth', block: 'start' });
+  toast(t('sens_shown', { n: name || '', a: hms(a), b: hms(b) }) + ' · ' + t('dbl_open'));
+}
+function sensShow(x) { liveJump(x.a, x.b, sensLabel(x)); }
+function levOpen(d) {                                  // Eintrag der Live-Tabelle öffnen (Doppelklick, Eingabe-Taste im Menü, 📝)
+  if (d.fn) fnOpenId(d.fn); else if (d.k) openEvent(d.k);
+  else if (d.x && d.x.kind === 'ha') haPop({ a: d.x.a, b: d.x.b, name: sensLabel(d.x), note: d.x.note || '', key: d.x.key });
+  else if (d.x) sensShow(d.x);
+}
 function haPop(h) {                                  // Sensor aus Home Assistant angeklickt: Notiz zu diesem Zeitraum schreiben/ändern
   let d = $('hapop'); if (!d) { d = el('dialog', { id: 'hapop', className: 'evdlg prognd' }); document.body.appendChild(d); }
   const L = locale(), dur = Math.max(0, (h.b - h.a) / 1000), fdur = dur < 120 ? Math.round(dur) + ' s' : dur < 7200 ? Math.round(dur / 60) + ' min' : Math.floor(dur / 3600) + ' h ' + Math.round(dur % 3600 / 60) + ' min';
   d.innerHTML = `<h3>📡 ${esc(h.name)}</h3><p><b>${esc(new Date(h.a).toLocaleDateString(L))} · ${esc(hms(h.a))}–${esc(hms(h.b))}</b> · ${esc(fdur)} · ${esc(t('ha_on'))}</p>
     <label class="drl">${esc(t('ha_note'))}<textarea id="hanote" rows="2" maxlength="300" placeholder="${esc(t('ha_note_ph'))}"></textarea></label>
     <p class="mut">${esc(t('ha_pop_hint'))}</p>
-    <div class="ntedbtns"><button type="button" class="hpl">${esc(t('ha_to_list'))}</button><span style="flex:1"></span>${h.note ? `<button type="button" class="danger hpd">${esc(t('run_note_del'))}</button>` : ''}<button type="button" class="hpx">${esc(t('cancel'))}</button><button type="button" class="pri hps">${esc(t('save'))}</button></div>`;
+    <div class="ntedbtns"><button type="button" class="hpg">📈 ${esc(t('sens_graph'))}</button><button type="button" class="hpl">${esc(t('ha_to_list'))}</button><span style="flex:1"></span>${h.note ? `<button type="button" class="danger hpd">${esc(t('run_note_del'))}</button>` : ''}<button type="button" class="hpx">${esc(t('cancel'))}</button><button type="button" class="pri hps">${esc(t('save'))}</button></div>`;
   const ta = d.querySelector('#hanote'); ta.value = h.note || '';
   const save = async txt => {
     try { const j = await (await fetch('ha_note', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ key: h.key || h.rid + '|' + h.a, text: txt }) })).json(); if (!j.ok) throw new Error(j.error); }
@@ -6869,6 +6893,7 @@ function haPop(h) {                                  // Sensor aus Home Assistan
   d.querySelector('.hps').onclick = () => save(ta.value.trim());
   if (d.querySelector('.hpd')) d.querySelector('.hpd').onclick = () => save('');
   d.querySelector('.hpx').onclick = () => d.close();
+  d.querySelector('.hpg').onclick = () => { d.close(); sensShow({ a: h.a, b: h.b, name: h.name, kind: 'ha' }); };
   d.querySelector('.hpl').onclick = () => { d.close(); const row = document.querySelector(`.har[data-a="${h.a}"]`); if (row) { row.scrollIntoView({ behavior: 'smooth', block: 'center' }); row.classList.add('flash'); setTimeout(() => row.classList.remove('flash'), 1500); } };
   enterSave(ta, () => save(ta.value.trim()));
   d.showModal(); setTimeout(() => ta.focus(), 50);
