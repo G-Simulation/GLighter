@@ -50,7 +50,7 @@ class Felder(Basis):
         self.assertEqual(self.csv_rows()[0], ["datum", "uhrzeit", "offset_s", "ungefaehr", "ruhezeit", "ereignis_start", "quelle", "datei", "dauer_s",
                                               "spitze_dbfs_relativ", "ki_art", "tags", "zeuge", "notiz", "erstellt"])
         self.assertNotIn("fields", laerm.notes_all()["free"][0])
-        st = laerm.felder_state(); self.assertEqual((st["tpl"], st["blocks"]), ("laerm", []))
+        st = laerm.felder_state(); self.assertEqual((st["tpl"], [(b["type"], b.get("bind")) for b in st["blocks"]]), ("laerm", [("person", "witness")]))   # ab 1.85: Zeuge als Standard-Feld
         self.assertNotIn("blocks", laerm.layout_public()["layout"]["cap"])
 
     def test_speichern_pruefen_export(self):

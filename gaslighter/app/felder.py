@@ -45,6 +45,13 @@ def now_iso():
     return dt.datetime.now().astimezone().isoformat(timespec="seconds")
 
 
+# Standard-Felder mit festem Speicherort (ab GReport 1.12 / GLighter 1.85): Zeuge und die Angaben aus „Mehr“ sind normale
+# Felder (umbenennen, verschieben, Pflicht, ausblenden, löschen), ihre Werte stehen aber weiter in „witness“ bzw. „ext“ der Notiz –
+# so bleiben alte Notizen, Export, Nachweis-Kette und GLighter unverändert.
+BINDS = {"witness": "person", "ext:freq": "text", "ext:pol": "yesno", "ext:pol_nr": "text", "ext:rep_to": "select",
+         "ext:rep_date": "datetime", "ext:health": "text", "ext:attest": "text", "ext:threat": "yesno"}
+
+
 def clean_def(d, old=None):
     """Eine Definition prüfen. Unbekanntes fällt weg. Art und Kennung einer schon vorhandenen Definition ändern sich nie."""
     if not isinstance(d, dict):
@@ -59,6 +66,11 @@ def clean_def(d, old=None):
     h = _txt(d.get("h"), 160)
     if h:
         out["h"] = h
+    bd = old.get("bind") or d.get("bind")              # fester Speicherort: einmal gesetzt, ändert sich nie
+    if bd in BINDS and BINDS[bd] == typ:
+        out["bind"] = bd
+    if d.get("fold") is True:                          # unter „Mehr“ eingeklappt
+        out["fold"] = True
     for k in ("req", "hide", "del"):
         if d.get(k) is True:
             out[k] = True
@@ -358,7 +370,7 @@ def csv_defs(defs, notes):
     used = set()
     for p in notes or []:
         used |= set((p.get("fields") or {}).keys())
-    return [b for b in defs or [] if not b.get("del") or b["id"] in used]
+    return [b for b in defs or [] if not b.get("bind") and (not b.get("del") or b["id"] in used)]   # Standard-Felder haben eigene Spalten (zeuge, …)
 
 
 def csv_head(b, de=True):

@@ -1787,6 +1787,8 @@ function evRows(evs, sv, grpMode) {
 }
 function evAllEv() { const out = []; if (!TBL) return out; const walk = rows => { for (const d of rows) { if (d._t === 'ev') out.push(d); if (d._children) walk(d._children); } }; walk(TBL.top()); return out; }
 let EVCUR = '', EVMENU = '';                          // zuletzt im Verlauf gezeigte Störung, Zeile mit offenem Menü ⋮
+const NARW = { start: 70, dur: 58 };                 // Handy: Mindestbreiten, damit neben „Start“ noch Dauer/Quelle passen
+const narWhen = iso => { const d = new Date(iso); if (isNaN(d)) return ''; const td = new Date(nowServer()); return (d.toDateString() === td.toDateString() ? '' : pad(d.getDate()) + '.' + pad(d.getMonth() + 1) + '. ') + pad(d.getHours()) + ':' + pad(d.getMinutes()); };
 function evSelToggle(keys, on) {                     // eine Störung = alle Geräte: Auswahl gilt für alle Zeilen derselben Störung
   for (const k of keys) { const r = EV.events.find(y => ek(y) === k); const sib = r && r.inc != null ? EV.events.filter(y => y.inc === r.inc).map(ek) : [k]; for (const x of sib) on ? SEL.add(x) : SEL.delete(x); }
   if (TBL) TBL.redraw();
@@ -1812,10 +1814,10 @@ function evGrid(evs, sv, useArt, grpMode) {
       html: d => d._t === 'ev' && d.r.play ? `<button class="pbtn" type="button" aria-label="${esc(t('ev_play_snd'))}" title="${esc(t('ev_play_snd'))}">▶</button>` : '',
       click: (e, d) => { if (d._t === 'ev' && e.target.closest('.pbtn')) { e.stopPropagation(); openEvent(d.id, null, true); } else return false; } },
     { f: 'start', title: t('start'), sort: 'num', minW: nar ? 120 : 230, grow: 2, prio: 0, cls: 'tm',
-      html: d => (d._t === 'grp' ? `<button type="button" class="gtog" tabindex="-1" aria-expanded="${EVOPEN.has(d.gid) ? 'true' : 'false'}" aria-label="${esc(t('g_grp'))}">${EVOPEN.has(d.gid) ? '▾' : '▸'}</button><b>${esc(clockOf(d.g.a).slice(0, nar ? 5 : 8))}–${esc(clockOf(d.g.b).slice(0, nar ? 5 : 8))}</b> <span class="mut">· ${nar ? '×' + d.g.n : esc(t('grp_n', { n: d.g.n }))}</span>`
+      html: d => (d._t === 'grp' ? `<button type="button" class="gtog" tabindex="-1" aria-expanded="${EVOPEN.has(d.gid) ? 'true' : 'false'}" aria-label="${esc(t('g_grp'))}">${EVOPEN.has(d.gid) ? '▾' : '▸'}</button><b>${esc(clockOf(d.g.a).slice(0, nar ? 5 : 8))}${nar ? '' : '–' + esc(clockOf(d.g.b).slice(0, 8))}</b>${nar ? `<span class="sr">${esc(t('grp_n', { n: d.g.n }))}</span>` : ` <span class="mut" title="${esc(t('grp_n', { n: d.g.n }))}" aria-label="${esc(t('grp_n', { n: d.g.n }))}">· ×${d.g.n}</span>`}`
         : d._t === 'sens' ? `${esc(fmtWhen(new Date(d.x.a).toISOString()))}${d.x.note ? `<span class="ntc" title="${esc(d.x.note)}">📝</span>` : ''}`
         : d._t === 'note' ? `${esc(fmtWhen(new Date(d.n.a).toISOString()))}${d.n.b > d.n.a ? '–' + esc(d.n.clock_to || '') : ''}${d.n.rz ? ' 🌙' : ''}`
-        : `${esc(nar ? fmtWhen(d.r.start).replace(/^\S+\s/, '') : fmtWhen(d.r.start))}${d.r.notes ? `<span class="ntc" title="${esc(t('nt_title', { n: d.r.notes }))}">📝 ${d.r.notes}</span>` : ''}`) },
+        : `${esc(nar ? narWhen(d.r.start) : fmtWhen(d.r.start))}${d.r.notes ? `<span class="ntc" title="${esc(t('nt_title', { n: d.r.notes }))}">📝 ${d.r.notes}</span>` : ''}`) },
     { f: 'src', title: t('src_col'), minW: 160, grow: 2, prio: 2, cls: 'srcc', flt: 'ms',
       vals: () => [...new Set(EVDATA.flatMap(function f(d) { return [d.src].concat((d._children || []).flatMap(f)); }).filter(Boolean))].sort((a, b) => a.localeCompare(b)),
       html: d => d._t === 'ev' ? srcHTML(d.r) : d._t === 'note' ? `<span class="si">📝</span><span class="sn"><b>${esc(d.src)}</b></span>` : d._t === 'sens' ? `<span class="si">${d.x.kind === 'ha' ? '🏠' : '📱'}</span><span class="sn"><b>${esc(d.src)}</b></span>` : d.srcs ? '<span class="mut">…</span>' : `<span class="sn"><b>${esc(d.src)}</b></span>` },
@@ -1842,7 +1844,7 @@ function evGrid(evs, sv, useArt, grpMode) {
     { f: 'clip', title: t('spur_col'), sort: false, minW: 70, vis: hasClip, prio: 5, cls: 'clipc',
       html: d => d._t === 'ev' ? clipHTML(d.r) : '',
       click: (e, d) => { if (d._t === 'ev' && e.target.closest('.vbtn')) { e.stopPropagation(); openEvent(d.id); } else return false; } },
-    { f: 'act', title: t('actions'), sort: false, w: 50, prio: 0, cls: 'act', hide: true,
+    { f: 'act', title: t('actions'), sort: false, w: nar ? 40 : 50, prio: 0, cls: 'act', hide: true,
       html: d => d._t === 'ev' ? `<button class="more" type="button" tabindex="-1" title="${esc(t('actions'))}" aria-label="${esc(t('actions'))}" aria-haspopup="menu">⋮</button>` : d._t === 'note' ? `<button class="sned" type="button" tabindex="-1" title="${esc(t('nt_edit'))}" aria-label="${esc(t('nt_edit'))}">✎</button>` : d._t === 'sens' ? `<button class="sned" type="button" tabindex="-1" title="${esc(t('ha_note'))}" aria-label="${esc(t('ha_note'))}">✎</button>` : '',
       click: (e, d, cell) => { e.stopPropagation();
         if (d._t === 'ev') { const b = (cell || e.target).getBoundingClientRect(); openRowMenu(evRowRef(d, cell), b.right - 190, b.bottom + 4); }
@@ -2017,7 +2019,7 @@ function glGrid(box, o) {
   const wsav = colWidths(wk) || {};
   const colDefs = [togCol].concat(G.cols.map(c => {
     const s = sort0.find(x => x.colId === c.f);
-    const cd = { colId: c.f, field: c.f, headerName: c.title || '', context: Object.assign(c, { G }), initialHide: !vis0(c), minWidth: c.minW || (c.w || 60), suppressMovable: !!c.head || c.f === 'act', lockPosition: c.head ? 'left' : c.f === 'act' ? 'right' : undefined,   // Spaltenköpfe ziehen = Reihenfolge (gemerkt)
+    const cd = { colId: c.f, field: c.f, headerName: c.title || '', context: Object.assign(c, { G }), initialHide: !vis0(c), minWidth: c.w ? c.w : matchMedia('(max-width:600px)').matches ? Math.min(c.minW || 60, NARW[c.f] || 84) : (c.minW || 60), suppressMovable: !!c.head || c.f === 'act', lockPosition: c.head ? 'left' : c.f === 'act' ? 'right' : undefined,   // Spaltenköpfe ziehen = Reihenfolge (gemerkt)
       sortable: c.sort !== false, initialSort: s ? s.sort : null, comparator: typeof c.sort === 'function' ? (a, b, na, nb) => c.sort(na.data, nb.data) : gCmp,
       cellRenderer: p => p.data ? gHtml(c.html ? c.html(p.data) : esc(p.data[c.f] == null ? '' : p.data[c.f])) : '',
       cellClass: ['gcell'].concat(c.cls ? c.cls.split(/\s+/) : []), headerClass: c.head ? 'ghcust' : c.hide ? 'ghid' : undefined, autoHeight: true, wrapText: !c.one,   // one: eine Zeile mit „…“ (ganzer Text im Hinweis)
@@ -2089,7 +2091,7 @@ function glGrid(box, o) {
   G.fit = () => {                                     // schmal: weniger wichtige Spalten ausblenden (höchste prio, ganz rechts zuerst)
     if (!G.api || G.api.isDestroyed()) return;
     const w = box.clientWidth; if (!w) return;
-    const cs = G.cols.filter(vis0), mw = c => c.w || c.minW || 60;
+    const nar = w < 520, cs = G.cols.filter(vis0), mw = c => c.w || (nar ? Math.min(c.minW || 60, NARW[c.f] || 84) : c.minW || 60);   // Handy: schmalere Mindestbreiten, damit mehr als „Start“ passt
     let sum = cs.reduce((s, c) => s + mw(c), 0); const hid = new Set();
     const order = cs.map((c, i) => [c, i]).filter(x => x[0].prio > 0).sort((a, b) => b[0].prio - a[0].prio || b[1] - a[1]).map(x => x[0]);
     for (const c of order) { if (sum + (hid.size ? 32 : 0) <= w) break; hid.add(c.f); sum -= mw(c); }
@@ -2387,7 +2389,8 @@ function dashMk(v, p, st, lay, gEl, items) {          // ein Bereich als Panel (
   if (p.auto && p.emp) {                              // Bereich ohne Inhalt (keine Sensoren, kein Video): außerhalb von „Layout anpassen“ ganz ausgeblendet
     pn.classList.add('phe'); const sync = () => { const e = !!p.emp(); if (e !== pn.classList.contains('pempty')) { pn.classList.toggle('pempty', e); if (DASH.grids[v]) dashApply(v); if (!e) dashResized(); } };
     new MutationObserver(sync).observe(ns[0], { attributes: true, attributeFilter: ['hidden'], subtree: true }); sync();
-  } else if (p.auto) { const n0 = ns[0]; const sync = () => { pn.classList.toggle('pempty', !!n0.hidden || !n0.childElementCount); const q = n0.classList.contains('quiet') && !n0.hidden && !!n0.childElementCount; if (!q) pn.classList.remove('pqopen'); pn.classList.toggle('pquiet', q); pn.querySelector('.pcol').textContent = pn.classList.contains('pcolx') || (q && !pn.classList.contains('pqopen')) ? '▸' : '▾'; }; new MutationObserver(sync).observe(n0, { attributes: true, attributeFilter: ['hidden', 'class'], childList: true }); sync(); }
+  } else if (p.auto) { const n0 = ns[0]; pn.classList.add('phe');   // ab 1.85: leer (z. B. keine Unterbrechungen) außerhalb von „Layout anpassen“ ganz weg statt leerer Balken
+    const sync = () => { const e0 = !!n0.hidden || !n0.childElementCount; if (e0 !== pn.classList.contains('pempty')) { pn.classList.toggle('pempty', e0); if (DASH.grids[v]) dashApply(v); if (!e0) dashResized(); } const q = n0.classList.contains('quiet') && !n0.hidden && !!n0.childElementCount; if (!q) pn.classList.remove('pqopen'); pn.classList.toggle('pquiet', q); pn.querySelector('.pcol').textContent = pn.classList.contains('pcolx') || (q && !pn.classList.contains('pqopen')) ? '▸' : '▾'; }; new MutationObserver(sync).observe(n0, { attributes: true, attributeFilter: ['hidden', 'class'], childList: true }); sync(); }
 }
 function dashItem(v, id) { const g = DASH.grids[v]; return g && g.el.querySelector(`:scope > .grid-stack-item[gs-id="${CSS.escape(id)}"]`); }
 function dashCol(v, id) {
@@ -6997,7 +7000,7 @@ function fnFields() {
   const box = $('fnfields'); if (!box) return; box.innerHTML = '';
   const H = { get: id => FN.fv[id], set: (id, v) => { if (v === undefined) delete FN.fv[id]; else FN.fv[id] = v; }, start: () => { },
     count: (b, dd) => { const n = (+FN.fv[b.id] || 0) + dd; if (n) FN.fv[b.id] = n; else delete FN.fv[b.id]; const c = box.querySelector(`.fbblk[data-b="${b.id}"] .fbcount`); if (c) c.textContent = t('fb_c_note', { n }); } };
-  for (const b of Felder.visible()) {
+  for (const b of Felder.visible().filter(b => !b.bind)) {             // Zeuge hat im Dialog sein eigenes Feld
     const d = el('div'); box.appendChild(d); Felder.render(d, b, FN.fv[b.id], H);
     if (b.type === 'counter' && b.mode !== 'add') { const c = d.querySelector('.fbcount'); if (c) c.textContent = t('fb_c_note', { n: FN.fv[b.id] || 0 }); }
     fbReId(d, 'fe_');
@@ -7111,8 +7114,12 @@ const viewBlocks = v => { const h = new Set(viewGet(v || viewCur()).hide); retur
 /* Reihenfolge der Bereiche: eingebaute und eigene Felder (Kennung b_…) gemeinsam; order: einer Ansicht (ohne: der gezeigten) */
 function capOrder(list, order) {
   const blocks = (list || Felder.active()).filter(b => !b.del).map(b => b.id), ok = x => SEC_EL[x] || blocks.includes(x);
-  const o = [...new Set((order || viewGet(viewCur()).order || []).filter(ok))]; return o.concat(Object.keys(SEC_EL).concat(blocks).filter(x => !o.includes(x)));
+  const wb = (list || Felder.active()).find(b => b.bind === 'witness' && !b.del), sw = x => x === 'wit' && wb ? wb.id : x, src = order || viewGet(viewCur()).order || [];   // Zeuge als Feld: steht, wo der alte Bereich stand
+  const o = [...new Set(src.map(x => wb && src.includes(wb.id) ? x : sw(x)).filter(ok))];
+  return o.concat(Object.keys(SEC_EL).map(sw).concat(blocks).filter((x, i, a) => !o.includes(x) && a.indexOf(x) === i));
 }
+const witB = () => FBS.defs.find(b => b.bind === 'witness' && !b.del);   // ab 1.85: Zeuge als Feld (Wert weiter in „witness“)
+function witVal() { const b = witB(); if (!b) return $('fnpwit').value; if (!viewBlocks().some(x => x.id === b.id)) return ''; const v = FNP.fv[b.id]; return v && typeof v === 'object' ? (v.n || '').trim() : ''; }
 const secEl = k => Felder.isId(k) ? $('fb_' + k) : $(SEC_EL[k]);
 function secApply(order) { const body = $('fnpbody'); if (!body) return; for (const k of order || capOrder()) { const e = secEl(k); if (e) body.appendChild(e); } }
 function capApply() {
@@ -7175,6 +7182,7 @@ function fbMount(list, sec) {                          // list/sec: Entwurf aus 
     if (!box) { box = body.ownerDocument.createElement('div'); box.id = 'fb_' + b.id; body.appendChild(box); }
     Felder.render(box, b, FNP.fv[b.id], FBH); box.classList.toggle('layoff', !!(list && b.hide));
   }
+  const sw_ = $('secwit'); if (sw_ && (list || FBS.defs).some(b => b.bind === 'witness')) { sw_.hidden = true; sw_.dataset.gone = '1'; } else if (sw_) delete sw_.dataset.gone;   // alter Bereich weg
   secMeta(sec);
 }
 function secMeta(sec) {
@@ -7187,11 +7195,11 @@ function secMeta(sec) {
   if (g('wit').req) w.setAttribute('aria-required', 'true'); else w.removeAttribute('aria-required');
   for (const k of ['time', 'wit']) { const h = $('sech' + k); if (h) { h.textContent = g(k).h || ''; h.hidden = !g(k).h; } }
 }
-function fbOut() { const o = {}; for (const [k, v] of Object.entries(FNP.fv || {})) if (!Felder.isEmpty(v)) o[k] = v; return o; }
+function fbOut() { const bd = new Set(FBS.defs.filter(b => b.bind).map(b => b.id)), o = {}; for (const [k, v] of Object.entries(FNP.fv || {})) if (!Felder.isEmpty(v) && !bd.has(k)) o[k] = v; return o; }   // Zeuge geht nach „witness“
 function fbReqOk() {
   const c = Felder.check(FNP.fv, $('fnpbody'), viewBlocks()), msg = $('fnpmsg'), g = k => FBS.sec[k] || {}, hid = new Set(viewGet(viewCur()).hide);   // Pflicht nur, was diese Ansicht zeigt
   if (!hid.has('txt') && g('txt').req && !$('fnptext').value.trim()) c.miss.unshift(secLabel('txt'));
-  if (!hid.has('wit') && g('wit').req && !$('fnpwit').value.trim()) c.miss.push(secLabel('wit'));
+  if (!FBS.defs.some(b => b.bind === 'witness') && !hid.has('wit') && g('wit').req && !$('fnpwit').value.trim()) c.miss.push(secLabel('wit'));
   if (c.bad.length) { msg.className = 'msg fnpmsg err'; msg.textContent = t('fb_bad', { l: c.bad.join(', ') }); return false; }
   const key = c.miss.join('|');
   if (c.miss.length && FNP.reqWarned !== key) { FNP.reqWarned = key; msg.className = 'msg fnpmsg warn'; msg.textContent = t('fb_req_miss', { l: c.miss.join(', ') }); return false; }
@@ -7300,7 +7308,7 @@ async function fnpSave() {
   if (!fbReqOk()) return;
   const run = $('fnprun').checked;
   const fixed = FNP.fixed && $('fnpfromi').value, tv = $('fnptoi').value;      // eigene Zeiten („Zeit ändern“); sonst gilt die Uhrzeit beim Speichern
-  const body = { action: 'add', id: '', from: fixed ? $('fnpfromi').value : dtl(new Date(nowServer())), to: tv || (run ? dtl(new Date(nowServer())) : ''), src: $('fnpsrc').value, text: autoText($('fnptext').value, FNP.tags), typed: !!$('fnptext').value.trim(), tags: [...FNP.tags].concat($('fnpwit').value.trim() && !FNP.tags.has('zeuge') ? ['zeuge'] : []), witness: $('fnpwit').value, auto: !run && !fixed && !tv, fields: fbOut() };
+  const body = { action: 'add', id: '', from: fixed ? $('fnpfromi').value : dtl(new Date(nowServer())), to: tv || (run ? dtl(new Date(nowServer())) : ''), src: $('fnpsrc').value, text: autoText($('fnptext').value, FNP.tags), typed: !!$('fnptext').value.trim(), tags: [...FNP.tags].concat(witVal().trim() && !FNP.tags.has('zeuge') ? ['zeuge'] : []), witness: witVal(), auto: !run && !fixed && !tv, fields: fbOut() };
   const msg = $('fnpmsg'); msg.className = 'msg fnpmsg';
   try {
     const r = await (await fetch('fnote', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) })).json();
@@ -7456,7 +7464,8 @@ function fclChips(focus) {                             // Bereiche (eingebaute u
 function fclFb(focusId) {                             // Einstellungen je Bereich/Feld, neue Felder
   const d = FCL.d, box = $('fclfb'); if (!box) return;
   const opened = new Set([...box.querySelectorAll('details.fbed[open]')].map(x => x.dataset.id));
-  const items = d.secs.map(k => SEC_EL[k] ? { k, l: t(SEC_L[k]), req: k === 'txt' || k === 'wit', help: k === 'wit' || k === 'time' || k === 'txt' } : { b: d.fb.blocks.find(b => b.id === k) }).filter(x => x.k || (x.b && !x.b.del));
+  const bw_ = d.fb.blocks.some(b => b.bind === 'witness');
+  const items = d.secs.filter(k => !(k === 'wit' && bw_)).map(k => SEC_EL[k] ? { k, l: t(SEC_L[k]), req: k === 'txt' || k === 'wit', help: k === 'wit' || k === 'time' || k === 'txt' } : { b: d.fb.blocks.find(b => b.id === k) }).filter(x => x.k || (x.b && !x.b.del));
   Felder.editor(box, d.fb, items, {
     change: (id, redraw) => { fclChips(); if (redraw) fclFb(); fclPreview(); },
     say: fclSay,

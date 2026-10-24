@@ -12839,7 +12839,19 @@ def felder_state():
     """Für die Erfassung: Definitionen, Vorlage, Zähler heute und je Tag, Vorschläge für „Ort“ (nur lesen)."""
     with LAYOUT_LOCK:
         c = layout_cap_clean((layout_all().get("cap") or {}))
-    defs = c.get("blocks") or []
+    defs = list(c.get("blocks") or [])
+    if not any(b.get("bind") == "witness" for b in defs):  # ab 1.85: Zeuge ist ein normales Feld (Wert weiter in „witness“ der Notiz)
+        w = (c.get("sec") or {}).get("wit") or {}
+        d = {"id": "b_00a001", "type": "person", "l": w.get("l") or ("Zeuge" if CFG.get("language") != "en" else "Witness"), "bind": "witness"}
+        if w.get("h"):
+            d["h"] = w["h"]
+        if w.get("req"):
+            d["req"] = True
+        if "wit" in (c.get("hide") or []) or w.get("hide"):
+            d["hide"] = True
+        wb = felder.clean_def(d)
+        if wb:
+            defs.append(wb)
     out = {"ok": True, "tpl": c.get("tpl") or "laerm", "first": False, "blocks": defs, "sec": c.get("sec") or {}, "max": felder.MAX_ACTIVE,
            "tpls": list(CAP_TPLS), "counts": {}, "daily": {}, "sug": {}}
     want = [b for b in defs if not b.get("del") and (b["type"] in ("counter", "place") or (b["type"] == "text" and b.get("sug")))]

@@ -351,7 +351,7 @@ const api=(p,o)=>fetch('api/'+p,o).then(r=>r.json());
 const post=(p,b)=>api(p,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(b||{})});
 const STATES={idle:'Bereit',listening:'Hört zu',processing:'Denkt nach',responding:'Spricht',calibrating:'Kalibriert',start:'Startet'};
 const pct=db=>Math.max(0,Math.min(100,(db+90)/80*100));
-const num=(v,d=1)=>Number(v).toFixed(d).replace('.',',');
+const num=(v,d=1)=>(v==null||v===''||!isFinite(Number(v)))?'–':Number(v).toFixed(d).replace('.',',');   // fehlender Wert: Strich statt „NaN“
 const fmt=v=>(v>0?'+':'')+num(v);
 
 // ---------------------------------------------------------------- Reiter
@@ -436,7 +436,7 @@ $('aInDot').className='dot '+(act&&act.kind==='satellite'?(act.connected?(act.st
 const others=srcs.filter(x=>x!==act);const key2=JSON.stringify(others);const box=$('aSrcs');
 if(box&&box.dataset.k!==key2){box.dataset.k=key2;box.innerHTML=others.map(x=>`<div class="src sub"><i class="dot ${x.kind!=='satellite'?'ok':(x.connected?(x.streaming?'ok':'yel'):'err')}"></i><b>${esc(x.name)}</b><span>${esc(stOf(x))}${x.room?' · '+esc(x.room):''}</span></div>`).join('');}
   {const ext=s.output&&s.output!=='local', tts=s.output_tts&&s.output_tts!=='piper';
-$('aOut').innerHTML=`${ext?esc(nice(s.output)):'Lautsprecher am Server'}<small>Stimme ${tts?esc(nice(s.output_tts)):'Piper · '+esc(voiceName(s.voice))}</small>`;
+$('aOut').innerHTML=`${ext?esc(nice(s.output)):'Lautsprecher am Server'}<small>Stimme ${tts?esc(nice(s.output_tts)):(voiceName(s.voice)?'Piper · '+esc(voiceName(s.voice)):'Piper')}</small>`;
 $('aOut').title=[ext?s.output:'',tts?s.output_tts:(s.voice||'')].filter(Boolean).join(' · ');}
   $('aLedRow').style.display=sat?'':'none';
   if(sat){

@@ -173,10 +173,10 @@ window.Felder = (() => {
       if (b.type === 'select') x += `<label class="fbf fbwide"><span>${e(t('fb_ed_opts'))}</span><textarea class="fe_opts" rows="3">${e((b.opts || []).join('\n'))}</textarea></label>` + cb('fe_multi', b.multi, t('fb_ed_multi'));
       if (b.type === 'scale') x += `<label class="fbf"><span>${e(t('fb_ed_rng'))}</span><select class="fe_rng"><option value="5"${b.rng !== '10' ? ' selected' : ''}>${e(t('fb_ed_rng5'))}</option><option value="10"${b.rng === '10' ? ' selected' : ''}>${e(t('fb_ed_rng10'))}</option></select></label>` + inp('fe_lo', t('fb_ed_lo'), b.lo, 24) + inp('fe_hi', t('fb_ed_hi'), b.hi, 24);
     }
-    const kind = b ? t('fb_type_' + b.type) : t('fb_ed_builtin');
+    const kind = b ? t('fb_type_' + b.type) + (b.bind ? ' · ' + t('fb_ed_std') : '') : t('fb_ed_builtin');
     return `<details class="fbed${hid ? ' off' : ''}" data-id="${e(b ? b.id : it.k)}"${b && b.isNew ? ' open' : ''}><summary><span class="fbedn">${e(nm)}</span> <small>${e(kind)}${hid ? ' · ' + e(t('fb_ed_hidden')) : ''}${(b ? b.req : s.req) ? ' · ' + e(t('fb_ed_req')) : ''}</small></summary>
       <div class="fbedg">${inp('fe_l', t('fb_ed_name'), nm, b ? 40 : 40)}${(b || it.help) ? inp('fe_h', t('fb_ed_help'), b ? b.h : s.h, 160) : ''}
-        ${(b ? b.type !== 'counter' : it.req) ? cb('fe_req', b ? b.req : s.req, t('fb_ed_req')) : ''}${cb('fe_show', !hid, t('fb_ed_shown'))}${x}
+        ${(b ? b.type !== 'counter' : it.req) ? cb('fe_req', b ? b.req : s.req, t('fb_ed_req')) : ''}${cb('fe_show', !hid, t('fb_ed_shown'))}${b && S.foldOK ? cb('fe_fold', b.fold, t('fb_ed_fold')) : ''}${x}
         ${b ? `<button type="button" class="btn fe_del">🗑 ${e(t('fb_ed_del', { l: b.l }))}</button>` : ''}</div></details>`;
   }
   /* d = {blocks, sec}, items = [{k, l, req, help} | {b}] in Anzeige-Reihenfolge; hk.change(), hk.say(msg), hk.add(type) */
@@ -200,6 +200,7 @@ window.Felder = (() => {
       on('fe_tmax', x => { const n = readNum(x.value), bad = Number.isNaN(n) || (n != null && (n < 10 || n > 500)); x.setAttribute('aria-invalid', String(bad)); if (!bad) b.max = n == null ? undefined : Math.round(n); });
       for (const k of ['min', 'max']) on('fe_' + k, x => { const n = readNum(x.value); x.setAttribute('aria-invalid', String(Number.isNaN(n))); b[k] = n == null || Number.isNaN(n) ? null : n; });
       on('fe_opts', x => { b.opts = [...new Set(x.value.split('\n').map(y => y.trim()).filter(Boolean))].slice(0, 30); }); on('fe_multi', x => { b.multi = x.checked; });
+      on('fe_fold', x => { b.fold = x.checked || undefined; hk.change(id, true); });
       on('fe_rng', x => { b.rng = x.value; }); on('fe_lo', x => { b.lo = x.value.trim(); }); on('fe_hi', x => { b.hi = x.value.trim(); });
       q('fe_del').onclick = () => { if (!confirm(t('fb_ed_del_q', { l: b.l }))) return; b.del = true; hk.say(t('fb_ed_deleted', { l: b.l })); hk.change(id, true); };
     });

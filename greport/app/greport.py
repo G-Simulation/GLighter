@@ -862,6 +862,38 @@ def fb_path():
     return os.path.join(DIR, "felder.json")
 
 
+BOUND_IDS = {"witness": "b_00a001", "ext:freq": "b_00a002", "ext:pol": "b_00a003", "ext:pol_nr": "b_00a004", "ext:rep_to": "b_00a005",
+             "ext:rep_date": "b_00a006", "ext:health": "b_00a007", "ext:attest": "b_00a008", "ext:threat": "b_00a009"}
+
+
+def bound_seed(sec):
+    """Zeuge und „Mehr“ als Standard-Felder (ab 1.12). Name, Hinweis, Pflicht und „ausgeblendet“ des bisherigen Bereichs werden übernommen."""
+    de = lang() != "en"
+    L = lambda a, b: a if de else b
+    wit, more = (sec or {}).get("wit") or {}, (sec or {}).get("more") or {}
+    rep = [L("Hausverwaltung", "Property management"), L("Vermieter", "Landlord"), L("Sonstige", "Other")]
+    raw = [("witness", "person", wit.get("l") or L("Zeuge", "Witness"), {"h": wit.get("h"), "req": wit.get("req"), "hide": wit.get("hide")}),
+           ("ext:freq", "text", L("Häufigkeit", "Frequency"), {"ph": L("z. B. jede Nacht seit 3 Wochen", "e.g. every night for 3 weeks"), "max": 80}),
+           ("ext:pol", "yesno", L("Polizei gerufen", "Police called"), {}),
+           ("ext:pol_nr", "text", L("Vorgangsnummer der Polizei", "Police reference number"), {"max": 40}),
+           ("ext:rep_to", "select", L("Gemeldet an", "Reported to"), {"opts": rep}),
+           ("ext:rep_date", "datetime", L("Gemeldet am", "Reported on"), {"kind": "date"}),
+           ("ext:health", "text", L("Gesundheitliche Folgen", "Health effects"), {"ml": True, "max": 300}),
+           ("ext:attest", "text", L("Attest / ärztliche Bescheinigung", "Medical certificate"), {"max": 200}),
+           ("ext:threat", "yesno", L("Drohung oder Gewalt", "Threat or violence"), {})]
+    out = []
+    for bind, typ, l, extra in raw:
+        d = dict({"id": BOUND_IDS[bind], "type": typ, "l": l, "bind": bind}, **{k: v for k, v in extra.items() if v not in (None, "", False)})
+        if bind != "witness":
+            d["fold"] = True
+            if more.get("hide"):
+                d["hide"] = True
+        c = felder.clean_def(d)
+        if c:
+            out.append(c)
+    return out
+
+
 def kinds_seed(tpl):
     """Erste Notiz-Arten (vor 1.11 gab es keine): aus der Vorlage, Namen in der Sprache der Einstellung."""
     de = lang() != "en"
@@ -874,11 +906,21 @@ def fb_all():
             d = read_json(fb_path(), {}) or {}
             d = d if isinstance(d, dict) else {}
             blocks, _ = felder.clean_defs(d.get("blocks") or [], [])
+            seed = not d.get("bound_v")
+            if seed:                                       # einmalig: Zeuge und „Mehr“ werden normale Felder (Werte bleiben, wo sie sind)
+                have = {b.get("bind") for b in blocks}
+                blocks += [b for b in bound_seed(d.get("sec")) if b["bind"] not in have]
             FB["data"] = {"v": 1, "blocks": blocks, "sec": felder.clean_sec(d.get("sec")),
                           "kinds": felder.clean_kinds(d.get("kinds") if "kinds" in d else kinds_seed(d.get("tpl")), []),   # noch nie Arten: „Erinnerung“ anbieten
                           "kind_def": d.get("kind_def") if felder.KID.match(str(d.get("kind_def") or "")) else "", "kind_keep": d.get("kind_keep") is True,
                           "tpl": d.get("tpl") if d.get("tpl") in TPLS + ("eigen",) else None,
-                          "made": {k: v for k, v in (d.get("made") or {}).items() if isinstance(k, str) and isinstance(v, str)} if isinstance(d.get("made"), dict) else {}}
+                          "made": {k: v for k, v in (d.get("made") or {}).items() if isinstance(k, str) and isinstance(v, str)} if isinstance(d.get("made"), dict) else {},
+                          "bound_v": 1}
+            if seed:
+                sc = FB["data"]["sec"]                     # alte Bereiche treten zurück: der Zeuge ist jetzt ein Feld, „Mehr“ nur noch die Klappe für eingeklappte Felder
+                sc["wit"] = dict(sc.get("wit") or {}, hide=True)
+                if os.path.exists(fb_path()):
+                    write_json(fb_path(), FB["data"])
         return FB["data"]
 
 
@@ -975,6 +1017,12 @@ def tpl_apply(name, ui_lang=None):
         for b in f["blocks"]:                                      # Felder einer Vorlage ausblenden
             if b["id"] in made.values():
                 b["hide"] = True
+        bound = {b.get("bind"): b for b in f["blocks"] if b.get("bind") and not b.get("del")}   # Standard-Felder (Zeuge, „Mehr“): jede Vorlage zeigt sie wieder
+        for b in bound.values():
+            b.pop("hide", None)
+        wb = bound.get("witness")
+        if wb and made.get("l_wit") and wb.get("l") == made["l_wit"]:
+            wb["l"] = "Zeuge" if de else "Witness"
         order = []
         if name == "allg":
             for g in TPL_GROUPS:
@@ -983,6 +1031,11 @@ def tpl_apply(name, ui_lang=None):
                 q["gren"]["own"] = made["own_l"] = "Stichworte" if de else "Keywords"
             if not sec["wit"].get("l"):
                 sec["wit"]["l"] = made["l_wit"] = "Person"
+            if wb:
+                wb["l"] = made["l_wit"] = "Person"
+            for b in bound.values():
+                if b.get("fold"):
+                    b["hide"] = True
             sec["more"]["hide"] = True
         elif name == "zaehler":
             bid = made.get("counter")
@@ -994,6 +1047,8 @@ def tpl_apply(name, ui_lang=None):
             b.pop("hide", None); b.pop("del", None)
             for k in ("txt", "tags", "wit", "more"):
                 sec[k]["hide"] = True
+            for b in bound.values():
+                b["hide"] = True
             order = [bid, "time"]
         have = {k["id"] for k in f.get("kinds") or []}               # Notiz-Arten der Vorlage ergänzen (vorhandene bleiben, wie sie sind)
         for k in felder.KIND_TPL.get(name) or []:
@@ -1004,6 +1059,8 @@ def tpl_apply(name, ui_lang=None):
                 for x in f["kinds"]:
                     if x["id"] == k["id"]:
                         x.pop("hide", None); x.pop("del", None)
+        if bound:
+            sec["wit"]["hide"] = True                              # der alte Zeugen-Bereich bleibt weg, der Zeuge ist ein Feld
         f["sec"] = felder.clean_sec(sec); f["tpl"] = name
         write_json(qt_path(), q)
         write_json(fb_path(), f)

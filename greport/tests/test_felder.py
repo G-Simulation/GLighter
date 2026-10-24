@@ -170,7 +170,7 @@ class Speichern(Basis):
         self.felder([NUM])
         G.note_change("add", {"from": "2026-10-20T22:00:00+02:00", "fields": {"b_00000a": 3}})
         self.felder([dict(NUM, **{"del": True})])
-        self.assertTrue(G.fb_defs()[0]["del"])
+        self.assertTrue(next(b for b in G.fb_defs() if b["id"] == "b_00000a")["del"])
         head = next(csv.reader(io.StringIO(G.export_csv().decode("utf-8").lstrip("﻿")), delimiter=";"))
         self.assertIn("Gewicht [kg] (b_00000a)", head)                                   # mit Wert: Spalte bleibt
         self.assertIn("{Gewicht: 3 kg}", G.export_text("txt"))
@@ -190,7 +190,7 @@ class Export(Basis):
         self.assertEqual(r["Gewicht [kg] (b_00000a)"], "2,5"); self.assertEqual(r["Zeuge 2 (b_000012)"], "Anna; Nachbar; 0171")
         self.assertTrue(r["Kennzeichen (b_000013)"].startswith("'="))                    # Schutz vor Formeln
         self.assertTrue(any(x[0].startswith("#") for x in rows))                         # Prüfblock bleibt am Ende
-        j = json.loads(G.export_text("json")); self.assertEqual(len(j["felder"]), len(ALL)); self.assertIn("fields", j["notes"][0])
+        j = json.loads(G.export_text("json")); self.assertEqual(len([b for b in j["felder"] if not b.get("bind")]), len(ALL)); self.assertIn("fields", j["notes"][0])
         rb = G.report_build()
         self.assertEqual(rb["zusammenfassung"]["zaehler"], [{"id": "b_00000c", "name": "Feuerzeug", "summe": 2, "tage": 2}])
         v = [x for x in rb["vorfaelle"] if x["text"] == "Bass"][0]
@@ -220,7 +220,8 @@ class Vorlagen(Basis):
         cs = [b for b in G.fb_defs() if b["type"] == "counter"]; self.assertEqual(len(cs), 1)
         self.assertEqual(r["tpl"], "zaehler"); self.assertTrue(G.fb_all()["sec"]["txt"]["hide"]); self.assertEqual(G.prefs()["cap_order"][:2], [cs[0]["id"], "time"])
         G.fb_change({"action": "tpl", "tpl": "allg"})
-        self.assertTrue(G.fb_defs()[0]["hide"])                                           # Zähler der Vorlage nur ausgeblendet
+        self.assertTrue(next(b for b in G.fb_defs() if b["type"] == "counter")["hide"])     # Zähler der Vorlage nur ausgeblendet
+        self.assertEqual(next(b for b in G.fb_defs() if b.get("bind") == "witness")["l"], "Person")   # Zeuge ist ein normales Feld
         self.assertEqual(G.qt_all()["gren"].get("own"), "Stichworte"); self.assertTrue(G.qt_all()["ghide"].get("src"))
         self.assertEqual(G.fb_all()["sec"]["wit"]["l"], "Person")
         G.fb_change({"action": "tpl", "tpl": "zaehler"})
@@ -302,3 +303,28 @@ class NotizArten(Basis):
         ls = [k["l"] for k in G.fb_state()["kinds"]]
         self.assertIn("Erinnerung", ls)
         G.tpl_apply("allg", "de"); self.assertEqual(len(G.fb_state()["kinds"]), len(ls))   # nicht doppelt
+
+
+class ZeugeUndMehrAlsFelder(Basis):
+    """Ab 1.12: Zeuge und „Mehr“ sind normale Felder (Werte bleiben in witness/ext der Notiz)."""
+    def test_standardfelder_angelegt_und_bearbeitbar(self):
+        defs = G.fb_defs(); bs = {b["bind"]: b for b in defs if b.get("bind")}
+        self.assertEqual(set(bs), set(G.BOUND_IDS)); self.assertEqual(bs["witness"]["type"], "person"); self.assertTrue(bs["ext:freq"]["fold"])
+        self.assertTrue(G.fb_all()["sec"]["wit"]["hide"])                                # alter Bereich weg
+        r = G.fb_change({"action": "set", "blocks": [dict(bs["witness"], l="Nachbar als Zeuge", req=True), dict(bs["ext:threat"], **{"del": True}),
+                                                     dict(bs["ext:freq"], bind="witness", type="text")]})      # Art und Speicherort bleiben
+        b2 = {b["bind"]: b for b in r["blocks"] if b.get("bind")}
+        self.assertEqual((b2["witness"]["l"], b2["witness"].get("req")), ("Nachbar als Zeuge", True))
+        self.assertTrue(b2["ext:threat"]["del"]); self.assertEqual((b2["ext:freq"]["type"], b2["ext:freq"]["bind"]), ("text", "ext:freq"))
+        G.note_change("add", {"from": "2026-10-20T22:00:00+02:00", "text": "x", "witness": "Anna", "ext": {"wrole": "nachbar", "freq": "nachts"}})
+        head = next(csv.reader(io.StringIO(G.export_csv().decode("utf-8").lstrip("\ufeff")), delimiter=";"))
+        self.assertFalse(any("b_00a0" in h for h in head))                               # keine doppelten Spalten
+        n = G.notes_all()["free"][0]; self.assertEqual((n["witness"], n["ext"]["freq"]), ("Anna", "nachts"))
+
+    def test_alte_einstellungen_werden_uebernommen(self):
+        G.write_json(G.fb_path(), {"blocks": [], "sec": {"wit": {"l": "Person", "h": "Wer war dabei?", "req": True}, "more": {"hide": True}}, "tpl": "laerm"})
+        G.FB["data"] = None
+        bs = {b["bind"]: b for b in G.fb_defs() if b.get("bind")}
+        self.assertEqual((bs["witness"]["l"], bs["witness"]["h"], bs["witness"]["req"]), ("Person", "Wer war dabei?", True))
+        self.assertTrue(bs["ext:pol"]["hide"])
+        self.assertEqual(json.load(open(G.fb_path()))["bound_v"], 1)                      # einmalig, gespeichert

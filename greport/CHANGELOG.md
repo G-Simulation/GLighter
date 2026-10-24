@@ -1,5 +1,10 @@
 # Changelog
 
+## 1.12.0
+- **Zeuge und „Mehr“ sind normale Felder:** Name des Zeugen, Häufigkeit, Polizei, Aktenzeichen, gemeldet an/am, Gesundheit, Attest, Bedrohung sind als Standard-Felder angelegt und im Layout-Editor voll bearbeitbar (Name, Hinweis, Pflicht, zeigen, „unter Mehr einklappen“, löschen). Werte bleiben in Zeuge/ext der Notiz (Export, Bericht, GLighter). Ein gelöschtes Feld lässt den alten Wert einer bearbeiteten Notiz unverändert.
+- **Layout-Editor in Reitern:** „Anordnung“, „Felder“, „Notiz-Arten“ statt einer sehr langen Seite (Pfeiltasten wechseln, letzter Reiter gemerkt).
+- **Tipps:** Erfassungs-Tipp im Kopf statt drei Birnen am Rand, Zeugen-Tipp am Zeugen-Feld.
+
 ## 1.11.1
 - **Tabelle: Spalten umsortieren.** Im Menü ⚙ „Spalten“ je Spalte ← → (auch per Tastatur, wird angesagt), oder im Tabellenkopf ziehen. Reihenfolge, gezeigte Spalten und Breiten werden in GReport gespeichert (für breite und schmale Ansicht getrennt), „Spalten zurücksetzen“ stellt den Standard wieder her. Die Spalte „Art“ ist jetzt auch im Menü.
 

@@ -504,3 +504,12 @@ body.pop.tipshover #secwit.tipanchor,body.pop.tipshover #fnptags > .tipanchor{pa
 .colmenu .colmv{min-width:32px;min-height:32px;border:1px solid var(--line);border-radius:8px;background:transparent;color:var(--ink);cursor:pointer;font:inherit}
 .colmenu .colmv:hover{background:var(--soft)}
 .colmenu .colrst{margin-top:6px}
+.fbmore{display:grid;gap:12px;margin:6px 0 4px}.fbmore:empty{display:none}#moreold[hidden]{display:none}
+.caphead .tipslot.tiphead{position:relative;display:flex;align-items:center;margin-left:auto}.caphead .tipslot.tiphead+#laybtn{margin-left:6px}
+/* ab 1.12: Layout-Editor in Reitern */
+.laytabs{display:flex;gap:4px;border-bottom:1px solid var(--line);margin:6px 0 10px;overflow-x:auto}
+.laytab{border:0;background:transparent;color:var(--mut);padding:8px 12px;min-height:40px;font:inherit;font-size:14px;cursor:pointer;border-bottom:2px solid transparent;margin-bottom:-1px;white-space:nowrap}
+.laytab.on{color:var(--ink);border-bottom-color:var(--acc);font-weight:600}
+.laytab:focus-visible{outline:2px solid var(--acc);outline-offset:-2px}
+.laypane[hidden]{display:none}
+.laytplrow{display:flex;margin-bottom:6px}

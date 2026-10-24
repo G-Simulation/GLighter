@@ -1,5 +1,10 @@
 # Changelog
 
+## 1.85.0
+- **Zeuge ist ein normales Feld:** standardmäßig angelegt, im Layout-Editor wie jedes Feld umbenennbar, verschiebbar, ausblendbar oder löschbar. Gelöscht kommt der alte feste Bereich nicht zurück; der Wert steht weiter in „Zeuge“ (Export, Bericht).
+- **Protokolle am Handy:** neben „Start“ passen jetzt weitere Spalten (Art, Dauer …); Uhrzeit kurz (heute ohne Datum), Gruppen mit „×2“.
+- **Leere Bereiche weg:** z. B. „Unterbrechungen“ oder Notizen ohne Inhalt erscheinen außerhalb von „Layout anpassen“ nicht mehr als leerer Balken; der Platz bleibt gemerkt.
+
 ## 1.84.5
 - **Sensor-Spuren klarer:** je Sensor eine dünne Linie statt grauem Kasten, der Name steht darüber und verdeckt keine Auslösungen mehr. Zeiten, in denen GLighter nicht lief (Neustart, Update, Strom), erscheinen über alle Spuren als „keine Aufzeichnung (GLighter lief nicht)“ statt fälschlich als „Sensor nicht erreichbar“. Die Legende zeigt nur, was zu sehen ist.
 

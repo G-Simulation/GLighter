@@ -1,5 +1,8 @@
 # Änderungen
 
+## 1.13.1
+- Übersicht: fehlende Werte zeigen „–“ statt „NaN“, ohne Stimme steht nur „Piper“.
+
 ## 1.13.0
 Zurückgeholt aus der früheren eigenen GJarvis-Ausgabe (1.9.1 bis 1.10.1), zusammen mit allem Neuen bis 1.12.1:
 - **Mehrere Satelliten:** beliebig viele ESPHome-Geräte, jedes mit Name, Raum, eigener Verstärkung, eigenem Lautsprecher und LED – Liste in den Einstellungen mit „Gefundene hinzufügen“, „Übernehmen“ und „Zurückgeben“ je Gerät. Der bisherige Satellit wird automatisch übernommen.

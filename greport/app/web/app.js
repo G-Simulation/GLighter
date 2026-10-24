@@ -160,6 +160,11 @@ function tipModeApply() {                              // Seite und abgedocktes 
 /* 💡 immer rechts, senkrecht mittig am zugehörigen Block; mehrere Tipps eines Blocks übereinander */
 function tipDock(sl) {
   if (sl.parentElement && sl.parentElement.classList.contains('tipdock')) return;
+  if (sl.dataset.tips === 'cap') {                                   // Hinweise zur Erfassung: in die Kopfzeile neben ▦ (nicht mitten in den Block)
+    const hd = sl.ownerDocument.querySelector('#fnpanel .caphead'), lb = hd && hd.querySelector('#laybtn');
+    if (hd && sl.parentElement !== hd) { hd.insertBefore(sl, lb || null); sl.classList.add('tiphead'); }
+    return;
+  }
   const a = sl.dataset.tips === 'cap' || sl.dataset.tips === '3' ? sl.previousElementSibling : sl.parentElement; if (!a) return;
   let d = a.querySelector(':scope > .tipdock'); if (!d) { d = el('div', { className: 'tipdock' }); a.appendChild(d); }
   a.classList.add('tipanchor'); d.appendChild(sl);
@@ -196,6 +201,13 @@ function witFill() {                                   // bekannte Person: Rolle
   witX();
 }
 function extRead() {
+  if (FB.defs.some(b => b.bind && !b.del)) {               // Standard-Felder: Werte daraus (alte feste Eingaben sind dann aus)
+    const o = bndOut().ext;
+    if (!bndOf('witness') && $('fnpwit').value.trim()) { if ($('fnpwrole').value) o.wrole = $('fnpwrole').value; if ($('fnpwcon').value.trim()) o.wcontact = $('fnpwcon').value.trim(); }
+    const old = (FNP.edit && FNP.edit.ext) || {}, vis = new Set(viewBlocks().map(b => b.id));      // Feld gelöscht/ausgeblendet: alter Wert der Notiz bleibt
+    for (const k of Object.keys(old)) { const bk = k === 'wrole' || k === 'wcontact' ? 'witness' : 'ext:' + k, b = bndOf(bk); if ((!b || !vis.has(b.id)) && !(k in o) && (bk !== 'witness' || !b)) o[k] = old[k]; }
+    return o;
+  }
   const v = id => $(id).value.trim(), x = {};
   if (v('xfreq')) x.freq = v('xfreq');
   if ($('xpol').checked || v('xpolnr')) { x.pol = true; if (v('xpolnr')) x.pol_nr = v('xpolnr'); }
@@ -378,7 +390,7 @@ async function fnpSave() {
   const fixed = FNP.fixed && $('fnpfromi').value, tv = $('fnptoi').value, run = $('fnprun').checked, ed = FNP.edit;
   if (!fbReqOk()) return;
   const body = { action: ed ? 'edit' : 'add', id: ed ? ed.id : '', from: fixed ? inIso($('fnpfromi').value, ed && ed.from) : ed ? (ed.from || dto(new Date(ed.a))) : dto(new Date(nowMs())), to: tv ? inIso(tv, ed && ed.to) : run ? dto(new Date(nowMs())) : '',
-    src: ed ? (ed.src || 'all') : 'all', text: autoText($('fnptext').value, FNP.tags) || (ATT.pend.length ? t('gr_att_only', { n: ATT.pend.map(p => p.f.name).join(', ') }) : ''), typed: !!$('fnptext').value.trim(), tags: [...FNP.tags], witness: $('fnpwit').value,
+    src: ed ? (ed.src || 'all') : 'all', text: autoText($('fnptext').value, FNP.tags) || (ATT.pend.length ? t('gr_att_only', { n: ATT.pend.map(p => p.f.name).join(', ') }) : ''), typed: !!$('fnptext').value.trim(), tags: [...FNP.tags], witness: bndOf('witness') ? bndOut().witness : $('fnpwit').value,
     notime: !!FNP.notime, ext: extRead(), fields: fbOut(), kind: FNP.kind || '' };
   if (FNP.when) Object.assign(body, { wk: FNP.when, wl: ntLabel(FNP.when), approx: !!FNP.approx, cap: FNP.cap || nowMs() });   // erfasst um … (Taste: …)
   else if (ed && ed.wk && !FNP.timeTouched) Object.assign(body, { wk: ed.wk, wl: ed.wl, approx: !!ed.approx, cap: ed.cap });
@@ -398,7 +410,7 @@ function fnpEdit(n) {
   FNP.edit = n; FNP.tags = new Set(n.tags || []); FNP.fixed = false; FNP.from = n.a;
   Object.assign(FNP, { notime: !!n.notime, when: null, approx: !!n.approx, cap: n.cap || null, manual: false, pend: null, timeTouched: false });
   $('fnptext').value = n.text || ''; $('fnpwit').value = n.witness || '';
-  FNP.fv = JSON.parse(JSON.stringify(n.fields || {})); FNP.reqWarned = null; fbMount();      // eigene Felder (auch gelöschte bleiben erhalten)
+  FNP.fv = JSON.parse(JSON.stringify(n.fields || {})); bndFill(n); FNP.reqWarned = null; fbMount();      // eigene Felder (auch gelöschte bleiben erhalten), Zeuge und „Mehr“ aus witness/ext
   FNP.kind = n.kind || ''; FNP.kindNt = false; kindDraw();
   $('fnpfromi').value = n.from ? dtl(new Date(n.from)) : ''; $('fnptoi').value = n.to ? dtl(new Date(n.to)) : ''; $('fnprun').checked = false;
   $('fnpcancel').hidden = false; $('fnpsave').textContent = t('gr_change'); $('fnpanel').classList.add('editing');
@@ -502,6 +514,7 @@ function secDraw() {
   const q = secQuick(), v = viewCur();
   for (const k of capOrder()) {
     const blk = Felder.isId(k), e = secEl(k);
+    if (blk && (Felder.byId(k) || {}).fold) continue;               // in „Mehr“ eingeklappt: der Schalter „Mehr“ gilt
     if (blk ? !e : viewHid(k)) { if (e) e.hidden = true; continue; }            // in „Layout anpassen“ ausgeblendet: ganz weg
     const off = q.has(k), l = secLabel(k); if (e) e.hidden = off;
     const n = off && k === 'tags' && FNP.tags.size ? ' · ' + FNP.tags.size : off && k === 'wit' && $('fnpwit').value.trim() ? ' · 1' : off && blk && !Felder.isEmpty(FNP.fv[k]) ? ' · 1' : '';
@@ -553,15 +566,53 @@ const FBH = { get: id => FNP.fv[id], set: (id, v) => { if (v === undefined) dele
 /* Felder in „Notiz jetzt“ einhängen (list/sec: Entwurf aus „Layout anpassen“ als Vorschau) */
 function fbMount(list, sec) {
   const body = $('fnpbody'); if (!body) return;
+  const more = $('fbmore'), all = list || FB.defs;
   const vis = list ? list.filter(b => !b.del) : viewBlocks(), ids = new Set(vis.map(b => b.id));
-  body.querySelectorAll(':scope > .fbblk').forEach(x => { if (!ids.has(x.dataset.b)) x.remove(); });
+  for (const host of [body, more]) if (host) host.querySelectorAll(':scope > .fbblk').forEach(x => { if (!ids.has(x.dataset.b)) x.remove(); });
   for (const b of vis) {
-    let box = $('fb_' + b.id);
-    if (!box) { box = body.ownerDocument.createElement('div'); box.id = 'fb_' + b.id; body.appendChild(box); }
+    let box = $('fb_' + b.id); const host = b.fold && more ? more : body;      // „unter Mehr eingeklappt“: in die Klappe „Mehr“
+    if (!box) { box = body.ownerDocument.createElement('div'); box.id = 'fb_' + b.id; }
+    if (box.parentElement !== host) host.appendChild(box);
+    box.dataset.fold = b.fold ? '1' : '';
     Felder.render(box, b, FNP.fv[b.id], FBH); box.classList.toggle('layoff', !!(list && b.hide));
+    if (b.bind === 'witness') { witDatalist(box); const ws = WSLOT || (WSLOT = body.ownerDocument.querySelector('.tipslot[data-tips="4"]')); if (ws) { box.appendChild(ws); box.classList.remove('tipanchor'); tipDock(ws); } }   // Hinweis zum Zeugen am Zeugen-Feld
   }
+  const bw = all.some(b => b.bind === 'witness'), bx = all.some(b => b.bind && b.bind.startsWith('ext:'));   // auch gelöscht: alter fester Bereich kommt nicht zurück
+  const mo = $('moreold'); if (mo) mo.hidden = bx;                                 // Standard-Felder ersetzen die alten festen Eingaben
   secMeta(sec);
-  for (const k of Object.keys(SEC_EL)) { const e = $(SEC_EL[k]); if (!e) continue; if (list) e.hidden = false; e.classList.toggle('layoff', !!(list && secHidden(k, sec))); }   // Vorschau: ausgeblendete blass
+  for (const k of Object.keys(SEC_EL)) { const e = $(SEC_EL[k]); if (!e) continue; if (k === 'wit' && bw) { e.hidden = true; continue; } if (list) e.hidden = false; e.classList.toggle('layoff', !!(list && secHidden(k, sec))); }   // Vorschau: ausgeblendete blass
+  const sm = $('secmore'); if (sm && bx && more && !more.querySelector('.fbblk')) sm.hidden = true;   // nichts eingeklappt: Klappe weg
+}
+/* Standard-Felder (ab 1.12): Zeuge und „Mehr“ sind normale Felder, ihre Werte stehen weiter in witness/ext der Notiz */
+let WSLOT = null;
+const BREP = { hv: ['Hausverwaltung', 'Property management'], verm: ['Vermieter', 'Landlord'], sonst: ['Sonstige', 'Other'] };
+const bndOf = k => FB.defs.find(b => b.bind === k && !b.del);
+function bndOut() {                                     // → { witness, ext } aus den Standard-Feldern (nur gezeigte der Ansicht)
+  const vis = new Set(viewBlocks().map(b => b.id)), v = k => { const b = bndOf(k); return b && vis.has(b.id) ? FNP.fv[b.id] : undefined; };
+  const w = v('witness'), x = {};
+  const s_ = k => { const y = v('ext:' + k); if (y != null && String(y).trim() !== '') x[k] = String(y).trim(); };
+  s_('freq'); s_('pol_nr'); s_('health'); s_('attest');
+  if (v('ext:pol') === true || x.pol_nr) x.pol = true;
+  if (v('ext:threat') === true) x.threat = true;
+  const rt = v('ext:rep_to'); if (rt) { const k = Object.keys(BREP).find(k => BREP[k].includes(rt)); if (k) x.rep_to = k; }
+  const rd = v('ext:rep_date'); if (rd && /^\d{4}-\d\d-\d\d/.test(rd)) x.rep_date = String(rd).slice(0, 10);
+  if (w && typeof w === 'object' && (w.n || '').trim()) { if (w.r) x.wrole = w.r; if ((w.c || '').trim()) x.wcontact = w.c.trim(); }
+  return { witness: w && typeof w === 'object' ? (w.n || '').trim() : '', ext: x };
+}
+function bndFill(n) {                                   // Notiz ändern: Werte aus witness/ext in die Standard-Felder
+  const x = (n && n.ext) || {}, put = (k, val) => { const b = bndOf(k); if (b && val !== undefined && val !== '' && val !== null) FNP.fv[b.id] = val; };
+  if (n && n.witness) put('witness', { n: n.witness, r: x.wrole || '', c: x.wcontact || '' });
+  put('ext:freq', x.freq); put('ext:pol_nr', x.pol_nr); put('ext:health', x.health); put('ext:attest', x.attest);
+  if (x.pol) put('ext:pol', true); if (x.threat) put('ext:threat', true);
+  if (x.rep_to) put('ext:rep_to', (BREP[x.rep_to] || [])[lang === 'en' ? 1 : 0]); if (x.rep_date) put('ext:rep_date', x.rep_date);
+  const sm = $('secmore'); if (sm) sm.open = FB.defs.some(b => b.fold && !Felder.isEmpty(FNP.fv[b.id]));
+}
+function witDatalist(box) {                             // Pro: gespeicherte Personen als Vorschläge, Rolle/Erreichbarkeit aus der Personenliste
+  const i = box.querySelector('.fbpn'); if (!i) return;
+  let dl = box.querySelector('datalist'); if (!dl) { dl = el('datalist', { id: box.id + '_pl' }); box.appendChild(dl); i.setAttribute('list', dl.id); }
+  dl.innerHTML = (PRO() ? ST.persons || [] : []).map(p => `<option value="${esc(p)}"></option>`).join('');
+  i.addEventListener('change', () => { const nm = i.value.split(',')[0].trim(), inf = (ST.persons_info || {})[nm]; if (!inf) return;
+    const r = box.querySelector('.fbpr'), c = box.querySelector('.fbpc'); if (r && !r.value && inf.r) { r.value = inf.r; r.dispatchEvent(new Event('change')); } if (c && !c.value && inf.c) { c.value = inf.c; c.dispatchEvent(new Event('input')); } });
 }
 /* Namen, Hinweise und Pflicht der eingebauten Bereiche */
 function secMeta(sec) {
@@ -577,12 +628,12 @@ function secMeta(sec) {
   for (const k of ['wit', 'more', 'time']) { const h = $('sech' + k); if (h) { h.textContent = g(k).h || ''; h.hidden = !g(k).h; } }
 }
 /* Werte zum Speichern: nur ausgefüllte; Werte gelöschter oder ausgeblendeter Felder einer geänderten Notiz bleiben */
-function fbOut() { const o = {}; for (const [k, v] of Object.entries(FNP.fv || {})) if (!Felder.isEmpty(v)) o[k] = v; return o; }
+function fbOut() { const bd = new Set(FB.defs.filter(b => b.bind).map(b => b.id)), o = {}; for (const [k, v] of Object.entries(FNP.fv || {})) if (!Felder.isEmpty(v) && !bd.has(k)) o[k] = v; return o; }   // Standard-Felder gehen nach witness/ext
 /* Pflicht: einmal Hinweis, beim zweiten „Speichern“ wird trotzdem gespeichert (wie bei den Pflicht-Rubriken) */
 function fbReqOk() {
   const c = Felder.check(FNP.fv, $('fnpbody'), viewBlocks()), msg = $('fnpmsg'), g = k => FB.sec[k] || {};   // Pflicht nur für Bereiche, die diese Ansicht zeigt
   if (!viewHid('txt') && g('txt').req && !$('fnptext').value.trim()) c.miss.unshift(secLabel('txt'));
-  if (!viewHid('wit') && g('wit').req && !$('fnpwit').value.trim()) c.miss.push(secLabel('wit'));
+  if (!bndOf('witness') && !viewHid('wit') && g('wit').req && !$('fnpwit').value.trim()) c.miss.push(secLabel('wit'));
   if (c.bad.length) { msg.className = 'msg err'; msg.textContent = t('fb_bad', { l: c.bad.join(', ') }); return false; }
   const key = c.miss.join('|');
   if (c.miss.length && FNP.reqWarned !== key) { FNP.reqWarned = key; msg.className = 'msg warn'; msg.textContent = t('fb_req_miss', { l: c.miss.join(', ') }); return false; }
@@ -747,7 +798,7 @@ let GRID = null, GRID_FMT = '', GRID_EDIT = null, GRID_COLS = '';
 const NARROW = () => matchMedia('(max-width:600px)').matches;
 const COLS = 'day time text tags witness'.split(' ');
 /* eigene Felder als Spalten: alle nicht gelöschten, gelöschte nur, wenn eine Notiz einen Wert hat */
-const fbCols = () => FB.defs.filter(b => !b.del || LST.all.some(n => n.fields && b.id in n.fields));
+const fbCols = () => FB.defs.filter(b => !b.bind && (!b.del || LST.all.some(n => n.fields && b.id in n.fields)));   // Zeuge/„Mehr“ haben eigene Spalten
 const colsAll = () => (GRID && GRID.getColumn('kind') ? 'day time kind text tags witness'.split(' ') : COLS).concat(fbCols().map(b => b.id));
 /* Tabelle einstellen (ab 1.11): Reihenfolge, gezeigte Spalten, Breiten – gespeichert in GReport (je breit/schmal), Browser als Rückfall */
 const tblV = () => NARROW() ? 'n' : 'w';
@@ -1282,12 +1333,14 @@ const SEC_L = { txt: 'fnp_p_txt', tags: 'fnp_p_tags', wit: 'fnp_p_wit', more: 'g
 /* Reihenfolge der Bereiche: eingebaute und eigene Felder (Kennung b_…) gemeinsam */
 function capOrder(list, order) {                       // order: Reihenfolge einer Ansicht (ohne: die gerade gezeigte)
   const blocks = (list || Felder.active()).filter(b => !b.del).map(b => b.id), ok = x => SEC_EL[x] || blocks.includes(x);
-  const o = [...new Set((order || viewGet(viewCur()).cap_order || []).filter(ok))]; return o.concat(Object.keys(SEC_EL).concat(blocks).filter(x => !o.includes(x)));
+  const wb = (list || Felder.active()).find(b => b.bind === 'witness' && !b.del), sw = x => x === 'wit' && wb ? wb.id : x;   // Zeuge als Feld: steht, wo der alte Bereich stand
+  const o = [...new Set((order || viewGet(viewCur()).cap_order || []).map(x => sw(x) === x || !(order || viewGet(viewCur()).cap_order || []).includes(wb && wb.id) ? sw(x) : x).filter(ok))];
+  return o.concat(Object.keys(SEC_EL).map(sw).concat(blocks).filter((x, i, a) => !o.includes(x) && a.indexOf(x) === i));
 }
 const secEl = k => Felder.isId(k) ? $('fb_' + k) : $(SEC_EL[k]);
 function secApply(order) {
   const body = $('fnpbody'); if (!body) return;
-  for (const k of order || capOrder()) { const e = secEl(k); if (e) body.appendChild(e); }
+  for (const k of order || capOrder()) { const e = secEl(k); if (e && e.dataset.fold !== '1') body.appendChild(e); }   // eingeklappte Felder bleiben in „Mehr“
 }
 const hex6 = () => Array.from(crypto.getRandomValues(new Uint8Array(3)), b => b.toString(16).padStart(2, '0')).join('');
 const layFlat = gs => gs.filter(g => !g.del).flatMap(g => g.keys);
@@ -1361,15 +1414,26 @@ function layBar() {
   bar.innerHTML = `<div class="layprof"><span class="laysl" id="laypl">${esc(t('gr_lay_prof'))}</span><span class="seg" role="group" aria-labelledby="laypl">${['dock', 'pop'].map(p => `<button type="button" class="laypb${d.prof === p ? ' on' : ''}" data-p="${p}" aria-pressed="${d.prof === p}">${p === 'pop' ? '⧉' : '▭'} ${esc(t(p === 'pop' ? 'gr_view_pop' : 'gr_view_dock'))}</button>`).join('')}</span>
       <small class="layps" id="layps">${esc(st)}</small>${pop && d.popOwn && !d.popFollow ? `<button type="button" class="btn" id="laypcopy">${esc(t('gr_lay_pop_copy'))}</button>` : ''}</div>
     <p class="layhint">${esc(t(pop ? 'gr_lay_hint_pop' : 'gr_lay_hint'))}</p>
+    <div class="laytabs" role="tablist" aria-label="${esc(t('gr_lay'))}">${[['a', 'gr_lay_tab_a'], ['f', 'gr_lay_tab_f'], ['k', 'gr_lay_tab_k']].map(([x, l]) => `<button type="button" role="tab" class="laytab" id="laytab_${x}" data-tab="${x}" aria-controls="laypane_${x}">${esc(t(l))}</button>`).join('')}</div>
+    <div class="laypane" id="laypane_a" role="tabpanel" aria-labelledby="laytab_a">
     <div class="laysecs"><span class="laysl" id="laysl">${esc(t('gr_lay_secs'))}</span><div class="laysbox" role="group" aria-labelledby="laysl"></div></div>
     <div class="laywid">${pop ? '' : seg('laywl', 'gr_p_width', 'width', [['wide', 'gr_p_wide'], ['narrow', 'gr_p_narrow']], d.width)}${seg('laydl', 'gr_lay_dens', 'dens', [['normal', 'gr_lay_dens_n'], ['compact', 'gr_lay_dens_c']], v.dens)}${seg('laytl', 'gr_lay_tips', 'tipmode', [['hover', 'gr_lay_tm_h'], ['always', 'gr_lay_tm_a'], ['off', 'gr_lay_tm_o']], v.tipmode)}
-      <span class="grow"></span><button type="button" class="btn" id="laytpl" aria-expanded="false" aria-controls="laytplbox">${esc(t('fb_tpl'))}</button></div>
+      </div></div>
+    <div class="laypane" id="laypane_f" role="tabpanel" aria-labelledby="laytab_f"><div class="laytplrow"><span class="grow"></span><button type="button" class="btn" id="laytpl" aria-expanded="false" aria-controls="laytplbox">${esc(t('fb_tpl'))}</button></div>
     <div id="laytplbox" class="fbtplbox" hidden></div>
-    <div id="layfb" class="layfb"></div>
-    <div id="laykinds" class="layfb"></div>
+    <div id="layfb" class="layfb"></div></div>
+    <div class="laypane" id="laypane_k" role="tabpanel" aria-labelledby="laytab_k"><div id="laykinds" class="layfb"></div></div>
     <div class="laybtns"><button type="button" class="btn" id="layreset">${esc(t('gr_reset'))}</button><span class="grow"></span><button type="button" class="btn" id="laycancel">${esc(t('cancel'))}</button><button type="button" class="btn primary" id="laydone">${esc(t('gr_lay_done'))}</button></div>
     <span class="sr" id="laylive" aria-live="polite"></span>`;
   layChips(); layFb(); layKinds();
+  const tabs = [...bar.querySelectorAll('.laytab')], tabSet = (x, foc) => {            // ab 1.12: Editor in Reitern statt einer langen Seite
+    let cur = x; if (!tabs.some(b => b.dataset.tab === cur)) cur = 'a';
+    tabs.forEach(b => { const on = b.dataset.tab === cur; b.setAttribute('aria-selected', String(on)); b.tabIndex = on ? 0 : -1; b.classList.toggle('on', on); $('laypane_' + b.dataset.tab).hidden = !on; if (on && foc) b.focus(); });
+    try { localStorage.setItem('gr_laytab', cur); } catch (e) { }
+  };
+  let tab0 = 'a'; try { tab0 = localStorage.getItem('gr_laytab') || 'a'; } catch (e) { }
+  tabs.forEach((b, i) => { b.onclick = () => tabSet(b.dataset.tab); b.onkeydown = e => { const j = e.key === 'ArrowRight' ? i + 1 : e.key === 'ArrowLeft' ? i - 1 : e.key === 'Home' ? 0 : e.key === 'End' ? tabs.length - 1 : -9; if (j === -9) return; e.preventDefault(); tabSet(tabs[(j + tabs.length) % tabs.length].dataset.tab, true); }; });
+  tabSet(tab0);
   bar.querySelectorAll('.layob').forEach(b => b.onclick = () => {                 // Breite (nur angedockt), Dichte, Tipps – Vorschau sofort
     const k = b.dataset.k, x = b.dataset.v;
     if (k === 'width') { d.width = x; widthApply(x); } else { v[k] = x; if (k === 'dens') layDens(); }
@@ -1388,7 +1452,8 @@ function layChips(focus) {
   const d = LAY.d, box = $('laybar').querySelector('.laysbox'); if (!box) return;
   d.secs = d.secs.filter(k => SEC_EL[k] || d.fb.blocks.some(b => b.id === k && !b.del));
   const off = k => Felder.isId(k) ? !!(d.fb.blocks.find(b => b.id === k) || {}).hide : secHidden(k, d.fb.sec);
-  box.innerHTML = d.secs.map((k, i) => `<button type="button" class="laysec${off(k) ? ' off' : ''}" data-sec="${esc(k)}" data-drag="sec" aria-label="${esc(t('gr_lay_sec_a', { s: secLabel(k, d.fb.sec, d.fb.blocks), i: i + 1, n: d.secs.length }) + (off(k) ? ', ' + t('gr_lay_hidden') : ''))}"><span aria-hidden="true">⠿</span> ${esc(secLabel(k, d.fb.sec, d.fb.blocks))}</button>`).join('');
+  const fo = k => (Felder.isId(k) && (d.fb.blocks.find(b => b.id === k) || {}).fold) || (k === 'wit' && d.fb.blocks.some(b => b.bind === 'witness'));
+  box.innerHTML = d.secs.filter(k => !fo(k)).map((k, i) => `<button type="button" class="laysec${off(k) ? ' off' : ''}" data-sec="${esc(k)}" data-drag="sec" aria-label="${esc(t('gr_lay_sec_a', { s: secLabel(k, d.fb.sec, d.fb.blocks), i: i + 1, n: d.secs.length }) + (off(k) ? ', ' + t('gr_lay_hidden') : ''))}"><span aria-hidden="true">⠿</span> ${esc(secLabel(k, d.fb.sec, d.fb.blocks))}</button>`).join('');
   box.querySelectorAll('.laysec').forEach(b => b.onkeydown = e => {
     const i = d.secs.indexOf(b.dataset.sec), j = e.key === 'ArrowLeft' || e.key === 'ArrowUp' ? i - 1 : e.key === 'ArrowRight' || e.key === 'ArrowDown' ? i + 1 : -2;
     if (j === -2) return; e.preventDefault(); if (j < 0 || j >= d.secs.length) return;
@@ -1401,7 +1466,8 @@ function layChips(focus) {
 function layFb(focusId) {
   const d = LAY.d, box = $('layfb'); if (!box) return;
   const opened = new Set([...box.querySelectorAll('details.fbed[open]')].map(x => x.dataset.id));
-  const items = d.secs.map(k => SEC_EL[k] ? { k, l: t(SEC_L[k]), req: k === 'txt' || k === 'wit', help: k !== 'tags' } : { b: d.fb.blocks.find(b => b.id === k) }).filter(x => x.k || (x.b && !x.b.del));
+  const bw = d.fb.blocks.some(b => b.bind === 'witness');           // Zeuge als Feld: alter Bereich nicht mehr in der Liste
+  const items = d.secs.filter(k => !(k === 'wit' && bw)).map(k => SEC_EL[k] ? { k, l: t(SEC_L[k]), req: k === 'txt' || k === 'wit', help: k !== 'tags' } : { b: d.fb.blocks.find(b => b.id === k) }).filter(x => x.k || (x.b && !x.b.del));
   Felder.editor(box, d.fb, items, {
     change: (id, redraw) => { if (redraw) { layChips(); layFb(); } else layChips(); fbPreview(); },
     say: laySay,
@@ -1835,6 +1901,7 @@ async function init() {
   document.addEventListener('keydown', e => { if (e.key === 'Escape') document.getElementById('grmenul').hidden = true; });
   let qt = 0; document.getElementById('grq').addEventListener('input', e => { clearTimeout(qt); qt = setTimeout(() => { LST.q = e.target.value; listDraw(); }, 200); });
   Felder.setup({ t, esc, lang: () => lang, fmtDT: ms => fDate(ms) + ' ' + fTime(ms, Object.assign({}, PF, { time: PF.time === 'hms' ? 'hm' : PF.time })), dtl, dto, nowMs });
+  Felder.S.foldOK = true;                             // GReport hat die Klappe „Mehr“ für eingeklappte Felder
   initDialogs(); initFnp(); extInit(); initAtt(); initDoc(); initList(); initLay(); await fbLoad(); await ntsLoad(); listLoad(); tipsDraw();
   setInterval(() => { if (!document.hidden) { stLoad(); if (!FNP.edit) listLoad(); } }, 30000);   // z. B. neue Notiz aus Home Assistant
 }
