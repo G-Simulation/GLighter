@@ -1,5 +1,11 @@
 # Changelog
 
+## 1.85.2
+- **Layout: Raster füllt sich richtig.** Halbe, Drittel- und Viertel-Bereiche stehen nebeneinander; was in der Zeile übrig ist, bleibt frei (GridStack „compact“). Nach Handy-Breite kommt die PC-Anordnung unverändert zurück, statt alles links untereinander.
+- **Bereiche nebeneinander gleich hoch** (so hoch wie der höhere).
+- **Breite einstellbar:** in „Layout anpassen“ je Bereich Auswahl ganz · ¾ · ⅔ · ½ · ⅓ · ¼ in der Kopfzeile, dazu sichtbarer Griff am linken/rechten Rand (Tastatur: Umschalt + ← →).
+- **💡 bei Tabellen und Graph in der Kopfzeile** – keine leere Spalte mehr rechts neben der Tabelle.
+
 ## 1.85.1
 - Versionsanzeige in der Oberfläche korrigiert (zeigte noch 1.84.5).
 

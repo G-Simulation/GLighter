@@ -2372,6 +2372,7 @@ function dashMk(v, p, st, lay, gEl, items) {          // ein Bereich als Panel (
   hd.innerHTML = `<span class="pdrag" title="${esc(t('dash_drag'))}" aria-hidden="true">⠿</span><b class="ptitle"></b><span class="pnlx"></span>` +
     (p.vis ? `<button type="button" class="pvis" title="${esc(t('dash_vis_tip'))}">⌖ ${esc(t('dash_vis'))}</button>` : '') +
     bt('pedit pup', 'dash_up', '↑') + bt('pedit pdown', 'dash_down', '↓') + bt('pedit pren', 'dash_ren', '✎') +
+    `<select class="pedit pw" aria-label="${esc(t('dash_w'))}" title="${esc(t('dash_w_tip'))}">${DASH_W.map(([w, l]) => `<option value="${w}">${esc(w === 12 ? t('dash_w_full') : l)}</option>`).join('')}</select>` +
     bt('pcol', 'dash_col', '▾') + bt('phide', 'dash_hide', '✕');
   dashTitleApply(v, p, hd.querySelector('.ptitle'));
   const bd = el('div', { className: 'pnlbd' }); ns.forEach(n => bd.appendChild(n));
@@ -2384,6 +2385,7 @@ function dashMk(v, p, st, lay, gEl, items) {          // ein Bereich als Panel (
   hd.querySelector('.pup').onclick = () => dashMove(v, p.id, -1);
   hd.querySelector('.pdown').onclick = () => dashMove(v, p.id, 1);
   hd.querySelector('.pren').onclick = () => dashRename(v, p.id);
+  hd.querySelector('.pw').onchange = e => dashWidth(v, p.id, +e.target.value);
   hd.ondblclick = e => { if (!e.target.closest('button')) hd.querySelector('.pcol').click(); };
   if (p.vis) hd.querySelector('.pvis').onclick = () => { st.vis[p.id] = !st.vis[p.id]; dashApply(v); dashSave(v); visChanged(); };
   if (p.auto && p.emp) {                              // Bereich ohne Inhalt (keine Sensoren, kein Video): außerhalb von „Layout anpassen“ ganz ausgeblendet
@@ -2391,6 +2393,18 @@ function dashMk(v, p, st, lay, gEl, items) {          // ein Bereich als Panel (
     new MutationObserver(sync).observe(ns[0], { attributes: true, attributeFilter: ['hidden'], subtree: true }); sync();
   } else if (p.auto) { const n0 = ns[0]; pn.classList.add('phe');   // ab 1.85: leer (z. B. keine Unterbrechungen) außerhalb von „Layout anpassen“ ganz weg statt leerer Balken
     const sync = () => { const e0 = !!n0.hidden || !n0.childElementCount; if (e0 !== pn.classList.contains('pempty')) { pn.classList.toggle('pempty', e0); if (DASH.grids[v]) dashApply(v); if (!e0) dashResized(); } const q = n0.classList.contains('quiet') && !n0.hidden && !!n0.childElementCount; if (!q) pn.classList.remove('pqopen'); pn.classList.toggle('pquiet', q); pn.querySelector('.pcol').textContent = pn.classList.contains('pcolx') || (q && !pn.classList.contains('pqopen')) ? '▸' : '▾'; }; new MutationObserver(sync).observe(n0, { attributes: true, attributeFilter: ['hidden', 'class'], childList: true }); sync(); }
+}
+/* ab 1.85.2: Breite je Bereich (Layout anpassen): ganz, ¾, ⅔, ½, ⅓, ¼ – setzt GridStack, die Nachbarn rücken nach */
+const DASH_W = [[12, ''], [9, '¾'], [8, '⅔'], [6, '½'], [4, '⅓'], [3, '¼']];
+function dashWidth(v, id, w) {
+  const g = DASH.grids[v], it = dashItem(v, id), n = it && it.gridstackNode; if (!g || !n || !(w >= 1 && w <= 12)) return;
+  g.update(it, { w, x: Math.min(n.x, 12 - w) }); dashEq(g); dashSave(v); dashResized();
+  const s = it.querySelector('.pw'); if (s) s.focus(); dashSay(v, id);
+}
+function dashWSync(it) {                               // Auswahl zeigt die aktuelle Breite (auch nach Ziehen am Rand)
+  const s = it.querySelector('.pnlhd .pw'), n = it.gridstackNode; if (!s || !n) return;
+  if (!DASH_W.some(x => x[0] === n.w) && !s.querySelector(`option[value="${n.w}"]`)) { const o = document.createElement('option'); o.value = n.w; o.textContent = n.w + '/12'; s.appendChild(o); }
+  s.value = String(n.w);
 }
 function dashItem(v, id) { const g = DASH.grids[v]; return g && g.el.querySelector(`:scope > .grid-stack-item[gs-id="${CSS.escape(id)}"]`); }
 function dashCol(v, id) {
@@ -2542,30 +2556,23 @@ function dashApply(v) {
 /* ab 1.85.2: Bereiche nebeneinander (gleiche Zeile) so hoch wie der höchste; Inhalt bestimmt weiter die eigene Höhe */
 function dashEq(g) {
   if (!g || !g.el) return;
+  const v = g.el.dataset.view, col = g.getColumn(), st = DASH.st[v];
+  if (col === 12 && g._col && g._col !== 12 && st && st.lay) {      // vom Handy zurück: gespeicherte PC-Anordnung (GridStack rechnet sonst aus der Liste zurück)
+    const lay = {}; for (const x of st.lay) lay[x.id] = x;
+    g.batchUpdate(); for (const n of g.engine.nodes) { const L = lay[n.id]; if (L) g.update(n.el, { x: L.x, y: L.y, w: L.w }); } g.batchUpdate(false);
+  }
+  g._col = col;
   const its = g.getGridItems().filter(it => it.style.display !== 'none' && it.gridstackNode);
   its.forEach(it => { const p = it.querySelector('.pnl'); if (p) p.style.minHeight = ''; g.resizeToContent(it); });
-  const rows = {}; its.forEach(it => { const n = it.gridstackNode; (rows[n.y] = rows[n.y] || []).push(it); });
-  for (const r of Object.values(rows)) { if (r.length < 2) continue; const h = Math.max(...r.map(it => it.gridstackNode.h)); r.forEach(it => { if (it.gridstackNode.h !== h) g.update(it, { h }); }); }
-  dashPack(g);
-  its.forEach(it => { const p = it.querySelector('.pnl'), c = it.querySelector('.grid-stack-item-content'); if (p && c && c.clientHeight > p.offsetHeight + 2) p.style.minHeight = c.clientHeight + 'px'; });
-}
-/* ab 1.85.2: Raster lückenlos füllen (12 Spalten): in Lesereihenfolge Zeile für Zeile; halbe/drittel Bereiche nebeneinander, Rest der Zeile bleibt frei.
-   Eigene Lage nach rechts bleibt, wenn sie in die Zeile passt. Nur Anzeige der Anordnung, keine Daten. */
-function dashPack(g) {
-  if (!g || !g.engine || g.getColumn() !== 12 || DASH.packing) return;
-  const ns = g.engine.nodes.filter(n => n.el && n.el.style.display !== 'none').sort((a, b) => a.y - b.y || a.x - b.x); if (!ns.length) return;
-  const want = []; let cx = 0, ry = 0, rh = 0;
-  for (const n of ns) {
-    const w = Math.max(1, Math.min(12, n.w || 12));
-    if (cx + w > 12) { ry += rh; cx = 0; rh = 0; }
-    const x = n.x >= cx && n.x + w <= 12 ? n.x : cx;
-    want.push([n, x, ry]); cx = x + w; rh = Math.max(rh, n.h || 1);
-    if (cx >= 12) { ry += rh; cx = 0; rh = 0; }
+  if (col === 12) g.compact('compact');                   // GridStack: Lücken füllen – halbe Bereiche nebeneinander, Rest der Zeile frei
+  if (col === 12) {                                  // gleiche Zeile: der kürzere Inhalt wird so hoch wie der höchste, GridStack passt die Zelle an (sizeToContent)
+    const rows = {}; its.forEach(it => { const n = it.gridstackNode; (rows[n.y] = rows[n.y] || []).push(it); });
+    for (const r of Object.values(rows)) {
+      if (r.length < 2) continue; const ps = r.map(it => it.querySelector('.pnl')), hp = Math.max(...ps.map(p => p.offsetHeight));
+      ps.forEach((p, i) => { if (p.offsetHeight < hp - 1) { p.style.minHeight = hp + 'px'; g.resizeToContent(r[i]); } });
+    }
   }
-  if (want.every(([n, x, y]) => n.x === x && n.y === y)) return;
-  DASH.packing = true;
-  try { g.batchUpdate(); for (const [n] of want) g.update(n.el, { y: n.y + 10000 }); for (const [n, x, y] of want) g.update(n.el, { x, y }); g.batchUpdate(false); }
-  finally { DASH.packing = false; }
+  its.forEach(dashWSync);
 }
 function dashResized() { clearTimeout(DASH.rt); DASH.rt = setTimeout(() => { window.dispatchEvent(new Event('resize')); if (TBL) try { TBL.fit(); } catch (e) { } }, 120); }
 function dashRefresh() { for (const v of Object.keys(DASH.grids)) { const g = DASH.grids[v]; g.onResize(); dashEq(g); } }

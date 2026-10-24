@@ -1415,3 +1415,11 @@ body.qthover .qtanchor > .qtdock{gap:0}
 .pnlhd > .qtdock.qthead{display:inline-flex;align-items:center;gap:0;margin:0 4px}
 .pnlhd > .qtdock.qthead > .qtip{margin:0}
 body.qthover .pnl:hover > .pnlhd .qthead .qti,body.qthover .pnl:focus-within > .pnlhd .qthead .qti{opacity:1}
+/* ab 1.85.2: Breitenwahl und sichtbarer Ziehgriff am Rand (nur Layout anpassen, nur PC) */
+.pnlhd .pw{display:none}
+.dashedit .pnlhd select.pw{display:inline-block;min-height:32px;padding:2px 6px;font-size:13px;border-radius:8px;border:1px solid var(--bd);background:var(--card);color:var(--tx)}
+.dashedit.gs-1 .pnlhd select.pw{display:none}
+@media (max-width:760px){.dashedit .pnlhd select.pw{display:none}}
+.dashedit > .grid-stack-item > .ui-resizable-e,.dashedit > .grid-stack-item > .ui-resizable-w{width:10px;cursor:ew-resize}
+.dashedit > .grid-stack-item > .ui-resizable-e::after,.dashedit > .grid-stack-item > .ui-resizable-w::after{content:'';position:absolute;top:50%;left:3px;width:4px;height:36px;margin-top:-18px;border-radius:2px;background:color-mix(in srgb,var(--acc) 55%,transparent)}
+.dashedit > .grid-stack-item > .ui-resizable-e:hover::after,.dashedit > .grid-stack-item > .ui-resizable-w:hover::after{background:var(--acc)}
