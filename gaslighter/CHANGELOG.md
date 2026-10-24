@@ -1,5 +1,9 @@
 # Changelog
 
+## 1.85.7
+- Protokolle: Einstellungen der Liste (Liste, Art, Sensoren) direkt über der Ereignis-Tabelle statt in der Menüzeile oben.
+- ＋ Neue Liste, ✎ und 🗑 nur noch in „Layout anpassen“; eine Liste auswählen geht immer.
+
 ## 1.85.6
 - ✕ (Bereich ausblenden) oben rechts an jedem Bereich nur noch in „Layout anpassen“; ▾ Einklappen bleibt immer.
 
