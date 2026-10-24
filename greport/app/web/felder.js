@@ -188,10 +188,9 @@ window.Felder = (() => {
   }
   /* d = {blocks, sec}, items = [{k, l, req, help} | {b}] in Anzeige-Reihenfolge; hk.change(), hk.say(msg), hk.add(type) */
   function editor(box, d, items, hk) {
-    const addable = TYPES.map(x => `<option value="${x}">${e(t('fb_type_' + x))}</option>`).join('');
     box.innerHTML = `<div class="fbeds"><span class="laysl" id="fbedl">${e(t('fb_ed_title'))}</span><p class="hint fbhint">${e(t('fb_ed_hint'))}</p>
       <div class="fbedl" role="list" aria-labelledby="fbedl">${items.map(it => `<div role="listitem">${edRow(it, d)}</div>`).join('')}</div>
-      <div class="fbadd"><select class="fe_type" aria-label="${e(t('fb_ed_type'))}"><option value="pills">${e(t('fb_type_pills'))}</option>${addable}</select><button type="button" class="btn fe_add">＋ ${e(t('fb_ed_add'))}</button></div></div>`;
+      <div class="fbadd lgaw"><button type="button" class="btn fe_add" aria-haspopup="menu" aria-expanded="false">＋ ${e(t('fb_ed_add'))}</button></div></div>`;   // wie oben: Klick öffnet die Typauswahl
     box.querySelectorAll('.fbed').forEach(row => {
       const id = row.dataset.id, b = d.blocks.find(x => x.id === id), s = b ? null : (d.sec[id] = d.sec[id] || {}), q = c => row.querySelector('.' + c);
       const upd = () => { const sm = row.querySelector('summary .fbedn'); sm.textContent = (b ? b.l : s.l) || (items.find(x => x.k === id) || {}).l || ''; row.classList.toggle('off', b ? !!b.hide : !!s.hide); hk.change(id); };
@@ -211,12 +210,11 @@ window.Felder = (() => {
       on('fe_rng', x => { b.rng = x.value; }); on('fe_lo', x => { b.lo = x.value.trim(); }); on('fe_hi', x => { b.hi = x.value.trim(); });
       q('fe_del').onclick = e => sure(e.currentTarget, t('fb_ed_del_q', { l: b.l }), () => { b.del = true; hk.say(t('fb_ed_deleted', { l: b.l })); hk.change(id, true); });
     });
-    box.querySelector('.fe_add').onclick = () => {
-      const ty = box.querySelector('.fe_type').value;
+    box.querySelector('.fe_add').onclick = ev => addMenu(ev.currentTarget, ty => {
       if (ty === 'pills') { hk.add('pills'); return; }
-      if (d.blocks.filter(x => !x.del).length >= S.max) { alert(t('fb_ed_limit', { n: S.max })); return; }
+      if (d.blocks.filter(x => !x.del).length >= S.max) { hk.say(t('fb_ed_limit', { n: S.max })); return; }
       const b = newDef(ty); d.blocks.push(b); hk.say(t('fb_ed_added', { l: b.l })); hk.add(ty, b);
-    };
+    });
   }
   /* Entwurf → zum Speichern (ohne Hilfsfelder) */
   const strip = d => Object.assign({ blocks: d.blocks.filter(b => !(b.isNew && b.del)).map(b => { const o = Object.assign({}, b); delete o.isNew; return o; }), sec: d.sec },

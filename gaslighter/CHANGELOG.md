@@ -1,5 +1,8 @@
 # Changelog
 
+## 1.85.16
+- Auch in der Feldliste: „＋ Rubrik“ öffnet beim Klick die Typauswahl (statt Auswahlliste + „Hinzufügen“) – überall gleich.
+
 ## 1.85.15
 - Notiz bearbeiten im Bereich: nur noch ein Rahmen, so rund wie der Bereich (kein eckiger blauer Rahmen über dem gestrichelten).
 
