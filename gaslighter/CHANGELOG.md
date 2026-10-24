@@ -1,5 +1,8 @@
 # Changelog
 
+## 1.85.14
+- Typauswahl bei „＋ Rubrik“ wird nicht mehr am Rand des Notiz-Bereichs abgeschnitten: liegt über der ganzen Seite und öffnet nach oben oder unten, je nach Platz.
+
 ## 1.85.13
 - In „Layout anpassen“ kein Notiz-„Speichern“ mehr (das Layout speichert „Fertig“) – keine Meldung „Bitte Text oder einen Tag angeben“ beim Layout.
 - Eine Notiz nur mit Zeuge ist nicht leer.

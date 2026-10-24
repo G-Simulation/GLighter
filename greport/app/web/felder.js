@@ -315,8 +315,12 @@ window.Felder = (() => {
     const doc = btn.ownerDocument, old = doc.querySelector('.fbaddm'); if (old) { old.remove(); if (old._for === btn) { btn.setAttribute('aria-expanded', 'false'); return; } }
     const m = doc.createElement('div'); m.className = 'fbaddm'; m.setAttribute('role', 'menu'); m._for = btn;
     m.innerHTML = [['pills', t('fb_type_pills')]].concat(TYPES.map(x => [x, t('fb_type_' + x)])).map(([v, l]) => `<button type="button" role="menuitem" data-ty="${v}">${e(l)}</button>`).join('');
-    btn.after(m); btn.setAttribute('aria-expanded', 'true');
-    const close = () => { m.remove(); btn.setAttribute('aria-expanded', 'false'); doc.removeEventListener('pointerdown', out, true); };
+    doc.body.appendChild(m); btn.setAttribute('aria-expanded', 'true');   // über der ganzen Seite: wird von keinem Bereich abgeschnitten
+    const win = doc.defaultView || window, place = () => { const r = btn.getBoundingClientRect(), vh = win.innerHeight, below = vh - r.bottom - 8, above = r.top - 8, up = below < 240 && above > below;
+      m.style.left = Math.max(8, Math.min(r.left, win.innerWidth - m.offsetWidth - 8)) + 'px'; m.style.maxHeight = Math.max(160, up ? above : below) + 'px';
+      if (up) { m.style.top = ''; m.style.bottom = (vh - r.top + 4) + 'px'; } else { m.style.bottom = ''; m.style.top = (r.bottom + 4) + 'px'; } };
+    place(); win.addEventListener('resize', place); win.addEventListener('scroll', place, true);
+    const close = () => { m.remove(); btn.setAttribute('aria-expanded', 'false'); doc.removeEventListener('pointerdown', out, true); win.removeEventListener('resize', place); win.removeEventListener('scroll', place, true); };
     const out = ev => { if (!m.contains(ev.target) && ev.target !== btn) close(); };
     doc.addEventListener('pointerdown', out, true);
     const its = [...m.querySelectorAll('button')];
