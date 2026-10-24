@@ -1,5 +1,8 @@
 # Changelog
 
+## 1.85.1
+- Versionsanzeige in der Oberfläche korrigiert (zeigte noch 1.84.5).
+
 ## 1.85.0
 - **Zeuge ist ein normales Feld:** standardmäßig angelegt, im Layout-Editor wie jedes Feld umbenennbar, verschiebbar, ausblendbar oder löschbar. Gelöscht kommt der alte feste Bereich nicht zurück; der Wert steht weiter in „Zeuge“ (Export, Bericht).
 - **Protokolle am Handy:** neben „Start“ passen jetzt weitere Spalten (Art, Dauer …); Uhrzeit kurz (heute ohne Datum), Gruppen mit „×2“.

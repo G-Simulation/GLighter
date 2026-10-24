@@ -1,5 +1,8 @@
 # Changelog
 
+## 1.12.1
+- Versionsanzeige korrigiert (zeigte noch 1.11.1).
+
 ## 1.12.0
 - **Zeuge und „Mehr“ sind normale Felder:** Name des Zeugen, Häufigkeit, Polizei, Aktenzeichen, gemeldet an/am, Gesundheit, Attest, Bedrohung sind als Standard-Felder angelegt und im Layout-Editor voll bearbeitbar (Name, Hinweis, Pflicht, zeigen, „unter Mehr einklappen“, löschen). Werte bleiben in Zeuge/ext der Notiz (Export, Bericht, GLighter). Ein gelöschtes Feld lässt den alten Wert einer bearbeiteten Notiz unverändert.
 - **Layout-Editor in Reitern:** „Anordnung“, „Felder“, „Notiz-Arten“ statt einer sehr langen Seite (Pfeiltasten wechseln, letzter Reiter gemerkt).
