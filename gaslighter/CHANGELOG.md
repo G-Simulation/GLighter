@@ -1,5 +1,9 @@
 # Changelog
 
+## 1.85.8
+- Zeuge lässt sich entfernen: nach dem Löschen kommt der alte feste Zeugen-Bereich weder in der Bereichsliste noch in der Vorschau noch in der Erfassung zurück.
+- Tabellen: „+“ / „−“ in den runden Knöpfen genau mittig (gezeichnet statt Schriftzeichen).
+
 ## 1.85.7
 - Protokolle: Einstellungen der Liste (Liste, Art, Sensoren) direkt über der Ereignis-Tabelle statt in der Menüzeile oben.
 - ＋ Neue Liste, ✎ und 🗑 nur noch in „Layout anpassen“; eine Liste auswählen geht immer.
