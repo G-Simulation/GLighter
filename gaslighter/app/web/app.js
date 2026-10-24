@@ -7943,20 +7943,32 @@ function qtCard(n) {                                 // Hinweis Nr. n als Elemen
     box.innerHTML = `<button type="button" class="qti" aria-expanded="false" aria-label="${esc(t('qt_show'))}" title="${esc(t('qt_' + n))}">💡</button><div class="qtb"><span class="qtt">${esc(t('qt_' + n))}</span><details class="qtw"><summary>${esc(t('qt_why'))}</summary><small>${esc(t('qt_src', { s: QT_SRC[n] }))}</small></details><button type="button" class="qtx" aria-label="${esc(t('qt_hide'))}" title="${esc(t('qt_hide'))}">✕</button></div>`;
     const qb = box.querySelector('.qti'); const side = () => { const r = qb.getBoundingClientRect(), w = qb.ownerDocument.defaultView || window; box.classList.toggle('r', r.left > w.innerWidth / 2); box.classList.toggle('u', r.top > w.innerHeight * 0.6); }; qb.onmouseenter = side; qb.onfocus = side;
     qb.onclick = () => { side(); const o = box.classList.toggle('open'); qb.setAttribute('aria-expanded', String(o)); };
-    box.querySelector('.qtx').onclick = () => { const h = qtHidden(); h.add(n); try { localStorage.setItem('gl_qt_hide', JSON.stringify([...h])); } catch (e) { } box.hidden = true; box.innerHTML = ''; };
+    box.querySelector('.qtx').onclick = () => { const h = qtHidden(); h.add(n); try { localStorage.setItem('gl_qt_hide', JSON.stringify([...h])); } catch (e) { } box.hidden = true; box.innerHTML = ''; const d_ = box.parentElement; if (d_ && d_.classList.contains('qtdock')) qtMerge(d_); };
   };
-  box._fill = fill; fill(); setTimeout(() => qtDock(box), 0); return box;
+  box._fill = () => { fill(); const d = box.parentElement; if (d && d.classList.contains('qtdock')) qtMerge(d); }; fill(); setTimeout(() => qtDock(box), 0); return box;
 }
 /* 💡 immer rechts, senkrecht mittig am zugehörigen Block (dem Element, in das der Hinweis gesetzt wurde); mehrere übereinander */
 function qtDock(box) {
   const a = box.parentElement; if (!a || a.classList.contains('qtdock')) return;
   let d = a.querySelector(':scope > .qtdock'); if (!d) { d = el('div', { className: 'qtdock' }); a.appendChild(d); }
-  a.classList.add('qtanchor'); d.appendChild(box);
+  a.classList.add('qtanchor'); d.appendChild(box); qtMerge(d);
+}
+/* Mehrere Hinweise an einem Block (1.84.4): nur eine 💡, ihre Blase zeigt alle (jeder einzeln wegklickbar) */
+function qtMerge(d) {
+  const tips = [...d.querySelectorAll(':scope > .qtip')].filter(x => !x.hidden && x.querySelector('.qtb'));
+  d.classList.toggle('qtmulti', tips.length > 1);
+  tips.forEach((x, i) => x.classList.toggle('qtsub', i > 0));
+  if (tips.length > 1) {
+    const main = tips[0], mb = main.querySelector('.qtb');
+    mb.querySelectorAll(':scope > .qtmore').forEach(e => e.remove());
+    for (const x of tips.slice(1)) { const c = el('div', { className: 'qtmore' }); c.innerHTML = x.querySelector('.qtb').innerHTML; const xb = c.querySelector('.qtx'); if (xb) xb.onclick = () => { x.querySelector('.qtx').click(); qtMerge(d); }; mb.appendChild(c); }
+  }
 }
 function qtRefresh() { for (const doc of [document, popDoc()]) if (doc) doc.querySelectorAll('.qtip').forEach(b => b._fill && b._fill()); }
 function qtPlace() {                                  // feste Stellen: Ereignislisten (10), Live (11), Lärmprotokoll-Dialog (12, 13)
   const put = (sel, n, where) => { const t0 = document.querySelector(sel); if (!t0 || t0.querySelector(`.qtip[data-qt="${n}"]`)) return; const c = qtCard(n); where === 'prepend' ? t0.prepend(c) : t0.appendChild(c); };
-  put('#nightview .pevcard', 10, 'prepend'); put('#ldevcard', 10, 'prepend'); put('#ldevcard', 11);
+  put('#nightview .pevcard', 10, 'prepend'); put('#ldevcard', 10, 'prepend');
+  const gp = document.querySelector('.pnl[data-p="graph"] > .pnlbd'); if (gp && !gp.querySelector('.qtip[data-qt="11"]')) gp.appendChild(qtCard(11));   // Live-Tipp am Graphen (eigener Bereich)
   const pr = $('ntaproto'); if (pr && pr.parentElement && !pr.parentElement.querySelector('.qtip')) { pr.parentElement.after(qtCard(12), qtCard(13)); }
 }
 /* Sperre des Datenordners: läuft schon ein anderer GLighter (normal oder Beta) mit demselben Ordner, nimmt diese App nicht auf */

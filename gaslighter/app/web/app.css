@@ -1257,7 +1257,7 @@ body.qthover .qtip.r .qtb{left:auto;right:0}
 
 /* 💡 rechts, senkrecht mittig am Block (nur im Modus „beim Zeigen“) */
 .qtanchor{position:relative}
-body.qthover .qtanchor{padding-right:40px}
+body.qthover .qtanchor{padding-right:40px!important}
 body.qthover .qtanchor > .qtdock{position:absolute;right:6px;top:50%;transform:translateY(-50%);display:flex;flex-direction:column;gap:2px;z-index:5}
 body.qthover .qtdock > .qtip{margin:0}
 body.qthover .qtip .qtb{left:auto;right:0}
@@ -1405,3 +1405,7 @@ dialog.prognd:not(:has(> .dh)),dialog.drdlg:not(:has(> .dh)){padding:18px 22px 1
 dialog.prognd:not(:has(> .dh)) h3,dialog.drdlg:not(:has(> .dh)) h3{display:flex;align-items:center;gap:8px;font-size:18px}
 .prognd .drl{display:flex;flex-direction:column;gap:4px;margin:10px 0 6px;font-size:14px;font-weight:600}
 .prognd .drl textarea,.prognd .drl input,.prognd .drl select{font:inherit;font-weight:400;padding:8px 10px;border-radius:8px;border:1px solid var(--bd);background:var(--card);color:var(--tx);width:100%;box-sizing:border-box;resize:vertical}
+/* 💡: eine je Block (1.84.4) – weitere Hinweise stehen in derselben Blase */
+.qtdock > .qtip.qtsub{display:none!important}
+.qtb .qtmore{display:flex;flex-direction:column;gap:6px;border-top:1px solid var(--bd);padding-top:8px;margin-top:4px}
+body.qthover .qtanchor > .qtdock{gap:0}

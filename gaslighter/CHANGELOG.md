@@ -1,5 +1,8 @@
 # Changelog
 
+## 1.84.4
+- 💡 nur noch eine je Bereich: Mehrere Hinweise an einem Bereich stehen zusammen in einer Blase (jeder einzeln wegklickbar). Der Live-Hinweis sitzt jetzt am Graphen statt in der Ereignisliste. Die 💡 bekommt immer eigenen Platz am rechten Rand und liegt nie mehr über Tabelle oder Filterfeld.
+
 ## 1.84.3
 - **Klick in eine Liste springt im Graphen dorthin:** In der Live-Tabelle springen Pegelverlauf, Spektrogramm und Sensor-Spuren beim Anklicken einer Störung, Notiz oder Sensor-Meldung zu dieser Stelle (mit Umfeld, markiert); „Zurück zu Live“ wie gewohnt. Öffnen bzw. Bearbeiten mit Doppelklick, mit F2 oder Umschalt + Eingabe, oder mit der Taste in der Zeile (📝 bei Sensor-Meldungen). In Protokolle öffnet der Doppelklick jetzt auch Notizen und Sensor-Meldungen.
 - Fenster zu einer Sensor-Meldung: Taste „📈 Im Graphen zeigen“.
