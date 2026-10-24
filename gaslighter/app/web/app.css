@@ -1454,3 +1454,10 @@ header > button,header > .seg > button{height:var(--ctl)!important;min-height:va
 .grid-stack:not(.dashedit) .ndrmv{display:none}
 /* ab 1.85.6: Bereich ausblenden (✕) nur in „Layout anpassen“ – ▾ Einklappen bleibt immer */
 .grid-stack:not(.dashedit) .pnlhd .phide{display:none}
+/* ab 1.85.7: Einstellungen der Liste direkt über der Liste (Liste, Art, Sensoren); Listen anlegen/umbenennen/löschen nur in „Layout anpassen“ */
+.evfilt{display:flex;gap:8px 14px;flex-wrap:wrap;align-items:center;margin:8px 0;font-size:13px;color:var(--mut)}
+.evfilt label{display:inline-flex;gap:6px;align-items:center}.evfilt select{max-width:220px}
+.evfilt .plbtns{display:inline-flex;gap:6px}.evfilt .plbtns [hidden]{display:none}
+.grid-stack:not(.dashedit) .evfilt .plbtns{display:none}
+.evfilt .chip,.evfilt summary.chip{white-space:nowrap}
+@media(max-width:600px){.evfilt{gap:8px}.evfilt label{flex:1 1 100%}.evfilt select{max-width:none;flex:1}}

@@ -151,17 +151,7 @@
     </div>
     <div class="nfbar">
       <label><span data-i="src_col"></span> <select id="nsrc" class="nsel" data-ia="a_device"></select></label>
-      <label class="artf"><span data-i="art_filter"></span> <select id="artflt"></select></label>
-      <span id="sflt" class="sflt"></span>
-      <label><span data-i="pl_list"></span> <select id="nplist" class="nsel"></select></label>
-      <span class="plbtns"><button type="button" id="pladd" class="chip" title="">＋ <span data-i="pl_new"></span></button><button type="button" id="plren" class="chip">✎</button><button type="button" id="pldel" class="chip danger">🗑</button></span>
       <span class="nexp"><a id="plproto" class="chip pri" target="_blank" rel="noopener">🖨 <span data-i="nt_proto"></span></a><a id="nsvg" class="chip" download>⬇ <span data-i="n_svg"></span></a></span>
-    </div>
-    <div id="plform" class="plform" hidden><input type="text" id="plname" maxlength="60" data-iph="pl_name_ph"><button type="button" id="plok" class="chip pri">OK</button><button type="button" id="plcancel" class="chip" data-ia="cancel">✕</button></div>
-    <div id="plbody" class="plbody" hidden>
-      <label class="nthead" for="plnote" data-i="pl_note"></label>
-      <textarea id="plnote" class="nttext" rows="2" maxlength="2000" data-iph="pl_note_ph"></textarea><small id="plstat" class="enstat"></small>
-      <div id="plinfo" class="plinfo"></div>
     </div>
     <div class="nweek" id="nweek"></div>
     <div class="nsum"><div class="nring" id="nring"></div><div class="nstats" id="nstats"></div></div>
@@ -189,6 +179,18 @@
   </div>
   <div class="pevcard">
     <div class="row evrow"><h2 data-i="list"></h2><span class="seg evview" id="evview"><button type="button" data-v="grp" data-i="ev_v_grp"></button><button type="button" data-v="all" data-i="ev_v_all"></button></span><label class="evnl"><span data-i="ev_count"></span> <span class="evnw"><select id="evn"><option value="5">5</option><option value="10">10</option><option value="20">20</option><option value="50">50</option><option value="100">100</option><option value="200">200</option><option value="500">500</option><option value="1000">1000</option><option value="2000">2000</option><option value="5000">5000</option><option value="0" data-i="ev_all"></option><option value="c" data-i="ev_custom"></option></select><input type="number" id="evnc" class="evnc" min="1" max="5000" step="1" inputmode="numeric" hidden></span></label><span class="evacts"><button id="notesopen" class="chip" type="button">📝 <span data-i="nt_all"></span></button><button id="chkopen" class="chip" type="button">🔎 <span data-i="art_check"></span></button><button id="scanopen" class="chip" type="button">🧩 <span data-i="scan_btn"></span></button><a href="log.csv" download="log.csv" class="chip" data-i="csv"></a></span></div>
+    <div class="evfilt">
+      <label><span data-i="pl_list"></span> <select id="nplist" class="nsel"></select></label>
+      <span class="plbtns"><button type="button" id="pladd" class="chip" title="">＋ <span data-i="pl_new"></span></button><button type="button" id="plren" class="chip">✎</button><button type="button" id="pldel" class="chip danger">🗑</button></span>
+      <label class="artf"><span data-i="art_filter"></span> <select id="artflt"></select></label>
+      <span id="sflt" class="sflt"></span>
+    </div>
+    <div id="plform" class="plform" hidden><input type="text" id="plname" maxlength="60" data-iph="pl_name_ph"><button type="button" id="plok" class="chip pri">OK</button><button type="button" id="plcancel" class="chip" data-ia="cancel">✕</button></div>
+    <div id="plbody" class="plbody" hidden>
+      <label class="nthead" for="plnote" data-i="pl_note"></label>
+      <textarea id="plnote" class="nttext" rows="2" maxlength="2000" data-iph="pl_note_ph"></textarea><small id="plstat" class="enstat"></small>
+      <div id="plinfo" class="plinfo"></div>
+    </div>
     <div id="delbar" class="delbar"><span id="delcount"></span><button id="delnone" data-i="sel_none"></button><button id="artsel" class="chip">🔎 <span data-i="art_recheck_sel"></span></button><select id="plmove" class="plmove" aria-label=""></select><button id="plrmsel" class="chip" hidden>✕ <span data-i="pl_rm_sel"></span></button><button id="delsel" class="danger" data-i="del_sel"></button></div>
     <div id="artstat" class="artstat"></div>
     <div id="evcnt" class="evcnt"></div><p id="scsum" class="scsum" role="status" hidden></p><div id="events" class="evgrid"></div>
