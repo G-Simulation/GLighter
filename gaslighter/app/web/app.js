@@ -2486,7 +2486,7 @@ function dashInit() {
   if (typeof GridStack === 'undefined' || DASH.inited) return; DASH.inited = true;
   const defs = dashDefs();
   if (!$('dashlive')) { const l = el('div', { id: 'dashlive', className: 'sr' }); l.setAttribute('aria-live', 'polite'); document.body.appendChild(l); }
-  DASH.ro = new ResizeObserver(ents => { for (const e of ents) { const it = e.target.closest('.grid-stack-item'), g = it && it.gridstackNode && it.gridstackNode.grid; if (g) g.resizeToContent(it); } });
+  DASH.ro = new ResizeObserver(ents => { const gs = new Set(); for (const e of ents) { const it = e.target.closest('.grid-stack-item'), g = it && it.gridstackNode && it.gridstackNode.grid; if (g) gs.add(g); } gs.forEach(dashEq); });
   for (const [v, list] of Object.entries(defs)) {
     const host = v === 'live' ? $('liveview') : $('nightview'), first = list.map(p => p.nodes[0]).find(Boolean); if (!first) continue;
     const st = DASH.st[v] = dashLoadSt(v); st.col = st.col || {}; st.off = st.off || list.filter(p => p.off).map(p => p.id); st.vis = st.vis || {}; st.ttl = st.ttl || {};
@@ -2517,7 +2517,7 @@ function dashInit() {
     const g = DASH.grids[v] = GridStack.init({ column: 12, cellHeight: 8, margin: 6, mode: 'top', staticGrid: true, sizeToContent: true, handle: '.pdrag', animate: true,
       resizable: { handles: 'e,w' }, columnOpts: { breakpoints: [{ w: 760, c: 1 }], layout: 'list' } }, gEl);
     g.on('change', () => { if (DASH.edit) dashSave(v); });     // auch Höhenänderungen durch den Inhalt: nur im Bearbeiten speichern
-    g.on('resizestop dragstop', () => { dashSave(v); dashResized(); });
+    g.on('resizestop dragstop', () => { dashSave(v); dashEq(g); dashResized(); });
     gEl.addEventListener('keydown', e => dashKey(v, e));
     items.forEach(([p, it, pn]) => DASH.ro.observe(pn));
     dashApply(v); dashBar(v);
@@ -2536,10 +2536,39 @@ function dashApply(v) {
     if (off && it.gridstackNode) { if (emp) { it.dataset.ex = it.gridstackNode.x; it.dataset.ey = it.gridstackNode.y; } else { delete it.dataset.ex; delete it.dataset.ey; } g.removeWidget(it, false, false); it.style.display = 'none'; }
     else if (!off && !it.gridstackNode) { it.style.display = ''; if (it.dataset.ey != null) { it.setAttribute('gs-y', it.dataset.ey); it.setAttribute('gs-x', it.dataset.ex || 0); delete it.dataset.ex; delete it.dataset.ey; } else { it.setAttribute('gs-y', '9999'); it.removeAttribute('gs-x'); } g.makeWidget(it); }   // wieder eingeblendet: unten anfügen (leer gewesene an ihren Platz)
     if (off) it.removeAttribute('tabindex'); else if (DASH.edit) it.tabIndex = 0; else it.removeAttribute('tabindex');
-    if (!off) g.resizeToContent(it); });
+  });
+  dashEq(g);
+}
+/* ab 1.85.2: Bereiche nebeneinander (gleiche Zeile) so hoch wie der höchste; Inhalt bestimmt weiter die eigene Höhe */
+function dashEq(g) {
+  if (!g || !g.el) return;
+  const its = g.getGridItems().filter(it => it.style.display !== 'none' && it.gridstackNode);
+  its.forEach(it => { const p = it.querySelector('.pnl'); if (p) p.style.minHeight = ''; g.resizeToContent(it); });
+  const rows = {}; its.forEach(it => { const n = it.gridstackNode; (rows[n.y] = rows[n.y] || []).push(it); });
+  for (const r of Object.values(rows)) { if (r.length < 2) continue; const h = Math.max(...r.map(it => it.gridstackNode.h)); r.forEach(it => { if (it.gridstackNode.h !== h) g.update(it, { h }); }); }
+  dashPack(g);
+  its.forEach(it => { const p = it.querySelector('.pnl'), c = it.querySelector('.grid-stack-item-content'); if (p && c && c.clientHeight > p.offsetHeight + 2) p.style.minHeight = c.clientHeight + 'px'; });
+}
+/* ab 1.85.2: Raster lückenlos füllen (12 Spalten): in Lesereihenfolge Zeile für Zeile; halbe/drittel Bereiche nebeneinander, Rest der Zeile bleibt frei.
+   Eigene Lage nach rechts bleibt, wenn sie in die Zeile passt. Nur Anzeige der Anordnung, keine Daten. */
+function dashPack(g) {
+  if (!g || !g.engine || g.getColumn() !== 12 || DASH.packing) return;
+  const ns = g.engine.nodes.filter(n => n.el && n.el.style.display !== 'none').sort((a, b) => a.y - b.y || a.x - b.x); if (!ns.length) return;
+  const want = []; let cx = 0, ry = 0, rh = 0;
+  for (const n of ns) {
+    const w = Math.max(1, Math.min(12, n.w || 12));
+    if (cx + w > 12) { ry += rh; cx = 0; rh = 0; }
+    const x = n.x >= cx && n.x + w <= 12 ? n.x : cx;
+    want.push([n, x, ry]); cx = x + w; rh = Math.max(rh, n.h || 1);
+    if (cx >= 12) { ry += rh; cx = 0; rh = 0; }
+  }
+  if (want.every(([n, x, y]) => n.x === x && n.y === y)) return;
+  DASH.packing = true;
+  try { g.batchUpdate(); for (const [n] of want) g.update(n.el, { y: n.y + 10000 }); for (const [n, x, y] of want) g.update(n.el, { x, y }); g.batchUpdate(false); }
+  finally { DASH.packing = false; }
 }
 function dashResized() { clearTimeout(DASH.rt); DASH.rt = setTimeout(() => { window.dispatchEvent(new Event('resize')); if (TBL) try { TBL.fit(); } catch (e) { } }, 120); }
-function dashRefresh() { for (const v of Object.keys(DASH.grids)) { const g = DASH.grids[v]; g.onResize(); g.getGridItems().forEach(it => g.resizeToContent(it)); } }
+function dashRefresh() { for (const v of Object.keys(DASH.grids)) { const g = DASH.grids[v]; g.onResize(); dashEq(g); } }
 function dashEdit(on) {
   DASH.edit = on;
   for (const k of Object.keys(DASH.grids)) { DASH.grids[k].setStatic(!on); DASH.grids[k].el.classList.toggle('dashedit', on); dashApply(k); dashBar(k); for (const p of DASH.def[k] || []) dashTitleApply(k, p); }
@@ -7964,6 +7993,8 @@ function qtCard(n) {                                 // Hinweis Nr. n als Elemen
 /* 💡 immer rechts, senkrecht mittig am zugehörigen Block (dem Element, in das der Hinweis gesetzt wurde); mehrere übereinander */
 function qtDock(box) {
   const a = box.parentElement; if (!a || a.classList.contains('qtdock')) return;
+  const hd = (qtMode() === 'hover' && a.matches('.pevcard, #ldevcard, .pnlbd') && a.closest('.pnl')) ? a.closest('.pnl').querySelector(':scope > .pnlhd') : null;   // ab 1.85.2: Tabellen/Graph – 💡 in die Kopfzeile, keine leere Spalte rechts
+  if (hd) { let d = hd.querySelector(':scope > .qtdock'); if (!d) { d = el('div', { className: 'qtdock qthead' }); const x = hd.querySelector('.pnlx'); x ? x.after(d) : hd.appendChild(d); } d.appendChild(box); qtMerge(d); return; }
   let d = a.querySelector(':scope > .qtdock'); if (!d) { d = el('div', { className: 'qtdock' }); a.appendChild(d); }
   a.classList.add('qtanchor'); d.appendChild(box); qtMerge(d);
 }
