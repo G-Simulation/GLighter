@@ -146,7 +146,7 @@ Der Reiter **Protokolle** zeigt einen Zeitraum vollständig: Zusammenfassung, Wo
 Live und Protokolle bestehen aus **Bereichen** (Übersicht, Unterbrechungen, Verlauf, Ereignisse nach Uhrzeit, je Tag, Ereignisse im Zeitraum, Notizen und Bewegung, Sensoren im Zeitraum). Jeder Bereich hat oben eine Leiste:
 
 - **▾ / ▸** klappt ein und aus (auch Doppelklick auf die Leiste).
-- **✕** blendet aus. Wieder einfügen über **▦ Layout anpassen** → **＋ Bereich hinzufügen**.
+- **✕** (nur in **▦ Layout anpassen**) blendet aus. Wieder einfügen über **▦ Layout anpassen** → **＋ Bereich hinzufügen**.
 - **⌖ nur sichtbarer Bereich** (Ereignisse, Sensoren): zeigt nur, was im Verlauf gerade zu sehen ist – zieh im Verlauf z. B. 20:00–22:00 auf, dann zeigen Tabelle bzw. Liste nur diese Zeit.
 
 ### ▦ Layout anpassen
@@ -207,7 +207,7 @@ Die **Kreise** darunter sind die letzten 7 Nächte bzw. Tage. Antippen wählt de
 
 ### Verlauf
 
-Im Verlauf stehen die Geräte untereinander, für denselben Zeitraum. Je Zeile wählst du **Gerät** und **Darstellung** (Pegelspur, Lautstärke-Balken, Spektrogramm) und blendest Ebenen ein. „＋ Zeile hinzufügen“, ↑ ↓ ✕ ordnen die Zeilen; der Griff unter jeder Zeile ändert die Höhe.
+Im Verlauf stehen die Geräte untereinander, für denselben Zeitraum. Je Zeile wählst du **Gerät** und **Darstellung** (Pegelspur, Lautstärke-Balken, Spektrogramm) und blendest Ebenen ein. „＋ Zeile hinzufügen“ und – in **▦ Layout anpassen** – ↑ ↓ ✕ ordnen die Zeilen; der Griff unter jeder Zeile ändert die Höhe.
 
 - Läuft der Tag noch, endet die Zeitachse bei **jetzt** – das Neueste steht rechts und der Verlauf wächst jede Minute mit.
 - Bei mehr als 2 Tagen zeigt er Minutenwerte, beim Hineinzoomen wieder die 125-ms-Werte.
@@ -1130,7 +1130,7 @@ The **Logs** tab shows a period completely: summary, week strip, history of all 
 Live and Logs consist of **sections** (overview, interruptions, history, events by hour, per day, events in the period, notes and motion, sensors in the period). Each section has a bar at the top:
 
 - **▾ / ▸** collapses and expands (also double-click on the bar).
-- **✕** hides it. Insert it again via **▦ Customise layout** → **＋ Add section**.
+- **✕** (only in **▦ Customise layout**) hides it. Insert it again via **▦ Customise layout** → **＋ Add section**.
 - **⌖ visible range only** (events, sensors): only shows what is currently visible in the history – drag e.g. 20:00–22:00 in the history and the table or list shows only that time.
 
 ### ▦ Customise layout (designer)
@@ -1191,7 +1191,7 @@ The **circles** below are the last 7 nights or days. Tap to choose a day; the ne
 
 ### History
 
-The history shows the devices below each other for the same period. Per row choose **device** and **display** (level trace, loudness bars, spectrogram) and toggle layers. “＋ Add row”, ↑ ↓ ✕ arrange the rows; the handle below each row changes its height.
+The history shows the devices below each other for the same period. Per row choose **device** and **display** (level trace, loudness bars, spectrogram) and toggle layers. “＋ Add row” and – in **▦ Customise layout** – ↑ ↓ ✕ arrange the rows; the handle below each row changes its height.
 
 - While the day is still running the time axis ends at **now** – the newest data is on the right and the history grows every minute.
 - With more than 2 days it shows minute values, zooming in brings back the 125 ms values.

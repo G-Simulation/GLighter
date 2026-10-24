@@ -1,5 +1,8 @@
 # Changelog
 
+## 1.85.6
+- ✕ (Bereich ausblenden) oben rechts an jedem Bereich nur noch in „Layout anpassen“; ▾ Einklappen bleibt immer.
+
 ## 1.85.5
 - Verlauf: ↑ ↓ ✕ je Zeile (Reihenfolge, entfernen) nur noch in „Layout anpassen“.
 

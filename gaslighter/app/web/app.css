@@ -1452,3 +1452,5 @@ header > :is(button,.seg) {min-height:var(--ctl);box-sizing:border-box}
 header > button,header > .seg > button{height:var(--ctl)!important;min-height:var(--ctl)!important;padding-top:0;padding-bottom:0}
 /* ab 1.85.5: Zeilen im Verlauf verschieben/entfernen nur in „Layout anpassen“ */
 .grid-stack:not(.dashedit) .ndrmv{display:none}
+/* ab 1.85.6: Bereich ausblenden (✕) nur in „Layout anpassen“ – ▾ Einklappen bleibt immer */
+.grid-stack:not(.dashedit) .pnlhd .phide{display:none}
