@@ -7187,7 +7187,7 @@ const gHid = g => viewGet(viewCur()).ghide.includes(g);
 const viewBlocks = v => { const h = new Set(viewGet(v || viewCur()).hide); return Felder.active().filter(b => !h.has(b.id)); };
 /* Reihenfolge der Bereiche: eingebaute und eigene Felder (Kennung b_…) gemeinsam; order: einer Ansicht (ohne: der gezeigten) */
 function capOrder(list, order) {
-  const all_ = list || Felder.active(), wAny = all_.some(b => b.bind === 'witness');   // Zeuge als Feld (auch gelöscht): alter fester Bereich nie mehr in der Reihenfolge
+  const all_ = list || Felder.active(), wAny = (list || Felder.S.defs || []).some(b => b.bind === 'witness');   // Zeuge als Feld (auch gelöscht): alter fester Bereich nie mehr in der Reihenfolge
   const blocks = all_.filter(b => !b.del).map(b => b.id), ok = x => (SEC_EL[x] && !(x === 'wit' && wAny)) || blocks.includes(x);
   const wb = all_.find(b => b.bind === 'witness' && !b.del), sw = x => x === 'wit' && wb ? wb.id : x, src = order || viewGet(viewCur()).order || [];   // Zeuge als Feld: steht, wo der alte Bereich stand
   const o = [...new Set(src.map(x => wb && src.includes(wb.id) ? x : sw(x)).filter(ok))];
@@ -7553,7 +7553,15 @@ function fclFb(focusId) {                             // Einstellungen je Bereic
 function fclPreview() {
   const d = FCL.d; if (!d) return; fbMount(d.fb.blocks, d.fb.sec); secApply(d.secs);
   const wAny = d.fb.blocks.some(b => b.bind === 'witness');
-  for (const k of Object.keys(SEC_EL)) { const e = $(SEC_EL[k]); if (!e) continue; if (k === 'wit' && wAny) { e.hidden = true; continue; } e.hidden = false; e.classList.toggle('layoff', !!(d.fb.sec[k] || {}).hide); }
+  for (const k of Object.keys(SEC_EL)) { const e = $(SEC_EL[k]); if (!e) continue; e.dataset.secel = k; if (k === 'wit' && wAny) { e.hidden = true; continue; } e.hidden = false; e.classList.toggle('layoff', !!(d.fb.sec[k] || {}).hide); }
+  Felder.inlineEdit($('fnpbody'), d.fb, {                      // ab 1.85.10: jedes Feld (auch Zeuge) direkt am Element bearbeiten, wie die Rubriken
+    change: (id, redraw) => { fclChips(); fclFb(); fclPreview(); const f = $('fnpbody').querySelector(`.fbblk[data-b="${CSS.escape(id)}"] .hd`); if (f && redraw === 'focus') f.focus(); },
+    say: fclSay,
+    open: id => { const r = $('fclfb') && $('fclfb').querySelector(`details.fbed[data-id="${CSS.escape(id)}"]`); if (!r) return; r.open = true; r.scrollIntoView({ block: 'center' }); const i = r.querySelector('.fe_l'); if (i) i.focus(); },
+    move: (id, to) => { const i = d.secs.indexOf(id); if (i < 0) return; const j = typeof to === 'number' ? i + to : d.secs.indexOf(to); if (j < 0 || j >= d.secs.length || j === i) return;
+      d.secs.splice(j, 0, d.secs.splice(i, 1)[0]); fclChips(); fclFb(); fclPreview(); fclSay(t('fc_lay_moved', { s: secLabel(id, d.fb.sec, d.fb.blocks), i: j + 1, n: d.secs.length }));
+      const f = $('fnpbody').querySelector(`.fbblk[data-b="${CSS.escape(id)}"] .hd`); if (f) f.focus(); }
+  });
 }
 function fclAddGroup() {
   const d = FCL.d, l = pwin().prompt(t('fc_lay_gname')); if (!l || !l.trim()) return;

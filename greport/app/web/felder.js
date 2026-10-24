@@ -271,5 +271,44 @@ window.Felder = (() => {
     box.querySelectorAll('.fbtpl').forEach(x => x.onclick = () => onPick(x.dataset.tpl));
     const l = box.querySelector('.fbtpll'); if (l && later) l.onclick = later;
   }
-  return { kindsActive, kindsShown, kindOf, kindChip, kindPick, kindsEditor, TYPES, ROLES, S, setup, load, isId, byId, active, visible, isEmpty, fmt, compact, render, countShow, check, chart, editor, strip, newDef, tplBox, readNum };
+  /* ab 1.12.3: jedes Feld in „Layout anpassen“ direkt am Element bearbeiten – dieselbe Leiste wie bei den Rubriken
+     (Griff, Name, zeigen, Pflicht, unter „Mehr“, ⚙ weitere Einstellungen, 🗑 löschen, Hinweis). hk = {change(id, redraw), say, open(id), move(id, dir|zielId)} */
+  function inlineEdit(root, d, hk) {
+    if (!root) return;
+    root.querySelectorAll('.fbblk[data-b]').forEach(box => {
+      const id = box.dataset.b, b = (d.blocks || []).find(x => x.id === id); if (!b || b.del) return;
+      box.querySelectorAll(':scope > .fbilh, :scope > .fbilx').forEach(x => x.remove());
+      box.classList.add('fbil'); box.classList.toggle('off', !!b.hide);
+      const bar = root.ownerDocument.createElement('div'); bar.className = 'laygh fbilh';
+      bar.innerHTML = `<button type="button" class="hd" data-drag="fld" aria-label="${e(t('fb_il_drag', { l: b.l }))}" title="${e(t('fb_il_drag', { l: b.l }))}">⠿</button>`
+        + `<input type="text" class="lgn fil_l" maxlength="40" value="${e(b.l)}" aria-label="${e(t('fb_ed_name'))}">`
+        + `<small class="filty">${e(t('fb_type_' + b.type))}</small>`
+        + `<label class="check"><input type="checkbox" class="fil_show"${b.hide ? '' : ' checked'}> ${e(t('fb_ed_shown'))}</label>`
+        + (b.type !== 'counter' ? `<label class="check"><input type="checkbox" class="fil_req"${b.req ? ' checked' : ''}> ${e(t('fb_ed_req'))}</label>` : '')
+        + (S.foldOK ? `<label class="check"><input type="checkbox" class="fil_fold"${b.fold ? ' checked' : ''}> ${e(t('fb_ed_fold'))}</label>` : '')
+        + (hk.open ? `<button type="button" class="fil_more" aria-label="${e(t('fb_il_more', { l: b.l }))}" title="${e(t('fb_il_more', { l: b.l }))}">⚙</button>` : '')
+        + `<button type="button" class="lgd fil_del" aria-label="${e(t('fb_ed_del', { l: b.l }))}" title="${e(t('fb_ed_del', { l: b.l }))}">🗑</button>`;
+      const hx = root.ownerDocument.createElement('div'); hx.className = 'laygx fbilx';
+      hx.innerHTML = `<input type="text" class="lgx fil_h" maxlength="160" value="${e(b.h || '')}" placeholder="${e(t('fb_ed_help'))}" aria-label="${e(t('fb_ed_help'))}">`;
+      box.prepend(bar, hx);
+      const q = c => bar.querySelector('.' + c) || hx.querySelector('.' + c);
+      q('fil_l').onchange = ev => { const v = ev.target.value.trim().slice(0, 40); if (v) { b.l = v; hk.change(id, true); } else ev.target.value = b.l; };
+      q('fil_h').onchange = ev => { b.h = ev.target.value.trim(); hk.change(id, true); };
+      q('fil_show').onchange = ev => { b.hide = !ev.target.checked; hk.say && hk.say(t(ev.target.checked ? 'fb_ed_shown_s' : 'fb_ed_hidden_s', { l: b.l })); hk.change(id, true); };
+      const rq = q('fil_req'); if (rq) rq.onchange = () => { b.req = rq.checked; hk.change(id, true); };
+      const fo = q('fil_fold'); if (fo) fo.onchange = () => { b.fold = fo.checked || undefined; hk.change(id, true); };
+      const mo = q('fil_more'); if (mo) mo.onclick = () => hk.open(id);
+      q('fil_del').onclick = ev => sure(ev.currentTarget, t('fb_ed_del_q', { l: b.l }), () => { b.del = true; hk.say && hk.say(t('fb_ed_deleted', { l: b.l })); hk.change(id, true); });
+      const hd = bar.querySelector('.hd');
+      hd.onkeydown = ev => { if (ev.key !== 'ArrowUp' && ev.key !== 'ArrowDown' && ev.key !== 'ArrowLeft' && ev.key !== 'ArrowRight') return; ev.preventDefault(); hk.move && hk.move(id, ev.key === 'ArrowUp' || ev.key === 'ArrowLeft' ? -1 : 1); };
+      hd.onpointerdown = ev => {                         // Ziehen: auf ein anderes Feld bzw. einen anderen Bereich fallen lassen
+        if (!hk.move || ev.button) return; ev.preventDefault(); hd.setPointerCapture(ev.pointerId); box.classList.add('fbdrag');
+        const doc = root.ownerDocument; let tgt = null;
+        const over = x => { const el = doc.elementFromPoint(x.clientX, x.clientY), o = el && el.closest('[data-b], [data-secel]'); return o && o !== box ? o : null; };
+        hd.onpointermove = x => { const o = over(x); if (o !== tgt) { if (tgt) tgt.classList.remove('fbdrop'); tgt = o; if (tgt) tgt.classList.add('fbdrop'); } };
+        hd.onpointerup = hd.onpointercancel = () => { hd.onpointermove = hd.onpointerup = hd.onpointercancel = null; box.classList.remove('fbdrag'); if (tgt) { tgt.classList.remove('fbdrop'); hk.move(id, tgt.dataset.b || tgt.dataset.secel); } };
+      };
+    });
+  }
+  return { inlineEdit, kindsActive, kindsShown, kindOf, kindChip, kindPick, kindsEditor, TYPES, ROLES, S, setup, load, isId, byId, active, visible, isEmpty, fmt, compact, render, countShow, check, chart, editor, strip, newDef, tplBox, readNum };
 })();

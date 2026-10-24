@@ -1483,7 +1483,19 @@ function layKinds() {                                 // Notiz-Arten verwalten (
   const box = $('laykinds'), d = LAY.d; if (!box || !d) return;
   Felder.kindsEditor(box, d.fb, { change: () => { const keep = { kinds: FB.kinds }; FB.kinds = d.fb.kinds.filter(k => !k.del); kindDraw(); FB.kinds = keep.kinds; }, say: laySay });
 }
-function fbPreview() { const d = LAY.d; if (!d) return; fbMount(d.fb.blocks, d.fb.sec); secApply(d.secs); }
+function fbPreview() {
+  const d = LAY.d; if (!d) return; fbMount(d.fb.blocks, d.fb.sec); secApply(d.secs);
+  for (const k of Object.keys(SEC_EL)) { const x = $(SEC_EL[k]); if (x) x.dataset.secel = k; }
+  const sm = $('secmore'); if (sm && sm.querySelector('#fbmore .fbblk') && 'open' in sm) sm.open = true;   // eingeklappte Felder beim Bearbeiten sichtbar
+  Felder.inlineEdit($('fnpbody'), d.fb, {                      // ab 1.12.3: jedes Feld (auch Zeuge, „Mehr“) direkt am Element bearbeiten, wie die Rubriken
+    change: () => { layChips(); layFb(); fbPreview(); },
+    say: laySay,
+    open: id => { const tb = $('laytab_f'); if (tb) tb.click(); const r = $('layfb') && $('layfb').querySelector(`details.fbed[data-id="${CSS.escape(id)}"]`); if (!r) return; r.open = true; r.scrollIntoView({ block: 'center' }); const i = r.querySelector('.fe_l'); if (i) i.focus(); },
+    move: (id, to) => { const i = d.secs.indexOf(id); if (i < 0) return; const j = typeof to === 'number' ? i + to : d.secs.indexOf(to); if (j < 0 || j >= d.secs.length || j === i) return;
+      d.secs.splice(j, 0, d.secs.splice(i, 1)[0]); secApply(d.secs); layChips(); layFb(); fbPreview(); laySay(t('gr_lay_moved', { s: secLabel(id, d.fb.sec, d.fb.blocks), i: j + 1, n: d.secs.length }));
+      const f = $('fnpbody').querySelector(`.fbblk[data-b="${CSS.escape(id)}"] .hd`); if (f) f.focus(); }
+  });
+}
 function layFind(k) { return LAY.d.groups.find(g => g.keys.includes(k)); }
 function layDraw() {
   const box = $('fnptags'), d = LAY.d; if (!box || !d) return;

@@ -1467,3 +1467,12 @@ header > button,header > .seg > button{height:var(--ctl)!important;min-height:va
 /* ab 1.85.8: „+“/„−“ in den runden Tabellen-Knöpfen exakt mittig */
 .glg .gtg{display:grid;place-items:center;width:18px;height:18px;line-height:1;font-size:14px;font-weight:600;padding:0;font-variant-numeric:normal;font-family:system-ui,sans-serif}
 .fesure{display:block;flex-basis:100%;font-size:12px;color:var(--mut);margin-top:4px}
+/* Felder in „Layout anpassen“: dieselbe Bearbeitungsleiste wie die Rubriken, direkt am Feld */
+.capture .fbblk.fbil,.fbblk.fbil{border:1px solid var(--line);border-radius:10px;padding:8px 10px;background:var(--card)}
+.fbblk.fbil > .fbl,.fbblk.fbil > label.fbl{display:none}
+.fbblk.fbil.off > :not(.fbilh):not(.fbilx){opacity:.5}
+.fbilh .filty{color:var(--mut);font-size:12px;white-space:nowrap}
+.fbilh .fil_more{min-width:32px}
+.fbblk.fbdrag{opacity:.5}
+.fbdrop{outline:2px dashed var(--acc);outline-offset:2px}
+#secwit[data-gone]{display:none!important}   /* Zeuge ist ein Feld: alter fester Bereich nie mehr sichtbar */

@@ -1,5 +1,9 @@
 # Changelog
 
+## 1.85.10
+- **Jedes Feld direkt am Element bearbeiten (auch Zeuge und die Felder unter „Mehr“):** In „Layout anpassen“ hat jedes Feld dieselbe Leiste wie die Rubriken – ⠿ verschieben (ziehen oder Pfeiltasten), Name, zeigen, Pflicht, ⚙ weitere Einstellungen, 🗑 löschen, Hinweis.
+- **Zeuge ist ein Feld wie jedes andere:** löschen (zweimal 🗑), gelöscht bleibt der alte feste Zeugen-Bereich weg, über „＋ Feld“ → Person wieder anlegbar.
+
 ## 1.85.9
 - Feld und Notiz-Art löschen ohne Browser-Bestätigungsfenster (erscheint in der Home-Assistant-App nicht): erster Klick fragt im Knopf, zweiter löscht.
 
